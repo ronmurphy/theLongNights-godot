@@ -10,7 +10,7 @@ extends Node
 
 class_name ChunkPersistence
 
-const SAVE_DIR = "user://worlds/"
+const SAVE_DIR = "user://worlds"
 const CHUNK_EXTENSION = ".chunk"
 const MOD_EXTENSION = ".mod"
 
@@ -28,15 +28,9 @@ func _ready() -> void:
 	_ensure_save_directory()
 
 func _ensure_save_directory() -> void:
-	# Create directory if it doesn't exist
-	if not DirAccess.dir_exists_absolute(SAVE_DIR):
-		# For user:// paths, just try to create it via file operations
-		# Godot will handle creating the directory as needed
-		var test_file = FileAccess.open(SAVE_DIR + ".test", FileAccess.WRITE)
-		if test_file:
-			test_file = null
-			DirAccess.remove_absolute(SAVE_DIR + ".test")
-		print("📁 Save directory ready: %s" % SAVE_DIR)
+	# Create the worlds directory if it doesn't exist
+	_create_save_directory()
+	print("📁 Save directory ready: %s" % SAVE_DIR)
 
 ## Get full path for a chunk file
 func _get_chunk_path(chunk_pos: Vector3i) -> String:
@@ -46,13 +40,26 @@ func _get_chunk_path(chunk_pos: Vector3i) -> String:
 func _get_mod_path(chunk_pos: Vector3i) -> String:
 	return "%s/chunk_%d_%d_%d%s" % [SAVE_DIR, chunk_pos.x, chunk_pos.y, chunk_pos.z, MOD_EXTENSION]
 
+## Create the save directory if it doesn't exist
+func _create_save_directory() -> void:
+	var dir = DirAccess.open(SAVE_DIR)
+	if dir == null:
+		# Directory doesn't exist, create it
+		dir = DirAccess.open("user://")
+		if dir != null:
+			dir.make_dir("worlds")
+			print("📁 Created save directory: %s" % SAVE_DIR)
+		else:
+			push_error("Failed to access user:// directory!")
+
 ## Save chunk to disk (called after generation)
 func save_chunk(chunk_pos: Vector3i, chunk_data: Array, world_seed: int) -> bool:
 	var path = _get_chunk_path(chunk_pos)
 
 	var file = FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
-		print("❌ Failed to save chunk %s" % chunk_pos)
+		var error = FileAccess.get_open_error()
+		print("❌ Failed to save chunk %s at path %s (error: %d)" % [chunk_pos, path, error])
 		return false
 
 	# Write header

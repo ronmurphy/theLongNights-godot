@@ -6,7 +6,7 @@ extends Node3D
 class_name WorldGenerator
 
 # Constants
-const CHUNK_SIZE = 16  # 16x16x16 voxels per chunk
+const CHUNK_SIZE = 12  # 12x12x12 voxels per chunk (Minecraft-like, optimized for lower-end hardware)
 const WORLD_HEIGHT = 256
 const RENDER_DISTANCE = 3  # chunks in each direction
 const WORLD_SEED = 12345  # Should be configurable per world
@@ -14,6 +14,7 @@ const WORLD_SEED = 12345  # Should be configurable per world
 # Voxel data (0 = empty, 1 = solid)
 var chunks: Dictionary = {}  # Dictionary[Vector3i, Array] - RAM cache only
 var persistence: ChunkPersistence
+var chunk_views: Dictionary = {}  # Dictionary[Vector3i, ChunkView] - visual representations
 
 func _ready() -> void:
 	print("🌍 WorldGenerator initializing...")
@@ -41,6 +42,7 @@ func _load_or_generate_chunk(chunk_pos: Vector3i) -> void:
 	if chunk_data.size() > 0:
 		chunk_data = persistence.apply_modifications(chunk_pos, chunk_data)
 		chunks[chunk_pos] = chunk_data
+		_render_chunk(chunk_pos, chunk_data)
 		return
 
 	# Only generate if file doesn't exist
@@ -49,6 +51,9 @@ func _load_or_generate_chunk(chunk_pos: Vector3i) -> void:
 
 	# Save to disk immediately so it's never regenerated again
 	persistence.save_chunk(chunk_pos, generated_data, WORLD_SEED)
+
+	# Render the chunk
+	_render_chunk(chunk_pos, generated_data)
 
 ## Generate new chunk data (only called for new chunks)
 func _generate_chunk_data(chunk_pos: Vector3i) -> Array:
@@ -120,3 +125,11 @@ func set_voxel(world_pos: Vector3i, value: int) -> void:
 		# Record this modification to disk
 		persistence.record_modification(chunk_pos, local_pos, old_value, value)
 		print("✏️ Modified voxel at %s (chunk %s): %d → %d" % [world_pos, chunk_pos, old_value, value])
+
+## Create a visual representation of a chunk and add it to the scene
+func _render_chunk(chunk_pos: Vector3i, chunk_data: Array) -> void:
+	# Create a ChunkView node
+	var chunk_view = ChunkView.new()
+	add_child(chunk_view)
+	chunk_view.setup(chunk_pos, chunk_data)
+	chunk_views[chunk_pos] = chunk_view

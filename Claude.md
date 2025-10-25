@@ -22,6 +22,13 @@ A **Minecraft-like survival game** being rebuilt from JavaScript (which hit arch
 
 ## 🏗️ Architecture Overview
 
+### 🎯 Core Design Principle
+**Rule #1: Code must run on lower-end hardware** (AMD Radeon 610M and similar integrated GPUs)
+- Chunk size: **12×12×12** (balanced between detail and performance)
+- Render distance: 3 chunks (27 chunks loaded max)
+- No heavy post-processing or particle effects
+- Optimize for integrated GPUs, not discrete ones
+
 ### Current File Structure
 ```
 theLongNights/
@@ -65,14 +72,14 @@ theLongNights/
 - Difficulty scales: `1.0 + (week - 1) × 0.3`
 
 #### **WorldGenerator** (src/world/WorldGenerator.gd)
-- Chunk-based terrain (16×16×16 voxels per chunk)
+- Chunk-based terrain (12×12×12 voxels per chunk, Minecraft-like)
 - **CRITICAL**: Never regenerates saved chunks (prevents bedrock bug)
 - Workflow:
   1. Try to load chunk from disk
   2. If loaded, apply .mod file modifications
   3. If new, generate, save to disk
   4. Player modifications written to separate .mod files
-- Constants: `CHUNK_SIZE=16`, `RENDER_DISTANCE=3`, `WORLD_SEED=12345`
+- Constants: `CHUNK_SIZE=12`, `RENDER_DISTANCE=3`, `WORLD_SEED=12345`
 
 #### **ChunkPersistence** (src/world/ChunkPersistence.gd)
 - **Solves the bedrock corruption bug** from JS version
@@ -147,20 +154,26 @@ Result: **Teleport blocks (and all custom blocks) stay permanent forever.**
 - [x] Git + Git LFS setup
 - [x] Core system architecture (GameManager, TimeManager)
 - [x] Chunk persistence (bedrock bug FIX)
-- [x] World generation (basic flat terrain)
-- [x] Player controller with movement
+- [x] World generation (12×12×12 chunks, flat terrain)
+- [x] Player controller with movement & fly mode
 - [x] Scene setup (code-only, no editor complexity)
 - [x] Asset import (all JS assets copied over)
+- [x] **VOXEL RENDERING** - Chunks visible as 3D meshes
+- [x] Chunk mesh generation using SurfaceTool
+- [x] Seamless chunk alignment (no spacing grid)
+- [x] Directory creation for persistence
 
 ### ⏳ TODO (Priority Order)
-1. **Render voxel world** - Make chunks visible with meshes
-2. **Enemy system** - Billboarded sprites with animation
-3. **Bloodmoon spawning** - Wave management
-4. **Crafting UI** - Inventory display
-5. **Farming system** - Plant/harvest mechanics
-6. **Companion system** - NPC hunts
-7. **Ruins** - Structure generation + exploration
-8. **Spectral Hunt** - Ghost enemies
+1. **Improve terrain generation** - Add hills, caves, biome variation
+2. **Block texturing system** - Implement texture mapping (-all, -sides, -top, etc.)
+3. **Block placement/destruction** - Click to build/mine
+4. **Enemy system** - Billboarded sprites with animation
+5. **Bloodmoon spawning** - Wave management
+6. **Crafting UI** - Inventory display
+7. **Farming system** - Plant/harvest mechanics
+8. **Companion system** - NPC hunts
+9. **Ruins** - Structure generation + exploration
+10. **Spectral Hunt** - Ghost enemies
 
 ---
 
@@ -195,6 +208,13 @@ claude code
 3. Watch console output in Godot's "Output" tab
 4. Report what you see/want
 5. I iterate
+
+### Control Scheme
+**Movement**:
+- **WASD** - Move horizontally
+- **Space** - Jump (normal mode) / Up (fly mode)
+- **Shift** - Down (fly mode only)
+- **Tab** - Toggle fly mode on/off
 
 ---
 
