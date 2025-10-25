@@ -14,6 +14,10 @@ config/name="TheLongNights"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+Main="*res://src/Main.gd"
+
 [plugins]
 
 claude_api/api_key=""
