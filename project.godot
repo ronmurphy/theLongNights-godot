@@ -13,7 +13,6 @@ config_version=5
 config/name="TheLongNights"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
-run/main_scene="res://src/Main.tscn"
 
 [plugins]
 

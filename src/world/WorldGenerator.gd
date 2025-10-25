@@ -50,7 +50,7 @@ func _load_or_generate_chunk(chunk_pos: Vector3i) -> void:
 	# Save to disk immediately so it's never regenerated again
 	persistence.save_chunk(chunk_pos, generated_data, WORLD_SEED)
 
-## Generate new chunk (only called for new chunks)
+## Generate new chunk data (only called for new chunks)
 func _generate_chunk_data(chunk_pos: Vector3i) -> Array:
 	var chunk_data = []
 	chunk_data.resize(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE)

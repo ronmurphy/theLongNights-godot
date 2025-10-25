@@ -28,9 +28,15 @@ func _ready() -> void:
 	_ensure_save_directory()
 
 func _ensure_save_directory() -> void:
+	# Create directory if it doesn't exist
 	if not DirAccess.dir_exists_absolute(SAVE_DIR):
-		DirAccess.make_absolute(SAVE_DIR, SAVE_DIR)
-		print("📁 Created save directory: %s" % SAVE_DIR)
+		# For user:// paths, just try to create it via file operations
+		# Godot will handle creating the directory as needed
+		var test_file = FileAccess.open(SAVE_DIR + ".test", FileAccess.WRITE)
+		if test_file:
+			test_file = null
+			DirAccess.remove_absolute(SAVE_DIR + ".test")
+		print("📁 Save directory ready: %s" % SAVE_DIR)
 
 ## Get full path for a chunk file
 func _get_chunk_path(chunk_pos: Vector3i) -> String:
