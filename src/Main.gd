@@ -7,9 +7,9 @@ var world_generator: WorldGenerator
 var player: Player
 
 func _ready() -> void:
-	print("🌙 The Long Nights - Godot Edition initializing...")
+	print("The Long Nights - Godot Edition initializing...")
 	_setup_scene()
-	print("✅ Main scene loaded successfully")
+	print("Main scene loaded successfully")
 
 func _setup_scene() -> void:
 	# Create GameManager
@@ -22,7 +22,7 @@ func _setup_scene() -> void:
 
 	# Create Player
 	player = Player.new()
-	player.position = Vector3(0, 2, 0)
+	player.position = Vector3(0, 40, 0)  # Spawn above terrain
 	add_child(player)
 
 	# Add Camera to Player
@@ -46,8 +46,12 @@ func _setup_scene() -> void:
 	light.rotation = Vector3(-0.5, 0, 0)
 	add_child(light)
 
-	print("📦 Scene created:")
-	print("  ✅ GameManager")
-	print("  ✅ WorldGenerator")
-	print("  ✅ Player + Camera + Collision")
-	print("  ✅ DirectionalLight")
+	# Connect player to world generator for infinite terrain
+	world_generator.set_player(player)
+
+	print("Scene created:")
+	print("  GameManager")
+	print("  WorldGenerator")
+	print("  Player + Camera + Collision")
+	print("  DirectionalLight")
+	print("  Infinite terrain system connected")

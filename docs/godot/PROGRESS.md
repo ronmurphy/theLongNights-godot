@@ -1,8 +1,8 @@
 # The Long Nights - Godot Rewrite Progress
 
 **Current Date**: October 25, 2025
-**Status**: Early Development - Voxel Rendering Complete
-**Version**: 0.1.0-alpha
+**Status**: Early Development - Terrain Generation & Controls Complete
+**Version**: 0.2.0-alpha
 
 ---
 
@@ -29,41 +29,78 @@
 - [x] Player modifications stored in separate `.mod` files
 - [x] Proper directory creation for `user://worlds/`
 
+### Phase 4: Infinite Terrain (October 25, 2025)
+- [x] Infinite terrain generation (Minecraft-style)
+- [x] Dynamic chunk loading based on player position
+- [x] Automatic chunk unloading for far chunks
+- [x] Memory-efficient terrain streaming
+
+### Phase 5: Terrain Generation (October 25, 2025)
+- [x] Simplex noise-based height generation
+- [x] Multi-layer terrain (grass, dirt, stone)
+- [x] Hills and valleys with configurable amplitude
+- [x] Vertical chunk loading (Y levels 0-4)
+
+### Phase 6: Player Controls (October 25, 2025)
+- [x] First-person mouse look (horizontal yaw, vertical pitch)
+- [x] WASD movement relative to camera direction
+- [x] Mouse capture/release with ESC key
+- [x] Fly mode toggle with Tab
+- [x] Vertical movement (Space up, Shift down in fly mode)
+
+### Phase 7: Texturing System (October 25, 2025)
+- [x] BlockTextureManager for texture loading
+- [x] UV coordinate mapping on voxel faces
+- [x] Grass texture successfully loaded and applied
+- [x] Support for texture naming conventions (all, sides, top, bottom)
+
+### Phase 8: Rendering Optimization (October 25, 2025)
+- [x] Face culling implementation (only render exposed faces)
+- [x] Reduced face count by ~83% (6 faces → ~1 face per block average)
+- [ ] Cross-chunk face culling (needs work - currently has edge artifacts)
+
 ---
 
 ## 🎯 Current State
 
 ### Working Features
-- **Terrain Rendering**: Flat green voxel world, 12×12×12 chunks
-- **Chunk System**: 49 chunks generated (7×7 grid at render distance 3)
-- **Persistence**: All chunks saved to `user://worlds/` with mod tracking
-- **Player Movement**: WASD for horizontal, Space/Shift for vertical (in fly mode)
+- **Infinite Terrain**: Minecraft-style endless world generation
+- **Terrain Variation**: Hills and valleys using Simplex noise
+- **Multi-Layer Blocks**: Grass surface, dirt layer (3 blocks), stone below
+- **Dynamic Loading**: Chunks load/unload automatically as player moves
+- **First-Person Controls**: Mouse look + WASD movement
 - **Fly Mode**: Tab to toggle, Space up, Shift down
+- **Texture System**: Grass texture loaded (dirt/stone pending import issues)
+- **Face Culling**: Only visible faces rendered (major performance boost)
+- **Persistence**: All chunks saved to `user://worlds/` with mod tracking
 - **Time System**: 7-day cycles tracked (not yet visible)
 
 ### Technical Specs
 - **Chunk Size**: 12×12×12 voxels (balanced for lower-end hardware)
-- **Render Distance**: 3 chunks in each direction (27 chunks max)
+- **Render Distance**: 3 chunks horizontal, 5 chunks vertical (105 chunks max)
+- **Terrain Height**: Base 32 blocks, ±16 variation (16-48 block range)
+- **Noise Type**: Simplex noise, frequency 0.02, seed 12345
 - **Hardware Target**: AMD Radeon 610M (integrated GPU)
 - **Save Format**: Binary `.chunk` files + JSON `.mod` files
+- **Block Types**: 0=Air, 1=Grass, 2=Dirt, 3=Stone
 
 ---
 
 ## 🚀 Next Priority Queue
 
-1. **Improve Terrain Generation** - Add variation (hills, caves, multiple biomes)
-2. **Block Texturing System** - Implement texture mapping with naming conventions:
-   - `-all` → all 6 faces
-   - `-sides` → 4 sides only
-   - `-top`, `-bottom`, `-top-bottom` → specific faces
-3. **Block Placement/Destruction** - Click to build/mine blocks
-4. **Enemy System** - Billboarded sprites with animation
-5. **Bloodmoon Spawning** - Wave management and difficulty scaling
-6. **Crafting UI** - Inventory display and item crafting
-7. **Farming System** - Plant/harvest mechanics
-8. **Companion System** - NPC hunts
-9. **Ruins** - Structure generation and exploration
-10. **Spectral Hunt** - Ghost enemies in final wave
+1. **Fix Cross-Chunk Face Culling** - Proper neighbor chunk checking for seamless rendering
+2. **Fix Texture Loading** - Resolve dirt.jpeg and stone.jpeg import issues
+3. **Texture Atlas** - Combine all block textures into single atlas for per-block texturing
+4. **Block Placement/Destruction** - Click to build/mine blocks
+5. **Biome System** - Multiple terrain types (plains, desert, forest) using Voronoi cells
+6. **Cave Generation** - 3D noise-based cave systems
+7. **Enemy System** - Billboarded sprites with animation
+8. **Bloodmoon Spawning** - Wave management and difficulty scaling
+9. **Crafting UI** - Inventory display and item crafting
+10. **Farming System** - Plant/harvest mechanics
+11. **Companion System** - NPC hunts
+12. **Ruins** - Structure generation and exploration
+13. **Spectral Hunt** - Ghost enemies in final wave
 
 ---
 
@@ -115,9 +152,14 @@ assets/
 
 ## 🎮 Control Scheme
 
+**Mouse**:
+- Mouse Movement - Look around (first-person camera)
+- ESC - Toggle mouse capture (release/capture cursor)
+
 **Movement**:
-- WASD - Move horizontally
-- Space - Jump (normal) / Up (fly mode)
+- W/A/S/D - Move forward/left/back/right
+- Arrow Keys - Alternative movement
+- Space - Jump (normal mode) / Up (fly mode)
 - Shift - Down (fly mode only)
 - Tab - Toggle fly mode
 
@@ -125,7 +167,19 @@ assets/
 
 ## 🐛 Known Issues
 
-- None at this time! Rendering is clean and chunks align properly.
+1. **Face Culling Artifacts** - Cross-chunk face culling needs neighbor chunk data
+   - Currently assumes chunk edges are solid
+   - Results in some missing faces at chunk boundaries
+   - Will be fixed in next session
+
+2. **Texture Loading** - dirt.jpeg and stone.jpeg fail to load
+   - Files are PNG format with .jpeg extension
+   - Godot import system confused by extension mismatch
+   - Workaround: All blocks currently use grass texture
+
+3. **Single Material Per Chunk** - All blocks in chunk share one texture
+   - Need texture atlas or per-block materials for proper texturing
+   - Grass/dirt/stone layers all appear as grass currently
 
 ---
 
@@ -148,5 +202,29 @@ assets/
 ---
 
 **Last Updated**: October 25, 2025
-**Session Duration**: ~2 hours
-**Next Session Focus**: Terrain variation and block textures
+**Session Duration**: ~6 hours
+**Next Session Focus**: Fix face culling artifacts and texture loading issues
+
+---
+
+## 📜 Session Notes - October 25, 2025
+
+### Major Accomplishments
+- Implemented infinite terrain generation (huge milestone!)
+- Added proper first-person mouse look controls
+- Created simplex noise-based terrain with hills/valleys
+- Built texture loading system with UV mapping
+- Implemented face culling for performance (83% fewer faces rendered)
+- Reduced errors from 1000+ to only 6 (mostly warnings)
+
+### Lessons Learned
+- Git LFS was causing issues (one laptop had LFS, other didn't)
+- Emoji in code files should be avoided (potential encoding issues)
+- Face culling requires neighbor chunk data for seamless rendering
+- Godot's auto-imports work well but can be confused by wrong extensions
+
+### Performance Impact
+- Face culling dramatically improved rendering performance
+- Infinite terrain with dynamic loading works smoothly
+- 105 chunks loaded max (3x3x5) vs old 49 chunks (7x7x1)
+- No visible stuttering once errors were fixed

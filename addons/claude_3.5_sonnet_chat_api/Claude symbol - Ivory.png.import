@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://drdtxx6rngfjc"
-path="res://.godot/imported/Claude symbol - Ivory.png-fdf525248c9c011fe4c60c369e4516bb.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://addons/claude_3.5_sonnet_chat_api/Claude symbol - Ivory.png"
-dest_files=["res://.godot/imported/Claude symbol - Ivory.png-fdf525248c9c011fe4c60c369e4516bb.ctex"]
 
 [params]
 
