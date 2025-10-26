@@ -1,0 +1,105 @@
+extends Node
+## TimeManager - Handles day/night cycles and game progression
+## Features: 7-day week system, 24-hour day cycle, Bloodmoon events
+## Accessible globally as TimeManager autoload singleton
+
+# Signals
+signal day_changed(day: int)
+signal hour_changed(hour: int)
+signal bloodmoon_started
+signal bloodmoon_ended
+signal week_completed
+
+# Constants
+const SECONDS_PER_IN_GAME_HOUR = 75.0  # 30 min / 24 hours = 75 seconds per hour
+const HOURS_PER_DAY = 24
+const DAYS_PER_WEEK = 7
+const BLOODMOON_START_HOUR = 21  # 9 PM
+const BLOODMOON_END_HOUR = 2     # 2 AM (wraps to next day)
+
+# State variables
+var current_week: int = 1
+var current_day: int = 1  # 1-7
+var current_hour: int = 6  # Start at dawn
+var current_minute: int = 0
+var elapsed_time: float = 0.0
+
+var is_bloodmoon: bool = false
+var time_paused: bool = false
+
+func _ready() -> void:
+	print("⏰ TimeManager initialized")
+
+func _process(delta: float) -> void:
+	if time_paused:
+		return
+
+	elapsed_time += delta
+
+	# Check if a full in-game hour has passed
+	if elapsed_time >= SECONDS_PER_IN_GAME_HOUR:
+		advance_hour()
+		elapsed_time = 0.0
+
+func advance_hour() -> void:
+	current_hour += 1
+
+	# Hour overflow to next day
+	if current_hour >= HOURS_PER_DAY:
+		current_hour = 0
+		advance_day()
+
+	# Check for bloodmoon timing
+	_update_bloodmoon_state()
+	hour_changed.emit(current_hour)
+	print("⏰ Hour changed: %02d:00" % current_hour)
+
+func advance_day() -> void:
+	current_day += 1
+	current_minute = 0
+
+	# Day overflow to next week
+	if current_day > DAYS_PER_WEEK:
+		current_day = 1
+		advance_week()
+
+	day_changed.emit(current_day)
+	print("📅 Day changed: Day %d" % current_day)
+
+func advance_week() -> void:
+	current_week += 1
+	week_completed.emit()
+	print("🎉 Week completed! Week %d begins" % current_week)
+
+func _update_bloodmoon_state() -> void:
+	var should_be_bloodmoon = (current_day == DAYS_PER_WEEK and
+							   current_hour >= BLOODMOON_START_HOUR) or \
+							  (current_day == DAYS_PER_WEEK and
+							   current_hour < BLOODMOON_END_HOUR)
+
+	if should_be_bloodmoon and not is_bloodmoon:
+		is_bloodmoon = true
+		bloodmoon_started.emit()
+		print("🩸 BLOODMOON STARTED!")
+	elif not should_be_bloodmoon and is_bloodmoon:
+		is_bloodmoon = false
+		bloodmoon_ended.emit()
+		print("✅ Bloodmoon ended, survivors advance!")
+
+## Returns formatted time string
+func get_time_string() -> String:
+	return "%02d:%02d" % [current_hour, current_minute]
+
+## Returns day name
+func get_day_name() -> String:
+	var days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+	return days[current_day - 1] if current_day >= 1 and current_day <= 7 else "Unknown"
+
+## Pause/resume time flow
+func set_paused(paused: bool) -> void:
+	time_paused = paused
+	print("⏸️ Time %s" % ("paused" if paused else "resumed"))
+
+## Get current difficulty multiplier based on week
+func get_difficulty_multiplier() -> float:
+	return 1.0 + ((current_week - 1) * 0.3)  # 30% harder each week

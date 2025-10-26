@@ -1,31 +1,7 @@
-# Godot 4+ specific ignores
 .godot/
-/android/
-/ios/
-/web/
-/macos/
-/windows/
-/linux/
-
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-*.iml
-*.iws
-*.ipr
-
-# Build outputs
-export/
-
-# User data
-user_data/
-local_settings.json
+debug_data/
+*.vxb
+*.vxbm
+*.vxr
+*.vxrm
+*.sqlite
