@@ -194,6 +194,7 @@ func _register_commands() -> void:
 	commands["list"] = _cmd_list
 	commands["fog"] = _cmd_fog
 	commands["graphics"] = _cmd_graphics
+	commands["spawn"] = _cmd_spawn
 
 ## Commands Implementation
 
@@ -235,6 +236,9 @@ func _cmd_help(_args: Array) -> void:
 	add_output("  [color=yellow]fps false[/color] - Hide FPS counter")
 	add_output("  [color=yellow]fog true[/color] - Enable fog")
 	add_output("  [color=yellow]fog false[/color] - Disable fog")
+	add_output("")
+	add_output("[color=cyan]Entity Commands:[/color]")
+	add_output("  [color=yellow]spawn ghost[/color] - Spawn a friendly ghost companion")
 
 func _cmd_clear(_args: Array) -> void:
 	output_label.clear()
@@ -527,6 +531,43 @@ func _cmd_graphics(args: Array) -> void:
 	add_output("  Shadows: " + ("ON" if shadows else "OFF"))
 	add_output("  Particles: " + str(particles))
 	add_output("  Debris Count: " + str(debris))
+
+func _cmd_spawn(args: Array) -> void:
+	if args.is_empty():
+		add_output("[color=yellow]Usage: spawn <entity_type>[/color]")
+		add_output("[color=yellow]Available: ghost[/color]")
+		return
+
+	var entity_type = args[0].to_lower()
+
+	# Get player position
+	var player = get_tree().get_first_node_in_group("player")
+	if player == null:
+		add_output("[color=red]Error: Cannot find player[/color]")
+		return
+
+	# Spawn 5 units in front of player
+	var spawn_pos = player.global_position + player.transform.basis.z * -5.0
+
+	match entity_type:
+		"ghost":
+			var ghost_scene = load("res://blocky_game/entities/ghost.tscn")
+			if ghost_scene:
+				var ghost = ghost_scene.instantiate()
+				ghost.global_position = spawn_pos
+				# Add to game world
+				var game = get_node_or_null("/root/Main/Game")
+				if game:
+					game.add_child(ghost)
+					add_output("[color=lime]Spawned ghost at " + str(spawn_pos) + "[/color]")
+				else:
+					add_output("[color=red]Error: Could not find game node[/color]")
+			else:
+				add_output("[color=red]Error: Could not load ghost scene[/color]")
+		_:
+			add_output("[color=red]Unknown entity: " + entity_type + "[/color]")
+			add_output("[color=yellow]Available: ghost[/color]")
+
 
 ## Take screenshot with F2
 func _take_screenshot() -> void:

@@ -22,6 +22,7 @@ DDD="*res://addons/zylann.debug_draw/debug_draw.gd"
 TimeManager="*res://long_nights/TimeManager.gd"
 MusicManager="*res://long_nights/MusicManager.gd"
 GraphicsSettings="*res://long_nights/GraphicsSettings.gd"
+WorldManager="*res://long_nights/WorldManager.gd"
 
 [display]
 
@@ -38,29 +39,18 @@ import/blender/enabled=false
 
 [rendering]
 
-# Global shader buffer
-limits/global_shader_variables/buffer_size=262144
-
-# Shadow settings (disabled in Low profile, so these are for Medium/High)
-shadows/shadow_atlas/size=8192
+textures/lossless_compression/force_png=true
+textures/light_projectors/filter=0
+occlusion_culling/use_occlusion_culling=true
+#Globalshaderbufferlimits/global_shader_variables/buffer_size=262144
+#Shadowsettings(disabledinLowprofile,sotheseareforMedium/High)shadows/shadow_atlas/size=8192
 shadows/shadow_atlas/quadrant_0_subdiv=1
 shadows/shadow_atlas/quadrant_1_subdiv=1
 shadows/shadow_atlas/quadrant_2_subdiv=1
 shadows/shadow_atlas/quadrant_3_subdiv=1
-
-# Performance optimizations for voxel rendering
-textures/voxel_gi/anisotropy=false
-textures/lossless_compression/force_png=true
-occlusion_culling/use_occlusion_culling=true
-
-# LOD and culling
-global_illumination/sdfgi/enabled=false
+#Performanceoptimizationsforvoxelrenderingtextures/voxel_gi/anisotropy=false
+#LODandcullingglobal_illumination/sdfgi/enabled=false
 global_illumination/gi_probe_quality=0
-
-# Reduce draw calls
-global_illumination/sgi/probe_count=0
+#Reducedrawcallsglobal_illumination/sgi/probe_count=0
 global_illumination/sgi/directional_light_quality=0
-
-# Memory optimizations
-textures/decals/filter=0
-textures/light_projectors/filter=0
+#Memoryoptimizationstextures/decals/filter=0

@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://ghost_entity_001"]
+
+[ext_resource type="Script" path="res://blocky_game/entities/ghost.gd" id="1"]
+
+[node name="Ghost" type="Node3D"]
+script = ExtResource("1")
+follow_distance = 5.0
+follow_speed = 2.0
+float_height = 1.5
+bob_amplitude = 0.3
+bob_frequency = 1.5

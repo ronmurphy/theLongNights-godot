@@ -11,7 +11,41 @@ var _game : BlockyGame
 var _upnp_helper : UPNPHelper
 
 
-func _on_main_menu_singleplayer_requested():
+func _on_main_menu_continue_game_requested():
+	# Load existing world
+	if not WorldManager.load_world():
+		push_error("Failed to load world!")
+		return
+
+	_start_game()
+
+
+func _on_main_menu_new_game_requested(seed: int):
+	# Create new world with specified seed
+	if not WorldManager.create_new_world(seed):
+		push_error("Failed to create new world!")
+		return
+
+	_start_game()
+
+
+func _on_main_menu_backup_world_requested():
+	if WorldManager.backup_world():
+		print("World backup created successfully!")
+		# Could show a confirmation dialog here
+	else:
+		push_error("Failed to backup world!")
+
+
+func _start_game():
+	# Force reload the generator GDScript so it picks up the current seed from world.config
+	# This is necessary because the generator's _init() only runs once when first loaded
+	var generator_script_path = "res://blocky_game/generator/generator.gd"
+	if ResourceLoader.has_cached(generator_script_path):
+		# Clear the cached script so _init() runs again with new seed
+		var script = load(generator_script_path)
+		script.reload()
+
 	_game = BlockyGameScene.instantiate()
 	_game.set_network_mode(BlockyGame.NETWORK_MODE_SINGLEPLAYER)
 	add_child(_game)

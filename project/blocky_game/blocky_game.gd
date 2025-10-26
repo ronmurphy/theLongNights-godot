@@ -130,7 +130,9 @@ func _ready():
 		add_child(console)
 		print("The Long Nights: Console ready (~ or F1)")
 
-		_spawn_character(SERVER_PEER_ID, Vector3(0, 64, 0))
+		# Spawn player at saved position (or default)
+		var spawn_pos = WorldManager.get_player_position()
+		_spawn_character(SERVER_PEER_ID, spawn_pos)
 
 
 func _on_connected_to_server():
@@ -216,6 +218,7 @@ func _spawn_character(peer_id: int, pos: Vector3) -> Node3D:
 	character.name = node_name
 	character.position = pos
 	character.terrain = get_terrain().get_path()
+	character.add_to_group("player")  # Add to group for easy finding
 	_characters_container.add_child(character)
 	return character
 

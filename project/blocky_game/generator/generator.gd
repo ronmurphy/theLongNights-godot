@@ -42,7 +42,29 @@ var _trees_max_y := 0
 
 
 func _init():
-	# TODO Even this must be based on a seed, but I'm lazy
+	# Get seed from world.config if it exists
+	var world_seed = 131183  # Default seed
+
+	# Try to load seed from world.config file directly
+	var config_path = "res://blocky_game/save/world.config"
+	if FileAccess.file_exists(config_path):
+		var file = FileAccess.open(config_path, FileAccess.READ)
+		if file != null:
+			var json_string = file.get_as_text()
+			file.close()
+			var json = JSON.new()
+			if json.parse(json_string) == OK:
+				var data = json.data
+				if typeof(data) == TYPE_DICTIONARY and "seed" in data:
+					world_seed = data["seed"]
+					print("Generator: Loaded seed from world.config: ", world_seed)
+
+	print("Generator: Using world seed: ", world_seed)
+
+	# Use seed for tree generation
+	var tree_rng = RandomNumberGenerator.new()
+	tree_rng.seed = world_seed
+
 	var tree_generator = TreeGenerator.new()
 	tree_generator.log_type = LOG
 	tree_generator.leaves_type = LEAVES
@@ -58,7 +80,8 @@ func _init():
 	_trees_min_y = _heightmap_min_y
 	_trees_max_y = _heightmap_max_y + tallest_tree_height
 
-	#_heightmap_noise.seed = 131183
+	# Set the heightmap noise seed from WorldManager
+	_heightmap_noise.seed = world_seed
 	_heightmap_noise.frequency = 1.0 / 128.0
 	_heightmap_noise.fractal_octaves = 4
 

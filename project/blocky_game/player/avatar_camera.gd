@@ -57,11 +57,8 @@ func _unhandled_input(event):
 	
 	elif event is InputEventKey:
 		if event.pressed:
-			if event.keycode == KEY_ESCAPE:
-				# Get the mouse back
-				Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-			
-			elif event.keycode == KEY_I:
+			# ESC is now handled by PauseMenu
+			if event.keycode == KEY_I:
 				var pos = position
 				var fw = -transform.basis.z
 				print("Position: ", pos, ", Forward: ", fw)
