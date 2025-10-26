@@ -38,9 +38,29 @@ import/blender/enabled=false
 
 [rendering]
 
+# Global shader buffer
 limits/global_shader_variables/buffer_size=262144
+
+# Shadow settings (disabled in Low profile, so these are for Medium/High)
 shadows/shadow_atlas/size=8192
 shadows/shadow_atlas/quadrant_0_subdiv=1
 shadows/shadow_atlas/quadrant_1_subdiv=1
 shadows/shadow_atlas/quadrant_2_subdiv=1
 shadows/shadow_atlas/quadrant_3_subdiv=1
+
+# Performance optimizations for voxel rendering
+textures/voxel_gi/anisotropy=false
+textures/lossless_compression/force_png=true
+occlusion_culling/use_occlusion_culling=true
+
+# LOD and culling
+global_illumination/sdfgi/enabled=false
+global_illumination/gi_probe_quality=0
+
+# Reduce draw calls
+global_illumination/sgi/probe_count=0
+global_illumination/sgi/directional_light_quality=0
+
+# Memory optimizations
+textures/decals/filter=0
+textures/light_projectors/filter=0

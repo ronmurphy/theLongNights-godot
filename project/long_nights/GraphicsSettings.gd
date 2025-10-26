@@ -16,8 +16,8 @@ var profiles := {
 		"meteor_trail_spawn_interval": 0.15,  # milliseconds as float (150ms)
 		"debris_count": 0,
 		"debris_physics_enabled": false,
-		"voxel_viewer_distance": 50,
-		"camera_far_clip": 49.0,  # 50 * 0.98, just before voxel boundary
+		"voxel_viewer_distance": 64,  # Original distance, now smooth with SDFGI disabled
+		"camera_far_clip": 62.72,  # 64 * 0.98, just before voxel boundary
 		"foliage_cull_mode": 2,  # 2 = two-sided (foliage)
 		"transparent_cull_mode": 2,
 		"voxel_viewer_requires_collisions": true,  # Still need collisions for player
@@ -38,19 +38,19 @@ var profiles := {
 		"meteor_trail_spawn_interval": 0.10,  # 100ms
 		"debris_count": 15,
 		"debris_physics_enabled": true,
-		"voxel_viewer_distance": 112,
-		"camera_far_clip": 109.8,  # 112 * 0.98
+		"voxel_viewer_distance": 144,  # Scaled from original ratio (112 * 64/50)
+		"camera_far_clip": 141.12,  # 144 * 0.98
 		"foliage_cull_mode": 2,
 		"transparent_cull_mode": 2,
 		"voxel_viewer_requires_collisions": true,
 		"voxel_viewer_requires_visuals": true,
 		# Fog settings - fog starts 5 chunks before camera cutoff
-		"day_fog_start": 104.8,     # 5 chunks before cutoff (109.8 - 5)
-		"day_fog_end": 109.8,
-		"night_fog_start": 104.8,
-		"night_fog_end": 109.8,
-		"bloodmoon_fog_start": 104.8,
-		"bloodmoon_fog_end": 109.8,
+		"day_fog_start": 136.12,     # 5 chunks before cutoff (141.12 - 5)
+		"day_fog_end": 141.12,
+		"night_fog_start": 136.12,
+		"night_fog_end": 141.12,
+		"bloodmoon_fog_start": 136.12,
+		"bloodmoon_fog_end": 141.12,
 	},
 	"high": {
 		"directional_light_shadows": true,
@@ -60,19 +60,19 @@ var profiles := {
 		"meteor_trail_spawn_interval": 0.05,  # 50ms
 		"debris_count": 30,
 		"debris_physics_enabled": true,
-		"voxel_viewer_distance": 128,
-		"camera_far_clip": 125.4,  # 128 * 0.98
+		"voxel_viewer_distance": 160,  # Scaled from original ratio (128 * 64/50)
+		"camera_far_clip": 156.8,  # 160 * 0.98
 		"foliage_cull_mode": 2,
 		"transparent_cull_mode": 2,
 		"voxel_viewer_requires_collisions": true,
 		"voxel_viewer_requires_visuals": true,
 		# Fog settings - fog starts 5 chunks before camera cutoff
-		"day_fog_start": 120.4,     # 5 chunks before cutoff (125.4 - 5)
-		"day_fog_end": 125.4,
-		"night_fog_start": 120.4,
-		"night_fog_end": 125.4,
-		"bloodmoon_fog_start": 120.4,
-		"bloodmoon_fog_end": 125.4,
+		"day_fog_start": 151.8,     # 5 chunks before cutoff (156.8 - 5)
+		"day_fog_end": 156.8,
+		"night_fog_start": 151.8,
+		"night_fog_end": 156.8,
+		"bloodmoon_fog_start": 151.8,
+		"bloodmoon_fog_end": 156.8,
 	}
 }
 
@@ -155,6 +155,7 @@ func apply_profile(profile_name: String) -> void:
 	_apply_directional_light_shadows()
 	_apply_camera_settings()
 	_apply_voxel_viewer_distance()
+	_apply_environment_quality()
 
 	settings_changed.emit(profile_name)
 	settings_applied.emit(current_settings)
@@ -207,6 +208,18 @@ func _apply_voxel_viewer_distance() -> void:
 		print("[GraphicsSettings] VoxelViewer distance: ", voxel_viewer.view_distance)
 	else:
 		print("[GraphicsSettings] Warning: VoxelViewer not found in scene tree")
+
+func _apply_environment_quality() -> void:
+	# Enable/disable SDFGI based on profile
+	# SDFGI = expensive global illumination (10-20+ fps cost on laptops)
+	var world_env = get_tree().root.find_child("WorldEnvironment", true, false)
+	if world_env and world_env.environment:
+		var enable_sdfgi = current_profile == "high"
+		world_env.environment.sdfgi_enabled = enable_sdfgi
+		world_env.environment.sdfgi_use_occlusion = enable_sdfgi
+		print("[GraphicsSettings] SDFGI: ", "ENABLED" if enable_sdfgi else "DISABLED", " (profile: ", current_profile, ")")
+	else:
+		print("[GraphicsSettings] Warning: WorldEnvironment not found in scene tree")
 
 ## Call this from effect scripts to check if they should create lights
 func should_create_torch_light() -> bool:
