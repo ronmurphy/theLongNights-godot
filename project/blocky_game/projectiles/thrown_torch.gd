@@ -84,14 +84,15 @@ func _ready():
 	flame_tip.material_override = tip_mat
 	handle.add_child(flame_tip)
 
-	# Add dynamic light (warm orange glow)
-	_light = OmniLight3D.new()
-	_light.light_color = Color(1.0, 0.5, 0.2)  # Orange torch light
-	_light.light_energy = 2.5
-	_light.omni_range = 12.0  # 12 block radius
-	_light.omni_attenuation = 0.6
-	_light.shadow_enabled = true
-	add_child(_light)
+	# Add dynamic light only if enabled by graphics settings
+	if GraphicsSettings.should_create_torch_light():
+		_light = OmniLight3D.new()
+		_light.light_color = Color(1.0, 0.5, 0.2)  # Orange torch light
+		_light.light_energy = 2.5
+		_light.omni_range = GraphicsSettings.get_torch_light_range()
+		_light.omni_attenuation = 0.6
+		_light.shadow_enabled = true
+		add_child(_light)
 
 	# Animate flame flickering (both flames)
 	var tween = flame.create_tween()

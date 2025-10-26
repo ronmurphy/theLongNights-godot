@@ -400,12 +400,126 @@ list items         # See all items
 
 ---
 
+## Graphics Settings System
+
+### Overview
+Adaptive graphics settings for multiple hardware tiers. Located in `long_nights/GraphicsSettings.gd` (autoload singleton).
+
+### Three Quality Profiles: Low / Medium / High
+
+**Settings Configuration Location:** `long_nights/GraphicsSettings.gd:10-70`
+
+#### Low Profile (Potato PC Optimization)
+```gdscript
+"voxel_viewer_distance": 64      # Terrain loads in 64-unit radius
+"camera_far_clip": 62.7          # 98% of voxel distance
+"directional_light_shadows": false
+"torch_light_enabled": false
+"particle_count": 8
+"debris_count": 0
+```
+
+**Fog Settings (starts fading at 70% of camera clip):**
+- Day: 44.0 → 62.7 units
+- Night: 30.0 → 62.7 units
+- Bloodmoon: 25.0 → 62.7 units (deeper red horror effect)
+
+#### Medium Profile (Balanced)
+```gdscript
+"voxel_viewer_distance": 112     # Terrain loads in 112-unit radius
+"camera_far_clip": 109.8         # 98% of voxel distance
+"directional_light_shadows": true
+"torch_light_enabled": true (8.0 range)
+"particle_count": 15
+"debris_count": 15
+```
+
+**Fog Settings:**
+- Day: 77.0 → 109.8 units
+- Night: 55.0 → 109.8 units
+- Bloodmoon: 44.0 → 109.8 units
+
+#### High Profile (Gaming PC)
+```gdscript
+"voxel_viewer_distance": 128     # Terrain loads in 128-unit radius
+"camera_far_clip": 125.4         # 98% of voxel distance
+"directional_light_shadows": true
+"torch_light_enabled": true (12.0 range)
+"particle_count": 20
+"debris_count": 30
+```
+
+**Fog Settings:**
+- Day: 88.0 → 125.4 units
+- Night: 63.0 → 125.4 units
+- Bloodmoon: 50.0 → 125.4 units
+
+### How Fog Works
+- **Fog is camera-relative** (moves with player)
+- **Fog starts fading in at ~70% of camera far clip**
+- **Fog becomes fully opaque at camera far clip boundary**
+- **Hides voxel view distance edge** naturally with atmosphere
+- **Dynamic day/night colors:** Light gray (day), dark blue (night), deep red (bloodmoon)
+
+### Accessing Graphics Settings in Code
+```gdscript
+# Get current profile name
+var profile = GraphicsSettings.get_current_profile()
+
+# Get specific setting
+var voxel_distance = GraphicsSettings.get_setting("voxel_viewer_distance")
+var camera_clip = GraphicsSettings.get_setting("camera_far_clip")
+
+# Check fog status
+if GraphicsSettings.get_fog_enabled():
+    # Fog is active
+
+# Fog getters
+var day_start = GraphicsSettings.get_day_fog_start()
+var night_density = GraphicsSettings.get_night_fog_end()
+```
+
+### Console Commands
+```bash
+# Switch profiles
+# (Uses Graphics Settings button in main menu or pause menu)
+
+# Fog control
+fog true                          # Enable fog
+fog false                         # Disable fog
+fog                              # Show current fog status
+
+# Testing different distances
+day set 6                        # Daytime fog
+day set 21                       # Nighttime fog
+day set 7 && bloodmoon start    # Bloodmoon horror fog
+```
+
+### Files Modified for Graphics Settings
+- `long_nights/GraphicsSettings.gd` - Core system, profiles, fog getters
+- `long_nights/DayNightCycle.gd` - Applies fog based on time
+- `long_nights/GameConsole.gd` - Fog command
+- `blocky_game/blocky_game.gd` - Applies settings on game load
+- `blocky_game/projectiles/thrown_torch.gd` - Respects torch light setting
+- `blocky_game/items/rocket_launcher/rocket.gd` - Dynamic debris count
+- `blocky_game/items/rocket_launcher/rocket_explosion.gd` - Dynamic particles
+- `blocky_game/projectiles/meteor.gd` - Dynamic trail spawn rate
+- `blocky_game/main.tscn` - Settings button on main menu
+- `blocky_game/main_menu.gd` - Settings button handler
+- `blocky_game/blocky_game.tscn` - PauseMenu CanvasLayer
+- `blocky_game/gui/PauseMenu.gd` - Pause menu with settings access
+- `blocky_game/gui/GraphicsSettingsUI.gd` - Settings UI modal
+- `project.godot` - GraphicsSettings autoload registration
+
+---
+
 ## Known Issues & Limitations
 
 ### Current Session
 - Thrown torches not yet pickupable (TODO in thrown_torch.gd:128)
 - Climbing claws may need wall detection tuning
 - Music volume mute (=) not implemented yet
+- Graphics settings may need fog density tuning for optimal visuals
 
 ### Godot/Voxel Module
 - VoxelBoxMover has different API than CharacterBody3D

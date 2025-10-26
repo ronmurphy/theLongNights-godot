@@ -83,6 +83,11 @@ func _input(event: InputEvent) -> void:
 			toggle_console()
 			get_viewport().set_input_as_handled()
 
+		# Screenshot with F2
+		if event.keycode == KEY_F2:
+			_take_screenshot()
+			get_viewport().set_input_as_handled()
+
 		# History navigation with up/down arrows
 		if is_visible and input_field.has_focus():
 			if event.keycode == KEY_UP:
@@ -187,6 +192,8 @@ func _register_commands() -> void:
 	commands["fps"] = _cmd_fps
 	commands["give"] = _cmd_give
 	commands["list"] = _cmd_list
+	commands["fog"] = _cmd_fog
+	commands["graphics"] = _cmd_graphics
 
 ## Commands Implementation
 
@@ -218,9 +225,16 @@ func _cmd_help(_args: Array) -> void:
 	add_output("  [color=yellow]list items[/color] - Show all available items")
 	add_output("  [color=yellow]give <item_name> [amount][/color] - Give item to inventory")
 	add_output("")
+	add_output("[color=cyan]Graphics Commands:[/color]")
+	add_output("  [color=yellow]graphics low[/color] - Set to LOW profile (50 chunks)")
+	add_output("  [color=yellow]graphics medium[/color] - Set to MEDIUM profile (112 chunks)")
+	add_output("  [color=yellow]graphics high[/color] - Set to HIGH profile (128 chunks)")
+	add_output("")
 	add_output("[color=cyan]Display Commands:[/color]")
 	add_output("  [color=yellow]fps true[/color] - Show FPS counter")
 	add_output("  [color=yellow]fps false[/color] - Hide FPS counter")
+	add_output("  [color=yellow]fog true[/color] - Enable fog")
+	add_output("  [color=yellow]fog false[/color] - Disable fog")
 
 func _cmd_clear(_args: Array) -> void:
 	output_label.clear()
@@ -462,3 +476,73 @@ func _cmd_list(args: Array) -> void:
 		add_output("[color=yellow]Usage: give <item_name> [amount][/color]")
 	else:
 		add_output("[color=red]Unknown list command. Use: list items[/color]")
+
+func _cmd_fog(args: Array) -> void:
+	if args.is_empty():
+		var status = "ON" if GraphicsSettings.get_fog_enabled() else "OFF"
+		add_output("[color=cyan]Fog is currently: " + status + "[/color]")
+		add_output("[color=yellow]Usage: fog true | fog false[/color]")
+		return
+
+	var value = args[0].to_lower()
+
+	if value == "true" or value == "on" or value == "1":
+		GraphicsSettings.set_fog_enabled(true)
+		add_output("[color=lime]Fog enabled[/color]")
+	elif value == "false" or value == "off" or value == "0":
+		GraphicsSettings.set_fog_enabled(false)
+		add_output("[color=lime]Fog disabled[/color]")
+	else:
+		add_output("[color=red]Invalid value. Use: fog true | fog false[/color]")
+
+func _cmd_graphics(args: Array) -> void:
+	if args.is_empty():
+		var current = GraphicsSettings.get_current_profile()
+		add_output("[color=cyan]Current graphics profile: " + current.to_upper() + "[/color]")
+		add_output("[color=yellow]Usage: graphics low | medium | high[/color]")
+		return
+
+	var profile = args[0].to_lower()
+
+	# Validate profile exists
+	if profile not in ["low", "medium", "high"]:
+		add_output("[color=red]Invalid profile: " + profile + "[/color]")
+		add_output("[color=yellow]Valid profiles: low, medium, high[/color]")
+		return
+
+	# Apply the profile
+	GraphicsSettings.apply_profile(profile)
+	add_output("[color=lime]Graphics profile changed to: " + profile.to_upper() + "[/color]")
+
+	# Show profile details
+	var voxel_dist = GraphicsSettings.get_setting("voxel_viewer_distance")
+	var camera_far = GraphicsSettings.get_setting("camera_far_clip")
+	var shadows = GraphicsSettings.get_setting("directional_light_shadows")
+	var particles = GraphicsSettings.get_setting("particle_count")
+	var debris = GraphicsSettings.get_setting("debris_count")
+
+	add_output("[color=cyan]Profile Details:[/color]")
+	add_output("  Voxel Distance: " + str(voxel_dist) + " chunks")
+	add_output("  Camera Far Clip: " + str(camera_far) + " units")
+	add_output("  Shadows: " + ("ON" if shadows else "OFF"))
+	add_output("  Particles: " + str(particles))
+	add_output("  Debris Count: " + str(debris))
+
+## Take screenshot with F2
+func _take_screenshot() -> void:
+	var timestamp = Time.get_ticks_msec()
+	var filename = "user://screenshot_%d.png" % timestamp
+
+	# Get the viewport texture and save as PNG
+	var image = get_viewport().get_texture().get_image()
+	if image:
+		var error = image.save_png(filename)
+		if error == OK:
+			print("[Screenshot] Saved to: ", filename)
+			add_output("[color=lime]Screenshot saved: screenshot_%d.png[/color]" % (timestamp % 1000000))
+		else:
+			print("[Screenshot] Error saving screenshot: ", error)
+			add_output("[color=red]Error saving screenshot: code %d[/color]" % error)
+	else:
+		print("[Screenshot] Error: Could not get viewport image")
+		add_output("[color=red]Error: Could not capture screenshot[/color]")

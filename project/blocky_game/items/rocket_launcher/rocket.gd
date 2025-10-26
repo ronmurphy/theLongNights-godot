@@ -68,8 +68,9 @@ func _create_explosion_vfx(explosion_pos: Vector3):
 	explosion.position = explosion_pos
 	get_parent().add_child(explosion)
 	
-	# Create debris
-	for i in 30:
+	# Create debris (respecting graphics settings)
+	var debris_count = GraphicsSettings.get_debris_count()
+	for i in debris_count:
 		var debris = DebrisScene.instantiate()
 		var debris_velocity := \
 			Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)).normalized()

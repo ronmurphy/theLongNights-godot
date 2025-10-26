@@ -59,6 +59,9 @@ func set_port(port: int):
 
 
 func _ready():
+	# Apply graphics settings to the loaded scene
+	GraphicsSettings.apply_profile(GraphicsSettings.get_current_profile())
+
 	if _network_mode == NETWORK_MODE_HOST:
 		_logger.prefix = "Server: "
 		
@@ -110,6 +113,10 @@ func _ready():
 		# Add day/night cycle system
 		var day_night = DayNightCycle.new()
 		day_night.sun_light = _light
+		# Pass the WorldEnvironment for fog updates
+		var world_env = get_node_or_null("WorldEnvironment")
+		if world_env:
+			day_night.environment = world_env
 		add_child(day_night)
 		print("The Long Nights: Day/Night cycle initialized")
 
@@ -227,7 +234,7 @@ func _spawn_remote_character(peer_id: int, pos: Vector3) -> Node3D:
 		# peer to send the voxels to.
 		# TODO Make a specific scene?
 		var viewer := VoxelViewer.new()
-		viewer.view_distance = 128
+		viewer.view_distance = GraphicsSettings.get_setting_or("voxel_viewer_distance", 128)
 		viewer.requires_visuals = false
 		viewer.requires_collisions = false
 		viewer.set_network_peer_id(peer_id)

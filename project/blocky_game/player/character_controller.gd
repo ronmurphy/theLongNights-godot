@@ -24,6 +24,9 @@ func _ready():
 
 	_head = get_node(head)
 
+	# Apply graphics settings to voxel viewer and rendering
+	_apply_graphics_settings()
+
 
 func _has_climbing_claws() -> bool:
 	# Check if player has climbing claws equipped in hotbar
@@ -172,4 +175,48 @@ func start_grapple(pull_velocity: Vector3, duration: float):
 	_grapple_time = duration
 	_grounded = false
 
+
+## Apply all graphics settings to this character and terrain
+func _apply_graphics_settings() -> void:
+	"""
+	Apply graphics settings based on current profile (Low/Medium/High)
+	This is the KEY optimization spot for rendering performance!
+
+	LOW PROFILE (Potato PC):
+	- Voxel View Distance: 50 chunks
+	- Camera Far Clip: 49.0 units
+	- No shadows, no torch light, 8 particles, 0 debris
+
+	MEDIUM PROFILE (Balanced):
+	- Voxel View Distance: 112 chunks
+	- Camera Far Clip: 109.8 units
+	- Shadows on, torch light 8 range, 15 particles, 15 debris
+
+	HIGH PROFILE (Gaming PC):
+	- Voxel View Distance: 128 chunks
+	- Camera Far Clip: 125.4 units
+	- Shadows on, torch light 12 range, 20 particles, 30 debris
+	"""
+
+	# Apply voxel viewer distance and settings
+	var voxel_viewer = get_node_or_null("VoxelViewer")
+	if voxel_viewer:
+		var view_distance = GraphicsSettings.get_setting("voxel_viewer_distance")
+		voxel_viewer.view_distance = view_distance
+		voxel_viewer.requires_collisions = GraphicsSettings.should_require_voxel_collisions()
+		voxel_viewer.requires_visuals = GraphicsSettings.should_require_voxel_visuals()
+		print("[CharacterController] VoxelViewer distance: ", view_distance, " chunks")
+		print("[CharacterController] VoxelViewer collisions: ", voxel_viewer.requires_collisions)
+		print("[CharacterController] VoxelViewer visuals: ", voxel_viewer.requires_visuals)
+
+	# Apply camera far clip
+	var camera = get_node_or_null("Camera")
+	if camera:
+		var camera_far = GraphicsSettings.get_setting("camera_far_clip")
+		camera.far = camera_far
+		print("[CharacterController] Camera far clip: ", camera_far, " units")
+
+	# Log current profile
+	var profile = GraphicsSettings.get_current_profile()
+	print("[CharacterController] Graphics profile: ", profile.to_upper())
 

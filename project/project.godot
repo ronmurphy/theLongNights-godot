@@ -21,6 +21,7 @@ config/icon="res://icon.png"
 DDD="*res://addons/zylann.debug_draw/debug_draw.gd"
 TimeManager="*res://long_nights/TimeManager.gd"
 MusicManager="*res://long_nights/MusicManager.gd"
+GraphicsSettings="*res://long_nights/GraphicsSettings.gd"
 
 [display]
 

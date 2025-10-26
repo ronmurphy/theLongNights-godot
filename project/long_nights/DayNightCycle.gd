@@ -28,6 +28,9 @@ func _ready() -> void:
 		push_error("DayNightCycle: No sun_light assigned!")
 		return
 
+	if not environment:
+		push_warning("DayNightCycle: No environment assigned - fog will not update!")
+
 	# Connect to TimeManager signals
 	TimeManager.hour_changed.connect(_on_hour_changed)
 	TimeManager.bloodmoon_started.connect(_on_bloodmoon_started)
@@ -36,6 +39,7 @@ func _ready() -> void:
 	# Set initial time
 	_update_sun_position(TimeManager.current_hour)
 	_update_lighting(TimeManager.current_hour)
+	_update_fog(TimeManager.current_hour)
 
 	print("DayNightCycle: Ready")
 
@@ -43,6 +47,7 @@ func _on_hour_changed(hour: int) -> void:
 	_update_sun_position(hour)
 	if not is_bloodmoon:
 		_update_lighting(hour)
+	_update_fog(hour)
 
 func _update_sun_position(hour: int) -> void:
 	# Sun rotates 360 degrees over 24 hours
@@ -111,6 +116,9 @@ func _on_bloodmoon_started() -> void:
 		environment.environment.ambient_light_color = sky_colors["bloodmoon"]
 		environment.environment.ambient_light_energy = 0.2
 
+	# Update fog for bloodmoon
+	_update_fog_bloodmoon()
+
 func _on_bloodmoon_ended() -> void:
 	is_bloodmoon = false
 	print("DayNightCycle: Bloodmoon visuals ended")
@@ -130,3 +138,60 @@ func get_time_of_day_name() -> String:
 		return "Evening"
 	else:
 		return "Night"
+
+## Update fog based on time of day
+func _update_fog(hour: int) -> void:
+	if not GraphicsSettings.get_fog_enabled():
+		return
+
+	if not environment or not environment.environment:
+		return
+
+	var fog_start: float
+	var fog_end: float
+	var fog_color: Color
+
+	# Determine fog based on time of day
+	if hour >= 6 and hour < 18:  # Daytime (6am-6pm)
+		fog_start = GraphicsSettings.get_day_fog_start()
+		fog_end = GraphicsSettings.get_day_fog_end()
+		fog_color = Color(0.7, 0.7, 0.7)  # Light gray fog
+	else:  # Nighttime
+		fog_start = GraphicsSettings.get_night_fog_start()
+		fog_end = GraphicsSettings.get_night_fog_end()
+		fog_color = Color(0.1, 0.1, 0.15)  # Dark blue fog
+
+	# Apply fog settings
+	environment.environment.fog_enabled = true
+	environment.environment.fog_aerial_perspective = 0.5  # Increased for better visibility
+	environment.environment.fog_light_color = fog_color
+
+	# Set density based on time of day to obscure view distance edge
+	# Higher density = thicker fog that obscures more
+	if hour >= 6 and hour < 18:  # Day
+		environment.environment.fog_density = 0.01  # Light but visible fog
+	else:  # Night
+		environment.environment.fog_density = 0.02  # Thicker for night mystery
+
+	print("[DayNightCycle] Fog updated - Hour: ", hour, " Density: ", environment.environment.fog_density)
+
+## Update fog for bloodmoon (special red-tinted horror fog)
+func _update_fog_bloodmoon() -> void:
+	if not GraphicsSettings.get_fog_enabled():
+		return
+
+	if not environment or not environment.environment:
+		return
+
+	var fog_start = GraphicsSettings.get_bloodmoon_fog_start()
+	var fog_end = GraphicsSettings.get_bloodmoon_fog_end()
+
+	# Bloodmoon fog: dark crimson/blood red
+	var bloodmoon_color = Color(0.5, 0.0, 0.0)  # Deep red
+
+	environment.environment.fog_enabled = true
+	environment.environment.fog_aerial_perspective = 0.25  # Extra aerial perspective for horror
+	environment.environment.fog_light_color = bloodmoon_color
+	environment.environment.fog_density = 0.025  # Significantly thicker for bloodmoon horror
+
+	print("[DayNightCycle] Bloodmoon fog activated - Deep red horror atmosphere")

@@ -5,6 +5,8 @@ extends Node3D
 
 
 func _ready():
+	# Set particle count based on graphics settings
+	_particles.amount = GraphicsSettings.get_particle_count()
 	_particles.emitting = true
 	_animation_player.play("explode")
 

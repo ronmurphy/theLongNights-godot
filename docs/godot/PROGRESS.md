@@ -3,6 +3,79 @@
 **Project Start:** October 25, 2025
 **Engine:** Godot 4.5 with Zylann's Voxel Module (v1.5)
 **Platform:** Linux (Arch), Windows export capability
+**Current Status:** Graphics optimization system complete, fog system active
+
+---
+
+## Session 2: October 26, 2025 (Continued)
+
+### Graphics Settings & Optimization System
+**Files:** `long_nights/GraphicsSettings.gd`, `long_nights/DayNightCycle.gd`, `long_nights/GameConsole.gd`, and integration points
+
+#### Graphics Settings System Implemented
+- **Three quality profiles:** Low, Medium, High
+- **Autoload singleton:** `GraphicsSettings` registered in `project.godot`
+- **Persistent storage:** Settings saved/loaded from `user://graphics_settings.json`
+- **UI:** Graphics Settings modal accessible from main menu and pause menu (ESC)
+
+#### Profile Configuration (Long-Nights/GraphicsSettings.gd:10-70)
+
+**LOW PROFILE** (Potato PC - ~40-50% FPS improvement expected)
+- Voxel View Distance: 64 chunks
+- Camera Far Clip: 62.7 units (98% of voxel distance)
+- Shadows: Disabled
+- Torch Light: Disabled
+- Particles: 8 count
+- Debris: 0 count
+- Fog: Day (44→62.7), Night (30→62.7), Bloodmoon (25→62.7)
+
+**MEDIUM PROFILE** (Balanced)
+- Voxel View Distance: 112 chunks
+- Camera Far Clip: 109.8 units (98% of voxel distance)
+- Shadows: Enabled
+- Torch Light: Enabled (8 unit range)
+- Particles: 15 count
+- Debris: 15 count
+- Fog: Day (77→109.8), Night (55→109.8), Bloodmoon (44→109.8)
+
+**HIGH PROFILE** (Gaming PC - Original performance)
+- Voxel View Distance: 128 chunks
+- Camera Far Clip: 125.4 units (98% of voxel distance)
+- Shadows: Enabled
+- Torch Light: Enabled (12 unit range)
+- Particles: 20 count
+- Debris: 30 count
+- Fog: Day (88→125.4), Night (63→125.4), Bloodmoon (50→125.4)
+
+#### Dynamic Fog System
+**DayNightCycle.gd integration:**
+- Fog automatically adjusts every in-game hour
+- **Day Fog:** Light gray, soft and transparent
+- **Night Fog:** Dark blue, thicker for horror atmosphere
+- **Bloodmoon Fog:** Deep red/crimson, extra dense for special effects
+- Fog is **camera-relative** (moves with player)
+- Fog **fades in at ~70% of camera far clip**, fully opaque at edge
+- Hides voxel view distance boundary naturally
+
+**Console command:** `fog true/false` - Toggle global fog (all profiles)
+
+#### Files Created
+- `long_nights/GraphicsSettings.gd` - Core settings system with profiles
+- `blocky_game/gui/GraphicsSettingsUI.gd` - Settings modal UI
+- `blocky_game/gui/PauseMenu.gd` - Pause menu with settings access
+
+#### Files Modified
+- `project.godot` - Added GraphicsSettings autoload
+- `long_nights/DayNightCycle.gd` - Added fog update functions
+- `long_nights/GameConsole.gd` - Added `fog` command
+- `blocky_game/blocky_game.gd` - Apply settings on load
+- `blocky_game/blocky_game.tscn` - Added PauseMenu CanvasLayer
+- `blocky_game/main.tscn` - Added Graphics Settings button
+- `blocky_game/main_menu.gd` - Settings button handler
+- `blocky_game/projectiles/thrown_torch.gd` - Respects light setting
+- `blocky_game/items/rocket_launcher/rocket.gd` - Dynamic debris count
+- `blocky_game/items/rocket_launcher/rocket_explosion.gd` - Dynamic particles
+- `blocky_game/projectiles/meteor.gd` - Dynamic trail spawn rate
 
 ---
 
@@ -255,6 +328,28 @@ give grapple           # Get grappling hook
 # Display
 fps true               # Show FPS counter
 fps false              # Hide FPS counter
+fog                    # Show fog status
+fog true               # Enable fog
+fog false              # Disable fog
+```
+
+## Graphics Settings
+
+```bash
+# Accessed via:
+# - Main Menu → Graphics Settings button
+# - ESC (pause) → Graphics Settings button
+# Or press ~ to open console and modify individual settings
+
+# Profiles: Low, Medium, High
+# Settings include:
+# - Voxel View Distance (chunks loaded)
+# - Camera Far Clip (units)
+# - Shadows (on/off)
+# - Torch Light (on/off)
+# - Particle Count
+# - Debris Count
+# - Dynamic Fog (day/night/bloodmoon)
 ```
 
 ---

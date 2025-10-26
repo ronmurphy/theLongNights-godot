@@ -95,8 +95,9 @@ func _physics_process(delta: float):
 	# Move the meteor
 	var motion = _velocity * delta
 
-	# Create fire trail particles periodically
-	if _trail_timer > 0.05:  # Every 50ms
+	# Create fire trail particles periodically (respecting graphics settings)
+	var trail_interval = GraphicsSettings.get_meteor_trail_interval()
+	if _trail_timer > trail_interval:
 		_spawn_fire_particle()
 		_trail_timer = 0.0
 
