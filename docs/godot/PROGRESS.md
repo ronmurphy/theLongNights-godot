@@ -1,230 +1,280 @@
-# The Long Nights - Godot Rewrite Progress
+# The Long Nights - Godot 4.5 Remake Progress
 
-**Current Date**: October 25, 2025
-**Status**: Early Development - Terrain Generation & Controls Complete
-**Version**: 0.2.0-alpha
-
----
-
-## ✅ Completed Milestones
-
-### Phase 1: Architecture & Foundation
-- [x] Git + Git LFS setup for large assets
-- [x] Core system architecture (GameManager, TimeManager, WorldGenerator)
-- [x] Chunk persistence system (prevents bedrock corruption bug)
-- [x] Player controller with first-person movement
-- [x] Scene setup (code-only, no editor complexity)
-- [x] Asset import (all JS assets copied over)
-
-### Phase 2: World Rendering
-- [x] Chunk-based terrain generation (12×12×12 voxels per chunk)
-- [x] Mesh generation from voxel data using SurfaceTool
-- [x] Chunk visualization system (ChunkView)
-- [x] Seamless chunk alignment with proper positioning
-- [x] Fly mode for easy testing and exploration (Tab to toggle)
-
-### Phase 3: Data Persistence
-- [x] Save chunks to disk immediately after generation
-- [x] Load chunks from disk (never regenerate)
-- [x] Player modifications stored in separate `.mod` files
-- [x] Proper directory creation for `user://worlds/`
-
-### Phase 4: Infinite Terrain (October 25, 2025)
-- [x] Infinite terrain generation (Minecraft-style)
-- [x] Dynamic chunk loading based on player position
-- [x] Automatic chunk unloading for far chunks
-- [x] Memory-efficient terrain streaming
-
-### Phase 5: Terrain Generation (October 25, 2025)
-- [x] Simplex noise-based height generation
-- [x] Multi-layer terrain (grass, dirt, stone)
-- [x] Hills and valleys with configurable amplitude
-- [x] Vertical chunk loading (Y levels 0-4)
-
-### Phase 6: Player Controls (October 25, 2025)
-- [x] First-person mouse look (horizontal yaw, vertical pitch)
-- [x] WASD movement relative to camera direction
-- [x] Mouse capture/release with ESC key
-- [x] Fly mode toggle with Tab
-- [x] Vertical movement (Space up, Shift down in fly mode)
-
-### Phase 7: Texturing System (October 25, 2025)
-- [x] BlockTextureManager for texture loading
-- [x] UV coordinate mapping on voxel faces
-- [x] Grass texture successfully loaded and applied
-- [x] Support for texture naming conventions (all, sides, top, bottom)
-
-### Phase 8: Rendering Optimization (October 25, 2025)
-- [x] Face culling implementation (only render exposed faces)
-- [x] Reduced face count by ~83% (6 faces → ~1 face per block average)
-- [ ] Cross-chunk face culling (needs work - currently has edge artifacts)
+**Project Start:** October 25, 2025
+**Engine:** Godot 4.5 with Zylann's Voxel Module (v1.5)
+**Platform:** Linux (Arch), Windows export capability
 
 ---
 
-## 🎯 Current State
+## Session 1: October 25-26, 2025
 
-### Working Features
-- **Infinite Terrain**: Minecraft-style endless world generation
-- **Terrain Variation**: Hills and valleys using Simplex noise
-- **Multi-Layer Blocks**: Grass surface, dirt layer (3 blocks), stone below
-- **Dynamic Loading**: Chunks load/unload automatically as player moves
-- **First-Person Controls**: Mouse look + WASD movement
-- **Fly Mode**: Tab to toggle, Space up, Shift down
-- **Texture System**: Grass texture loaded (dirt/stone pending import issues)
-- **Face Culling**: Only visible faces rendered (major performance boost)
-- **Persistence**: All chunks saved to `user://worlds/` with mod tracking
-- **Time System**: 7-day cycles tracked (not yet visible)
+### Project Setup & Foundation
+- **Migrated from JavaScript** voxel game to Godot 4.5
+- **Base project:** Zylann's `voxelgame-master` example
+- **Custom Godot build** with voxel module integrated
+- Set up project structure in `/home/brad/Godot/theLongNights/project`
 
-### Technical Specs
-- **Chunk Size**: 12×12×12 voxels (balanced for lower-end hardware)
-- **Render Distance**: 3 chunks horizontal, 5 chunks vertical (105 chunks max)
-- **Terrain Height**: Base 32 blocks, ±16 variation (16-48 block range)
-- **Noise Type**: Simplex noise, frequency 0.02, seed 12345
-- **Hardware Target**: AMD Radeon 610M (integrated GPU)
-- **Save Format**: Binary `.chunk` files + JSON `.mod` files
-- **Block Types**: 0=Air, 1=Grass, 2=Dirt, 3=Stone
+### Core Systems Implemented
+
+#### 1. Time Management System
+**File:** `project/long_nights/TimeManager.gd`
+- Day/night cycle (24 hours, configurable speed)
+- 7-day week system with named days
+- Week progression for difficulty scaling
+- Bloodmoon system (Day 7, hours 21-5)
+- Signals for time events (hour_changed, day_changed, bloodmoon_started, etc.)
+
+#### 2. Game Console
+**File:** `project/long_nights/GameConsole.gd`
+- Toggle with ~ (tilde) or F1
+- Command history with up/down arrows
+- Mouse wheel scrolling in output
+- **Implemented Commands:**
+  - `help` - Show all commands
+  - `clear` - Clear console
+  - `time` / `time set <hour>` / `time add <hours>`
+  - `day` / `day set <day>` / `day next`
+  - `week` / `week set <week>`
+  - `bloodmoon start` / `bloodmoon stop`
+  - `fps true/false` - Toggle FPS counter
+  - `give <item_name> [amount]` - Add items to inventory
+  - `list items` - Show all available items
+
+#### 3. Music System
+**File:** `project/long_nights/MusicManager.gd`
+- Dynamic day/night music with 3-second crossfading
+- Dual AudioStreamPlayer system for smooth transitions
+- **Tracks:**
+  - `forestDay.ogg` (6 AM - 6 PM)
+  - `forestNight.ogg` (7 PM - 5 AM)
+  - `bloodMoon.ogg` (bloodmoon override)
+- Volume controls: `-` (down), `+` (up)
+- Music only plays in-game, not menu
+- Integrates with TimeManager signals
+
+### Items & Weapons System
+
+#### 4. Grappling Hook
+**File:** `project/blocky_game/items/grappling_hook/grappling_hook.gd`
+- Spider-Man style arc trajectory
+- Parabolic physics with gravity calculations
+- Pulls player to target block
+- Works with character_controller.gd grappling state
+
+#### 5. Climbing Claws
+**File:** `project/blocky_game/items/climbing_claws/climbing_claws.gd`
+- Wall climbing on any vertical surface
+- Raycast-based wall detection
+- Adjustable climb speed (3.0 units/sec)
+- Uses boots_speed.png sprite
+
+#### 6. Ice Bow
+**File:** `project/blocky_game/projectiles/ice_arrow.gd`
+- Zigzag homing behavior
+- Freeze explosion on impact
+- Ice crystal particle trail
+- Rim lighting and emission effects
+
+#### 7. Fire Staff
+**File:** `project/blocky_game/projectiles/meteor.gd`
+- Meteor strike from sky (not from player)
+- Pulsing flame aura
+- Fire particle trail
+- Spherical explosion on impact
+
+#### 8. Throwing Knives
+**File:** `project/blocky_game/projectiles/throwing_knife.gd`
+- Circles around target 3 times before impact
+- Circular spiraling trajectory
+- TAU-based angle calculation
+- Progressive radius reduction
+
+#### 9. Torch System
+**Files:**
+- `project/blocky_game/items/torch/torch.gd`
+- `project/blocky_game/projectiles/thrown_torch.gd`
+- `project/blocky_game/player/avatar_interaction.gd` (torch light integration)
+
+**Features:**
+- **Gothic Design:** Dark twisted handle, metal cage, orange flames
+- **Throwable:** Parabolic arc with end-over-end rotation
+- **Dual Lighting:**
+  - Held torch: OmniLight3D on player camera (12-block radius)
+  - Thrown torch: Stays lit where it lands, auto-cleanup after 5 minutes
+- **Consumable:** Stack-based system (torches decrement on use)
+- **3D Model:** Dark handle (0.15, 0.15, 0.15), orange flames with flickering animation
+
+### Inventory System Enhancements
+
+#### Item Stacking & Count System
+**Modified Files:**
+- `project/blocky_game/player/inventory_item.gd` - Added count field
+- `project/blocky_game/gui/inventory_item_display.gd` - Visual count display
+- `project/blocky_game/gui/inventory/inventory.gd` - Stack initialization
+
+**Behavior:**
+- **Torches:** Stackable consumables (count decrements on use)
+- **Weapons/Tools:** Infinite ammo (count = 1, never consumed)
+- Visual count label (bottom-right of icon, white text with black outline)
+
+### Graphics & Art Updates
+
+#### Updated Item Sprites
+**Source:** `/home/brad/Godot/theLongNights/assets/art/tools/`
+- `ice_bow.png` → ice_bow_sprite.png
+- `fire_staff.png` → fire_staff_sprite.png
+- `torch.png` → torch_sprite.png (gothic design)
+- `grapple.png` → grappling_hook_sprite.png
+- `machete.png` → throwing_knives_sprite.png
+- `boots_speed.png` → climbing_claws_sprite.png
+
+**Process:** Copy to item folders, delete `.import` files, Godot auto-regenerates
+
+#### Terrain Texture Location
+**Active texture:** `/home/brad/Godot/theLongNights/project/blocky_game/blocks/terrain.png`
+- Referenced by: terrain_material.tres, terrain_material_foliage.tres, terrain_material_transparent.tres
+- Update process: Replace PNG, delete .import file, restart Godot
+
+### Export & Distribution
+
+#### Windows Export Setup
+**Export template:** `godot.windows.template_release.x86_64.exe`
+- Downloaded from: https://github.com/Zylann/godot_voxel/releases/tag/v1.5
+- Installed to: `~/.local/share/godot/export_templates/4.5.stable/`
+- Both debug and release templates required (copied same file for both)
+
+**Export Process:**
+1. Project → Export → Add Windows Desktop preset
+2. Set export path and runnable mode
+3. Export creates: `.exe` + `.pck` file
+4. Zip both files together for distribution
 
 ---
 
-## 🚀 Next Priority Queue
-
-1. **Fix Cross-Chunk Face Culling** - Proper neighbor chunk checking for seamless rendering
-2. **Fix Texture Loading** - Resolve dirt.jpeg and stone.jpeg import issues
-3. **Texture Atlas** - Combine all block textures into single atlas for per-block texturing
-4. **Block Placement/Destruction** - Click to build/mine blocks
-5. **Biome System** - Multiple terrain types (plains, desert, forest) using Voronoi cells
-6. **Cave Generation** - 3D noise-based cave systems
-7. **Enemy System** - Billboarded sprites with animation
-8. **Bloodmoon Spawning** - Wave management and difficulty scaling
-9. **Crafting UI** - Inventory display and item crafting
-10. **Farming System** - Plant/harvest mechanics
-11. **Companion System** - NPC hunts
-12. **Ruins** - Structure generation and exploration
-13. **Spectral Hunt** - Ghost enemies in final wave
-
----
-
-## 🏗️ Architecture Changes from JavaScript
-
-| System | JS Version | Godot Version | Notes |
-|--------|-----------|---------------|-------|
-| Chunk Size | 8×8×8 | 12×12×12 | Better balance, optimized for hardware |
-| Rendering | Three.js | Godot 4.5 Forward+ | Native 3D support |
-| Persistence | JSON files | Binary + JSON | More efficient |
-| Player | Babylon.js | CharacterBody3D | Physics-based movement |
-| Scene System | Manual DOM | Code-only GDScript | Git-friendly, no editor conflicts |
-
----
-
-## 📊 Performance Notes
-
-- **Voxel Count**: 1,728 voxels per chunk (12³)
-- **Max Chunks**: 27 (3³ render distance)
-- **Vertex Count**: ~144 vertices per solid chunk (rough estimate)
-- **Target FPS**: 60 on integrated GPUs
-- **Memory**: Optimized for lower-end hardware (no heavy effects)
-
----
-
-## 🔧 File Structure
+## File Structure
 
 ```
-src/
-├── Main.gd                    # Scene builder
-├── systems/
-│   ├── GameManager.gd         # Singleton game state
-│   └── TimeManager.gd         # Day/night cycles
-├── world/
-│   ├── WorldGenerator.gd      # Chunk generation
-│   ├── ChunkPersistence.gd    # Save/load system
-│   ├── MeshGenerator.gd       # Voxel → Mesh conversion
-│   └── ChunkView.gd           # Visual chunk representation
-└── player/
-    └── Player.gd              # Player controller
-
-assets/
-├── art/blocks/                # Block textures with naming conventions
-├── data/                      # Game data files
-└── music/ + sfx/             # Audio assets
+/home/brad/Godot/theLongNights/
+├── project/                          # Main Godot project
+│   ├── blocky_game/                  # Game logic
+│   │   ├── items/                    # All items
+│   │   │   ├── torch/
+│   │   │   ├── grappling_hook/
+│   │   │   ├── ice_bow/
+│   │   │   ├── fire_staff/
+│   │   │   ├── throwing_knives/
+│   │   │   └── climbing_claws/
+│   │   ├── projectiles/              # Projectile scripts
+│   │   ├── player/                   # Player systems
+│   │   ├── blocks/                   # Voxel blocks & terrain.png
+│   │   └── gui/                      # UI components
+│   └── long_nights/                  # Game-specific systems
+│       ├── TimeManager.gd
+│       ├── MusicManager.gd
+│       └── GameConsole.gd
+├── assets/                           # Source art assets
+│   ├── art/
+│   │   ├── tools/                    # Item sprites
+│   │   └── blocks/                   # Block textures
+│   └── music/                        # Music tracks
+└── docs/                             # Documentation
+    └── godot/                        # Godot-specific docs
+        ├── PROGRESS.md               # This file
+        └── CLAUDE.md                 # AI assistant context
 ```
 
 ---
 
-## 🎮 Control Scheme
+## Technical Notes
 
-**Mouse**:
-- Mouse Movement - Look around (first-person camera)
-- ESC - Toggle mouse capture (release/capture cursor)
+### GDScript vs Python
+- **Very similar syntax:** Indentation-based, similar type hints
+- **Key differences:**
+  - `@onready`, `@export` decorators
+  - Signals system (`emit`, `connect`)
+  - Node paths (`get_node()`, `$` shorthand)
+  - `func` instead of `def`
 
-**Movement**:
-- W/A/S/D - Move forward/left/back/right
-- Arrow Keys - Alternative movement
-- Space - Jump (normal mode) / Up (fly mode)
-- Shift - Down (fly mode only)
-- Tab - Toggle fly mode
+### Character Controller
+**File:** `project/blocky_game/player/character_controller.gd`
+- Uses VoxelBoxMover (not CharacterBody3D)
+- Added grappling and climbing states
+- Modified _physics_process to respect special movement states
 
----
-
-## 🐛 Known Issues
-
-1. **Face Culling Artifacts** - Cross-chunk face culling needs neighbor chunk data
-   - Currently assumes chunk edges are solid
-   - Results in some missing faces at chunk boundaries
-   - Will be fixed in next session
-
-2. **Texture Loading** - dirt.jpeg and stone.jpeg fail to load
-   - Files are PNG format with .jpeg extension
-   - Godot import system confused by extension mismatch
-   - Workaround: All blocks currently use grass texture
-
-3. **Single Material Per Chunk** - All blocks in chunk share one texture
-   - Need texture atlas or per-block materials for proper texturing
-   - Grass/dirt/stone layers all appear as grass currently
+### Multiplayer Support
+- RPC networking implemented for items
+- SERVER_PEER_ID pattern for client-server communication
+- All items check `get_tree().get_multiplayer()` before RPC calls
 
 ---
 
-## 📝 Design Principles
+## Known Issues & TODOs
 
-**Rule #1: Code must run on lower-end hardware**
-- Target: AMD Radeon 610M (integrated GPU)
-- 12×12×12 chunks for detail without heavy rendering
-- Render distance of 3 chunks
-- No post-processing or particle effects
+### Current Session TODOs
+- [ ] Test torch consumption system
+- [ ] Verify torch light activation/deactivation
+- [ ] Test all weapon visual effects
+- [ ] Verify music crossfading
 
----
-
-## 🔗 Links
-
-- **Repository**: https://github.com/ronmurphy/theLongNights-godot
-- **Engine**: Godot 4.5 (Forward+ rendering)
-- **Platform**: Linux (also supporting Windows/macOS)
-
----
-
-**Last Updated**: October 25, 2025
-**Session Duration**: ~6 hours
-**Next Session Focus**: Fix face culling artifacts and texture loading issues
+### Future Enhancements
+- [ ] Make thrown torches pickupable after landing
+- [ ] Add more items: stone_hammer, crossbow, backpack, machete
+- [ ] Implement enemy AI
+- [ ] Add crafting system
+- [ ] Player stats (health, stamina, hunger)
+- [ ] World generation improvements
 
 ---
 
-## 📜 Session Notes - October 25, 2025
+## Console Commands Quick Reference
 
-### Major Accomplishments
-- Implemented infinite terrain generation (huge milestone!)
-- Added proper first-person mouse look controls
-- Created simplex noise-based terrain with hills/valleys
-- Built texture loading system with UV mapping
-- Implemented face culling for performance (83% fewer faces rendered)
-- Reduced errors from 1000+ to only 6 (mostly warnings)
+```bash
+# Time Management
+time                    # Show current time
+time set 12            # Set to noon
+time add 5             # Advance 5 hours
 
-### Lessons Learned
-- Git LFS was causing issues (one laptop had LFS, other didn't)
-- Emoji in code files should be avoided (potential encoding issues)
-- Face culling requires neighbor chunk data for seamless rendering
-- Godot's auto-imports work well but can be confused by wrong extensions
+# Day Management
+day                     # Show current day
+day set 7              # Set to Day 7
+day next               # Skip to next day
 
-### Performance Impact
-- Face culling dramatically improved rendering performance
-- Infinite terrain with dynamic loading works smoothly
-- 105 chunks loaded max (3x3x5) vs old 49 chunks (7x7x1)
-- No visible stuttering once errors were fixed
+# Week & Difficulty
+week                    # Show current week
+week set 3             # Set to week 3
+
+# Bloodmoon
+bloodmoon start        # Force bloodmoon
+bloodmoon stop         # End bloodmoon
+
+# Items
+list items             # Show all items
+give torch 50          # Get 50 torches
+give grapple           # Get grappling hook
+
+# Display
+fps true               # Show FPS counter
+fps false              # Hide FPS counter
+```
+
+---
+
+## Art Assets Pipeline
+
+1. **Create/update art** in `/assets/art/tools/` or `/assets/art/blocks/`
+2. **Copy to project** item folders (e.g., `project/blocky_game/items/torch/torch_sprite.png`)
+3. **Delete .import files** in target folder
+4. **Restart Godot** - auto-regenerates imports with new graphics
+
+---
+
+## Version History
+
+### v0.1.0 - Initial Godot Migration (Oct 25-26, 2025)
+- Core systems ported from JavaScript
+- Time management, console, music systems
+- All magical weapons implemented
+- Torch system with dual lighting
+- Inventory stacking system
+- Windows export capability
+- Gothic art style established

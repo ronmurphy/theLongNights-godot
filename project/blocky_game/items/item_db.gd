@@ -13,6 +13,30 @@ func _init():
 		"name": "rocket_launcher",
 		"behavior": "rocket_launcher.gd"
 	})
+	_create_item({
+		"name": "grappling_hook",
+		"behavior": "grappling_hook.gd"
+	})
+	_create_item({
+		"name": "climbing_claws",
+		"behavior": "climbing_claws.gd"
+	})
+	_create_item({
+		"name": "ice_bow",
+		"behavior": "ice_bow.gd"
+	})
+	_create_item({
+		"name": "fire_staff",
+		"behavior": "fire_staff.gd"
+	})
+	_create_item({
+		"name": "throwing_knives",
+		"behavior": "throwing_knives.gd"
+	})
+	_create_item({
+		"name": "torch",
+		"behavior": "torch.gd"
+	})
 
 
 func get_item(id: int) -> Item:

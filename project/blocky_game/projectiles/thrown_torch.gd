@@ -1,0 +1,178 @@
+extends Node3D
+
+# Thrown torch projectile with parabolic arc and lighting
+
+var initial_velocity : Vector3
+var lifetime := 10.0
+var _velocity := Vector3()
+var _terrain : VoxelTerrain = null
+var _light : OmniLight3D = null
+var _rotation_speed := 10.0  # Radians per second for spinning
+
+const GRAVITY = 9.8
+
+
+func _ready():
+	_terrain = get_node("/root/Main/Game/VoxelTerrain")
+
+	# Create gothic twisted torch handle (black/dark)
+	var handle = MeshInstance3D.new()
+	var handle_mesh = CylinderMesh.new()
+	handle_mesh.top_radius = 0.025
+	handle_mesh.bottom_radius = 0.035
+	handle_mesh.height = 0.6
+	handle.mesh = handle_mesh
+
+	var handle_mat = StandardMaterial3D.new()
+	handle_mat.albedo_color = Color(0.15, 0.15, 0.15)  # Dark gray/black
+	handle_mat.metallic = 0.3
+	handle_mat.roughness = 0.7
+	handle.material_override = handle_mat
+	add_child(handle)
+
+	# Create metal band/cage at top
+	var cage = MeshInstance3D.new()
+	var cage_mesh = CylinderMesh.new()
+	cage_mesh.top_radius = 0.08
+	cage_mesh.bottom_radius = 0.06
+	cage_mesh.height = 0.12
+	cage.mesh = cage_mesh
+	cage.position = Vector3(0, 0.35, 0)
+
+	var cage_mat = StandardMaterial3D.new()
+	cage_mat.albedo_color = Color(0.2, 0.2, 0.2)  # Dark metal
+	cage_mat.metallic = 0.8
+	cage_mat.roughness = 0.4
+	cage.material_override = cage_mat
+	handle.add_child(cage)
+
+	# Create larger flame (orange/red gradient)
+	var flame = MeshInstance3D.new()
+	var flame_mesh = SphereMesh.new()
+	flame_mesh.radial_segments = 8
+	flame_mesh.rings = 6
+	flame_mesh.radius = 0.12
+	flame_mesh.height = 0.35
+	flame.mesh = flame_mesh
+	flame.position = Vector3(0, 0.4, 0)
+
+	var flame_mat = StandardMaterial3D.new()
+	flame_mat.albedo_color = Color(1.0, 0.45, 0.0)  # Bright orange
+	flame_mat.emission_enabled = true
+	flame_mat.emission = Color(1.0, 0.35, 0.0)
+	flame_mat.emission_energy_multiplier = 4.0
+	flame_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	flame_mat.albedo_color.a = 0.9
+	flame.material_override = flame_mat
+	handle.add_child(flame)
+
+	# Add flame tips (brighter, more yellow)
+	var flame_tip = MeshInstance3D.new()
+	var tip_mesh = SphereMesh.new()
+	tip_mesh.radius = 0.08
+	tip_mesh.height = 0.2
+	flame_tip.mesh = tip_mesh
+	flame_tip.position = Vector3(0, 0.55, 0)
+
+	var tip_mat = StandardMaterial3D.new()
+	tip_mat.albedo_color = Color(1.0, 0.8, 0.2)  # Yellow-orange
+	tip_mat.emission_enabled = true
+	tip_mat.emission = Color(1.0, 0.7, 0.1)
+	tip_mat.emission_energy_multiplier = 5.0
+	tip_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	tip_mat.albedo_color.a = 0.85
+	flame_tip.material_override = tip_mat
+	handle.add_child(flame_tip)
+
+	# Add dynamic light (warm orange glow)
+	_light = OmniLight3D.new()
+	_light.light_color = Color(1.0, 0.5, 0.2)  # Orange torch light
+	_light.light_energy = 2.5
+	_light.omni_range = 12.0  # 12 block radius
+	_light.omni_attenuation = 0.6
+	_light.shadow_enabled = true
+	add_child(_light)
+
+	# Animate flame flickering (both flames)
+	var tween = flame.create_tween()
+	tween.set_loops()
+	tween.tween_property(flame, "scale", Vector3(1.15, 1.25, 1.15), 0.12)
+	tween.tween_property(flame, "scale", Vector3(0.85, 0.75, 0.85), 0.12)
+
+	var tween_tip = flame_tip.create_tween()
+	tween_tip.set_loops()
+	tween_tip.tween_property(flame_tip, "scale", Vector3(1.2, 1.3, 1.2), 0.1)
+	tween_tip.tween_property(flame_tip, "scale", Vector3(0.8, 0.7, 0.8), 0.1)
+
+
+func initialize(start_pos: Vector3, target_pos: Vector3, throw_power: float = 15.0):
+	global_position = start_pos
+
+	# Calculate parabolic arc trajectory
+	var to_target = target_pos - start_pos
+	var horizontal_dist = Vector2(to_target.x, to_target.z).length()
+	var vertical_dist = to_target.y
+
+	# Time to reach target (estimate)
+	var flight_time = horizontal_dist / throw_power
+
+	# Calculate initial velocities
+	var horizontal_dir = Vector3(to_target.x, 0, to_target.z).normalized()
+	var horizontal_vel = horizontal_dir * throw_power
+
+	# Vertical velocity for parabolic arc (adds extra height)
+	var arc_height = 3.0  # Extra height for nice arc
+	var vertical_vel = (vertical_dist + arc_height + 0.5 * GRAVITY * flight_time * flight_time) / flight_time
+
+	initial_velocity = Vector3(horizontal_vel.x, vertical_vel, horizontal_vel.z)
+	_velocity = initial_velocity
+
+
+func _physics_process(delta: float):
+	lifetime -= delta
+
+	if lifetime <= 0:
+		_land_torch()
+		return
+
+	# Apply gravity
+	_velocity.y -= GRAVITY * delta
+
+	# Move torch
+	var motion = _velocity * delta
+
+	# Rotate torch end-over-end
+	rotate(Vector3.RIGHT, _rotation_speed * delta)
+
+	# Check for collision
+	if _terrain != null:
+		var vt = _terrain.get_voxel_tool()
+		vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+		var hit = vt.raycast(global_position, _velocity.normalized(), motion.length() + 0.5)
+		if hit != null:
+			# Hit something!
+			global_position = Vector3(hit.previous_position) + Vector3(0.5, 0.5, 0.5)
+			_land_torch()
+			return
+
+	global_position += motion
+
+
+func _land_torch():
+	"""Torch has landed - become a static light source"""
+	print("Torch landed at ", global_position)
+
+	# Stop moving
+	_velocity = Vector3.ZERO
+	rotation = Vector3.ZERO  # Stand upright
+
+	# Keep the light but remove physics
+	set_physics_process(false)
+
+	# TODO: Make torch pickupable again
+	# For now, torch just stays as a light source
+
+	# Auto-cleanup after 5 minutes
+	await get_tree().create_timer(300.0).timeout
+	queue_free()

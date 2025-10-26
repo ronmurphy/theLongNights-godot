@@ -185,6 +185,8 @@ func _register_commands() -> void:
 	commands["week"] = _cmd_week
 	commands["bloodmoon"] = _cmd_bloodmoon
 	commands["fps"] = _cmd_fps
+	commands["give"] = _cmd_give
+	commands["list"] = _cmd_list
 
 ## Commands Implementation
 
@@ -211,6 +213,10 @@ func _cmd_help(_args: Array) -> void:
 	add_output("[color=cyan]Bloodmoon Commands:[/color]")
 	add_output("  [color=yellow]bloodmoon start[/color] - Trigger bloodmoon")
 	add_output("  [color=yellow]bloodmoon stop[/color] - End bloodmoon")
+	add_output("")
+	add_output("[color=cyan]Item Commands:[/color]")
+	add_output("  [color=yellow]list items[/color] - Show all available items")
+	add_output("  [color=yellow]give <item_name> [amount][/color] - Give item to inventory")
 	add_output("")
 	add_output("[color=cyan]Display Commands:[/color]")
 	add_output("  [color=yellow]fps true[/color] - Show FPS counter")
@@ -355,3 +361,104 @@ func _cmd_fps(args: Array) -> void:
 		add_output("[color=lime]FPS counter disabled[/color]")
 	else:
 		add_output("[color=red]Invalid value. Use: fps true | fps false[/color]")
+
+func _cmd_give(args: Array) -> void:
+	if args.is_empty():
+		add_output("[color=red]Usage: give <item_name> [amount][/color]")
+		add_output("[color=yellow]Example: give torch 10[/color]")
+		add_output("[color=yellow]Type 'list items' to see available items[/color]")
+		return
+
+	var item_name = args[0].to_lower()
+	var amount = 1
+	if args.size() > 1:
+		amount = args[1].to_int()
+		if amount < 1:
+			amount = 1
+
+	# Item name to ID mapping
+	var item_map = {
+		"rocket_launcher": 0,
+		"grappling_hook": 1,
+		"grapple": 1,
+		"climbing_claws": 2,
+		"claws": 2,
+		"ice_bow": 3,
+		"bow": 3,
+		"fire_staff": 4,
+		"staff": 4,
+		"throwing_knives": 5,
+		"knives": 5,
+		"torch": 6
+	}
+
+	if not item_map.has(item_name):
+		add_output("[color=red]Unknown item: " + item_name + "[/color]")
+		add_output("[color=yellow]Type 'list items' to see available items[/color]")
+		return
+
+	var item_id = item_map[item_name]
+	var inventory = get_node_or_null("/root/Main/Game/Avatar/Head/Inventory")
+
+	if inventory == null:
+		add_output("[color=red]Error: Inventory not found[/color]")
+		return
+
+	# Find first empty slot in inventory
+	var slots = inventory._slots
+	var empty_slot = -1
+	for i in range(slots.size()):
+		if slots[i] == null:
+			empty_slot = i
+			break
+
+	if empty_slot == -1:
+		add_output("[color=red]Inventory is full![/color]")
+		return
+
+	# Create item
+	const InventoryItem = preload("res://blocky_game/player/inventory_item.gd")
+	var item = InventoryItem.new()
+	item.id = item_id
+	item.type = InventoryItem.TYPE_ITEM
+
+	# Only torches can stack
+	if item_name == "torch":
+		item.count = amount
+	else:
+		# Other items have "infinite ammo" - single instance
+		item.count = 1
+		if amount > 1:
+			add_output("[color=yellow]Note: " + item_name + " has infinite ammo, amount ignored[/color]")
+
+	slots[empty_slot] = item
+	inventory._update_views()
+
+	add_output("[color=lime]Gave " + (str(amount) + "x " if item_name == "torch" else "") + item_name + "[/color]")
+
+func _cmd_list(args: Array) -> void:
+	if args.is_empty():
+		add_output("[color=red]Usage: list items[/color]")
+		return
+
+	var subcmd = args[0].to_lower()
+
+	if subcmd == "items":
+		add_output("[color=lime]=== Available Items ===[/color]")
+		add_output("")
+		add_output("[color=cyan]Weapons (Infinite Ammo):[/color]")
+		add_output("  [color=yellow]rocket_launcher[/color] - Explosive projectile launcher")
+		add_output("  [color=yellow]grappling_hook[/color] (or 'grapple') - Arc to distant blocks")
+		add_output("  [color=yellow]ice_bow[/color] (or 'bow') - Zigzag homing ice arrow")
+		add_output("  [color=yellow]fire_staff[/color] (or 'staff') - Meteor strike from sky")
+		add_output("  [color=yellow]throwing_knives[/color] (or 'knives') - Spiral attack")
+		add_output("")
+		add_output("[color=cyan]Tools:[/color]")
+		add_output("  [color=yellow]climbing_claws[/color] (or 'claws') - Climb vertical walls")
+		add_output("")
+		add_output("[color=cyan]Consumables (Stackable):[/color]")
+		add_output("  [color=yellow]torch[/color] - Throwable light source")
+		add_output("")
+		add_output("[color=yellow]Usage: give <item_name> [amount][/color]")
+	else:
+		add_output("[color=red]Unknown list command. Use: list items[/color]")

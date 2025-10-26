@@ -39,6 +39,8 @@ var _cursor : MeshInstance3D = null
 var _action_place := false
 var _action_use := false
 var _action_pick := false
+var _torch_light : OmniLight3D = null
+var _current_held_item_id := -1
 
 
 func _ready():
@@ -49,7 +51,7 @@ func _ready():
 		mesh_instance.material_override = cursor_material
 	mesh_instance.set_scale(Vector3(1,1,1)*1.01)
 	_cursor = mesh_instance
-	
+
 	_terrain.add_child(_cursor)
 	_terrain_tool = _terrain.get_voxel_tool()
 	_terrain_tool.channel = VoxelBuffer.CHANNEL_TYPE
@@ -57,6 +59,16 @@ func _ready():
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() == false or mp.is_server():
 		_water_updater = get_node("/root/Main/Game/Water")
+
+	# Create torch light (initially disabled)
+	_torch_light = OmniLight3D.new()
+	_torch_light.light_color = Color(1.0, 0.5, 0.2)  # Orange torch light
+	_torch_light.light_energy = 2.0
+	_torch_light.omni_range = 12.0
+	_torch_light.omni_attenuation = 0.6
+	_torch_light.shadow_enabled = true
+	_torch_light.visible = false
+	_head.add_child(_torch_light)
 
 
 func _get_pointed_voxel() -> VoxelRaycastResult:
@@ -70,7 +82,7 @@ func _get_pointed_voxel() -> VoxelRaycastResult:
 func _physics_process(_delta):
 	if _terrain == null:
 		return
-	
+
 	var hit := _get_pointed_voxel()
 	if hit != null:
 		_cursor.show()
@@ -81,6 +93,17 @@ func _physics_process(_delta):
 		DDD.set_text("Pointed voxel", "---")
 
 	var inv_item := _hotbar.get_selected_item()
+
+	# Update torch light based on held item
+	var new_item_id = -1
+	if inv_item != null and inv_item.type == InventoryItem.TYPE_ITEM:
+		new_item_id = inv_item.id
+
+	if new_item_id != _current_held_item_id:
+		_current_held_item_id = new_item_id
+		# Torch has item ID 6
+		if _torch_light:
+			_torch_light.visible = (_current_held_item_id == 6)
 	
 	# These inputs have to be in _fixed_process because they rely on collision queries
 	if inv_item == null or inv_item.type == InventoryItem.TYPE_BLOCK:

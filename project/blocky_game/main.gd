@@ -15,8 +15,12 @@ func _on_main_menu_singleplayer_requested():
 	_game = BlockyGameScene.instantiate()
 	_game.set_network_mode(BlockyGame.NETWORK_MODE_SINGLEPLAYER)
 	add_child(_game)
-	
+
 	_main_menu.hide()
+
+	# Start music when entering game
+	if has_node("/root/MusicManager"):
+		get_node("/root/MusicManager").start_music()
 
 
 func _on_main_menu_connect_to_server_requested(ip: String, port: int):
@@ -30,11 +34,15 @@ func _on_main_menu_connect_to_server_requested(ip: String, port: int):
 
 	get_viewport().get_window().title = "Client"
 
+	# Start music when entering game
+	if has_node("/root/MusicManager"):
+		get_node("/root/MusicManager").start_music()
+
 
 func _on_main_menu_host_server_requested(port: int):
 	if _upnp_helper != null and not _upnp_helper.is_setup():
 		_upnp_helper.setup(port, PackedStringArray(["UDP"]), "VoxelBlockyGame", 20 * 60)
-	
+
 	_game = BlockyGameScene.instantiate()
 	_game.set_port(port)
 	_game.set_network_mode(BlockyGame.NETWORK_MODE_HOST)
@@ -43,6 +51,10 @@ func _on_main_menu_host_server_requested(port: int):
 	_main_menu.hide()
 
 	get_viewport().get_window().title = "Server"
+
+	# Start music when entering game
+	if has_node("/root/MusicManager"):
+		get_node("/root/MusicManager").start_music()
 
 
 func _on_main_menu_upnp_toggled(pressed: bool):

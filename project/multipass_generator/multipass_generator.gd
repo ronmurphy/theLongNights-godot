@@ -123,5 +123,3 @@ func _generate_block_fallback(out_buffer: VoxelBuffer, origin_in_voxels: Vector3
 
 func _get_used_channels_mask() -> int:
 	return 1 << CHANNEL
-
-

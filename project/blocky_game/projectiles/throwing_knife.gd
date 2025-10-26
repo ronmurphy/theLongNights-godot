@@ -1,0 +1,168 @@
+extends Node3D
+
+# Magical throwing knife that circles around target before striking
+
+var target_position : Vector3
+var speed := 20.0
+var circle_radius := 3.0  # How far from target to circle
+var circles_before_impact := 3  # Number of full circles before hitting
+var lifetime := 10.0
+
+var _angle := 0.0  # Current angle around target
+var _circles_completed := 0.0
+var _terrain : VoxelTerrain = null
+var _trail_timer := 0.0
+
+@onready var _mesh : MeshInstance3D = $MeshInstance3D
+
+
+func _ready():
+	_terrain = get_node("/root/Main/Game/VoxelTerrain")
+
+	# Create a magical knife visual
+	var mesh_node = MeshInstance3D.new()
+	var box_mesh = BoxMesh.new()
+	box_mesh.size = Vector3(0.05, 0.3, 0.1)  # Thin knife shape
+	mesh_node.mesh = box_mesh
+
+	var material = StandardMaterial3D.new()
+	material.albedo_color = Color(0.8, 0.9, 1.0)  # Silver-white
+	material.metallic = 0.9
+	material.roughness = 0.1
+	material.emission_enabled = true
+	material.emission = Color(0.9, 0.95, 1.0)  # Slight white glow
+	material.emission_energy_multiplier = 2.0
+	mesh_node.material_override = material
+
+	add_child(mesh_node)
+	_mesh = mesh_node
+
+	# Add magical purple aura
+	var aura = MeshInstance3D.new()
+	var aura_mesh = BoxMesh.new()
+	aura_mesh.size = Vector3(0.12, 0.4, 0.15)
+	aura.mesh = aura_mesh
+	var aura_mat = StandardMaterial3D.new()
+	aura_mat.albedo_color = Color(0.7, 0.3, 1.0, 0.4)  # Purple magic
+	aura_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	aura_mat.emission_enabled = true
+	aura_mat.emission = Color(0.8, 0.4, 1.0)
+	aura_mat.emission_energy_multiplier = 3.0
+	aura_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	aura.material_override = aura_mat
+	mesh_node.add_child(aura)
+
+
+func initialize(start_pos: Vector3, target_pos: Vector3):
+	global_position = start_pos
+	target_position = target_pos
+
+	# Start at a random angle
+	_angle = randf() * TAU
+
+
+func _physics_process(delta: float):
+	lifetime -= delta
+	_trail_timer += delta
+
+	if lifetime <= 0:
+		queue_free()
+		return
+
+	# Spawn magic trail
+	if _trail_timer > 0.04:
+		_spawn_magic_trail()
+		_trail_timer = 0.0
+
+	# Calculate how many radians to move this frame
+	# We want to complete circles_before_impact circles total
+	var radians_per_second = (TAU * speed) / (circle_radius * TAU)  # Angular speed
+	_angle += radians_per_second * delta
+
+	# Track how many circles we've done
+	_circles_completed = _angle / TAU
+
+	# Gradually decrease radius as we spiral inward
+	var progress = min(_circles_completed / circles_before_impact, 1.0)
+	var current_radius = circle_radius * (1.0 - progress)
+
+	# Calculate position circling around target
+	var offset = Vector3(
+		cos(_angle) * current_radius,
+		sin(_angle * 2.0) * 0.5,  # Slight vertical wave
+		sin(_angle) * current_radius
+	)
+
+	var new_pos = target_position + offset
+
+	# Point knife in direction of movement
+	var direction = (new_pos - global_position).normalized()
+	if direction.length() > 0.1:
+		look_at(new_pos, Vector3.UP)
+		# Spin the knife as it flies
+		_mesh.rotate_z(delta * 20.0)
+
+	# Move to new position
+	global_position = new_pos
+
+	# Check if we've completed enough circles and are close enough
+	if _circles_completed >= circles_before_impact or current_radius < 0.2:
+		_on_impact(target_position)
+		return
+
+	# Check for collision with terrain during flight
+	if _terrain != null:
+		var vt = _terrain.get_voxel_tool()
+		vt.channel = VoxelBuffer.CHANNEL_TYPE
+		var block_pos = Vector3i(floor(global_position.x), floor(global_position.y), floor(global_position.z))
+		var voxel = vt.get_voxel(block_pos)
+		if voxel != 0:
+			# Hit a block!
+			_on_impact(Vector3(block_pos))
+			return
+
+
+func _spawn_magic_trail():
+	"""Spawn purple magic particles as trail"""
+	var particle = MeshInstance3D.new()
+	var star = BoxMesh.new()
+	star.size = Vector3(0.06, 0.06, 0.06)
+	particle.mesh = star
+
+	var material = StandardMaterial3D.new()
+	material.albedo_color = Color(0.8, 0.5, 1.0, 0.6)
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.emission_enabled = true
+	material.emission = Color(0.9, 0.6, 1.0)
+	material.emission_energy_multiplier = 2.5
+	particle.material_override = material
+
+	get_parent().add_child(particle)
+	particle.global_position = global_position
+
+	# Fade out
+	var tween = particle.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(particle, "scale", Vector3.ZERO, 0.3)
+	tween.tween_property(material, "albedo_color:a", 0.0, 0.3)
+	tween.chain().tween_callback(particle.queue_free)
+
+
+func _on_impact(hit_pos: Vector3):
+	"""Handle impact with target or block"""
+	print("Throwing knife impact at ", hit_pos)
+
+	if _terrain != null:
+		var vt = _terrain.get_voxel_tool()
+		vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+		var block_pos = Vector3i(floor(hit_pos.x), floor(hit_pos.y), floor(hit_pos.z))
+		var voxel_id = vt.get_voxel(block_pos)
+
+		# Destroy block if it's not bedrock (bedrock is typically ID 0 or a specific ID)
+		# Assuming bedrock is voxel ID 0, we check if it's anything else
+		if voxel_id != 0:
+			vt.set_voxel(block_pos, 0)
+			print("Knife destroyed block at ", block_pos)
+
+	queue_free()

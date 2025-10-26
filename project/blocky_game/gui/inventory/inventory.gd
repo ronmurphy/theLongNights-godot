@@ -31,11 +31,18 @@ func _ready():
 	_slots[hotbar_begin_index + 2] = _make_item(InventoryItem.TYPE_BLOCK, 3)
 	_slots[hotbar_begin_index + 3] = _make_item(InventoryItem.TYPE_BLOCK, 4)
 	_slots[hotbar_begin_index + 4] = _make_item(InventoryItem.TYPE_BLOCK, 5)
-	_slots[hotbar_begin_index + 5] = _make_item(InventoryItem.TYPE_BLOCK, 6)
-	_slots[hotbar_begin_index + 6] = _make_item(InventoryItem.TYPE_BLOCK, 7)
-	_slots[hotbar_begin_index + 7] = _make_item(InventoryItem.TYPE_ITEM, 0)
+	_slots[hotbar_begin_index + 5] = _make_item(InventoryItem.TYPE_ITEM, 2)  # Climbing claws
+	_slots[hotbar_begin_index + 6] = _make_item(InventoryItem.TYPE_ITEM, 1)  # Grappling hook
+	_slots[hotbar_begin_index + 7] = _make_item(InventoryItem.TYPE_ITEM, 0)  # Rocket launcher
 	_slots[hotbar_begin_index + 8] = _make_item(InventoryItem.TYPE_BLOCK, 9)
 	_slots[0] = _make_item(InventoryItem.TYPE_BLOCK, 8)
+	_slots[1] = _make_item(InventoryItem.TYPE_ITEM, 3)  # Ice bow in bag slot 1
+	_slots[2] = _make_item(InventoryItem.TYPE_ITEM, 4)  # Fire staff in bag slot 2
+	_slots[3] = _make_item(InventoryItem.TYPE_ITEM, 5)  # Throwing knives in bag slot 3
+	# Torch in bag slot 4 with stack of 10
+	var torch_item = _make_item(InventoryItem.TYPE_ITEM, 6)
+	torch_item.count = 10
+	_slots[4] = torch_item
 
 	# Init views
 	var slot_idx := 0
