@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dvpk8we5oml0o"
-path="res://.godot/imported/torch.png-17e435bf113c28903da62a1ed32aca63.ctex"
+uid="uid://d3phyy6m2rtjq"
+path="res://.godot/imported/throwing_knives_sprite.png-2b2647ebae30cef0683ce0efd8a5439c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/items/torch/torch.png"
-dest_files=["res://.godot/imported/torch.png-17e435bf113c28903da62a1ed32aca63.ctex"]
+source_file="res://blocky_game/items/throwing_knives/throwing_knives_sprite.png"
+dest_files=["res://.godot/imported/throwing_knives_sprite.png-2b2647ebae30cef0683ce0efd8a5439c.ctex"]
 
 [params]
 

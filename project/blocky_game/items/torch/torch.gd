@@ -11,40 +11,11 @@ const MAX_TARGET_DISTANCE = 50.0
 
 
 func use(trans: Transform3D):
-	# Check if we have torches to throw
-	var inventory = get_node_or_null("/root/Main/Game/Avatar/Head/Inventory")
-	if inventory == null:
-		return
-
-	# Find the torch in inventory
-	var torch_slot_idx = -1
-	for i in range(inventory._slots.size()):
-		var slot_item = inventory._slots[i]
-		if slot_item != null and slot_item.type == InventoryItem.TYPE_ITEM and slot_item.id == 6:
-			torch_slot_idx = i
-			break
-
-	if torch_slot_idx == -1:
-		print("No torches in inventory!")
-		return
-
-	var torch_item = inventory._slots[torch_slot_idx]
-
-	# Throw the torch
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans)
 	else:
 		_use(trans)
-
-	# Decrement count (torches are consumable)
-	torch_item.count -= 1
-	if torch_item.count <= 0:
-		# Remove from inventory
-		inventory._slots[torch_slot_idx] = null
-
-	# Update display
-	inventory._update_views()
 
 
 func _use(trans: Transform3D):

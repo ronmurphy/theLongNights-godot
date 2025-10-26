@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c0d05npojmtpu"
-path="res://.godot/imported/grapple.png-334e7bf776b7330f398dfd4c6cd7cf93.ctex"
+uid="uid://coa021p5mxwq1"
+path="res://.godot/imported/grappling_hook_sprite.png-ec97d9e7d30c87c53a6a73a558dff5fb.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/items/grappling_hook/grapple.png"
-dest_files=["res://.godot/imported/grapple.png-334e7bf776b7330f398dfd4c6cd7cf93.ctex"]
+source_file="res://blocky_game/items/grappling_hook/grappling_hook_sprite.png"
+dest_files=["res://.godot/imported/grappling_hook_sprite.png-ec97d9e7d30c87c53a6a73a558dff5fb.ctex"]
 
 [params]
 

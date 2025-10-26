@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cjtd10qox3km3"
-path="res://.godot/imported/ice_bow.png-410075fdf220313da8b69d18166ddc4f.ctex"
+uid="uid://dsy3yvf6yskvg"
+path="res://.godot/imported/ice_bow_sprite.png-44b2912d8dbb2e9c2057205d86f496b6.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/items/ice_bow/ice_bow.png"
-dest_files=["res://.godot/imported/ice_bow.png-410075fdf220313da8b69d18166ddc4f.ctex"]
+source_file="res://blocky_game/items/ice_bow/ice_bow_sprite.png"
+dest_files=["res://.godot/imported/ice_bow_sprite.png-44b2912d8dbb2e9c2057205d86f496b6.ctex"]
 
 [params]
 
