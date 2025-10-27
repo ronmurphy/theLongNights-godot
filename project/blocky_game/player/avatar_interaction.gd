@@ -144,31 +144,36 @@ func _physics_process(_delta):
 
 
 func _unhandled_input(event: InputEvent):
-	# Check if console is open - if so, don't process game inputs
+	# Check if console or terrain mapper is open - if so, don't process game inputs
 	var console = get_node_or_null("/root/Main/Game/GameConsole")
 	var console_open = console != null and console.is_visible
+	
+	var terrain_mapper = get_node_or_null("/root/Main/Game/TerrainMapper")
+	var terrain_mapper_open = terrain_mapper != null and terrain_mapper.is_visible
+	
+	var ui_open = console_open or terrain_mapper_open
 
 	if event is InputEventMouseButton:
 		if event.pressed:
 			match event.button_index:
 				MOUSE_BUTTON_LEFT:
-					if not console_open:
+					if not ui_open:
 						_action_use = true
 				MOUSE_BUTTON_RIGHT:
-					if not console_open:
+					if not ui_open:
 						_action_place = true
 				MOUSE_BUTTON_MIDDLE:
-					if not console_open:
+					if not ui_open:
 						_action_pick = true
 				MOUSE_BUTTON_WHEEL_DOWN:
-					if not console_open:
+					if not ui_open:
 						_hotbar.select_next_slot()
 				MOUSE_BUTTON_WHEEL_UP:
-					if not console_open:
+					if not ui_open:
 						_hotbar.select_previous_slot()
 
 	elif event is InputEventKey:
-		if event.pressed and not console_open:
+		if event.pressed and not ui_open:
 			if _hotbar_keys.has(event.keycode):
 				var slot_index = _hotbar_keys[event.keycode]
 				_hotbar.select_slot(slot_index)

@@ -3,7 +3,80 @@
 **Project Start:** October 25, 2025
 **Engine:** Godot 4.5 with Zylann's Voxel Module (v1.5)
 **Platform:** Linux (Arch), Windows export capability
-**Current Status:** Graphics optimization system complete, fog system active
+**Current Status:** Graphics optimization system complete, fog system active, Terrain Mapper tool implemented
+
+---
+
+## Session 3: October 27, 2025 (Terrain Mapper & Block System)
+
+### Terrain Mapper Tool - COMPLETE ✅
+**Purpose:** Visual in-game tool for creating and mapping new block textures without manual coordinate calculation
+
+**Files Created/Modified:**
+- ✅ Created: `long_nights/TerrainMapper.gd` (253 lines)
+- ✅ Created: `docs/godot/TERRAIN_MAPPER.md` (comprehensive guide)
+- ✅ Modified: `blocky_game/blocky_game.gd` (added terrain mapper instantiation)
+- ✅ Modified: `blocky_game/player/avatar_interaction.gd` (added mapper input check)
+
+**Features Implemented:**
+- ✅ Opens with **Ctrl+T** hotkey (independent from console)
+- ✅ Displays terrain.png with visual 16×16 grid overlay
+- ✅ Click grid cells to select texture location
+- ✅ Auto-calculates UV coordinates (handles OBJ bottom-left origin inversion)
+- ✅ Generates blocks.gd template code (ready to paste)
+- ✅ Generates OBJ file template with correct vt values for all 6 cube faces
+- ✅ **COPY ALL button** - Copies all data to system clipboard
+- ✅ Mouse control working perfectly
+- ✅ Prevents scrollwheel from triggering hotbar
+- ✅ Hides PartyUI while mapper is open
+- ✅ Disables game controls during use
+- ✅ Dynamic cell size calculation based on actual grid display size
+
+**Terrain Atlas Details:**
+- Location: `res://blocky_game/blocks/terrain.png`
+- Size: 16×16 grid = 256 total texture slots
+- Current usage: ~20-30 blocks active
+- Available: 200+ empty slots for new blocks
+
+**Example Output (Grid 8,0):**
+```
+Grid Coordinates: (8, 0)
+UV: U: 0.5000 - 0.5625, V: 0.0000 - 0.0625
+
+blocks.gd template:
+_create_block({
+    "name": "new_block_8_0",
+    "gui_model": "new_block_8_0.obj",
+    "rotation_type": ROTATION_TYPE_NONE,
+    "voxels": ["new_block_8_0"],
+    "transparent": false
+})
+
+OBJ template: (with vt coordinates for all 6 faces)
+```
+
+### Issues Resolved This Session:
+- ❌ Attempted complex tinting/pooling system (abandoned as over-engineered)
+- ❌ Hard reset to clean state (removed all tinting code)
+- ✅ Fixed path resolution for console commands (player discovery via SceneTree groups)
+- ✅ Removed non-functional giveblock/listblocks commands
+- ✅ Identified grass/dead_shrub collision issue (voxel library limitation)
+- ✅ Built Terrain Mapper from scratch in ~2 hours
+- ✅ Resolved parse errors and type mismatches
+- ✅ Fixed mouse input handling and scrollwheel propagation
+
+### Investigation: Grass & Dead Shrub Non-Targetable
+**Finding:** Both blocks marked as `"transparent": true` in blocks.gd
+- **Root Cause:** Voxel library has these blocks configured as non-solid (no collision)
+- **Result:** Raycasts pass through them, hitting terrain behind
+- **Solution:** Would require voxel_library.tres modification (not done)
+- **Status:** Identified but deferred (not blocking gameplay)
+
+### Lessons Learned:
+1. **Don't over-engineer:** Tinting + pooling was overkill, simple approach is better
+2. **Keep it modular:** Independent tool (mapper) is cleaner than integrated system
+3. **Godot 4 quirks:** `wrap_enabled` doesn't exist on TextEdit, use dynamic sizing
+4. **User experience:** Clipboard copy-to-clipboard beats file saving
 
 ---
 

@@ -139,6 +139,12 @@ func _ready():
 		add_child(console)
 		print("The Long Nights: Console ready (~ or F1)")
 
+		# Add terrain mapper for block creation
+		var TerrainMapper = preload("res://long_nights/TerrainMapper.gd")
+		var terrain_mapper = TerrainMapper.new()
+		add_child(terrain_mapper)
+		print("The Long Nights: Terrain mapper ready (Ctrl+T)")
+
 		# Add game over screen
 		var game_over = GameOverScreen.new()
 		add_child(game_over)
