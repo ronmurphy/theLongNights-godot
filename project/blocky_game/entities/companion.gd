@@ -31,7 +31,6 @@ var weapon_path: String = ""
 var weapon_name: String = ""
 var is_ranged_weapon: bool = false
 var _lightning_from_sky: bool = true  # Alternates for wizard lightning
-var _last_equipped_weapon_id: int = -1  # Track equipped weapon changes
 
 
 func _ready():
@@ -59,6 +58,9 @@ func _ready():
 	# Get weapon path and load weapon item
 	weapon_path = CompanionManager.get_companion_weapon()
 	_load_weapon()
+	
+	# Connect to inventory equipment changes
+	call_deferred("_connect_to_inventory")
 
 	# Find player
 	_find_player()
@@ -76,36 +78,36 @@ func _ready():
 	])
 
 
-func _load_weapon():
-	# Check if companion has an equipped weapon from inventory
+func _get_inventory():
+	"""Helper to find inventory in scene tree"""
 	var inventory = get_node_or_null("/root/Main/Game/CharacterAvatar/Inventory")
-	if inventory:
-		var equipped_weapon_item = inventory.get_companion_equipped_weapon()
-		print("Companion _load_weapon: equipped_weapon_item = ", equipped_weapon_item)
-		if equipped_weapon_item != null:
-			print("  - Found equipped weapon, ID: %d, Type: %d" % [equipped_weapon_item.id, equipped_weapon_item.type])
-			# Use equipped weapon from inventory
-			var item_db = get_node_or_null("/root/Main/Game/Items")
-			if item_db:
-				_weapon_item = item_db.get_item(equipped_weapon_item.id)
-				if _weapon_item:
-					weapon_name = _weapon_item.base_info.name
-					# Determine if ranged based on weapon
-					is_ranged_weapon = weapon_name in ["crossbow", "ice_bow", "fire_staff", "rocket_launcher", "throwing_knives"]
-					print("Companion using equipped weapon: %s (ID: %d)" % [weapon_name, equipped_weapon_item.id])
-					return
-				else:
-					print("  - ERROR: Could not get weapon from item_db!")
-			else:
-				print("  - ERROR: Could not find item_db!")
-		else:
-			print("  - No equipped weapon, using default")
+	if not inventory and _player:
+		inventory = _player.get_node_or_null("Inventory")
+	return inventory
 
-	# Fallback to default weapon based on race
+
+func _load_weapon():
+	# Get item database reference
 	var item_db = get_node_or_null("/root/Main/Game/Items")
 	if not item_db:
 		push_warning("Companion: Could not find item database")
 		return
+	
+	# Check if companion has an equipped weapon from inventory
+	var inventory = _get_inventory()
+	if inventory:
+		var equipped_weapon_item = inventory.get_companion_equipped_weapon()
+		if equipped_weapon_item != null:
+			# Use equipped weapon from inventory
+			_weapon_item = item_db.get_item(equipped_weapon_item.id)
+			if _weapon_item:
+				weapon_name = _weapon_item.base_info.name
+				# Determine if ranged based on weapon
+				is_ranged_weapon = weapon_name in ["crossbow", "ice_bow", "fire_staff", "rocket_launcher", "throwing_knives"]
+				print("Companion using equipped weapon: %s (ID: %d)" % [weapon_name, equipped_weapon_item.id])
+				return
+
+	# Fallback to default weapon based on race
 
 	# Map weapon path to weapon name
 	match CompanionManager.companion_race:
@@ -147,12 +149,37 @@ func _find_player():
 		push_warning("Companion: Could not find player!")
 
 
+func _connect_to_inventory():
+	"""Connect to inventory's equipment_changed signal"""
+	var inventory = _get_inventory()
+	
+	if inventory:
+		if inventory.has_signal("equipment_changed"):
+			inventory.equipment_changed.connect(_on_equipment_changed)
+		else:
+			push_warning("Companion: Inventory doesn't have equipment_changed signal!")
+	else:
+		# Retry after a delay
+		await get_tree().create_timer(1.0).timeout
+		_connect_to_inventory()
+
+
+func _on_equipment_changed():
+	"""Called when player changes equipment in inventory"""
+	_load_weapon()
+	
+	# Update PartyUI weapon icon
+	var game_node = get_node_or_null("/root/Main/Game")
+	if game_node:
+		for child in game_node.get_children():
+			if child.has_method("_update_companion_weapon"):
+				child._update_companion_weapon()
+				break
+
+
 func _process(delta: float):
 	if not is_alive:
 		return
-
-	# Check if equipped weapon changed
-	_check_equipped_weapon()
 
 	# Update attack cooldown
 	if _attack_cooldown > 0:
@@ -495,23 +522,3 @@ func _spawn_heal_effect(pos: Vector3):
 	# Auto-delete after lifetime
 	await get_tree().create_timer(1.5).timeout
 	particles.queue_free()
-
-
-func _check_equipped_weapon():
-	"""Check if equipped weapon changed and reload if needed"""
-	var inventory = get_node_or_null("/root/Main/Game/CharacterAvatar/Inventory")
-	if not inventory:
-		return
-
-	var equipped_weapon_item = inventory.get_companion_equipped_weapon()
-
-	# Get current equipped weapon ID
-	var current_id = -1
-	if equipped_weapon_item != null:
-		current_id = equipped_weapon_item.id
-
-	# If weapon changed, reload
-	if current_id != _last_equipped_weapon_id:
-		print("Companion weapon changed from ID %d to ID %d - reloading" % [_last_equipped_weapon_id, current_id])
-		_last_equipped_weapon_id = current_id
-		_load_weapon()

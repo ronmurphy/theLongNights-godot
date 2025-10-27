@@ -46,7 +46,7 @@ func _init():
 	var world_seed = 131183  # Default seed
 
 	# Try to load seed from world.config file directly
-	var config_path = "res://blocky_game/save/world.config"
+	var config_path = "user://save/world.config"
 	if FileAccess.file_exists(config_path):
 		var file = FileAccess.open(config_path, FileAccess.READ)
 		if file != null:

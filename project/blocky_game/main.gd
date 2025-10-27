@@ -22,6 +22,10 @@ func _on_main_menu_continue_game_requested():
 	# Load saved character data
 	if not PlayerData.load_from_file():
 		push_warning("No saved character data, using defaults")
+	
+	# Load saved companion data (equipment, etc.)
+	if not CompanionManager.load_from_file():
+		print("No saved companion data, will use defaults")
 
 	_start_game()
 

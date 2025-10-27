@@ -15,6 +15,7 @@ const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
 var companion_race: String = "elf"
 var companion_role: String = "healer"
 var companion_gender: String = "female"  # All companions are female for now
+var equipped_weapon_id: int = -1  # -1 means use default weapon
 
 
 ## Determine companion based on player choices
@@ -111,3 +112,48 @@ func get_companion_name() -> String:
 
 func get_role_name() -> String:
 	return CharacterQuiz.get_role_name(companion_role)
+
+
+## Save companion data (including equipped weapon)
+func save_to_file() -> void:
+	var save_data = {
+		"race": companion_race,
+		"role": companion_role,
+		"gender": companion_gender,
+		"equipped_weapon_id": equipped_weapon_id
+	}
+	
+	var file = FileAccess.open("user://companion.save", FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(save_data))
+		file.close()
+
+
+## Load companion data (including equipped weapon)
+func load_from_file() -> bool:
+	if not FileAccess.file_exists("user://companion.save"):
+		return false
+	
+	var file = FileAccess.open("user://companion.save", FileAccess.READ)
+	if not file:
+		return false
+	
+	var file_text = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	var error = json.parse(file_text)
+	if error != OK:
+		push_warning("CompanionManager: Failed to parse save file")
+		return false
+	
+	var save_data = json.data
+	if typeof(save_data) != TYPE_DICTIONARY:
+		return false
+	
+	companion_race = save_data.get("race", "elf")
+	companion_role = save_data.get("role", "healer")
+	companion_gender = save_data.get("gender", "female")
+	equipped_weapon_id = save_data.get("equipped_weapon_id", -1)
+	
+	return true

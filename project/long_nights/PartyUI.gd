@@ -30,12 +30,25 @@ var companion_ui: Control
 var player_node: Node3D
 
 
+func _get_inventory():
+	"""Helper to find inventory in scene tree"""
+	var inventory = get_node_or_null("/root/Main/Game/CharacterAvatar/Inventory")
+	if not inventory:
+		var char_avatar = get_tree().get_first_node_in_group("player")
+		if char_avatar:
+			inventory = char_avatar.get_node_or_null("Inventory")
+	return inventory
+
+
 func _ready() -> void:
 	# Create UI
 	_create_ui()
 
 	# Connect to player after scene is ready
 	call_deferred("_connect_to_player")
+	
+	# Connect to inventory equipment changes
+	call_deferred("_connect_to_inventory")
 
 	print("PartyUI: Ready")
 
@@ -47,9 +60,9 @@ func _create_ui() -> void:
 	party_container.add_theme_constant_override("separation", 8)
 	add_child(party_container)
 
-	# Position in top-right (under time/day display)
+	# Position in top-right (under time/day display) with margin from edge
 	var viewport_size = get_viewport_rect().size
-	party_container.position = Vector2(viewport_size.x - 260, 70)
+	party_container.position = Vector2(viewport_size.x - 310, 70)
 
 	# Create player UI
 	player_ui = _create_party_member_ui()
@@ -150,27 +163,33 @@ func _create_party_member_ui() -> Control:
 	hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Let clicks pass through
 	hp_container.add_child(hp_label)
 
-	# Weapon icon (in top-right corner with margin)
-	var weapon_texture = TextureRect.new()
-	weapon_texture.name = "WeaponIcon"
-	weapon_texture.custom_minimum_size = Vector2(32, 32)
-	weapon_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	weapon_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	# Position it in top-right corner with spacing
-	weapon_texture.position = Vector2(210, 2)
-
+	# Weapon icon container (added to HBoxContainer to position properly)
+	var weapon_container = Control.new()
+	weapon_container.name = "WeaponContainer"
+	weapon_container.custom_minimum_size = Vector2(40, 64)  # Match avatar height
+	
 	# Add a background panel for visibility
 	var weapon_bg = Panel.new()
+	weapon_bg.name = "WeaponBG"
 	weapon_bg.custom_minimum_size = Vector2(36, 36)
-	weapon_bg.position = Vector2(150, 0)
+	weapon_bg.position = Vector2(2, 2)  # Small offset from container edge
 	var bg_style = StyleBoxFlat.new()
 	bg_style.bg_color = Color(0.1, 0.1, 0.1, 0.7)
 	bg_style.border_color = Color(0.4, 0.4, 0.4)
 	bg_style.set_border_width_all(1)
 	weapon_bg.add_theme_stylebox_override("panel", bg_style)
-	member_container.add_child(weapon_bg)
+	weapon_container.add_child(weapon_bg)
+	
+	# Weapon icon (positioned inside the background)
+	var weapon_texture = TextureRect.new()
+	weapon_texture.name = "WeaponIcon"
+	weapon_texture.custom_minimum_size = Vector2(32, 32)
+	weapon_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	weapon_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	weapon_texture.position = Vector2(4, 4)  # Centered in background
+	weapon_container.add_child(weapon_texture)
 
-	member_container.add_child(weapon_texture)
+	member_container.add_child(weapon_container)
 
 	return member_container
 
@@ -190,6 +209,28 @@ func _connect_to_player() -> void:
 	_update_player_ui()
 
 	print("PartyUI: Connected to player")
+
+
+func _connect_to_inventory() -> void:
+	"""Connect to inventory's equipment_changed signal"""
+	var inventory = _get_inventory()
+	
+	if inventory:
+		if inventory.has_signal("equipment_changed"):
+			inventory.equipment_changed.connect(_on_equipment_changed)
+		else:
+			push_warning("PartyUI: Inventory doesn't have equipment_changed signal!")
+	else:
+		# Retry after a delay
+		await get_tree().create_timer(1.0).timeout
+		_connect_to_inventory()
+
+
+func _on_equipment_changed() -> void:
+	"""Called when equipment changes in inventory"""
+	_update_player_weapon()
+	_update_companion_weapon()
+
 
 
 func _update_player_ui() -> void:
@@ -251,12 +292,12 @@ func _on_player_hp_changed(current: int, maximum: int) -> void:
 
 func _update_player_weapon() -> void:
 	# Get weapon icon
-	var weapon_icon = player_ui.get_node("WeaponIcon")
+	var weapon_icon = player_ui.get_node("WeaponContainer/WeaponIcon")
 	if not weapon_icon:
 		return
 
 	# Check equipped weapon from inventory first
-	var inventory = get_node_or_null("/root/Main/Game/CharacterAvatar/Inventory")
+	var inventory = _get_inventory()
 	var selected_item = null
 
 	if inventory:
@@ -370,30 +411,28 @@ func update_companion_hp(current: int, maximum: int) -> void:
 func _process(_delta: float) -> void:
 	# Keep UI positioned correctly if screen resizes
 	var viewport_size = get_viewport_rect().size
-	party_container.position = Vector2(viewport_size.x - 260, 70)
-
-	# Update weapon icons regularly to reflect equipped weapons
-	if player_ui and player_ui.visible:
-		_update_player_weapon()
-	if companion_ui and companion_ui.visible:
-		_update_companion_weapon()
+	party_container.position = Vector2(viewport_size.x - 310, 70)
 
 
 func _update_companion_weapon() -> void:
 	"""Update companion weapon icon based on equipped weapon"""
-	var weapon_icon = companion_ui.get_node("WeaponIcon")
+	if not companion_ui:
+		return
+		
+	if not companion_ui.visible:
+		return
+		
+	var weapon_icon = companion_ui.get_node("WeaponContainer/WeaponIcon")
 	if not weapon_icon:
-		print("PartyUI: Could not find companion WeaponIcon node!")
+		push_warning("PartyUI: Could not find companion WeaponIcon node!")
 		return
 
 	# Check equipped weapon from inventory first
-	var inventory = get_node_or_null("/root/Main/Game/CharacterAvatar/Inventory")
+	var inventory = _get_inventory()
 	var equipped_item = null
 
 	if inventory:
 		equipped_item = inventory.get_companion_equipped_weapon()
-		if equipped_item:
-			print("PartyUI: Companion equipped weapon ID: %d" % equipped_item.id)
 
 	# If no equipped weapon, show default racial weapon from item database
 	if not equipped_item:
@@ -422,6 +461,8 @@ func _update_companion_weapon() -> void:
 				weapon_icon.texture = item.base_info.sprite
 			else:
 				weapon_icon.texture = null
+		else:
+			weapon_icon.texture = null
 	else:
 		weapon_icon.texture = null
 

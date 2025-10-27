@@ -2,9 +2,9 @@ extends Node
 
 # WorldManager - Handles world save/load, seed management, and backups
 
-const SAVE_DIR = "res://blocky_game/save"
-const WORLD_CONFIG = "res://blocky_game/save/world.config"
-const BACKUP_DIR = "res://blocky_game/backups"
+const SAVE_DIR = "user://save"
+const WORLD_CONFIG = "user://save/world.config"
+const BACKUP_DIR = "user://backups"
 
 var _world_data := {
 	"seed": 131183,

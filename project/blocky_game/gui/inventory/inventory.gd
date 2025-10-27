@@ -67,6 +67,9 @@ func _ready():
 			slot.pressed.connect(_on_slot_pressed.bind(slot_idx))
 			_slot_views[slot_idx] = slot
 			slot_idx += 1
+	
+	# Initialize companion weapon slot with their default weapon
+	call_deferred("_initialize_companion_default_weapon")
 
 
 static func _make_item(type, id):
@@ -102,6 +105,43 @@ func get_player_equipped_weapon() -> InventoryItem:
 func get_companion_equipped_weapon() -> InventoryItem:
 	"""Get the companion's currently equipped weapon"""
 	return _companion_weapon_slot
+
+
+func _initialize_companion_default_weapon():
+	"""Initialize companion weapon slot with their default starting weapon or saved weapon"""
+	var weapon_id = -1
+	
+	# Try to load saved equipment first
+	if CompanionManager.equipped_weapon_id >= 0:
+		weapon_id = CompanionManager.equipped_weapon_id
+	else:
+		# Get the companion's default weapon ID based on their race
+		weapon_id = _get_companion_default_weapon_id()
+	
+	if weapon_id >= 0:
+		# Create an inventory item for the weapon
+		_companion_weapon_slot = _make_item(InventoryItem.TYPE_ITEM, weapon_id)
+		
+		# Update the visual display
+		if _companion_weapon_slot_view:
+			_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+
+
+func _get_companion_default_weapon_id() -> int:
+	"""Get the default weapon ID for companion's race"""
+	match CompanionManager.companion_race:
+		"dwarf":
+			return 7  # stone_hammer
+		"elf":
+			return 9  # crossbow
+		"goblin":
+			if CompanionManager.companion_gender == "female":
+				return 5  # throwing_knives
+			else:
+				return 0  # rocket_launcher
+		"human":
+			return 8  # machete
+	return -1
 
 
 func _unhandled_input(event):
@@ -167,30 +207,59 @@ func _on_slot_pressed(idx: int):
 		_dragged_item_view.start(_slots[idx])
 	
 	else:
+		# Get the dragged item (could be from equipment slot)
+		var dragged_item = null
+		if _dragged_slot >= 0:
+			dragged_item = _slots[_dragged_slot]
+		elif _dragged_slot == -999:
+			dragged_item = _player_weapon_slot
+		elif _dragged_slot == -998:
+			dragged_item = _companion_weapon_slot
+		
 		if _slots[idx] == null:
-			# Move
-			_slots[idx] = _slots[_dragged_slot]
-			_slots[_dragged_slot] = null
+			# Move to empty slot
+			_slots[idx] = dragged_item
+			
+			# Clear source
+			if _dragged_slot >= 0:
+				_slots[_dragged_slot] = null
+			elif _dragged_slot == -999:
+				_player_weapon_slot = null
+				_player_weapon_slot_view.get_display().set_item(null)
+			elif _dragged_slot == -998:
+				_companion_weapon_slot = null
+				_companion_weapon_slot_view.get_display().set_item(null)
+				# Clear saved weapon
+				CompanionManager.equipped_weapon_id = -1
+				CompanionManager.save_to_file()
+			
 			_slot_views[idx].get_display().set_item(_slots[idx])
 			_dragged_item_view.stop()
 			_dragged_slot = -1
 			emit_signal("changed")
+			emit_signal("equipment_changed")
 		
 		else:
-			if _dragged_slot != idx:
+			# Swap with occupied slot (only if dragging from inventory, not equipment)
+			if _dragged_slot >= 0 and _dragged_slot != idx:
 				# Swap
 				var tmp = _slots[idx]
 				_slots[idx] = _slots[_dragged_slot]
 				_slots[_dragged_slot] = tmp
 				_dragged_item_view.start(tmp)
-
+				_slot_views[idx].get_display().set_item(_slots[idx])
+				emit_signal("changed")
 			else:
+				# Can't swap equipment slots with inventory - cancel drag
+				if _dragged_slot == -999:
+					_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
+				elif _dragged_slot == -998:
+					_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+				elif _dragged_slot >= 0:
+					_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
 				_dragged_slot = -1
 				_dragged_item_view.stop()
 
-			_slot_views[idx].get_display().set_item(_slots[idx])
-
-			emit_signal("changed")
 
 
 func _create_equipment_panels():
@@ -343,6 +412,9 @@ func _on_equipment_slot_pressed(is_player_slot: bool):
 			elif _dragged_slot == -998:
 				# Moving companion weapon - just clear it
 				_companion_weapon_slot = null
+				# Clear saved weapon (will use default)
+				CompanionManager.equipped_weapon_id = -1
+				CompanionManager.save_to_file()
 
 			# Equip new weapon
 			if is_player_slot:
@@ -351,12 +423,14 @@ func _on_equipment_slot_pressed(is_player_slot: bool):
 			else:
 				_companion_weapon_slot = dragged_item
 				_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+				# Save to CompanionManager
+				CompanionManager.equipped_weapon_id = dragged_item.id
+				CompanionManager.save_to_file()
 
 			_dragged_item_view.stop()
 			_dragged_slot = -1
 			emit_signal("changed")
 			emit_signal("equipment_changed")
-			print("Inventory: Equipment changed, emitting signal")
 		else:
 			# Can't equip non-weapons
 			print("Can only equip weapons in weapon slot!")
