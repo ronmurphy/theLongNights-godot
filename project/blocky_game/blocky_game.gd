@@ -20,6 +20,7 @@ const EnemySpawner = preload("res://long_nights/EnemySpawner.gd")
 @onready var _light : DirectionalLight3D = $DirectionalLight3D
 @onready var _terrain : VoxelTerrain = $VoxelTerrain
 @onready var _characters_container : Node = $Players
+@onready var _blocks = $Blocks
 
 var _network_mode := NETWORK_MODE_SINGLEPLAYER
 var _ip := ""
@@ -137,6 +138,10 @@ func _ready():
 		var console = GameConsole.new()
 		add_child(console)
 		print("The Long Nights: Console ready (~ or F1)")
+
+		# Initialize tinted block pool system (async, won't block character spawning)
+		_blocks.initialize_tint_system()
+		print("The Long Nights: Tinted block system initializing...")
 
 		# Add game over screen
 		var game_over = GameOverScreen.new()

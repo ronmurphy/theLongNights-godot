@@ -37,7 +37,16 @@ func set_item(data: InventoryItem):
 
 	elif data.type == InventoryItem.TYPE_BLOCK:
 		var block := _block_types.get_block(data.id)
-		texture = block.base_info.sprite_texture
+		var sprite_texture = block.base_info.sprite_texture
+		
+		# Check if this block has no sprite (might be tinted)
+		if sprite_texture == null:
+			# This is a tinted block - we need to find its tint and apply it
+			# For now, use a placeholder or default sprite
+			texture = null
+		else:
+			texture = sprite_texture
+		
 		if _count_label:
 			_count_label.visible = false
 

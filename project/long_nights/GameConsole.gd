@@ -15,6 +15,9 @@ var max_output_lines: int = 20
 # Command registry
 var commands: Dictionary = {}
 
+# Reference to player for input control
+var _player_input_enabled: bool = true
+
 func _ready() -> void:
 	# Create UI elements
 	_build_ui()
@@ -115,13 +118,37 @@ func toggle_console() -> void:
 	visible = is_visible
 
 	if is_visible:
+		# Console opening - disable player input
 		input_field.grab_focus()
+		_disable_player_input()
 		# Release mouse for typing
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	else:
+		# Console closing - re-enable player input
 		input_field.release_focus()
+		_enable_player_input()
 		# Recapture mouse for gameplay
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _disable_player_input() -> void:
+	"""Disable player movement controls when console is open"""
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0:
+		var player = players[0]
+		if player and player.has_method("set_input_enabled"):
+			player.set_input_enabled(false)
+			_player_input_enabled = false
+
+
+func _enable_player_input() -> void:
+	"""Re-enable player movement controls when console is closed"""
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0:
+		var player = players[0]
+		if player and player.has_method("set_input_enabled"):
+			player.set_input_enabled(true)
+			_player_input_enabled = true
 
 func _on_command_submitted(command: String) -> void:
 	if command.strip_edges().is_empty():
@@ -198,6 +225,8 @@ func _register_commands() -> void:
 	commands["damage"] = _cmd_damage
 	commands["heal"] = _cmd_heal
 	commands["hp"] = _cmd_hp
+	commands["giveblock"] = _cmd_giveblock
+	commands["listblocks"] = _cmd_listblocks
 
 ## Commands Implementation
 
@@ -250,6 +279,11 @@ func _cmd_help(_args: Array) -> void:
 	add_output("  [color=yellow]hp[/color] - Show current HP")
 	add_output("  [color=yellow]damage <amount>[/color] - Damage player (for testing)")
 	add_output("  [color=yellow]heal <amount>[/color] - Heal player")
+	add_output("")
+	add_output("[color=cyan]Block Commands (Creative Mode):[/color]")
+	add_output("  [color=yellow]listblocks[/color] - Show all available blocks and tinted variants")
+	add_output("  [color=yellow]giveblock <block_name> [count][/color] - Give tinted blocks")
+	add_output("  [color=yellow]Example: giveblock redwoodplanks 5[/color]")
 
 func _cmd_clear(_args: Array) -> void:
 	output_label.clear()
@@ -427,8 +461,15 @@ func _cmd_give(args: Array) -> void:
 		return
 
 	var item_id = item_map[item_name]
-	var inventory = get_node_or_null("/root/Main/Game/Avatar/Head/Inventory")
-
+	
+	# Get player using group (more reliable than hard-coded path)
+	var player = get_tree().get_first_node_in_group("player")
+	if player == null:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+	
+	# Inventory is a direct child of the player
+	var inventory = player.get_node_or_null("Inventory")
 	if inventory == null:
 		add_output("[color=red]Error: Inventory not found[/color]")
 		return
@@ -675,3 +716,165 @@ func _cmd_heal(args: Array) -> void:
 
 	player.heal(amount)
 	add_output("[color=lime]Healed player for %d HP (HP: %d/%d)[/color]" % [amount, player.current_hp, player.max_hp])
+
+
+# List all available blocks (original and tinted variants)
+func _cmd_listblocks(args: Array) -> void:
+	var blocks = get_node_or_null("/root/Main/Game/Blocks")
+	if blocks == null:
+		add_output("[color=red]Error: Blocks manager not found[/color]")
+		return
+	
+	add_output("[color=lime]=== Available Blocks ===[/color]")
+	add_output("")
+	
+	# Get all original blocks
+	var block_count = blocks.get_block_count()
+	add_output("[color=cyan]Original Blocks:[/color]")
+	for i in range(block_count):
+		var block = blocks.get_block(i)
+		add_output("  [color=yellow]%s[/color]" % block.base_info.name)
+	
+	add_output("")
+	add_output("[color=cyan]Tinted Block Variants:[/color]")
+	
+	# Load and display tinted variants
+	var tint_data_file = "res://blocky_game/blocks/block_tints.json"
+	var json_string = FileAccess.get_file_as_string(tint_data_file)
+	if json_string == "":
+		add_output("[color=red]Could not load block_tints.json[/color]")
+		return
+	
+	var json = JSON.new()
+	var error = json.parse(json_string)
+	if error != OK:
+		add_output("[color=red]JSON parse error: %s[/color]" % str(error))
+		return
+	
+	var data = json.get_data()
+	if data == null or not data.has("tints"):
+		add_output("[color=red]No tints section in block_tints.json[/color]")
+		return
+	
+	var tints = data["tints"]
+	for base_block_name in tints.keys():
+		var tint_info = tints[base_block_name]
+		var variants = tint_info.get("variants", [])
+		
+		add_output("  [color=cyan]%s:[/color]" % base_block_name)
+		for variant in variants:
+			var name = variant.get("name", "?")
+			var desc = variant.get("description", "")
+			add_output("    [color=yellow]%s[/color] - %s" % [name, desc])
+	
+	add_output("")
+	add_output("[color=yellow]Usage: giveblock <block_name> [count][/color]")
+	add_output("[color=yellow]Example: giveblock redwoodplanks 10[/color]")
+
+
+# Give a tinted block to the player
+func _cmd_giveblock(args: Array) -> void:
+	if args.is_empty():
+		add_output("[color=red]Usage: giveblock <block_name> [count][/color]")
+		add_output("[color=yellow]Example: giveblock redwoodplanks 10[/color]")
+		add_output("[color=yellow]Type 'listblocks' to see available blocks[/color]")
+		return
+	
+	var block_name = args[0].to_lower()
+	var count = 1
+	if args.size() > 1:
+		count = args[1].to_int()
+		if count < 1:
+			count = 1
+	
+	var blocks = get_node_or_null("/root/Main/Game/Blocks")
+	if blocks == null:
+		add_output("[color=red]Error: Blocks manager not found[/color]")
+		return
+	
+	# Check if it's a tinted block
+	var tint_data_file = "res://blocky_game/blocks/block_tints.json"
+	var json_string = FileAccess.get_file_as_string(tint_data_file)
+	if json_string == "":
+		add_output("[color=red]Could not load block_tints.json[/color]")
+		return
+	
+	var json = JSON.new()
+	var error = json.parse(json_string)
+	if error != OK:
+		add_output("[color=red]JSON parse error: %s[/color]" % str(error))
+		return
+	
+	var data = json.get_data()
+	if data == null or not data.has("tints"):
+		add_output("[color=red]No tints section in block_tints.json[/color]")
+		return
+	
+	var tints = data["tints"]
+	var found = false
+	var base_block_name = ""
+	
+	# Find the tinted variant
+	for base_block in tints.keys():
+		var tint_info = tints[base_block]
+		var variants = tint_info.get("variants", [])
+		
+		for variant in variants:
+			if variant.get("name", "").to_lower() == block_name:
+				found = true
+				base_block_name = base_block
+				break
+		
+		if found:
+			break
+	
+	if not found:
+		add_output("[color=red]Unknown block: " + block_name + "[/color]")
+		add_output("[color=yellow]Type 'listblocks' to see available blocks[/color]")
+		return
+	
+	# Get the base block to determine the block ID
+	var base_block = blocks.get_block_by_name(base_block_name)
+	if base_block == null:
+		add_output("[color=red]Error: Base block not found: " + base_block_name + "[/color]")
+		return
+	
+	var block_id = base_block.base_info.id
+	
+	# Get player using group (more reliable than absolute path)
+	var player = get_tree().get_first_node_in_group("player")
+	if player == null:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+	
+	# Inventory is a direct child of the player
+	var inventory = player.get_node_or_null("Inventory")
+	if inventory == null:
+		add_output("[color=red]Error: Inventory not found[/color]")
+		return
+	
+	# Find empty slots and add blocks to inventory
+	const InventoryItem = preload("res://blocky_game/player/inventory_item.gd")
+	var slots = inventory._slots
+	var added = 0
+	
+	for i in range(slots.size()):
+		if added >= count:
+			break
+		
+		if slots[i] == null:
+			var item = InventoryItem.new()
+			item.id = block_id
+			item.type = InventoryItem.TYPE_BLOCK
+			item.count = 1
+			slots[i] = item
+			added += 1
+	
+	if added > 0:
+		inventory._update_views()
+		add_output("[color=lime]Gave %d x %s to inventory[/color]" % [added, block_name])
+	else:
+		add_output("[color=yellow]Inventory is full![/color]")
+	
+	if added < count:
+		add_output("[color=yellow]Warning: Only %d of %d items added[/color]" % [added, count])

@@ -32,6 +32,9 @@ var _climb_speed := 3.0  # Speed when climbing
 signal hp_changed(current: int, maximum: int)
 signal player_died()
 
+## Input control
+var input_enabled: bool = true
+
 
 func _ready():
 	_box_mover.set_collision_mask(1) # Excludes rails
@@ -101,50 +104,58 @@ func _physics_process(delta: float):
 		if _grapple_time <= 0:
 			_grappling = false
 
-	# Check for climbing
-	var has_claws = _has_climbing_claws()
-	var wall_ahead = has_claws and _check_wall_ahead()
-	var trying_to_climb = wall_ahead and (Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_W))
+	# Only process keyboard input if enabled (not using console)
+	if input_enabled:
+		# Check for climbing
+		var has_claws = _has_climbing_claws()
+		var wall_ahead = has_claws and _check_wall_ahead()
+		var trying_to_climb = wall_ahead and (Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_W))
 
-	# Update climbing state
-	_climbing = trying_to_climb
+		# Update climbing state
+		_climbing = trying_to_climb
 
-	# Only process keyboard input if not grappling
-	if not _grappling:
-		if _climbing:
-			# Climbing mode - move upward
-			_velocity.x = 0
-			_velocity.z = 0
-			_velocity.y = _climb_speed
+		# Only process keyboard input if not grappling
+		if not _grappling:
+			if _climbing:
+				# Climbing mode - move upward
+				_velocity.x = 0
+				_velocity.z = 0
+				_velocity.y = _climb_speed
+				_grounded = false
+			else:
+				# Normal movement
+				var forward = _head.get_transform().basis.z.normalized()
+				forward = Plane(Vector3(0, 1, 0), 0).project(forward)
+				var right = _head.get_transform().basis.x.normalized()
+				var motor = Vector3()
+
+				if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_W):
+					motor -= forward
+				if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
+					motor += forward
+				if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_A):
+					motor -= right
+				if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D):
+					motor += right
+
+				motor = motor.normalized() * speed
+
+				_velocity.x = motor.x
+				_velocity.z = motor.z
+
+		# Apply gravity (unless climbing)
+		if not _climbing:
+			_velocity.y -= gravity * delta
+		
+		if _grounded and Input.is_key_pressed(KEY_SPACE):
+			_velocity.y = jump_force
 			_grounded = false
-		else:
-			# Normal movement
-			var forward = _head.get_transform().basis.z.normalized()
-			forward = Plane(Vector3(0, 1, 0), 0).project(forward)
-			var right = _head.get_transform().basis.x.normalized()
-			var motor = Vector3()
-
-			if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_W):
-				motor -= forward
-			if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
-				motor += forward
-			if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_A):
-				motor -= right
-			if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D):
-				motor += right
-
-			motor = motor.normalized() * speed
-
-			_velocity.x = motor.x
-			_velocity.z = motor.z
-
-	# Apply gravity (unless climbing)
-	if not _climbing:
+	else:
+		# Input disabled (console open) - stop movement and still apply gravity
+		_velocity.x = 0
+		_velocity.z = 0
 		_velocity.y -= gravity * delta
-	
-	if _grounded and Input.is_key_pressed(KEY_SPACE):
-		_velocity.y = jump_force
-		_grounded = false
+		_climbing = false
 	
 	var motion := _velocity * delta
 	
@@ -317,4 +328,13 @@ func die() -> void:
 	# Disable player controls
 	set_physics_process(false)
 	set_process_input(false)
+
+
+## Enable or disable player input (for console, menus, etc.)
+func set_input_enabled(enabled: bool) -> void:
+	input_enabled = enabled
+	if enabled:
+		print("[CharacterController] Input enabled")
+	else:
+		print("[CharacterController] Input disabled (console/menu active)")
 
