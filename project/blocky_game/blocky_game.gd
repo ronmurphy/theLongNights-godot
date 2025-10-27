@@ -139,10 +139,6 @@ func _ready():
 		add_child(console)
 		print("The Long Nights: Console ready (~ or F1)")
 
-		# Initialize tinted block pool system (async, won't block character spawning)
-		_blocks.initialize_tint_system()
-		print("The Long Nights: Tinted block system initializing...")
-
 		# Add game over screen
 		var game_over = GameOverScreen.new()
 		add_child(game_over)

@@ -43,8 +43,6 @@ class RawMapping:
 var _voxel_library := preload("res://blocky_game/blocks/voxel_library.tres")
 var _blocks = []
 var _raw_mappings = []
-var _tint_pool: TintedBlockPool = null
-var _tint_materials: Dictionary = {}  # Cache for tinted materials
 
 
 func _init():
@@ -262,58 +260,3 @@ static func get_y_dir_vec(yid: int) -> Vector3:
 
 static func get_opposite_y_dir(yid: int) -> int:
 	return _opposite_y_rotation[yid]
-
-
-# Initialize the tinted block pool system
-func initialize_tint_system():
-	print("Initializing tint system...")
-	if _tint_pool == null:
-		_tint_pool = TintedBlockPool.new()
-		_tint_pool.name = "TintedBlockPool"
-		add_child(_tint_pool)
-		await get_tree().process_frame
-		print("Tint system initialized successfully")
-
-
-# Get a tinted block instance from the pool
-func get_tinted_block(tint_block_name: String) -> Node3D:
-	if _tint_pool == null:
-		push_error("[Blocks] Tint pool not initialized. Call initialize_tint_system() first.")
-		return null
-	return _tint_pool.get_tinted_block(tint_block_name)
-
-
-# Return a tinted block to the pool for reuse
-func return_tinted_block(tint_block_name: String, block_node: Node3D):
-	if _tint_pool == null:
-		push_error("[Blocks] Tint pool not initialized.")
-		return
-	_tint_pool.return_tinted_block(tint_block_name, block_node)
-
-
-# Get a tinted material without pooling (for direct use)
-func get_tinted_material(base_block_name: String, tint_color: Array) -> StandardMaterial3D:
-	var base_block = get_block_by_name(base_block_name)
-	
-	# Determine which base material to use
-	var base_material: StandardMaterial3D
-	if base_block.base_info.transparent:
-		base_material = load("res://blocky_game/blocks/terrain_material_transparent.tres")
-	elif base_block.base_info.name in ["tall_grass", "leaves", "dead_shrub"]:
-		base_material = load("res://blocky_game/blocks/terrain_material_foliage.tres")
-	else:
-		base_material = load("res://blocky_game/blocks/terrain_material.tres")
-	
-	# Clone and apply tint
-	var tinted_mat = base_material.duplicate()
-	tinted_mat.albedo_color = Color(tint_color[0], tint_color[1], tint_color[2], tint_color[3])
-	
-	return tinted_mat
-
-
-# Debug helper - print pool statistics
-func print_tint_pool_stats():
-	if _tint_pool != null:
-		_tint_pool.print_pool_stats()
-	else:
-		print("[Blocks] Tint pool not initialized")
