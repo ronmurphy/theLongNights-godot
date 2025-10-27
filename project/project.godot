@@ -23,6 +23,8 @@ TimeManager="*res://long_nights/TimeManager.gd"
 MusicManager="*res://long_nights/MusicManager.gd"
 GraphicsSettings="*res://long_nights/GraphicsSettings.gd"
 WorldManager="*res://long_nights/WorldManager.gd"
+PlayerData="*res://long_nights/PlayerData.gd"
+CompanionManager="*res://long_nights/CompanionManager.gd"
 
 [display]
 

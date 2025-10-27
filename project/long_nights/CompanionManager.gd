@@ -1,0 +1,113 @@
+extends Node
+## CompanionManager - Singleton that manages companion data and spawning
+## Determines companion race/role based on player's quiz choices
+
+const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
+
+## Companion role mapping (complementary to player)
+## Player Tank → Companion Healer
+## Player Wizard → Companion Tank
+## Player Healer → Companion Rogue
+## Player Rogue → Companion Wizard
+
+## Companion race is different from player for diversity
+
+var companion_race: String = "elf"
+var companion_role: String = "healer"
+var companion_gender: String = "female"  # All companions are female for now
+
+
+## Determine companion based on player choices
+func set_companion_from_player() -> void:
+	# Companion role is complementary to player
+	match PlayerData.role:
+		"tank":
+			companion_role = "healer"  # Tank needs healing
+		"wizard":
+			companion_role = "tank"  # Wizard needs protection
+		"healer":
+			companion_role = "rogue"  # Healer needs DPS
+		"rogue":
+			companion_role = "wizard"  # Rogue needs ranged support
+
+	# Companion race is different from player (for variety)
+	var races = ["human", "elf", "dwarf", "goblin"]
+	races.erase(PlayerData.race)  # Remove player's race
+
+	# Pick a race that makes sense with the role
+	match companion_role:
+		"tank":
+			# Prefer dwarf for tank
+			companion_race = "dwarf" if "dwarf" in races else races[0]
+		"wizard":
+			# Prefer elf for wizard
+			companion_race = "elf" if "elf" in races else races[0]
+		"healer":
+			# Prefer elf for healer
+			companion_race = "elf" if "elf" in races else races[0]
+		"rogue":
+			# Prefer goblin for rogue
+			companion_race = "goblin" if "goblin" in races else races[0]
+
+	print("CompanionManager: Companion will be %s %s (to complement %s %s)" % [
+		companion_race, companion_role, PlayerData.race, PlayerData.role
+	])
+
+
+## Get companion weapon path based on race
+func get_companion_weapon() -> String:
+	match companion_race:
+		"dwarf":
+			return "res://assets/art/tools/stone_hammer.png"
+		"elf":
+			return "res://assets/art/weapons/crossbow.png"  # Or ice_bow
+		"goblin":
+			# Female goblin uses throwing knives, male uses rocket launcher
+			# Since all companions are female for now:
+			return "res://assets/art/weapons/throwing_knives.png"
+		"human":
+			return "res://assets/art/weapons/machete.png"
+		_:
+			return ""
+
+
+## Get companion stats based on role (same as PlayerData)
+func get_companion_max_hp() -> int:
+	match companion_role:
+		"tank": return 150
+		"wizard": return 80
+		"healer": return 100
+		"rogue": return 90
+		_: return 100
+
+
+func get_companion_defense() -> int:
+	match companion_role:
+		"tank": return 20
+		"wizard": return 5
+		"healer": return 10
+		"rogue": return 8
+		_: return 10
+
+
+func get_companion_attack_bonus() -> int:
+	match companion_role:
+		"tank": return 5
+		"wizard": return 15
+		"healer": return 0
+		"rogue": return 20
+		_: return 0
+
+
+## Get avatar path for companion
+func get_avatar_path(state: String = "") -> String:
+	return CharacterQuiz.get_avatar_path(companion_race, companion_gender, state)
+
+
+## Get display name
+func get_companion_name() -> String:
+	return CharacterQuiz.get_race_name(companion_race)
+
+
+func get_role_name() -> String:
+	return CharacterQuiz.get_role_name(companion_role)

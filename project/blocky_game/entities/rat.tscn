@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://rat_entity_001"]
+
+[ext_resource type="Script" path="res://blocky_game/entities/rat.gd" id="1"]
+
+[node name="Rat" type="Node3D"]
+script = ExtResource("1")
+chase_distance = 15.0
+attack_range = 1.5
+attack_cooldown = 1.0

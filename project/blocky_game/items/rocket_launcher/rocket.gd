@@ -44,6 +44,7 @@ func _explode(voxel_hit_pos: Vector3, explosion_pos: Vector3):
 	if mp.has_multiplayer_peer():
 		if mp.is_server():
 			_terrain_tool.do_sphere(voxel_hit_pos, 4.0)
+			_damage_nearby_entities(explosion_pos, 6.0, 50)  # 6 block radius, 50 damage
 			rpc(&"receive_explode", explosion_pos)
 			_create_explosion_vfx(explosion_pos)
 			queue_free()
@@ -51,6 +52,7 @@ func _explode(voxel_hit_pos: Vector3, explosion_pos: Vector3):
 		# to find when the collision occurs, but it can lead to false positives if terrain is synced
 		# out of order, so it's more reliable to explicitely be told when to play the explosion
 	else:
+		_damage_nearby_entities(explosion_pos, 6.0, 50)  # 6 block radius, 50 damage
 		_create_explosion_vfx(explosion_pos)
 		queue_free()
 
@@ -78,5 +80,26 @@ func _create_explosion_vfx(explosion_pos: Vector3):
 		debris.set_velocity(debris_velocity)
 		debris.position = explosion_pos
 		get_parent().add_child(debris)
+
+
+## Damage all entities within radius of explosion
+func _damage_nearby_entities(center: Vector3, radius: float, damage: int) -> void:
+	# Get all entities in the scene
+	var entities = get_tree().get_nodes_in_group("entities")
+
+	for entity in entities:
+		if not entity is EntityBase:
+			continue
+
+		# Skip friendly entities (don't damage player's companions)
+		if entity.team == EntityBase.Team.PLAYER:
+			continue
+
+		# Check distance
+		var distance = entity.global_position.distance_to(center)
+		if distance <= radius:
+			# Apply damage (could scale with distance)
+			var scaled_damage = int(damage * (1.0 - (distance / radius)))
+			entity.take_damage(scaled_damage, self)
 
 

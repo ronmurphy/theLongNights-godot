@@ -7,6 +7,18 @@ extends Node3D
 
 @export var terrain : NodePath
 
+## Player HP and combat
+@export var max_hp: int = 100
+@export var defense: int = 10  # % damage reduction
+@export var attack_bonus: int = 0  # Bonus damage from role
+@export var max_mana: int = 0  # For wizard/healer
+@export var current_mana: int = 0
+
+var current_hp: int = 100
+var is_alive: bool = true
+var _regen_timer: float = 0.0  # For 1 HP per 3 minutes
+const REGEN_INTERVAL: float = 180.0  # 3 minutes in seconds
+
 var _velocity := Vector3()
 var _grounded := false
 var _head : Node3D = null
@@ -16,6 +28,10 @@ var _grapple_time := 0.0  # Time remaining for grapple
 var _climbing := false  # Currently climbing a wall
 var _climb_speed := 3.0  # Speed when climbing
 
+## Signals
+signal hp_changed(current: int, maximum: int)
+signal player_died()
+
 
 func _ready():
 	_box_mover.set_collision_mask(1) # Excludes rails
@@ -23,6 +39,20 @@ func _ready():
 	_box_mover.set_max_step_height(0.5)
 
 	_head = get_node(head)
+
+	# Apply stats from PlayerData (set by quiz)
+	max_hp = PlayerData.max_hp
+	defense = PlayerData.defense
+	attack_bonus = PlayerData.attack_bonus
+	max_mana = PlayerData.max_mana
+	current_mana = PlayerData.current_mana
+
+	# Initialize HP
+	current_hp = max_hp
+	add_to_group("player")
+
+	print("Player initialized as %s %s [%s]" % [PlayerData.get_race_name(), PlayerData.get_role_name(), PlayerData.gender])
+	print("  HP: %d, Defense: %d%%, Attack: +%d" % [max_hp, defense, attack_bonus])
 
 	# Apply graphics settings to voxel viewer and rendering
 	_apply_graphics_settings()
@@ -58,6 +88,13 @@ func _check_wall_ahead() -> bool:
 
 
 func _physics_process(delta: float):
+	# Handle auto-regeneration (1 HP every 3 minutes)
+	if is_alive and current_hp < max_hp:
+		_regen_timer += delta
+		if _regen_timer >= REGEN_INTERVAL:
+			_regen_timer = 0.0
+			heal(1)
+
 	# Handle grappling state
 	if _grappling:
 		_grapple_time -= delta
@@ -219,4 +256,65 @@ func _apply_graphics_settings() -> void:
 	# Log current profile
 	var profile = GraphicsSettings.get_current_profile()
 	print("[CharacterController] Graphics profile: ", profile.to_upper())
+
+
+## Player HP and Combat Functions
+
+## d20-style roll to hit
+static func roll_to_hit() -> bool:
+	# Roll a d20, if 10 or higher the attack hits
+	var roll = randi() % 20 + 1
+	return roll >= 10
+
+
+## Take damage from an attack
+func take_damage(amount: int, from: Node = null) -> void:
+	if not is_alive:
+		return
+
+	# Roll to hit - if failed, no damage
+	if not roll_to_hit():
+		print("Player dodged attack! (Roll failed)")
+		return
+
+	# Apply defense (same formula as entities)
+	var actual_damage = max(1, amount - int(amount * (defense / 100.0)))
+
+	current_hp -= actual_damage
+	current_hp = max(0, current_hp)
+
+	hp_changed.emit(current_hp, max_hp)
+
+	print("Player took %d damage (HP: %d/%d)" % [actual_damage, current_hp, max_hp])
+
+	# Check for death
+	if current_hp <= 0:
+		die()
+
+
+## Heal the player
+func heal(amount: int) -> void:
+	if not is_alive:
+		return
+
+	current_hp += amount
+	current_hp = min(max_hp, current_hp)
+
+	hp_changed.emit(current_hp, max_hp)
+	print("Player healed %d HP (HP: %d/%d)" % [amount, current_hp, max_hp])
+
+
+## Player death
+func die() -> void:
+	if not is_alive:
+		return
+
+	is_alive = false
+	player_died.emit()
+
+	print("Player died!")
+
+	# Disable player controls
+	set_physics_process(false)
+	set_process_input(false)
 

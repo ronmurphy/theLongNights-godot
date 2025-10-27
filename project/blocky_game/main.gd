@@ -4,11 +4,13 @@ const BlockyGame = preload("./blocky_game.gd")
 const BlockyGameScene = preload("./blocky_game.tscn")
 const MainMenu = preload("./main_menu.gd")
 const UPNPHelper = preload("./upnp_helper.gd")
+const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
 
 @onready var _main_menu : MainMenu = $MainMenu
 
 var _game : BlockyGame
 var _upnp_helper : UPNPHelper
+var _pending_seed: int = -1
 
 
 func _on_main_menu_continue_game_requested():
@@ -17,13 +19,38 @@ func _on_main_menu_continue_game_requested():
 		push_error("Failed to load world!")
 		return
 
+	# Load saved character data
+	if not PlayerData.load_from_file():
+		push_warning("No saved character data, using defaults")
+
 	_start_game()
 
 
 func _on_main_menu_new_game_requested(seed: int):
+	# Store seed for after quiz
+	_pending_seed = seed
+
+	# Show character creation quiz
+	var quiz = CharacterQuiz.new()
+	quiz.quiz_completed.connect(_on_quiz_completed)
+	add_child(quiz)
+
+	# Hide main menu
+	_main_menu.hide()
+
+
+func _on_quiz_completed(role: String, race: String, gender: String):
+	# Save character data
+	PlayerData.set_character(role, race, gender)
+	PlayerData.save_to_file()
+
+	# Determine companion based on player choices
+	CompanionManager.set_companion_from_player()
+
 	# Create new world with specified seed
-	if not WorldManager.create_new_world(seed):
+	if not WorldManager.create_new_world(_pending_seed):
 		push_error("Failed to create new world!")
+		_main_menu.show()  # Show menu again on error
 		return
 
 	_start_game()

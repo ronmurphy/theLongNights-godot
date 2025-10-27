@@ -195,6 +195,9 @@ func _register_commands() -> void:
 	commands["fog"] = _cmd_fog
 	commands["graphics"] = _cmd_graphics
 	commands["spawn"] = _cmd_spawn
+	commands["damage"] = _cmd_damage
+	commands["heal"] = _cmd_heal
+	commands["hp"] = _cmd_hp
 
 ## Commands Implementation
 
@@ -239,6 +242,14 @@ func _cmd_help(_args: Array) -> void:
 	add_output("")
 	add_output("[color=cyan]Entity Commands:[/color]")
 	add_output("  [color=yellow]spawn ghost[/color] - Spawn a friendly ghost companion")
+	add_output("  [color=yellow]spawn rat[/color] - Spawn a tier 1 enemy (fast, weak)")
+	add_output("  [color=yellow]spawn goblin[/color] - Spawn a tier 1 enemy (balanced)")
+	add_output("  [color=yellow]spawn troglodyte[/color] - Spawn a tier 1 enemy (slow, tough)")
+	add_output("")
+	add_output("[color=cyan]Player Commands:[/color]")
+	add_output("  [color=yellow]hp[/color] - Show current HP")
+	add_output("  [color=yellow]damage <amount>[/color] - Damage player (for testing)")
+	add_output("  [color=yellow]heal <amount>[/color] - Heal player")
 
 func _cmd_clear(_args: Array) -> void:
 	output_label.clear()
@@ -535,7 +546,7 @@ func _cmd_graphics(args: Array) -> void:
 func _cmd_spawn(args: Array) -> void:
 	if args.is_empty():
 		add_output("[color=yellow]Usage: spawn <entity_type>[/color]")
-		add_output("[color=yellow]Available: ghost[/color]")
+		add_output("[color=yellow]Available: ghost, rat, goblin, troglodyte[/color]")
 		return
 
 	var entity_type = args[0].to_lower()
@@ -546,27 +557,43 @@ func _cmd_spawn(args: Array) -> void:
 		add_output("[color=red]Error: Cannot find player[/color]")
 		return
 
-	# Spawn 5 units in front of player
+	# Spawn 5 units in front of player (start above ground)
 	var spawn_pos = player.global_position + player.transform.basis.z * -5.0
+	spawn_pos.y += 5.0  # Start 5 blocks above
 
-	match entity_type:
-		"ghost":
-			var ghost_scene = load("res://blocky_game/entities/ghost.tscn")
-			if ghost_scene:
-				var ghost = ghost_scene.instantiate()
-				ghost.global_position = spawn_pos
-				# Add to game world
-				var game = get_node_or_null("/root/Main/Game")
-				if game:
-					game.add_child(ghost)
-					add_output("[color=lime]Spawned ghost at " + str(spawn_pos) + "[/color]")
+	var entity_scenes = {
+		"ghost": "res://blocky_game/entities/ghost.tscn",
+		"rat": "res://blocky_game/entities/rat.tscn",
+		"goblin": "res://blocky_game/entities/goblin_grunt.tscn",
+		"troglodyte": "res://blocky_game/entities/troglodyte.tscn"
+	}
+
+	if entity_type in entity_scenes:
+		var scene_path = entity_scenes[entity_type]
+		var entity_scene = load(scene_path)
+		if entity_scene:
+			var entity = entity_scene.instantiate()
+
+			# Add to game world first
+			var game = get_node_or_null("/root/Main/Game")
+			if game:
+				game.add_child(entity)
+
+				# Find ground position for ground entities
+				if entity is GroundEntity:
+					entity.global_position = entity.find_ground_position(spawn_pos, 15.0)
 				else:
-					add_output("[color=red]Error: Could not find game node[/color]")
+					# Flying entities can spawn in air
+					entity.global_position = spawn_pos
+
+				add_output("[color=lime]Spawned " + entity_type + " at " + str(entity.global_position) + "[/color]")
 			else:
-				add_output("[color=red]Error: Could not load ghost scene[/color]")
-		_:
-			add_output("[color=red]Unknown entity: " + entity_type + "[/color]")
-			add_output("[color=yellow]Available: ghost[/color]")
+				add_output("[color=red]Error: Could not find game node[/color]")
+		else:
+			add_output("[color=red]Error: Could not load " + entity_type + " scene[/color]")
+	else:
+		add_output("[color=red]Unknown entity: " + entity_type + "[/color]")
+		add_output("[color=yellow]Available: " + str(entity_scenes.keys()) + "[/color]")
 
 
 ## Take screenshot with F2
@@ -587,3 +614,64 @@ func _take_screenshot() -> void:
 	else:
 		print("[Screenshot] Error: Could not get viewport image")
 		add_output("[color=red]Error: Could not capture screenshot[/color]")
+
+
+## Player HP Commands
+
+func _cmd_hp(_args: Array) -> void:
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+
+	add_output("[color=lime]Player HP: %d/%d[/color]" % [player.current_hp, player.max_hp])
+
+
+func _cmd_damage(args: Array) -> void:
+	if args.size() < 1:
+		add_output("[color=red]Usage: damage <amount>[/color]")
+		return
+
+	var amount = int(args[0])
+	if amount <= 0:
+		add_output("[color=red]Error: Damage amount must be positive[/color]")
+		return
+
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+
+	# Damage player directly (bypass roll to hit for testing)
+	var actual_damage = max(1, amount - int(amount * (player.defense / 100.0)))
+	player.current_hp -= actual_damage
+	player.current_hp = max(0, player.current_hp)
+	player.hp_changed.emit(player.current_hp, player.max_hp)
+
+	add_output("[color=yellow]Dealt %d damage to player (HP: %d/%d)[/color]" % [actual_damage, player.current_hp, player.max_hp])
+
+	if player.current_hp <= 0:
+		player.die()
+
+
+func _cmd_heal(args: Array) -> void:
+	if args.size() < 1:
+		add_output("[color=red]Usage: heal <amount>[/color]")
+		return
+
+	var amount = int(args[0])
+	if amount <= 0:
+		add_output("[color=red]Error: Heal amount must be positive[/color]")
+		return
+
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+
+	if not player.is_alive:
+		add_output("[color=red]Error: Player is dead[/color]")
+		return
+
+	player.heal(amount)
+	add_output("[color=lime]Healed player for %d HP (HP: %d/%d)[/color]" % [amount, player.current_hp, player.max_hp])

@@ -37,6 +37,18 @@ func _init():
 		"name": "torch",
 		"behavior": "torch.gd"
 	})
+	_create_item({
+		"name": "stone_hammer",
+		"behavior": "stone_hammer.gd"
+	})
+	_create_item({
+		"name": "machete",
+		"behavior": "machete.gd"
+	})
+	_create_item({
+		"name": "crossbow",
+		"behavior": "crossbow.gd"
+	})
 
 
 func get_item(id: int) -> Item:

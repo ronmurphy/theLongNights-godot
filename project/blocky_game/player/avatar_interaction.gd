@@ -33,6 +33,7 @@ const _hotbar_keys = {
 @onready var _item_db : ItemDB = get_node("/root/Main/Game/Items")
 @onready var _water_updater : WaterUpdater
 @onready var _terrain : VoxelTerrain = get_node("/root/Main/Game/VoxelTerrain")
+@onready var _inventory = get_node("../Inventory")
 
 var _terrain_tool : VoxelTool = null
 var _cursor : MeshInstance3D = null
@@ -92,7 +93,8 @@ func _physics_process(_delta):
 		_cursor.hide()
 		DDD.set_text("Pointed voxel", "---")
 
-	var inv_item := _hotbar.get_selected_item()
+	# Use hotbar selection (equipped weapons interfere with block placement)
+	var inv_item: InventoryItem = _hotbar.get_selected_item()
 
 	# Update torch light based on held item
 	var new_item_id = -1

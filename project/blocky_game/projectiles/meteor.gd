@@ -166,6 +166,70 @@ func _on_impact(hit_pos: Vector3):
 		# Commit the changes
 		# vt doesn't need explicit commit in newer Godot Voxel versions
 
-	# TODO: Add explosion particle effects, screen shake, etc.
+	# Damage nearby entities
+	_damage_nearby_entities(hit_pos, explosion_radius, 40)
+
+	# Create fire explosion effects
+	_spawn_fire_explosion(hit_pos)
 
 	queue_free()
+
+
+func _damage_nearby_entities(center: Vector3, radius: float, damage: int):
+	"""Damage all entities in explosion radius"""
+	var entities = get_tree().get_nodes_in_group("entities")
+
+	for entity in entities:
+		if not entity.is_alive:
+			continue
+
+		# Check if entity is in explosion radius
+		var distance = entity.global_position.distance_to(center)
+		if distance > radius:
+			continue
+
+		# Don't hit friendly entities
+		if entity.team == EntityBase.Team.PLAYER:
+			continue
+
+		# Scale damage with distance (full damage at center, reduced at edge)
+		var scaled_damage = int(damage * (1.0 - (distance / radius)))
+		entity.take_damage(scaled_damage, self)
+
+		print("Meteor hit %s for %d damage (distance: %.1f)" % [entity.entity_name, scaled_damage, distance])
+
+
+func _spawn_fire_explosion(pos: Vector3):
+	"""Create fire explosion visual effect"""
+	# Spawn fire particles that fly outward
+	for i in range(20):
+		var particle = MeshInstance3D.new()
+		var sphere = SphereMesh.new()
+		sphere.radius = 0.3
+		sphere.height = 0.6
+		particle.mesh = sphere
+
+		var material = StandardMaterial3D.new()
+		material.albedo_color = Color(1.0, 0.5, 0.1, 0.8)
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.emission_enabled = true
+		material.emission = Color(1.0, 0.4, 0.0)
+		material.emission_energy_multiplier = 5.0
+		particle.material_override = material
+
+		get_parent().add_child(particle)
+		particle.global_position = pos
+
+		# Random direction for each fire ball
+		var direction = Vector3(
+			randf_range(-1, 1),
+			randf_range(0, 1),
+			randf_range(-1, 1)
+		).normalized()
+
+		# Animate fire ball flying outward and fading
+		var tween = particle.create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(particle, "global_position", pos + direction * 4.0, 0.8)
+		tween.tween_property(particle, "scale", Vector3.ZERO, 0.8)
+		tween.chain().tween_callback(particle.queue_free)

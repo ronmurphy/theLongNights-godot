@@ -107,6 +107,9 @@ func _physics_process(delta: float):
 	if _velocity.length() > 0.1:
 		look_at(global_position + _velocity, Vector3.UP)
 
+	# Check for entity collision first
+	_check_entity_collision()
+
 	# Check for collision with terrain
 	if _terrain != null:
 		var vt = _terrain.get_voxel_tool()
@@ -121,12 +124,47 @@ func _physics_process(delta: float):
 	global_position += motion
 
 
+func _check_entity_collision():
+	"""Check if arrow hit any entities"""
+	var entities = get_tree().get_nodes_in_group("entities")
+
+	for entity in entities:
+		if not entity.is_alive:
+			continue
+
+		# Don't hit friendly entities
+		if entity.team == EntityBase.Team.PLAYER:
+			continue
+
+		# Check distance
+		var distance = global_position.distance_to(entity.global_position)
+		if distance < 0.8:  # Hit radius
+			_on_hit_entity(entity)
+			return
+
+
+func _on_hit_entity(entity: Node):
+	"""Hit an entity with ice damage"""
+	var damage = 20  # Ice arrow damage
+	entity.take_damage(damage, self)
+	print("Ice arrow hit %s for %d damage!" % [entity.entity_name, damage])
+
+	# Create ice explosion at entity position
+	_spawn_ice_explosion(entity.global_position)
+	_damage_nearby_entities(entity.global_position, 2.0, 10)  # Small AOE freeze damage
+
+	queue_free()
+
+
 func _on_hit(hit_pos: Vector3):
 	# Create ice explosion effect
 	print("ICE EXPLOSION at ", hit_pos)
 
 	# Spawn ice explosion particles
 	_spawn_ice_explosion(hit_pos)
+
+	# Damage nearby entities with ice
+	_damage_nearby_entities(hit_pos, 2.0, 15)
 
 	# Freeze/destroy blocks in a small radius
 	if _terrain != null:
@@ -146,6 +184,25 @@ func _on_hit(hit_pos: Vector3):
 						vt.set_voxel(block_pos, 0)
 
 	queue_free()
+
+
+func _damage_nearby_entities(center: Vector3, radius: float, damage: int):
+	"""Damage entities caught in ice explosion"""
+	var entities = get_tree().get_nodes_in_group("entities")
+
+	for entity in entities:
+		if not entity.is_alive:
+			continue
+
+		# Don't hit friendly entities
+		if entity.team == EntityBase.Team.PLAYER:
+			continue
+
+		var distance = entity.global_position.distance_to(center)
+		if distance <= radius:
+			var scaled_damage = int(damage * (1.0 - (distance / radius)))
+			entity.take_damage(scaled_damage, self)
+			print("Ice explosion hit %s for %d damage" % [entity.entity_name, scaled_damage])
 
 
 func _spawn_ice_trail_particle():

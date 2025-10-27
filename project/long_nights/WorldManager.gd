@@ -13,7 +13,8 @@ var _world_data := {
 	"player_position": Vector3(0, 64, 0),
 	"game_time_hours": 6,
 	"game_time_days": 1,
-	"game_time_weeks": 1
+	"game_time_weeks": 1,
+	"blood_moon_count": 0
 }
 
 
@@ -40,6 +41,18 @@ func get_player_position() -> Vector3:
 # Set player position (for saving)
 func set_player_position(pos: Vector3) -> void:
 	_world_data["player_position"] = pos
+
+
+# Get blood moon count
+func get_blood_moon_count() -> int:
+	return _world_data["blood_moon_count"]
+
+
+# Increment blood moon count (called when blood moon starts)
+func increment_blood_moon_count() -> void:
+	_world_data["blood_moon_count"] += 1
+	save_world()
+	print("WorldManager: Blood moon count increased to ", _world_data["blood_moon_count"])
 
 
 # Load world.config from disk
@@ -80,6 +93,8 @@ func load_world() -> bool:
 			_world_data["game_time_days"] = data["game_time_days"]
 		if "game_time_weeks" in data:
 			_world_data["game_time_weeks"] = data["game_time_weeks"]
+		if "blood_moon_count" in data:
+			_world_data["blood_moon_count"] = data["blood_moon_count"]
 
 		print("WorldManager: World loaded - Seed: ", _world_data["seed"])
 		return true
@@ -130,6 +145,7 @@ func create_new_world(seed: int) -> bool:
 	_world_data["game_time_hours"] = 6
 	_world_data["game_time_days"] = 1
 	_world_data["game_time_weeks"] = 1
+	_world_data["blood_moon_count"] = 0
 
 	# Save world.config
 	return save_world()

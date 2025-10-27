@@ -13,6 +13,9 @@ const WaterUpdater = preload("./water.gd")
 const DayNightCycle = preload("res://long_nights/DayNightCycle.gd")
 const TimeDisplay = preload("res://long_nights/TimeDisplay.gd")
 const GameConsole = preload("res://long_nights/GameConsole.gd")
+const GameOverScreen = preload("res://long_nights/GameOverScreen.gd")
+const PartyUI = preload("res://long_nights/PartyUI.gd")
+const EnemySpawner = preload("res://long_nights/EnemySpawner.gd")
 
 @onready var _light : DirectionalLight3D = $DirectionalLight3D
 @onready var _terrain : VoxelTerrain = $VoxelTerrain
@@ -125,14 +128,34 @@ func _ready():
 		add_child(time_ui)
 		print("The Long Nights: Time UI added")
 
+		# Add party UI (shows player/companion)
+		var party_ui = PartyUI.new()
+		add_child(party_ui)
+		print("The Long Nights: Party UI added")
+
 		# Add game console
 		var console = GameConsole.new()
 		add_child(console)
 		print("The Long Nights: Console ready (~ or F1)")
 
+		# Add game over screen
+		var game_over = GameOverScreen.new()
+		add_child(game_over)
+		print("The Long Nights: Game Over screen initialized")
+
+		# Add enemy spawner system
+		var spawner = EnemySpawner.new()
+		add_child(spawner)
+		print("The Long Nights: Enemy spawner initialized")
+
 		# Spawn player at saved position (or default)
 		var spawn_pos = WorldManager.get_player_position()
 		_spawn_character(SERVER_PEER_ID, spawn_pos)
+
+		# Spawn companion and add to Party UI (after a brief delay so PartyUI is ready)
+		await get_tree().create_timer(0.5).timeout
+		_spawn_companion()
+		_add_companion_to_ui()
 
 
 func _on_connected_to_server():
@@ -258,3 +281,54 @@ func receive_remote_character(peer_id: int, pos: Vector3):
 func receive_own_character(peer_id: int, pos: Vector3):
 	_logger.debug(str("receive_own_character ", peer_id, " at ", pos))
 	_spawn_character(peer_id, pos)
+
+
+func _spawn_companion() -> void:
+	# Load companion script
+	const CompanionScript = preload("res://blocky_game/entities/companion.gd")
+
+	# Create companion entity
+	var companion = CompanionScript.new()
+	companion.name = "Companion"
+
+	# Add to scene first so terrain is available
+	add_child(companion)
+
+	# Spawn near player on the ground
+	var player = _characters_container.get_node_or_null(str(SERVER_PEER_ID))
+	if player:
+		var spawn_pos = player.position + Vector3(2, 5, 2)  # Start above player
+		# Find ground below
+		companion.position = companion.find_ground_position(spawn_pos, 15.0)
+	else:
+		companion.position = Vector3(0, 64, 0)  # Default spawn
+
+	print("blocky_game: Companion %s spawned at %s" % [CompanionManager.get_companion_name(), companion.position])
+
+
+func _add_companion_to_ui() -> void:
+	# Find PartyUI (search for it by method)
+	var party_ui = null
+	for child in get_children():
+		if child.has_method("add_companion"):
+			party_ui = child
+			break
+
+	if not party_ui:
+		push_warning("blocky_game: Could not find PartyUI")
+		print("blocky_game: Available children: ", get_children())
+		return
+
+	# Add companion to UI
+	var companion_name = CompanionManager.get_companion_name()
+	var companion_hp = CompanionManager.get_companion_max_hp()
+
+	party_ui.add_companion(
+		companion_name,
+		CompanionManager.companion_race,
+		CompanionManager.companion_role,
+		companion_hp,
+		companion_hp
+	)
+
+	print("blocky_game: Companion %s [%s] added to party UI" % [companion_name, CompanionManager.get_role_name()])

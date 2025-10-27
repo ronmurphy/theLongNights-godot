@@ -1,39 +1,32 @@
-extends Node3D
+extends FlyingEntity
 
 ## Ghost - Friendly floating companion
 ## Follows the player at a distance, no attack behavior
 
 @export var follow_distance := 5.0
 @export var follow_speed := 2.0
-@export var float_height := 1.5
-@export var bob_amplitude := 0.3
-@export var bob_frequency := 1.5
 
-var _sprite: Sprite3D
-var _bob_time := 0.0
 var _target_player: Node3D = null
 
 
 func _ready():
-	# Create billboard sprite
-	_sprite = Sprite3D.new()
-	_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST  # Pixel art style
-	_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-	_sprite.shaded = true
+	# Set entity properties
+	entity_id = "ghost"
+	entity_name = "Ghost"
+	team = Team.PLAYER
+	max_hp = 8
+	current_hp = max_hp
 
-	# Scale down sprite to match voxel world scale (1/4 size)
-	# pixel_size controls how big each pixel is in 3D space
-	_sprite.pixel_size = 0.0025  # Default is 0.01, so 1/4 size
+	# Load entity data from JSON
+	var data = EntityBase.load_entity_data("ghost")
+	if not data.is_empty():
+		apply_entity_data(data)
 
-	# Load ghost texture
-	var texture = load("res://assets/art/entities/ghost.png")
-	if texture:
-		_sprite.texture = texture
-	else:
-		push_error("Ghost: Failed to load ghost.png texture")
+	# Call parent ready
+	super._ready()
 
-	add_child(_sprite)
+	# Create sprite
+	_sprite = _create_sprite("res://assets/art/entities/ghost.png", 0.0025)
 
 	# Find player
 	_find_player()
@@ -51,27 +44,15 @@ func _process(delta: float):
 		_find_player()
 		return
 
-	# Bob up and down
-	_bob_time += delta * bob_frequency
-	var bob_offset = sin(_bob_time * TAU) * bob_amplitude
+	# Update bobbing
+	apply_bob_movement(delta)
 
-	# Calculate target position (behind and above player)
+	# Follow player if too far
 	var player_pos = _target_player.global_position
-	var to_player = global_position - player_pos
-	to_player.y = 0  # Only consider horizontal distance
+	var distance_2d = Vector2(global_position.x - player_pos.x, global_position.z - player_pos.z).length()
 
-	var distance = to_player.length()
-
-	# If too far, move closer
-	if distance > follow_distance:
-		var direction = -to_player.normalized()
-		global_position += direction * follow_speed * delta
-
-	# Maintain float height above ground
-	var target_height = player_pos.y + float_height + bob_offset
-	global_position.y = lerp(global_position.y, target_height, delta * 3.0)
-
-	# Make sprite face the camera (billboard handles this automatically)
+	if distance_2d > follow_distance:
+		move_toward_target(delta, player_pos, follow_speed, true)
 
 
 ## Spawn a ghost at a specific position

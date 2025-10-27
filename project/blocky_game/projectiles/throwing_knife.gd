@@ -105,6 +105,9 @@ func _physics_process(delta: float):
 	# Move to new position
 	global_position = new_pos
 
+	# Check for entity collision
+	_check_entity_collision()
+
 	# Check if we've completed enough circles and are close enough
 	if _circles_completed >= circles_before_impact or current_radius < 0.2:
 		_on_impact(target_position)
@@ -146,6 +149,67 @@ func _spawn_magic_trail():
 	tween.tween_property(particle, "scale", Vector3.ZERO, 0.3)
 	tween.tween_property(material, "albedo_color:a", 0.0, 0.3)
 	tween.chain().tween_callback(particle.queue_free)
+
+
+func _check_entity_collision():
+	"""Check if knife hit any entities during its spiral"""
+	var entities = get_tree().get_nodes_in_group("entities")
+
+	for entity in entities:
+		if not entity.is_alive:
+			continue
+
+		# Don't hit friendly entities
+		if entity.team == EntityBase.Team.PLAYER:
+			continue
+
+		# Check distance
+		var distance = global_position.distance_to(entity.global_position)
+		if distance < 0.7:  # Hit radius
+			_on_hit_entity(entity)
+			return
+
+
+func _on_hit_entity(entity: Node):
+	"""Hit an entity with knife damage"""
+	var damage = 18  # Throwing knife damage
+	entity.take_damage(damage, self)
+	print("Throwing knife hit %s for %d damage!" % [entity.entity_name, damage])
+
+	# Spawn impact sparkles
+	_spawn_impact_sparkles(entity.global_position)
+
+	queue_free()
+
+
+func _spawn_impact_sparkles(pos: Vector3):
+	"""Create magical sparkle effect on hit"""
+	for i in range(8):
+		var particle = MeshInstance3D.new()
+		var box = BoxMesh.new()
+		box.size = Vector3(0.08, 0.08, 0.08)
+		particle.mesh = box
+
+		var material = StandardMaterial3D.new()
+		material.albedo_color = Color(0.9, 0.7, 1.0, 0.9)
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.emission_enabled = true
+		material.emission = Color(1.0, 0.8, 1.0)
+		material.emission_energy_multiplier = 4.0
+		particle.material_override = material
+
+		get_parent().add_child(particle)
+		particle.global_position = pos
+
+		# Random direction
+		var direction = Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)).normalized()
+
+		# Animate sparkle
+		var tween = particle.create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(particle, "global_position", pos + direction * 1.5, 0.4)
+		tween.tween_property(particle, "scale", Vector3.ZERO, 0.4)
+		tween.chain().tween_callback(particle.queue_free)
 
 
 func _on_impact(hit_pos: Vector3):

@@ -1,0 +1,115 @@
+extends "../item.gd"
+## Stone Hammer - AOE melee weapon with knockback
+## Used by dwarf companions
+## Deals damage in 3-block radius and knocks enemies back
+
+const SERVER_PEER_ID = 1
+
+@onready var _terrain : VoxelTerrain = get_node("/root/Main/Game/VoxelTerrain")
+
+const MAX_TARGET_DISTANCE = 5.0  # Short range melee
+const DAMAGE = 15
+const KNOCKBACK_FORCE = 10.0
+const AOE_RADIUS = 3.0
+
+
+func use(trans: Transform3D):
+	var mp := get_tree().get_multiplayer()
+	if mp.has_multiplayer_peer() and not mp.is_server():
+		rpc_id(SERVER_PEER_ID, &"receive_use", trans)
+	else:
+		_use(trans)
+
+
+func _use(trans: Transform3D):
+	var origin = trans.origin
+	var direction = -trans.basis.z.normalized()
+
+	# Raycast to find target position (ground or entity)
+	var terrain_tool = _terrain.get_voxel_tool()
+	terrain_tool.channel = VoxelBuffer.CHANNEL_TYPE
+	var hit = terrain_tool.raycast(origin, direction, MAX_TARGET_DISTANCE)
+
+	var impact_pos : Vector3
+	if hit != null:
+		# Hit the ground
+		impact_pos = Vector3(hit.position)
+	else:
+		# Hit nothing, use position in front of player
+		impact_pos = origin + direction * MAX_TARGET_DISTANCE
+
+	# Create dust particle effect at impact
+	_spawn_dust_particles(impact_pos)
+
+	# Damage and knockback entities in AOE
+	_damage_nearby_entities(impact_pos, AOE_RADIUS, DAMAGE, KNOCKBACK_FORCE)
+
+	print("Stone Hammer impact at: ", impact_pos)
+
+
+func _spawn_dust_particles(pos: Vector3):
+	# Create simple particle effect
+	var particles = GPUParticles3D.new()
+	particles.position = pos + Vector3(0, 0.5, 0)  # Slightly above ground
+	particles.emitting = true
+	particles.one_shot = true
+	particles.amount = 20
+	particles.lifetime = 0.5
+	particles.explosiveness = 1.0
+
+	# Particle material
+	var material = ParticleProcessMaterial.new()
+	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	material.emission_sphere_radius = 1.0
+	material.direction = Vector3(0, 1, 0)
+	material.spread = 45.0
+	material.initial_velocity_min = 2.0
+	material.initial_velocity_max = 5.0
+	material.gravity = Vector3(0, -9.8, 0)
+	material.scale_min = 0.1
+	material.scale_max = 0.3
+	material.color = Color(0.6, 0.5, 0.4)  # Dust/dirt color
+
+	particles.process_material = material
+
+	# Add to scene
+	get_node("/root/Main/Game").add_child(particles)
+
+	# Auto-delete after lifetime
+	await get_tree().create_timer(1.0).timeout
+	particles.queue_free()
+
+
+func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockback: float):
+	var entities = get_tree().get_nodes_in_group("entities")
+
+	for entity in entities:
+		if not entity.is_alive:
+			continue
+
+		# Check if entity is in AOE radius
+		var distance = entity.global_position.distance_to(center)
+		if distance > radius:
+			continue
+
+		# Don't hit friendly entities (only hit enemies)
+		if entity.team != EntityBase.Team.ENEMY:
+			continue
+
+		# Deal damage
+		entity.take_damage(damage, self)
+
+		# Apply knockback
+		var knockback_dir = (entity.global_position - center).normalized()
+		knockback_dir.y = 0.3  # Slight upward force
+
+		# Apply knockback force (if entity has velocity)
+		if entity is GroundEntity:
+			entity._velocity += knockback_dir * knockback
+
+		print("Stone Hammer hit %s (distance: %.1f)" % [entity.entity_name, distance])
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func receive_use(trans: Transform3D):
+	_use(trans)
