@@ -25,6 +25,7 @@ GraphicsSettings="*res://long_nights/GraphicsSettings.gd"
 WorldManager="*res://long_nights/WorldManager.gd"
 PlayerData="*res://long_nights/PlayerData.gd"
 CompanionManager="*res://long_nights/CompanionManager.gd"
+HuntingSystem="*res://long_nights/HuntingSystem.gd"
 
 [display]
 

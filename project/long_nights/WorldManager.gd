@@ -14,7 +14,8 @@ var _world_data := {
 	"game_time_hours": 6,
 	"game_time_days": 1,
 	"game_time_weeks": 1,
-	"blood_moon_count": 0
+	"blood_moon_count": 0,
+	"is_halloween": false
 }
 
 
@@ -53,6 +54,17 @@ func increment_blood_moon_count() -> void:
 	_world_data["blood_moon_count"] += 1
 	save_world()
 	print("WorldManager: Blood moon count increased to ", _world_data["blood_moon_count"])
+
+
+# Check if today is Halloween (Oct 31)
+static func is_today_halloween() -> bool:
+	var datetime = Time.get_datetime_dict_from_system()
+	return datetime.month == 10 and datetime.day == 31
+
+
+# Get Halloween flag for this world
+func is_halloween_world() -> bool:
+	return _world_data["is_halloween"]
 
 
 # Load world.config from disk
@@ -95,8 +107,12 @@ func load_world() -> bool:
 			_world_data["game_time_weeks"] = data["game_time_weeks"]
 		if "blood_moon_count" in data:
 			_world_data["blood_moon_count"] = data["blood_moon_count"]
+		if "is_halloween" in data:
+			_world_data["is_halloween"] = data["is_halloween"]
 
 		print("WorldManager: World loaded - Seed: ", _world_data["seed"])
+		if _world_data["is_halloween"]:
+			print("🎃 This is a HALLOWEEN world! 👻")
 		return true
 
 	push_error("WorldManager: world.config is not a valid dictionary")
@@ -146,6 +162,11 @@ func create_new_world(seed: int) -> bool:
 	_world_data["game_time_days"] = 1
 	_world_data["game_time_weeks"] = 1
 	_world_data["blood_moon_count"] = 0
+	
+	# Check if this new world is being created on Halloween!
+	_world_data["is_halloween"] = is_today_halloween()
+	if _world_data["is_halloween"]:
+		print("🎃 HALLOWEEN MODE ACTIVATED! Pumpkins will be abundant! 👻")
 
 	# Save world.config
 	return save_world()

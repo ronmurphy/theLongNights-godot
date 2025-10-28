@@ -148,7 +148,8 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, lod: int):
 							var foliage = TALL_GRASS
 							if rng.randf() < 0.1:
 								foliage = DEAD_SHRUB
-							elif rng.randf() < 0.05:
+							elif rng.randf() < (0.4 if WorldManager.is_halloween_world() else 0.05):
+								# 40% chance for pumpkins on Halloween! 🎃 Otherwise 5%
 								foliage = PUMPKIN
 							buffer.set_voxel(foliage, x, relative_height, z, _CHANNEL)
 				

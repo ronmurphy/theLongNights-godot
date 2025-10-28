@@ -65,19 +65,19 @@ func _create_ui() -> void:
 	party_container.position = Vector2(viewport_size.x - 310, 70)
 
 	# Create player UI
-	player_ui = _create_party_member_ui()
+	player_ui = _create_party_member_ui(false)
 	player_ui.name = "PlayerUI"
 	party_container.add_child(player_ui)
 
 	# Companion UI will be added when companion spawns
 	# For now, hide it
-	companion_ui = _create_party_member_ui()
+	companion_ui = _create_party_member_ui(true)
 	companion_ui.name = "CompanionUI"
 	companion_ui.visible = false
 	party_container.add_child(companion_ui)
 
 
-func _create_party_member_ui() -> Control:
+func _create_party_member_ui(is_companion: bool = false) -> Control:
 	# Container for one party member
 	var member_container = HBoxContainer.new()
 	member_container.add_theme_constant_override("separation", 8)
@@ -162,6 +162,17 @@ func _create_party_member_ui() -> Control:
 	hp_label.size = Vector2(150, 18)
 	hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Let clicks pass through
 	hp_container.add_child(hp_label)
+
+	# Hunt countdown timer (only for companions, shows when hunting)
+	var hunt_timer_label = Label.new()
+	hunt_timer_label.name = "HuntTimerLabel"
+	hunt_timer_label.text = ""
+	hunt_timer_label.add_theme_font_size_override("font_size", 11)
+	hunt_timer_label.add_theme_color_override("font_color", Color(0.7, 0.9, 0.7))
+	hunt_timer_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	hunt_timer_label.add_theme_constant_override("outline_size", 1)
+	hunt_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info_vbox.add_child(hunt_timer_label)
 
 	# Weapon icon container (added to HBoxContainer to position properly)
 	var weapon_container = Control.new()
@@ -412,6 +423,9 @@ func _process(_delta: float) -> void:
 	# Keep UI positioned correctly if screen resizes
 	var viewport_size = get_viewport_rect().size
 	party_container.position = Vector2(viewport_size.x - 310, 70)
+	
+	# Update hunt timer display
+	_update_hunt_timer()
 
 
 func _update_companion_weapon() -> void:
@@ -483,3 +497,27 @@ func _get_companion_default_weapon_id() -> int:
 		"human":
 			return 8  # machete
 	return -1
+
+
+func _update_hunt_timer() -> void:
+	"""Update hunt countdown timer for companion"""
+	if not companion_ui or not companion_ui.visible:
+		return
+	
+	var hunt_timer_label = companion_ui.get_node_or_null("InfoVBox/HuntTimerLabel")
+	if not hunt_timer_label:
+		return
+	
+	# Check if HuntingSystem exists and if hunting
+	if not HuntingSystem or not HuntingSystem.is_hunting:
+		hunt_timer_label.text = ""
+		return
+	
+	# Calculate remaining hunt time
+	var hours_remaining = HuntingSystem.hunt_duration_hours - HuntingSystem.hunt_elapsed_hours
+	var minutes_remaining = 0  # Could track partial hours if needed
+	
+	if hours_remaining <= 0:
+		hunt_timer_label.text = ""
+	else:
+		hunt_timer_label.text = "Hunting: %d:%02d remaining" % [hours_remaining, minutes_remaining]

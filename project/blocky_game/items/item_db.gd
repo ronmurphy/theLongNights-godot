@@ -49,6 +49,40 @@ func _init():
 		"name": "crossbow",
 		"behavior": "crossbow.gd"
 	})
+	# Food items from hunting
+	_create_item({
+		"name": "egg",
+		"behavior": "egg.gd"
+	})
+	_create_item({
+		"name": "rabbit",
+		"behavior": "rabbit.gd"
+	})
+	_create_item({
+		"name": "berries",
+		"behavior": "berries.gd"
+	})
+	_create_item({
+		"name": "honey",
+		"behavior": "honey.gd"
+	})
+	# Material items from goblin hunting
+	_create_item({
+		"name": "stone_ore",
+		"behavior": "stone_ore.gd"
+	})
+	_create_item({
+		"name": "coal",
+		"behavior": "coal.gd"
+	})
+	_create_item({
+		"name": "iron_ore",
+		"behavior": "iron_ore.gd"
+	})
+	_create_item({
+		"name": "gold_ore",
+		"behavior": "gold_ore.gd"
+	})
 
 
 func get_item(id: int) -> Item:

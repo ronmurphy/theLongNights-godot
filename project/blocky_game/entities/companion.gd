@@ -32,6 +32,13 @@ var weapon_name: String = ""
 var is_ranged_weapon: bool = false
 var _lightning_from_sky: bool = true  # Alternates for wizard lightning
 
+## Hunting mode
+var is_hunting: bool = false
+var _hunt_wander_timer: float = 0.0
+var _hunt_wander_target: Vector3 = Vector3.ZERO
+const HUNT_WANDER_INTERVAL = 5.0  # Change direction every 5 seconds
+const HUNT_WANDER_DISTANCE = 80.0  # Wander up to 80 blocks away
+
 
 func _ready():
 	super._ready()
@@ -188,6 +195,11 @@ func _process(delta: float):
 	# Find player if we don't have one
 	if _player == null:
 		_find_player()
+		return
+
+	# If hunting, use special wandering logic
+	if is_hunting:
+		_handle_hunting(delta)
 		return
 
 	# Check if player is too far away and needs teleport
@@ -522,3 +534,59 @@ func _spawn_heal_effect(pos: Vector3):
 	# Auto-delete after lifetime
 	await get_tree().create_timer(1.5).timeout
 	particles.queue_free()
+
+
+## ============================================================================
+## HUNTING MODE FUNCTIONS
+## ============================================================================
+
+func set_hunting(hunting: bool) -> void:
+	"""Enable/disable hunting mode"""
+	print("Companion: set_hunting called with hunting=%s (currently is_hunting=%s)" % [hunting, is_hunting])
+	is_hunting = hunting
+	if hunting:
+		print("Companion: Entering hunting mode - will wander freely")
+		_hunt_wander_timer = 0.0
+		_pick_new_wander_target()
+		print("Companion: Hunting mode activated. Wander target: %s" % _hunt_wander_target)
+	else:
+		print("Companion: Exiting hunting mode - returning to normal")
+		_hunt_wander_target = Vector3.ZERO
+
+
+func _handle_hunting(delta: float):
+	"""Handle companion behavior while hunting (wandering around)"""
+	# Update wander timer
+	_hunt_wander_timer -= delta
+	
+	# Pick a new wander target periodically
+	if _hunt_wander_timer <= 0.0:
+		_pick_new_wander_target()
+		_hunt_wander_timer = HUNT_WANDER_INTERVAL
+	
+	# Calculate direction toward wander target
+	var direction_to_target = (_hunt_wander_target - global_position).normalized()
+	direction_to_target.y = 0  # Don't move vertically
+	
+	# Move toward wander target
+	var velocity_input = direction_to_target * movement_speed * MOVE_SPEED_MULTIPLIER
+	apply_ground_movement(delta, velocity_input)
+
+
+func _pick_new_wander_target() -> void:
+	"""Pick a new random wander target location"""
+	var rng = RandomNumberGenerator.new()
+	
+	# Get current position as base
+	var current_pos = global_position
+	
+	# Random angle in horizontal plane
+	var angle = rng.randf() * TAU
+	var distance = rng.randf_range(20.0, HUNT_WANDER_DISTANCE)
+	
+	# Calculate target position in horizontal plane
+	var offset_xz = Vector2(cos(angle), sin(angle)) * distance
+	_hunt_wander_target = current_pos + Vector3(offset_xz.x, 0, offset_xz.y)
+	
+	print("Companion: New wander target at distance %.1f blocks" % distance)
+

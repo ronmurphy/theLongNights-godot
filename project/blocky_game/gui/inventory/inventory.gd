@@ -355,6 +355,24 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 	weapon_center.add_child(weapon_slot)
 	panel.add_child(weapon_center)
 
+	# Add Hunt button for companion (only show for companion)
+	if not is_player:
+		var spacer = Control.new()
+		spacer.custom_minimum_size = Vector2(0, 10)
+		panel.add_child(spacer)
+		
+		var hunt_button = Button.new()
+		hunt_button.name = "HuntButton"
+		hunt_button.text = "Hunt"
+		hunt_button.custom_minimum_size = Vector2(120, 40)
+		hunt_button.add_theme_font_size_override("font_size", 14)
+		hunt_button.modulate = Color(0.9, 0.7, 0.2)  # Golden color
+		hunt_button.pressed.connect(_on_hunt_button_pressed)
+		
+		var hunt_center = CenterContainer.new()
+		hunt_center.add_child(hunt_button)
+		panel.add_child(hunt_center)
+
 	return panel
 
 
@@ -443,3 +461,263 @@ func _on_equipment_slot_pressed(is_player_slot: bool):
 				_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
 			_dragged_item_view.stop()
 			_dragged_slot = -1
+
+
+## ============================================================================
+## HUNT BUTTON FUNCTIONS
+## ============================================================================
+
+func _on_hunt_button_pressed() -> void:
+	"""Show hunt dialog when Hunt button is clicked"""
+	_show_hunt_modal()
+
+
+func _show_hunt_modal() -> void:
+	"""Show modal dialog for hunt duration selection"""
+	# Create modal background
+	var modal_bg = ColorRect.new()
+	modal_bg.name = "HuntModalBG"
+	modal_bg.color = Color(0, 0, 0, 0.7)
+	modal_bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(modal_bg)
+	
+	# Create modal dialog
+	var modal_dialog = Control.new()
+	modal_dialog.name = "HuntModal"
+	modal_dialog.custom_minimum_size = Vector2(400, 300)
+	add_child(modal_dialog)
+	
+	# Center on screen
+	var screen_size = get_viewport_rect().size
+	modal_dialog.position = (screen_size - modal_dialog.custom_minimum_size) / 2
+	
+	# Modal background panel
+	var panel = Panel.new()
+	panel.custom_minimum_size = modal_dialog.custom_minimum_size
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.2, 0.15, 0.1, 0.95)
+	panel_style.border_color = Color(0.8, 0.6, 0.3)
+	panel_style.set_border_width_all(3)
+	panel.add_theme_stylebox_override("panel", panel_style)
+	modal_dialog.add_child(panel)
+	
+	# Modal content container
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 20)
+	content.position = Vector2(20, 20)
+	content.size = modal_dialog.custom_minimum_size - Vector2(40, 40)
+	modal_dialog.add_child(content)
+	
+	# Title
+	var title = Label.new()
+	title.text = "How long to hunt?"
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(title)
+	
+	# Subtitle
+	var subtitle = Label.new()
+	subtitle.text = "%s will hunt and find food/materials" % CompanionManager.get_companion_name()
+	subtitle.add_theme_font_size_override("font_size", 12)
+	subtitle.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(subtitle)
+	
+	# Spacer
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(0, 20)
+	content.add_child(spacer)
+	
+	# Button container
+	var button_container = VBoxContainer.new()
+	button_container.add_theme_constant_override("separation", 10)
+	content.add_child(button_container)
+	
+	# Duration buttons
+	var durations = [
+		{"hours": 4, "label": "4 Hours"},
+		{"hours": 8, "label": "8 Hours"},
+		{"hours": 24, "label": "Full Day (24 Hours)"}
+	]
+	
+	for duration_data in durations:
+		var btn = Button.new()
+		btn.text = duration_data["label"]
+		btn.custom_minimum_size = Vector2(350, 40)
+		btn.add_theme_font_size_override("font_size", 14)
+		btn.pressed.connect(_on_hunt_duration_selected.bindv([duration_data["hours"], modal_bg, modal_dialog]))
+		button_container.add_child(btn)
+	
+	# Cancel button
+	var cancel_btn = Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(350, 30)
+	cancel_btn.add_theme_font_size_override("font_size", 12)
+	cancel_btn.modulate = Color.GRAY
+	cancel_btn.pressed.connect(_on_hunt_cancel.bindv([modal_bg, modal_dialog]))
+	button_container.add_child(cancel_btn)
+
+
+func _on_hunt_duration_selected(hours: int, modal_bg: ColorRect, modal_dialog: Control) -> void:
+	"""Called when hunt duration is selected"""
+	# Close modal
+	modal_bg.queue_free()
+	modal_dialog.queue_free()
+	
+	# Get hunting system
+	var hunting_system = HuntingSystem
+	if not hunting_system:
+		push_error("Inventory: Could not find HuntingSystem (autoload)")
+		return
+	
+	# Get companion - try multiple paths
+	var companion = get_node_or_null("/root/Main/Game/Companion")
+	if not companion:
+		push_warning("Inventory: Path /root/Main/Game/Companion not found, trying alternate...")
+		companion = get_node_or_null("../../../../Companion")  # Relative from inventory
+		if not companion:
+			push_error("Inventory: Could not find Companion via any path")
+			return
+	
+	print("Inventory: Found companion: %s" % companion.name)
+	
+	# Start hunt
+	if hunting_system.start_hunt(companion, hours):
+		print("Inventory: Hunt started for %d hours" % hours)
+		# Connect to hunt signals
+		if not hunting_system.hunt_completed.is_connected(_on_hunt_completed):
+			hunting_system.hunt_completed.connect(_on_hunt_completed)
+		if not hunting_system.hunt_cancelled.is_connected(_on_hunt_cancelled):
+			hunting_system.hunt_cancelled.connect(_on_hunt_cancelled)
+	else:
+		push_error("Inventory: start_hunt() returned false")
+
+
+func _on_hunt_cancel(modal_bg: ColorRect, modal_dialog: Control) -> void:
+	"""Called when cancel button is pressed"""
+	modal_bg.queue_free()
+	modal_dialog.queue_free()
+
+
+func _on_hunt_completed(loot: Array) -> void:
+	"""Called when hunt completes"""
+	print("Inventory: Hunt completed! Loot count: %d" % loot.size())
+	
+	# Get hunting system to add loot to inventory
+	if HuntingSystem:
+		var loot_summary = HuntingSystem.add_loot_to_inventory(loot)
+		_show_hunt_return_dialog(loot_summary)
+
+
+func _on_hunt_cancelled(loot_kept: Array, loot_lost: Array) -> void:
+	"""Called when hunt is cancelled"""
+	print("Inventory: Hunt cancelled. Kept: %s, Lost: %s" % [loot_kept, loot_lost])
+	
+	# Get hunting system to add loot to inventory
+	var hunting_system = get_node_or_null("/root/Main/Game/HuntingSystem")
+	if hunting_system:
+		var loot_summary = hunting_system.add_loot_to_inventory(loot_kept)
+		_show_hunt_return_dialog(loot_summary, true)
+
+
+func _show_hunt_return_dialog(loot_summary: Dictionary, was_cancelled: bool = false) -> void:
+	"""Show dialog when companion returns from hunt"""
+	# Create modal background
+	var modal_bg = ColorRect.new()
+	modal_bg.name = "HuntReturnBG"
+	modal_bg.color = Color(0, 0, 0, 0.7)
+	modal_bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(modal_bg)
+	
+	# Create modal dialog
+	var modal_dialog = Control.new()
+	modal_dialog.name = "HuntReturnModal"
+	modal_dialog.custom_minimum_size = Vector2(500, 350)
+	add_child(modal_dialog)
+	
+	# Center on screen
+	var screen_size = get_viewport_rect().size
+	modal_dialog.position = (screen_size - modal_dialog.custom_minimum_size) / 2
+	
+	# Modal background panel
+	var panel = Panel.new()
+	panel.custom_minimum_size = modal_dialog.custom_minimum_size
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.2, 0.15, 0.1, 0.95)
+	panel_style.border_color = Color(0.2, 0.8, 0.2) if not was_cancelled else Color(0.8, 0.3, 0.2)
+	panel_style.set_border_width_all(3)
+	panel.add_theme_stylebox_override("panel", panel_style)
+	modal_dialog.add_child(panel)
+	
+	# Modal content container
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 15)
+	content.position = Vector2(20, 20)
+	content.size = modal_dialog.custom_minimum_size - Vector2(40, 40)
+	modal_dialog.add_child(content)
+	
+	# Companion name
+	var companion_name_label = Label.new()
+	companion_name_label.text = CompanionManager.get_companion_name()
+	companion_name_label.add_theme_font_size_override("font_size", 18)
+	companion_name_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.2))
+	companion_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(companion_name_label)
+	
+	# Return message
+	var message = Label.new()
+	if was_cancelled:
+		message.text = "I'm back! The hunt was cut short.\n(Lost 50% of my findings)"
+	elif loot_summary.size() == 0:
+		message.text = "I'm back... but I didn't find anything good.\nMaybe next time!"
+	else:
+		message.text = "I'm back! I found some great stuff!\nSome of these might make a good dish!"
+	message.add_theme_font_size_override("font_size", 14)
+	message.add_theme_color_override("font_color", Color(0.9, 0.8, 0.6))
+	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(message)
+	
+	# Spacer
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(0, 10)
+	content.add_child(spacer)
+	
+	# Loot items
+	if loot_summary.size() > 0:
+		var loot_label = Label.new()
+		loot_label.text = "Found:"
+		loot_label.add_theme_font_size_override("font_size", 12)
+		loot_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+		content.add_child(loot_label)
+		
+		var items_text = ""
+		for item_name in loot_summary.keys():
+			var count = loot_summary[item_name]
+			items_text += "• %s x%d\n" % [item_name, count]
+		
+		var items_label = Label.new()
+		items_label.text = items_text.trim_suffix("\n")
+		items_label.add_theme_font_size_override("font_size", 11)
+		items_label.add_theme_color_override("font_color", Color(0.7, 0.9, 0.7))
+		content.add_child(items_label)
+	else:
+		var empty_label = Label.new()
+		empty_label.text = "(Found nothing this time...)"
+		empty_label.add_theme_font_size_override("font_size", 11)
+		empty_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		content.add_child(empty_label)
+	
+	# Close button
+	var close_btn = Button.new()
+	close_btn.text = "Close"
+	close_btn.custom_minimum_size = Vector2(460, 40)
+	close_btn.add_theme_font_size_override("font_size", 14)
+	close_btn.pressed.connect(_on_hunt_return_close.bindv([modal_bg, modal_dialog]))
+	content.add_child(close_btn)
+
+
+func _on_hunt_return_close(modal_bg: ColorRect, modal_dialog: Control) -> void:
+	"""Called when closing hunt return dialog"""
+	modal_bg.queue_free()
+	modal_dialog.queue_free()
