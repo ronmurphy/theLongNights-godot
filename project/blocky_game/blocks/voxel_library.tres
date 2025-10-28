@@ -1,4 +1,4 @@
-[gd_resource type="VoxelBlockyLibrary" load_steps=59 format=3 uid="uid://ctn2wqssoxvj5"]
+[gd_resource type="VoxelBlockyLibrary" load_steps=72 format=3 uid="uid://ctn2wqssoxvj5"]
 
 [ext_resource type="ArrayMesh" uid="uid://rq0nk6t5jqyc" path="res://blocky_game/blocks/grass/grass.obj" id="1"]
 [ext_resource type="ArrayMesh" uid="uid://dmi1fa4udxhx3" path="res://blocky_game/blocks/dirt/dirt.obj" id="2"]
@@ -29,6 +29,9 @@
 [ext_resource type="ArrayMesh" uid="uid://c6qtk2kyul3nn" path="res://blocky_game/blocks/rail/rail_slope_nx.obj" id="24"]
 [ext_resource type="ArrayMesh" uid="uid://c2lwrnrx0on2g" path="res://blocky_game/blocks/leaves/leaves.obj" id="25"]
 [ext_resource type="ArrayMesh" uid="uid://bhkxvih1xa2a0" path="res://blocky_game/blocks/dead_shrub/dead_shrub.obj" id="26"]
+[ext_resource type="ArrayMesh" uid="uid://cd85hj15nwjxb" path="res://blocky_game/blocks/birch_log/birch_log_y.obj" id="27"]
+[ext_resource type="ArrayMesh" uid="uid://8jmqjy4wc4ca" path="res://blocky_game/blocks/birch_log/birch_log_x.obj" id="28"]
+[ext_resource type="ArrayMesh" uid="uid://biqs6t0hsxu4i" path="res://blocky_game/blocks/birch_log/birch_log_z.obj" id="29"]
 
 [sub_resource type="VoxelBlockyModelEmpty" id="VoxelBlockyModelEmpty_mk2sr"]
 resource_name = "air"
@@ -260,5 +263,100 @@ tile_top = Vector2i(0, 15)
 tile_back = Vector2i(0, 15)
 tile_front = Vector2i(0, 15)
 
+[sub_resource type="VoxelBlockyModelCube" id="VoxelBlockyModelCube_stone"]
+resource_name = "stone"
+material_override_0 = ExtResource("2_r7axq")
+tile_left = Vector2i(3, 15)
+tile_right = Vector2i(3, 15)
+tile_bottom = Vector2i(3, 15)
+tile_top = Vector2i(3, 15)
+tile_back = Vector2i(3, 15)
+tile_front = Vector2i(3, 15)
+
+[sub_resource type="VoxelBlockyModelCube" id="VoxelBlockyModelCube_gold_ore"]
+resource_name = "gold_ore"
+material_override_0 = ExtResource("2_r7axq")
+tile_left = Vector2i(4, 15)
+tile_right = Vector2i(4, 15)
+tile_bottom = Vector2i(4, 15)
+tile_top = Vector2i(4, 15)
+tile_back = Vector2i(4, 15)
+tile_front = Vector2i(4, 15)
+
+[sub_resource type="VoxelBlockyModelCube" id="VoxelBlockyModelCube_iron_ore"]
+resource_name = "iron_ore"
+material_override_0 = ExtResource("2_r7axq")
+tile_left = Vector2i(5, 15)
+tile_right = Vector2i(5, 15)
+tile_bottom = Vector2i(5, 15)
+tile_top = Vector2i(5, 15)
+tile_back = Vector2i(5, 15)
+tile_front = Vector2i(5, 15)
+
+[sub_resource type="VoxelBlockyModelCube" id="VoxelBlockyModelCube_tilled_dirt"]
+resource_name = "tilled_dirt"
+material_override_0 = ExtResource("2_r7axq")
+tile_left = Vector2i(7, 15)
+tile_right = Vector2i(7, 15)
+tile_bottom = Vector2i(7, 15)
+tile_top = Vector2i(7, 15)
+tile_back = Vector2i(7, 15)
+tile_front = Vector2i(7, 15)
+
+[sub_resource type="VoxelBlockyModelCube" id="VoxelBlockyModelCube_ruin_stone"]
+resource_name = "ruin_stone"
+material_override_0 = ExtResource("2_r7axq")
+tile_left = Vector2i(1, 15)
+tile_right = Vector2i(1, 15)
+tile_bottom = Vector2i(1, 15)
+tile_top = Vector2i(1, 15)
+tile_back = Vector2i(1, 15)
+tile_front = Vector2i(1, 15)
+
+[sub_resource type="VoxelBlockyModelCube" id="VoxelBlockyModelCube_ruin_floor"]
+resource_name = "ruin_floor"
+material_override_0 = ExtResource("2_r7axq")
+tile_left = Vector2i(2, 15)
+tile_right = Vector2i(2, 15)
+tile_bottom = Vector2i(2, 15)
+tile_top = Vector2i(2, 15)
+tile_back = Vector2i(2, 15)
+tile_front = Vector2i(2, 15)
+
+[sub_resource type="VoxelBlockyModelCube" id="VoxelBlockyModelCube_teleport_stone"]
+resource_name = "teleport_stone"
+material_override_0 = ExtResource("2_r7axq")
+mesh_ortho_rotation_index = 21
+tile_left = Vector2i(6, 15)
+tile_right = Vector2i(6, 15)
+tile_bottom = Vector2i(6, 15)
+tile_top = Vector2i(6, 15)
+tile_back = Vector2i(6, 15)
+tile_front = Vector2i(6, 15)
+
+[sub_resource type="VoxelBlockyModelMesh" id="VoxelBlockyModelMesh_birch_log_y"]
+resource_name = "birch_log_y"
+random_tickable = true
+collision_aabbs = Array[AABB]([AABB(0, 0, 0, 1, 1, 1)])
+material_override_0 = ExtResource("2_r7axq")
+collision_enabled_0 = true
+mesh = ExtResource("27")
+
+[sub_resource type="VoxelBlockyModelMesh" id="VoxelBlockyModelMesh_birch_log_x"]
+resource_name = "birch_log_x"
+random_tickable = true
+collision_aabbs = Array[AABB]([AABB(0, 0, 0, 1, 1, 1)])
+material_override_0 = ExtResource("2_r7axq")
+collision_enabled_0 = true
+mesh = ExtResource("28")
+
+[sub_resource type="VoxelBlockyModelMesh" id="VoxelBlockyModelMesh_birch_log_z"]
+resource_name = "birch_log_z"
+random_tickable = true
+collision_aabbs = Array[AABB]([AABB(0, 0, 0, 1, 1, 1)])
+material_override_0 = ExtResource("2_r7axq")
+collision_enabled_0 = true
+mesh = ExtResource("29")
+
 [resource]
-models = Array[VoxelBlockyModel]([SubResource("VoxelBlockyModelEmpty_mk2sr"), SubResource("VoxelBlockyModelMesh_7h3nj"), SubResource("VoxelBlockyModelMesh_7ws3s"), SubResource("VoxelBlockyModelMesh_dgg18"), SubResource("VoxelBlockyModelMesh_82a53"), SubResource("VoxelBlockyModelMesh_rid6c"), SubResource("VoxelBlockyModelMesh_w6frs"), SubResource("VoxelBlockyModelMesh_b3d46"), SubResource("VoxelBlockyModelMesh_ilklx"), SubResource("VoxelBlockyModelMesh_8o2q5"), SubResource("VoxelBlockyModelMesh_dos6x"), SubResource("VoxelBlockyModelMesh_ldqsp"), SubResource("VoxelBlockyModelMesh_rqv2x"), SubResource("VoxelBlockyModelMesh_lt74g"), SubResource("VoxelBlockyModelMesh_rydis"), SubResource("VoxelBlockyModelMesh_k70eq"), SubResource("VoxelBlockyModelMesh_7pgsh"), SubResource("VoxelBlockyModelMesh_qbgg8"), SubResource("VoxelBlockyModelMesh_iqgm8"), SubResource("VoxelBlockyModelMesh_1mglx"), SubResource("VoxelBlockyModelMesh_udleu"), SubResource("VoxelBlockyModelMesh_p61kv"), SubResource("VoxelBlockyModelMesh_txenr"), SubResource("VoxelBlockyModelMesh_ruhud"), SubResource("VoxelBlockyModelMesh_5qhvr"), SubResource("VoxelBlockyModelMesh_g6mep"), SubResource("VoxelBlockyModelMesh_kcviq"), SubResource("VoxelBlockyModelCube_4h7qi"), SubResource("VoxelBlockyModelCube_xlq4u")])
+models = Array[VoxelBlockyModel]([SubResource("VoxelBlockyModelEmpty_mk2sr"), SubResource("VoxelBlockyModelMesh_7h3nj"), SubResource("VoxelBlockyModelMesh_7ws3s"), SubResource("VoxelBlockyModelMesh_dgg18"), SubResource("VoxelBlockyModelMesh_82a53"), SubResource("VoxelBlockyModelMesh_rid6c"), SubResource("VoxelBlockyModelMesh_w6frs"), SubResource("VoxelBlockyModelMesh_b3d46"), SubResource("VoxelBlockyModelMesh_ilklx"), SubResource("VoxelBlockyModelMesh_8o2q5"), SubResource("VoxelBlockyModelMesh_dos6x"), SubResource("VoxelBlockyModelMesh_ldqsp"), SubResource("VoxelBlockyModelMesh_rqv2x"), SubResource("VoxelBlockyModelMesh_lt74g"), SubResource("VoxelBlockyModelMesh_rydis"), SubResource("VoxelBlockyModelMesh_k70eq"), SubResource("VoxelBlockyModelMesh_7pgsh"), SubResource("VoxelBlockyModelMesh_qbgg8"), SubResource("VoxelBlockyModelMesh_iqgm8"), SubResource("VoxelBlockyModelMesh_1mglx"), SubResource("VoxelBlockyModelMesh_udleu"), SubResource("VoxelBlockyModelMesh_p61kv"), SubResource("VoxelBlockyModelMesh_txenr"), SubResource("VoxelBlockyModelMesh_ruhud"), SubResource("VoxelBlockyModelMesh_5qhvr"), SubResource("VoxelBlockyModelMesh_g6mep"), SubResource("VoxelBlockyModelMesh_kcviq"), SubResource("VoxelBlockyModelCube_4h7qi"), SubResource("VoxelBlockyModelCube_xlq4u"), SubResource("VoxelBlockyModelCube_stone"), SubResource("VoxelBlockyModelCube_gold_ore"), SubResource("VoxelBlockyModelCube_iron_ore"), SubResource("VoxelBlockyModelCube_tilled_dirt"), SubResource("VoxelBlockyModelCube_ruin_stone"), SubResource("VoxelBlockyModelCube_ruin_floor"), SubResource("VoxelBlockyModelCube_teleport_stone"), SubResource("VoxelBlockyModelMesh_birch_log_y"), SubResource("VoxelBlockyModelMesh_birch_log_x"), SubResource("VoxelBlockyModelMesh_birch_log_z")])

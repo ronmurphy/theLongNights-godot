@@ -149,9 +149,13 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, lod: int):
 				if relative_height > block_size:
 					buffer.fill_area(DIRT,
 						Vector3(x, 0, z), Vector3(x + 1, block_size, z + 1), _CHANNEL)
+					# Add ore/stone in deeper underground layers
+					_add_ores_to_column(buffer, x, z, 0, block_size, oy, rng)
 				elif relative_height > 0:
 					buffer.fill_area(DIRT,
 						Vector3(x, 0, z), Vector3(x + 1, relative_height, z + 1), _CHANNEL)
+					# Add ore/stone to underground blocks
+					_add_ores_to_column(buffer, x, z, 0, relative_height, oy, rng)
 					if height >= 0:
 						buffer.set_voxel(GRASS, x, relative_height - 1, z, _CHANNEL)
 						if relative_height < block_size and rng.randf() < 0.2:
@@ -233,6 +237,31 @@ func _get_tree_instances_in_chunk(
 
 static func _get_chunk_seed_2d(cpos: Vector3) -> int:
 	return int(cpos.x) ^ (31 * int(cpos.z))
+
+
+# Add ores and stone to underground blocks based on depth
+func _add_ores_to_column(buffer: VoxelBuffer, x: int, z: int, start_y: int, end_y: int, chunk_y: int, rng: RandomNumberGenerator):
+	for y in range(start_y, end_y):
+		var world_y = chunk_y + y
+		var current_block = buffer.get_voxel(x, y, z, _CHANNEL)
+		
+		# Only replace dirt blocks
+		if current_block != DIRT:
+			continue
+		
+		# Stone starts appearing below surface (y < 5) and becomes more common deeper
+		if world_y < 5:
+			var stone_chance = min(0.3 + abs(world_y) * 0.05, 0.8)  # 30% at y=5, up to 80% deep
+			if rng.randf() < stone_chance:
+				buffer.set_voxel(STONE, x, y, z, _CHANNEL)
+				
+				# Iron ore spawns in stone (y < 0), 3% chance
+				if world_y < 0 and rng.randf() < 0.03:
+					buffer.set_voxel(IRON_ORE, x, y, z, _CHANNEL)
+				
+				# Gold ore spawns deeper (y < -10), 1% chance
+				elif world_y < -10 and rng.randf() < 0.01:
+					buffer.set_voxel(GOLD_ORE, x, y, z, _CHANNEL)
 
 
 func _get_height_at(x: int, z: int) -> int:
