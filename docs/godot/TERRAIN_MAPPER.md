@@ -6,8 +6,6 @@
 
 ---
 
-## What We Built
-
 ### Terrain Mapper Tool (Ctrl+T)
 A visual, in-game tool that eliminates manual coordinate calculations for adding new blocks.
 
@@ -308,6 +306,37 @@ _create_block({
 - `CLAUDE.md` - Technical notes and API references
 
 ---
+
+## Step by step for brad for voxel_library.tres file
+
+Perfect! Let's do bedrock as a refresher. Here's what you need to set for ID 28 (bedrock) in the VoxelLibrary:
+
+Basic Settings:
+
+Name: bedrock (matches the folder name)
+Geometry Type: TYPE_CUBE (or similar - should be a full block)
+Collision: Enable collision
+Model/Mesh:
+4. Custom Mesh: Load res://blocky_game/blocks/bedrock/bedrock.obj
+
+Material/Texture:
+5. Material Override or Texture:
+
+Set material to use terrain.png
+OR if there's a UV section, the UVs are already in the .obj file (grid position 0,15)
+Transparency:
+6. Transparent: false (it's a solid block)
+
+Collision Shape:
+7. Usually auto-generated from the cube shape
+
+Common settings for all simple blocks:
+
+All 6 faces use the same texture (already set in the .obj file)
+Collision enabled
+Not transparent
+Full cube geometry
+Does that match what you remember from setting up pumpkin last night? Once you confirm bedrock is set up, the rest (stone, gold_ore, iron_ore, etc.) will be exactly the same process - just different names and .obj files! 🪨
 
 **Created:** October 27, 2025  
 **Version:** 1.0 (Fully Functional)  

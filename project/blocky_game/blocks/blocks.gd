@@ -150,6 +150,69 @@ func _init():
 		"voxels": ["pumpkin"],
 		"transparent": false
 	})
+	_create_block({
+		"name": "bedrock",
+		"gui_model": "bedrock.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["bedrock"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "stone",
+		"gui_model": "stone.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["stone"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "gold_ore",
+		"gui_model": "gold_ore.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["gold_ore"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "iron_ore",
+		"gui_model": "iron_ore.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["iron_ore"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "tilled_dirt",
+		"gui_model": "tilled_dirt.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["tilled_dirt"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "ruin_stone",
+		"gui_model": "ruin_stone.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["ruin_stone"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "ruin_floor",
+		"gui_model": "ruin_floor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["ruin_floor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "teleport_stone",
+		"gui_model": "teleport_stone.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["teleport_stone"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "birch_log",
+		"gui_model": "birch_log_y.obj",
+		"rotation_type": ROTATION_TYPE_AXIAL,
+		"voxels": ["birch_log_y", "birch_log_x", "birch_log_z"],
+		"transparent": false
+	})
 
 
 func get_block(id: int) -> Block:

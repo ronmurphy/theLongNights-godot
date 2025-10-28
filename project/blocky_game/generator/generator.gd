@@ -9,14 +9,24 @@ const HeightmapCurve = preload("./heightmap_curve.tres")
 const AIR = 0
 const DIRT = 1
 const GRASS = 2
+const LOG = 3
+const TALL_GRASS = 6
+const WATER = 8
 const WATER_FULL = 14
 const WATER_TOP = 13
-const LOG = 4
-const LEAVES = 25
-const TALL_GRASS = 8
-const DEAD_SHRUB = 26
-const PUMPKIN = 27
-#const STONE = 8
+const LEAVES = 10
+const DEAD_SHRUB = 11
+const PUMPKIN = 12
+# New blocks added Oct 28, 2025
+const BEDROCK = 28
+const STONE = 29
+const GOLD_ORE = 30
+const IRON_ORE = 31
+const TILLED_DIRT = 32
+const RUIN_STONE = 33
+const RUIN_FLOOR = 34
+const TELEPORT_STONE = 35
+const BIRCH_LOG = 36  # birch_log_y variant
 
 const _CHANNEL = VoxelBuffer.CHANNEL_TYPE
 
