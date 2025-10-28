@@ -39,6 +39,12 @@ var _hunt_wander_target: Vector3 = Vector3.ZERO
 const HUNT_WANDER_INTERVAL = 5.0  # Change direction every 5 seconds
 const HUNT_WANDER_DISTANCE = 80.0  # Wander up to 80 blocks away
 
+## Sprite direction tracking
+var _front_sprite_path: String = ""
+var _back_sprite_path: String = ""
+var _current_sprite_is_front: bool = true  # Track which sprite we're currently showing
+const MIN_SPEED_FOR_DIRECTION = 0.5  # Minimum speed to consider direction
+
 
 func _ready():
 	super._ready()
@@ -57,9 +63,12 @@ func _ready():
 	# Set collision box (similar to player)
 	set_collision_box(Vector3(0.8, 1.6, 0.8))
 
-	# Get sprite path based on race/gender
+	# Get sprite paths based on race/gender (front and back)
 	var sprite_path = CompanionManager.get_avatar_path()
 	if sprite_path != "":
+		_front_sprite_path = sprite_path
+		# Generate back sprite path by inserting "_back" before .png
+		_back_sprite_path = sprite_path.get_basename() + "_back.png"
 		_create_sprite(sprite_path, 0.004)
 
 	# Get weapon path and load weapon item
@@ -200,6 +209,7 @@ func _process(delta: float):
 	# If hunting, use special wandering logic
 	if is_hunting:
 		_handle_hunting(delta)
+		_update_sprite_direction()  # Also update sprite during hunting!
 		return
 
 	# Check if player is too far away and needs teleport
@@ -221,6 +231,9 @@ func _process(delta: float):
 			_handle_following(delta)
 		State.ATTACKING:
 			_handle_attacking(delta)
+
+	# Update sprite direction based on movement
+	_update_sprite_direction()
 
 
 func _update_state():
@@ -590,3 +603,50 @@ func _pick_new_wander_target() -> void:
 	
 	print("Companion: New wander target at distance %.1f blocks" % distance)
 
+
+func _update_sprite_direction() -> void:
+	"""Update sprite based on whether companion is moving toward or away from player"""
+	if not _sprite or not _player:
+		return
+	
+	# Get current velocity (horizontal only)
+	var velocity = get_velocity()
+	var horizontal_velocity = Vector3(velocity.x, 0, velocity.z)
+	var speed = horizontal_velocity.length()
+	
+	# If moving too slow, keep current direction
+	if speed < MIN_SPEED_FOR_DIRECTION:
+		return
+	
+	# Get direction from companion to player
+	var to_player = (_player.global_position - global_position).normalized()
+	to_player.y = 0  # Only consider horizontal direction
+	
+	# Calculate dot product (positive = moving toward, negative = moving away)
+	var dot_product = horizontal_velocity.normalized().dot(to_player)
+	
+	# Decide if we should show back or front
+	var should_show_back = dot_product < 0  # Moving away from player
+	
+	# Only update if sprite direction changed
+	# Check if current state matches desired state
+	var is_showing_front = _current_sprite_is_front
+	var should_show_front = not should_show_back
+	
+	if is_showing_front != should_show_front:
+		if should_show_back and _back_sprite_path != "":
+			# Switch to back sprite
+			var back_texture = load(_back_sprite_path)
+			if back_texture:
+				_sprite.texture = back_texture
+				_current_sprite_is_front = false
+			else:
+				push_error("Failed to load back texture: %s" % _back_sprite_path)
+		elif should_show_front and _front_sprite_path != "":
+			# Switch to front sprite
+			var front_texture = load(_front_sprite_path)
+			if front_texture:
+				_sprite.texture = front_texture
+				_current_sprite_is_front = true
+			else:
+				push_error("Failed to load front texture: %s" % _front_sprite_path)
