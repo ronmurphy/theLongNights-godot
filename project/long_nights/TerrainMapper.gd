@@ -8,6 +8,12 @@ var cell_size: Vector2 = Vector2.ZERO  # Will be calculated based on actual imag
 var selected_cell: Vector2i = Vector2i(-1, -1)
 var is_visible_mapper: bool = false
 
+# Texture mode: single (all faces same) or multi (top/side/bottom)
+enum TextureMode { SINGLE, MULTI }
+var current_mode: TextureMode = TextureMode.SINGLE
+var selected_cells: Array[Vector2i] = [Vector2i(-1, -1), Vector2i(-1, -1), Vector2i(-1, -1)]  # [top, side, bottom]
+var multi_selection_step: int = 0  # 0=top, 1=side, 2=bottom
+
 # UI Elements
 var terrain_image: TextureRect = null
 var grid_canvas: Control = null
@@ -15,6 +21,10 @@ var grid_coordinates_text: TextEdit = null
 var uv_coordinates_text: TextEdit = null
 var sprite_preview: TextureRect
 var sprite_preview_panel: Panel
+var mode_button_single: Button = null
+var mode_button_multi: Button = null
+var mode_status_label: Label = null
+var save_button: Button = null
 
 # 3D rendering components for isometric sprite generation
 var viewport_3d: SubViewport
@@ -23,6 +33,63 @@ var cube_mesh_instance: MeshInstance3D
 var cube_material: StandardMaterial3D
 var blocks_gd_text: TextEdit = null
 var obj_file_text: TextEdit = null
+
+# OBJ file templates
+const SINGLE_TEXTURE_TEMPLATE = """# Blender v2.83.0 OBJ File: 'blocks.blend'
+# www.blender.org
+o {BLOCK_NAME}_Cube
+v 1.000000 1.000000 1.000000
+v 1.000000 0.000000 1.000000
+v 0.000000 1.000000 1.000000
+v 0.000000 0.000000 1.000000
+v 1.000000 1.000000 0.000000
+v 1.000000 0.000000 0.000000
+v 0.000000 1.000000 0.000000
+v 0.000000 0.000000 0.000000
+{VT_COORDS}
+vn 0.0000 1.0000 0.0000
+vn -1.0000 0.0000 0.0000
+vn 0.0000 0.0000 -1.0000
+vn 0.0000 -1.0000 0.0000
+vn 0.0000 0.0000 1.0000
+vn 1.0000 0.0000 0.0000
+s off
+f 1/1/1 5/2/1 7/3/1 3/4/1
+f 4/5/2 3/6/2 7/7/2 8/8/2
+f 8/9/3 7/10/3 5/11/3 6/12/3
+f 6/13/4 2/14/4 4/15/4 8/16/4
+f 2/17/5 1/18/5 3/19/5 4/20/5
+f 6/21/6 5/22/6 1/23/6 2/24/6
+"""
+
+const MULTI_TEXTURE_TEMPLATE = """# Blender v2.83.0 OBJ File: 'blocks.blend'
+# www.blender.org
+# Multi-texture block
+# Top: {TOP_GRID} | Sides: {SIDE_GRID} | Bottom: {BOTTOM_GRID}
+o {BLOCK_NAME}_Cube
+v 1.000000 1.000000 1.000000
+v 1.000000 0.000000 1.000000
+v 0.000000 1.000000 1.000000
+v 0.000000 0.000000 1.000000
+v 1.000000 1.000000 0.000000
+v 1.000000 0.000000 0.000000
+v 0.000000 1.000000 0.000000
+v 0.000000 0.000000 0.000000
+{VT_COORDS}
+vn 0.0000 1.0000 0.0000
+vn -1.0000 0.0000 0.0000
+vn 0.0000 0.0000 -1.0000
+vn 0.0000 -1.0000 0.0000
+vn 0.0000 0.0000 1.0000
+vn 1.0000 0.0000 0.0000
+s off
+f 1/1/1 5/2/1 7/3/1 3/4/1
+f 4/5/2 3/6/2 7/7/2 8/8/2
+f 8/9/3 7/10/3 5/11/3 6/12/3
+f 6/13/4 2/14/4 4/15/4 8/16/4
+f 2/17/5 1/18/5 3/19/5 4/20/5
+f 6/21/6 5/22/6 1/23/6 2/24/6
+"""
 
 func _ready():
 	terrain_texture = load("res://blocky_game/blocks/terrain.png")
@@ -73,6 +140,34 @@ func _build_ui():
 	
 	var right_vbox = VBoxContainer.new()
 	right_scroll.add_child(right_vbox)
+	
+	# Mode Selection
+	var mode_label = Label.new()
+	mode_label.text = "TEXTURE MODE"
+	mode_label.add_theme_font_size_override("font_size", 14)
+	right_vbox.add_child(mode_label)
+	
+	var mode_hbox = HBoxContainer.new()
+	mode_hbox.add_theme_constant_override("separation", 10)
+	right_vbox.add_child(mode_hbox)
+	
+	mode_button_single = Button.new()
+	mode_button_single.text = "Single Texture"
+	mode_button_single.custom_minimum_size = Vector2(165, 40)
+	mode_button_single.pressed.connect(_on_mode_single_pressed)
+	mode_hbox.add_child(mode_button_single)
+	
+	mode_button_multi = Button.new()
+	mode_button_multi.text = "Multi-Texture"
+	mode_button_multi.custom_minimum_size = Vector2(165, 40)
+	mode_button_multi.pressed.connect(_on_mode_multi_pressed)
+	mode_hbox.add_child(mode_button_multi)
+	
+	# Mode status label (shows which texture we're selecting in multi mode)
+	mode_status_label = Label.new()
+	mode_status_label.text = "Single texture mode - all faces use same texture"
+	mode_status_label.add_theme_font_size_override("font_size", 12)
+	right_vbox.add_child(mode_status_label)
 	
 	# Grid Coordinates
 	var grid_label = Label.new()
@@ -140,22 +235,25 @@ func _build_ui():
 	obj_file_text.text = "Copy from dirt.obj and update vt values"
 	right_vbox.add_child(obj_file_text)
 	
-	# Close/Copy buttons
+	# Close/Save buttons
 	var button_container = HBoxContainer.new()
 	button_container.add_theme_constant_override("separation", 10)
 	right_vbox.add_child(button_container)
 	
-	var copy_button = Button.new()
-	copy_button.text = "COPY ALL"
-	copy_button.custom_minimum_size = Vector2(150, 40)
-	copy_button.pressed.connect(_on_copy_all_pressed)
-	button_container.add_child(copy_button)
+	save_button = Button.new()
+	save_button.text = "SAVE BLOCK"
+	save_button.custom_minimum_size = Vector2(150, 40)
+	save_button.pressed.connect(_on_save_block_pressed)
+	button_container.add_child(save_button)
 	
 	var close_button = Button.new()
 	close_button.text = "CLOSE (Ctrl+T)"
 	close_button.custom_minimum_size = Vector2(150, 40)
 	close_button.pressed.connect(_close_mapper)
 	button_container.add_child(close_button)
+	
+	# Set initial mode button state
+	_update_mode_buttons()
 
 func _input(event: InputEvent):
 	if event is InputEventKey and event.pressed:
@@ -202,25 +300,61 @@ func _close_mapper():
 	
 	print("[TerrainMapper] Closed")
 
-func _on_copy_all_pressed():
-	if selected_cell.x < 0 or selected_cell.y < 0:
-		print("[TerrainMapper] No cell selected")
-		return
+func _on_mode_single_pressed():
+	current_mode = TextureMode.SINGLE
+	multi_selection_step = 0
+	_reset_selection()
+	_update_mode_buttons()
+	_update_mode_status()
+	print("[TerrainMapper] Mode: Single Texture")
+
+func _on_mode_multi_pressed():
+	current_mode = TextureMode.MULTI
+	multi_selection_step = 0
+	_reset_selection()
+	_update_mode_buttons()
+	_update_mode_status()
+	print("[TerrainMapper] Mode: Multi-Texture (Top/Side/Bottom)")
+
+func _update_mode_buttons():
+	if mode_button_single and mode_button_multi:
+		if current_mode == TextureMode.SINGLE:
+			mode_button_single.modulate = Color(0.5, 1.0, 0.5)  # Green tint
+			mode_button_multi.modulate = Color(1.0, 1.0, 1.0)  # Normal
+		else:
+			mode_button_single.modulate = Color(1.0, 1.0, 1.0)  # Normal
+			mode_button_multi.modulate = Color(0.5, 1.0, 0.5)  # Green tint
+
+func _update_mode_status():
+	if mode_status_label:
+		if current_mode == TextureMode.SINGLE:
+			mode_status_label.text = "Single texture mode - all faces use same texture"
+		else:
+			match multi_selection_step:
+				0: mode_status_label.text = "Select TOP texture (step 1/3)"
+				1: mode_status_label.text = "Select SIDE texture (step 2/3)"
+				2: mode_status_label.text = "Select BOTTOM texture (step 3/3)"
+
+func _reset_selection():
+	selected_cell = Vector2i(-1, -1)
+	selected_cells = [Vector2i(-1, -1), Vector2i(-1, -1), Vector2i(-1, -1)]
+	if grid_canvas:
+		grid_canvas.queue_redraw()
+
+func _on_save_block_pressed():
+	# Check if we have valid selection(s)
+	if current_mode == TextureMode.SINGLE:
+		if selected_cell.x < 0 or selected_cell.y < 0:
+			print("[TerrainMapper] No cell selected")
+			return
+	else:  # MULTI mode
+		if selected_cells[0].x < 0 or selected_cells[1].x < 0 or selected_cells[2].x < 0:
+			print("[TerrainMapper] Need to select all 3 textures (Top, Side, Bottom)")
+			return
 	
-	# Compile all information into a formatted string
-	var all_info = ""
-	all_info += "=== TERRAIN MAPPER DATA ===\n"
-	all_info += "Grid: (%d, %d)\n" % [selected_cell.x, selected_cell.y]
-	all_info += "\n--- UV COORDINATES ---\n"
-	all_info += uv_coordinates_text.text
-	all_info += "\n\n--- BLOCKS.GD TEMPLATE ---\n"
-	all_info += blocks_gd_text.text
-	all_info += "\n\n--- OBJ FILE TEMPLATE ---\n"
-	all_info += obj_file_text.text
-	
-	# Copy to clipboard
-	DisplayServer.clipboard_set(all_info)
-	print("[TerrainMapper] Copied to clipboard!")
+	# Show input dialog for block name
+	_show_block_name_dialog()
+
 
 func _on_grid_gui_input(event: InputEvent):
 	if not is_visible_mapper:
@@ -243,8 +377,17 @@ func _on_grid_gui_input(event: InputEvent):
 		grid_pos.x = clampi(grid_pos.x, 0, grid_size - 1)
 		grid_pos.y = clampi(grid_pos.y, 0, grid_size - 1)
 		
-		selected_cell = grid_pos
-		_update_info_display()
+		if current_mode == TextureMode.SINGLE:
+			selected_cell = grid_pos
+			_update_info_display()
+		else:  # MULTI mode
+			selected_cells[multi_selection_step] = grid_pos
+			multi_selection_step += 1
+			if multi_selection_step >= 3:
+				multi_selection_step = 2  # Stay on bottom selection
+			_update_mode_status()
+			_update_info_display()
+		
 		if grid_canvas:
 			grid_canvas.queue_redraw()
 
@@ -261,25 +404,66 @@ func _on_grid_draw():
 		var py = y * cell_size.y
 		grid_canvas.draw_line(Vector2(0, py), Vector2(grid_canvas.size.x, py), Color(0.3, 0.3, 0.3, 0.5), 1.0)
 	
-	# Highlight selected
-	if selected_cell.x >= 0 and selected_cell.y >= 0:
-		var rect = Rect2(Vector2(selected_cell) * cell_size, cell_size)
-		grid_canvas.draw_rect(rect, Color(0, 1, 0, 0.2), false, 2.0)
+	# Highlight selected cells
+	if current_mode == TextureMode.SINGLE:
+		if selected_cell.x >= 0 and selected_cell.y >= 0:
+			var rect = Rect2(Vector2(selected_cell) * cell_size, cell_size)
+			grid_canvas.draw_rect(rect, Color(0, 1, 0, 0.3), true)  # Green fill
+			grid_canvas.draw_rect(rect, Color(0, 1, 0, 1.0), false, 2.0)  # Green border
+	else:  # MULTI mode - draw with different colors
+		var colors = [
+			Color(1, 0, 0, 0.3),  # Red for TOP
+			Color(0, 0, 1, 0.3),  # Blue for SIDE
+			Color(0, 1, 0, 0.3)   # Green for BOTTOM
+		]
+		var border_colors = [
+			Color(1, 0, 0, 1.0),  # Red border
+			Color(0, 0, 1, 1.0),  # Blue border
+			Color(0, 1, 0, 1.0)   # Green border
+		]
+		var labels = ["T", "S", "B"]
+		
+		for i in range(3):
+			var cell = selected_cells[i]
+			if cell.x >= 0 and cell.y >= 0:
+				var rect = Rect2(Vector2(cell) * cell_size, cell_size)
+				grid_canvas.draw_rect(rect, colors[i], true)
+				grid_canvas.draw_rect(rect, border_colors[i], false, 2.0)
+				# Draw label
+				var label_pos = Vector2(cell) * cell_size + cell_size * 0.5
+				grid_canvas.draw_string(ThemeDB.fallback_font, label_pos, labels[i], HORIZONTAL_ALIGNMENT_CENTER, -1, 24, Color.WHITE)
 
 func _update_info_display():
-	if selected_cell.x < 0 or selected_cell.y < 0:
+	# Update display based on mode
+	if current_mode == TextureMode.SINGLE:
+		if selected_cell.x < 0 or selected_cell.y < 0:
+			return
+		_update_info_single(selected_cell)
+	else:  # MULTI mode
+		# Show info for the last selected cell, or combined info
+		if multi_selection_step > 0:
+			var last_cell = selected_cells[multi_selection_step - 1]
+			if last_cell.x >= 0:
+				_update_info_single(last_cell)
+		
+		# Generate multi-texture preview when all 3 are selected
+		if selected_cells[0].x >= 0 and selected_cells[1].x >= 0 and selected_cells[2].x >= 0:
+			_generate_sprite_preview()
+
+func _update_info_single(cell: Vector2i):
+	if cell.x < 0 or cell.y < 0:
 		return
 	
-	var u_min = (selected_cell.x * (1.0 / grid_size))
-	var u_max = ((selected_cell.x + 1) * (1.0 / grid_size))
-	var v_min = (selected_cell.y * (1.0 / grid_size))
-	var v_max = ((selected_cell.y + 1) * (1.0 / grid_size))
+	var u_min = (cell.x * (1.0 / grid_size))
+	var u_max = ((cell.x + 1) * (1.0 / grid_size))
+	var v_min = (cell.y * (1.0 / grid_size))
+	var v_max = ((cell.y + 1) * (1.0 / grid_size))
 	
-	grid_coordinates_text.text = "(%d, %d)" % [selected_cell.x, selected_cell.y]
+	grid_coordinates_text.text = "(%d, %d)" % [cell.x, cell.y]
 	
 	uv_coordinates_text.text = "U: %.4f - %.4f\nV: %.4f - %.4f" % [u_min, u_max, v_min, v_max]
 	
-	var block_name = "new_block_%d_%d" % [selected_cell.x, selected_cell.y]
+	var block_name = "new_block_%d_%d" % [cell.x, cell.y]
 	blocks_gd_text.text = "_create_block({\n    \"name\": \"%s\",\n    \"gui_model\": \"%s.obj\",\n    \"rotation_type\": ROTATION_TYPE_NONE,\n    \"voxels\": [\"%s\"],\n    \"transparent\": false\n})" % [block_name, block_name, block_name]
 	
 	var v_min_obj = 1.0 - v_max
@@ -295,10 +479,54 @@ func _update_info_display():
 			u_min, v_min_obj
 		]
 	
-	obj_file_text.text = "# Grid: (%d, %d)\n# Copy from dirt.obj and replace vt lines:\n\n%s" % [selected_cell.x, selected_cell.y, uv_template]
+	obj_file_text.text = "# Grid: (%d, %d)\n# Copy from dirt.obj and replace vt lines:\n\n%s" % [cell.x, cell.y, uv_template]
 	
-	# Generate isometric sprite preview
-	_generate_sprite_preview()
+	# Generate sprite preview for single mode
+	if current_mode == TextureMode.SINGLE:
+		_generate_sprite_preview()
+
+func _show_block_name_dialog():
+	# Create a simple dialog for block name input
+	var dialog = AcceptDialog.new()
+	dialog.title = "Save Block"
+	dialog.dialog_text = "Enter block name:"
+	dialog.size = Vector2i(400, 150)
+	add_child(dialog)
+	
+	var vbox = VBoxContainer.new()
+	dialog.add_child(vbox)
+	
+	var line_edit = LineEdit.new()
+	line_edit.placeholder_text = "my_block_name"
+	line_edit.custom_minimum_size = Vector2(350, 30)
+	vbox.add_child(line_edit)
+	
+	dialog.confirmed.connect(func():
+		var block_name = line_edit.text.strip_edges()
+		if block_name.is_empty():
+			print("[TerrainMapper] Block name cannot be empty")
+			return
+		# Sanitize the name - remove invalid characters for filenames and const names
+		block_name = block_name.to_lower().replace(" ", "_").replace("-", "_")
+		# Remove any other non-alphanumeric characters except underscores
+		var sanitized = ""
+		for c in block_name:
+			if c.is_valid_identifier() or c == "_":
+				sanitized += c
+		block_name = sanitized
+		if block_name.is_empty():
+			print("[TerrainMapper] Invalid block name after sanitization")
+			return
+		_save_block_files(block_name)
+		dialog.queue_free()
+	)
+	
+	dialog.canceled.connect(func():
+		dialog.queue_free()
+	)
+	
+	dialog.popup_centered()
+	line_edit.grab_focus()
 
 func _process(_delta):
 	if is_visible_mapper and grid_canvas != null:
@@ -380,6 +608,74 @@ func _create_cube_mesh_with_uvs() -> ArrayMesh:
 	return mesh
 
 
+func _create_cube_mesh_with_uvs_multi() -> ArrayMesh:
+	"""Create a cube mesh with UVs mapped to a 48x16 texture atlas [top][side][bottom]"""
+	var arrays = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	
+	# Same vertices as single-texture version
+	var vertices = PackedVector3Array([
+		# Front face (Z+)
+		Vector3(0, 0, 1), Vector3(1, 0, 1), Vector3(1, 1, 1), Vector3(0, 1, 1),
+		# Back face (Z-)
+		Vector3(1, 0, 0), Vector3(0, 0, 0), Vector3(0, 1, 0), Vector3(1, 1, 0),
+		# Top face (Y+)
+		Vector3(0, 1, 1), Vector3(1, 1, 1), Vector3(1, 1, 0), Vector3(0, 1, 0),
+		# Bottom face (Y-)
+		Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 0, 1), Vector3(0, 0, 1),
+		# Right face (X+)
+		Vector3(1, 0, 1), Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(1, 1, 1),
+		# Left face (X-)
+		Vector3(0, 0, 0), Vector3(0, 0, 1), Vector3(0, 1, 1), Vector3(0, 1, 0),
+	])
+	
+	# UV coordinates mapped to atlas: [0-1/3=top][1/3-2/3=side][2/3-1=bottom]
+	var uvs = PackedVector2Array([
+		# Front face - SIDE (middle third: 1/3 to 2/3)
+		Vector2(1.0/3.0, 1), Vector2(2.0/3.0, 1), Vector2(2.0/3.0, 0), Vector2(1.0/3.0, 0),
+		# Back face - SIDE
+		Vector2(1.0/3.0, 1), Vector2(2.0/3.0, 1), Vector2(2.0/3.0, 0), Vector2(1.0/3.0, 0),
+		# Top face - TOP (first third: 0 to 1/3)
+		Vector2(0, 1), Vector2(1.0/3.0, 1), Vector2(1.0/3.0, 0), Vector2(0, 0),
+		# Bottom face - BOTTOM (last third: 2/3 to 1)
+		Vector2(2.0/3.0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(2.0/3.0, 0),
+		# Right face - SIDE
+		Vector2(1.0/3.0, 1), Vector2(2.0/3.0, 1), Vector2(2.0/3.0, 0), Vector2(1.0/3.0, 0),
+		# Left face - SIDE
+		Vector2(1.0/3.0, 1), Vector2(2.0/3.0, 1), Vector2(2.0/3.0, 0), Vector2(1.0/3.0, 0),
+	])
+	
+	# Same normals
+	var normals = PackedVector3Array([
+		Vector3(0, 0, 1), Vector3(0, 0, 1), Vector3(0, 0, 1), Vector3(0, 0, 1),
+		Vector3(0, 0, -1), Vector3(0, 0, -1), Vector3(0, 0, -1), Vector3(0, 0, -1),
+		Vector3(0, 1, 0), Vector3(0, 1, 0), Vector3(0, 1, 0), Vector3(0, 1, 0),
+		Vector3(0, -1, 0), Vector3(0, -1, 0), Vector3(0, -1, 0), Vector3(0, -1, 0),
+		Vector3(1, 0, 0), Vector3(1, 0, 0), Vector3(1, 0, 0), Vector3(1, 0, 0),
+		Vector3(-1, 0, 0), Vector3(-1, 0, 0), Vector3(-1, 0, 0), Vector3(-1, 0, 0),
+	])
+	
+	# Same indices
+	var indices = PackedInt32Array([
+		0, 1, 2,  2, 3, 0,
+		4, 5, 6,  6, 7, 4,
+		8, 9, 10, 10, 11, 8,
+		12, 13, 14, 14, 15, 12,
+		16, 17, 18, 18, 19, 16,
+		20, 21, 22, 22, 23, 20,
+	])
+	
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX] = indices
+	
+	var mesh = ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	
+	return mesh
+
+
 func _setup_3d_viewport():
 	"""Set up a 3D viewport for rendering isometric cube sprites"""
 	# Create SubViewport for offscreen rendering - high res for detail
@@ -427,9 +723,18 @@ func _setup_3d_viewport():
 
 func _generate_sprite_preview():
 	"""Generate an isometric cube sprite from the selected tile using 3D rendering"""
-	if selected_cell.x < 0 or selected_cell.y < 0:
-		return
-	
+	if current_mode == TextureMode.SINGLE:
+		if selected_cell.x < 0 or selected_cell.y < 0:
+			return
+		_generate_sprite_preview_single(selected_cell)
+	else:  # MULTI mode
+		if selected_cells[0].x < 0 or selected_cells[1].x < 0 or selected_cells[2].x < 0:
+			return
+		_generate_sprite_preview_multi(selected_cells[0], selected_cells[1], selected_cells[2])
+
+
+func _generate_sprite_preview_single(cell: Vector2i):
+	"""Generate preview for single-texture block"""
 	# Get the source texture as an Image
 	var source_image = terrain_texture.get_image()
 	if source_image == null:
@@ -441,11 +746,11 @@ func _generate_sprite_preview():
 	
 	# Calculate the pixel region for this tile (16x16 pixels per tile)
 	var tile_pixel_size = 16
-	var tile_x = selected_cell.x * tile_pixel_size
-	var tile_y = selected_cell.y * tile_pixel_size
+	var tile_x = cell.x * tile_pixel_size
+	var tile_y = cell.y * tile_pixel_size
 	
 	print("[TerrainMapper] Extracting tile at grid (%d, %d) -> pixels (%d, %d) to (%d, %d)" % [
-		selected_cell.x, selected_cell.y, 
+		cell.x, cell.y, 
 		tile_x, tile_y, 
 		tile_x + tile_pixel_size, tile_y + tile_pixel_size
 	])
@@ -487,6 +792,61 @@ func _generate_sprite_preview():
 	print("[TerrainMapper] Sprite preview generated and displayed")
 
 
+func _generate_sprite_preview_multi(top_cell: Vector2i, side_cell: Vector2i, bottom_cell: Vector2i):
+	"""Generate preview for multi-texture block by creating a texture atlas"""
+	var source_image = terrain_texture.get_image()
+	if source_image == null:
+		return
+	
+	if source_image.is_compressed():
+		source_image.decompress()
+	
+	var tile_pixel_size = 16
+	
+	print("[TerrainMapper] Creating multi-texture preview: Top(%d,%d) Side(%d,%d) Bottom(%d,%d)" % [
+		top_cell.x, top_cell.y, side_cell.x, side_cell.y, bottom_cell.x, bottom_cell.y
+	])
+	
+	# Extract the three tiles
+	var top_image = source_image.get_region(Rect2i(
+		top_cell.x * tile_pixel_size, top_cell.y * tile_pixel_size, 
+		tile_pixel_size, tile_pixel_size))
+	var side_image = source_image.get_region(Rect2i(
+		side_cell.x * tile_pixel_size, side_cell.y * tile_pixel_size, 
+		tile_pixel_size, tile_pixel_size))
+	var bottom_image = source_image.get_region(Rect2i(
+		bottom_cell.x * tile_pixel_size, bottom_cell.y * tile_pixel_size, 
+		tile_pixel_size, tile_pixel_size))
+	
+	# Create a 48x16 atlas: [top][side][bottom]
+	var atlas = Image.create(48, 16, false, source_image.get_format())
+	atlas.blit_rect(top_image, Rect2i(0, 0, 16, 16), Vector2i(0, 0))
+	atlas.blit_rect(side_image, Rect2i(0, 0, 16, 16), Vector2i(16, 0))
+	atlas.blit_rect(bottom_image, Rect2i(0, 0, 16, 16), Vector2i(32, 0))
+	
+	# Create texture from atlas
+	var atlas_texture = ImageTexture.create_from_image(atlas)
+	
+	# Create custom mesh with UVs mapped to the atlas
+	var cube_mesh = _create_cube_mesh_with_uvs_multi()
+	cube_mesh_instance.mesh = cube_mesh
+	cube_mesh_instance.position = Vector3(-0.5, -0.5, -0.5)
+	
+	# Apply atlas texture
+	cube_material.albedo_texture = atlas_texture
+	cube_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	
+	# Force viewport to render
+	viewport_3d.render_target_update_mode = SubViewport.UPDATE_ONCE
+	
+	await get_tree().process_frame
+	
+	var rendered_texture = viewport_3d.get_texture()
+	sprite_preview.texture = rendered_texture
+	
+	print("[TerrainMapper] Multi-texture sprite preview generated")
+
+
 func _on_sprite_preview_clicked(event: InputEvent):
 	"""Save the sprite when clicked"""
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -512,3 +872,219 @@ func _save_sprite():
 	
 	print("[TerrainMapper] Sprite saved to: ", save_path)
 	print("[TerrainMapper] Absolute path: ", ProjectSettings.globalize_path(save_path))
+
+
+func _save_block_files(block_name: String):
+	"""Save all block files to user://blocks/blockname/"""
+	print("[TerrainMapper] Saving block: ", block_name)
+	
+	# Create directory
+	var dir_path = "user://blocks/" + block_name
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir_path))
+	
+	# 1. Save OBJ file
+	var obj_content = ""
+	if current_mode == TextureMode.SINGLE:
+		obj_content = _generate_obj_single(block_name, selected_cell)
+	else:
+		obj_content = _generate_obj_multi(block_name, selected_cells[0], selected_cells[1], selected_cells[2])
+	
+	var obj_path = dir_path + "/" + block_name + ".obj"
+	var obj_file = FileAccess.open(obj_path, FileAccess.WRITE)
+	if obj_file:
+		obj_file.store_string(obj_content)
+		obj_file.close()
+		print("[TerrainMapper] Saved: ", obj_path)
+	
+	# 2. Save sprite
+	if sprite_preview.texture:
+		var sprite_path = dir_path + "/" + block_name + "_sprite.png"
+		var image = sprite_preview.texture.get_image()
+		image.save_png(sprite_path)
+		print("[TerrainMapper] Saved: ", sprite_path)
+	
+	# 3. Save instructions file
+	var instructions = _generate_instructions(block_name)
+	var inst_path = dir_path + "/" + block_name + "_instructions.txt"
+	var inst_file = FileAccess.open(inst_path, FileAccess.WRITE)
+	if inst_file:
+		inst_file.store_string(instructions)
+		inst_file.close()
+		print("[TerrainMapper] Saved: ", inst_path)
+	
+	print("[TerrainMapper] ✓ Block saved successfully to: ", ProjectSettings.globalize_path(dir_path))
+	
+	# Show completion dialog
+	_show_completion_dialog(block_name, dir_path)
+	
+	# Reset mapper for next block
+	_reset_selection()
+	multi_selection_step = 0
+	_update_mode_status()
+	if grid_canvas:
+		grid_canvas.queue_redraw()
+
+
+func _generate_obj_single(block_name: String, cell: Vector2i) -> String:
+	"""Generate OBJ file content for single-texture block"""
+	var vt_coords = _generate_vt_coords_single(cell)
+	var obj = SINGLE_TEXTURE_TEMPLATE
+	obj = obj.replace("{BLOCK_NAME}", block_name)
+	obj = obj.replace("{VT_COORDS}", vt_coords)
+	return obj
+
+
+func _generate_obj_multi(block_name: String, top_cell: Vector2i, side_cell: Vector2i, bottom_cell: Vector2i) -> String:
+	"""Generate OBJ file content for multi-texture block"""
+	var vt_coords = _generate_vt_coords_multi(top_cell, side_cell, bottom_cell)
+	var obj = MULTI_TEXTURE_TEMPLATE
+	obj = obj.replace("{BLOCK_NAME}", block_name)
+	obj = obj.replace("{TOP_GRID}", "(%d,%d)" % [top_cell.x, top_cell.y])
+	obj = obj.replace("{SIDE_GRID}", "(%d,%d)" % [side_cell.x, side_cell.y])
+	obj = obj.replace("{BOTTOM_GRID}", "(%d,%d)" % [bottom_cell.x, bottom_cell.y])
+	obj = obj.replace("{VT_COORDS}", vt_coords)
+	return obj
+
+
+func _generate_vt_coords_single(cell: Vector2i) -> String:
+	"""Generate vt coordinates for all 6 faces using the same texture"""
+	var u_min = cell.x * (1.0 / grid_size)
+	var u_max = (cell.x + 1) * (1.0 / grid_size)
+	var v_min = cell.y * (1.0 / grid_size)
+	var v_max = (cell.y + 1) * (1.0 / grid_size)
+	
+	# Flip V for OBJ format
+	var v_min_obj = 1.0 - v_max
+	var v_max_obj = 1.0 - v_min
+	
+	var vt = ""
+	# Each face needs 4 UV coordinates (24 total for 6 faces)
+	for i in range(6):
+		vt += "vt %.6f %.6f\n" % [u_min, v_max_obj]
+		vt += "vt %.6f %.6f\n" % [u_max, v_max_obj]
+		vt += "vt %.6f %.6f\n" % [u_max, v_min_obj]
+		vt += "vt %.6f %.6f\n" % [u_min, v_min_obj]
+	
+	return vt
+
+
+func _generate_vt_coords_multi(top_cell: Vector2i, side_cell: Vector2i, bottom_cell: Vector2i) -> String:
+	"""Generate vt coordinates for multi-texture block (top, 4 sides, bottom)"""
+	var vt = ""
+	
+	# Helper function to get UV for a cell
+	var get_uv = func(cell: Vector2i) -> Array:
+		var u_min = cell.x * (1.0 / grid_size)
+		var u_max = (cell.x + 1) * (1.0 / grid_size)
+		var v_min = cell.y * (1.0 / grid_size)
+		var v_max = (cell.y + 1) * (1.0 / grid_size)
+		var v_min_obj = 1.0 - v_max
+		var v_max_obj = 1.0 - v_min
+		return [u_min, u_max, v_min_obj, v_max_obj]
+	
+	# Face 1: TOP
+	var top_uv = get_uv.call(top_cell)
+	vt += "vt %.6f %.6f\n" % [top_uv[0], top_uv[3]]
+	vt += "vt %.6f %.6f\n" % [top_uv[1], top_uv[3]]
+	vt += "vt %.6f %.6f\n" % [top_uv[1], top_uv[2]]
+	vt += "vt %.6f %.6f\n" % [top_uv[0], top_uv[2]]
+	
+	# Faces 2-5: SIDES (all use side texture)
+	var side_uv = get_uv.call(side_cell)
+	for i in range(4):
+		vt += "vt %.6f %.6f\n" % [side_uv[0], side_uv[3]]
+		vt += "vt %.6f %.6f\n" % [side_uv[1], side_uv[3]]
+		vt += "vt %.6f %.6f\n" % [side_uv[1], side_uv[2]]
+		vt += "vt %.6f %.6f\n" % [side_uv[0], side_uv[2]]
+	
+	# Face 6: BOTTOM
+	var bottom_uv = get_uv.call(bottom_cell)
+	vt += "vt %.6f %.6f\n" % [bottom_uv[0], bottom_uv[3]]
+	vt += "vt %.6f %.6f\n" % [bottom_uv[1], bottom_uv[3]]
+	vt += "vt %.6f %.6f\n" % [bottom_uv[1], bottom_uv[2]]
+	vt += "vt %.6f %.6f\n" % [bottom_uv[0], bottom_uv[2]]
+	
+	return vt
+
+
+func _generate_instructions(block_name: String) -> String:
+	"""Generate instruction file with code to add to project"""
+	var inst = "=== BLOCK CREATION INSTRUCTIONS ===\n"
+	inst += "Block Name: %s\n" % block_name
+	inst += "Generated: %s\n\n" % Time.get_datetime_string_from_system()
+	
+	inst += "FILES CREATED:\n"
+	inst += "  - %s.obj (place in res://blocky_game/blocks/%s/)\n" % [block_name, block_name]
+	inst += "  - %s_sprite.png (for GUI/inventory)\n\n" % block_name
+	
+	inst += "==================================================\n"
+	inst += "STEP 1: Add to generator.gd\n"
+	inst += "==================================================\n"
+	inst += "File: res://blocky_game/blocks/generator/generator.gd\n\n"
+	inst += "Find the block constants (around line 10) and add:\n"
+	inst += "const %s = XX  # Replace XX with next available number\n\n" % block_name.to_upper()
+	
+	inst += "==================================================\n"
+	inst += "STEP 2: Add to blocks.gd\n"
+	inst += "==================================================\n"
+	inst += "File: res://blocky_game/blocks/blocks.gd\n\n"
+	inst += "Add this in the _ready() function:\n\n"
+	
+	# Generate proper blocks.gd template with actual block name
+	var blocks_template = "_create_block({\n"
+	blocks_template += "    \"name\": \"%s\",\n" % block_name
+	blocks_template += "    \"gui_model\": \"%s.obj\",\n" % block_name
+	blocks_template += "    \"rotation_type\": ROTATION_TYPE_NONE,\n"
+	blocks_template += "    \"voxels\": [\"%s\"],\n" % block_name
+	blocks_template += "    \"transparent\": false\n"
+	blocks_template += "})"
+	
+	inst += blocks_template + "\n\n"
+	
+	inst += "==================================================\n"
+	inst += "STEP 3: Add to voxel_library.tres (MANUAL)\n"
+	inst += "==================================================\n"
+	inst += "1. Open res://blocky_game/blocks/voxel_library.tres in Godot\n"
+	inst += "2. Add a new VoxelBlockyModelMesh entry\n"
+	inst += "3. Set the mesh to your .obj file\n"
+	inst += "4. Set material_override_0 to terrain_material.tres\n\n"
+	
+	if current_mode == TextureMode.SINGLE:
+		inst += "==================================================\n"
+		inst += "TEXTURE INFO (Single)\n"
+		inst += "==================================================\n"
+		inst += "Grid: (%d, %d)\n" % [selected_cell.x, selected_cell.y]
+		inst += uv_coordinates_text.text + "\n\n"
+	else:
+		inst += "==================================================\n"
+		inst += "TEXTURE INFO (Multi)\n"
+		inst += "==================================================\n"
+		inst += "TOP:    (%d, %d)\n" % [selected_cells[0].x, selected_cells[0].y]
+		inst += "SIDE:   (%d, %d)\n" % [selected_cells[1].x, selected_cells[1].y]
+		inst += "BOTTOM: (%d, %d)\n\n" % [selected_cells[2].x, selected_cells[2].y]
+	
+	inst += "==================================================\n"
+	inst += "DONE! Your block is ready to use.\n"
+	inst += "==================================================\n"
+	
+	return inst
+
+
+func _show_completion_dialog(block_name: String, dir_path: String):
+	"""Show completion dialog with option to open folder"""
+	var dialog = AcceptDialog.new()
+	dialog.title = "Block Saved Successfully!"
+	dialog.dialog_text = "Block '%s' has been saved!\n\nFiles are in:\n%s\n\nOpen folder?" % [block_name, ProjectSettings.globalize_path(dir_path)]
+	dialog.size = Vector2i(500, 200)
+	add_child(dialog)
+	
+	dialog.confirmed.connect(func():
+		OS.shell_open(ProjectSettings.globalize_path(dir_path))
+		dialog.queue_free()
+	)
+	
+	dialog.canceled.connect(func():
+		dialog.queue_free()
+	)
+	
+	dialog.popup_centered()
