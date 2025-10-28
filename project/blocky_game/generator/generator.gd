@@ -15,6 +15,7 @@ const LOG = 4
 const LEAVES = 25
 const TALL_GRASS = 8
 const DEAD_SHRUB = 26
+const PUMPKIN = 27
 #const STONE = 8
 
 const _CHANNEL = VoxelBuffer.CHANNEL_TYPE
@@ -147,6 +148,8 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, lod: int):
 							var foliage = TALL_GRASS
 							if rng.randf() < 0.1:
 								foliage = DEAD_SHRUB
+							elif rng.randf() < 0.05:
+								foliage = PUMPKIN
 							buffer.set_voxel(foliage, x, relative_height, z, _CHANNEL)
 				
 				# Water

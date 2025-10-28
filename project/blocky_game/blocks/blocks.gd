@@ -143,6 +143,13 @@ func _init():
 		"transparent": true,
 		"backface_culling": false
 	})
+	_create_block({
+		"name": "pumpkin",
+		"gui_model": "pumpkin.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["pumpkin"],
+		"transparent": false
+	})
 
 
 func get_block(id: int) -> Block:
