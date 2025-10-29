@@ -17,10 +17,15 @@ signal host_server_requested(port)
 signal upnp_toggled(pressed)
 signal graphics_settings_requested()
 
+var _background_shader: ColorRect = null
+
 
 func _ready():
 	# Check if world save exists to enable/disable buttons
 	_update_button_states()
+	
+	# Add animated shader background behind the menu
+	_add_shader_background()
 
 
 func _update_button_states():
@@ -137,3 +142,45 @@ func _show_new_game_dialog() -> void:
 
 	add_child(dialog)
 	dialog.popup_centered()
+
+
+func _add_shader_background() -> void:
+	# Create a ColorRect with the animated shader background
+	_background_shader = ColorRect.new()
+	_background_shader.name = "ShaderBackground"
+	
+	# Set anchors to fill entire screen
+	_background_shader.anchor_left = 0.0
+	_background_shader.anchor_top = 0.0
+	_background_shader.anchor_right = 1.0
+	_background_shader.anchor_bottom = 1.0
+	
+	# Set position and size to fill
+	_background_shader.offset_left = 0
+	_background_shader.offset_top = 0
+	_background_shader.offset_right = 0
+	_background_shader.offset_bottom = 0
+	
+	# Create and apply the shader material
+	var shader = load("res://blocky_game/shaders/network_background.gdshader")
+	if shader == null:
+		push_error("Failed to load network_background.gdshader")
+		return
+	
+	var material = ShaderMaterial.new()
+	material.shader = shader
+	_background_shader.material = material
+	
+	# Add to the MainMenu (parent of CenterContainer) at z-index 0 (behind)
+	add_child(_background_shader)
+	move_child(_background_shader, 0)
+	
+	print("Main menu shader background created")
+
+
+func dispose_shader_background() -> void:
+	# Called when game starts - remove the animated background
+	if _background_shader:
+		_background_shader.queue_free()
+		_background_shader = null
+		print("Main menu shader background disposed")

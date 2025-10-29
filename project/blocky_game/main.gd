@@ -82,6 +82,7 @@ func _start_game():
 	add_child(_game)
 
 	_main_menu.hide()
+	_main_menu.dispose_shader_background()
 
 	# Start music when entering game
 	if has_node("/root/MusicManager"):
@@ -96,6 +97,7 @@ func _on_main_menu_connect_to_server_requested(ip: String, port: int):
 	add_child(_game)
 
 	_main_menu.hide()
+	_main_menu.dispose_shader_background()
 
 	get_viewport().get_window().title = "Client"
 
@@ -114,6 +116,7 @@ func _on_main_menu_host_server_requested(port: int):
 	add_child(_game)
 
 	_main_menu.hide()
+	_main_menu.dispose_shader_background()
 
 	get_viewport().get_window().title = "Server"
 
