@@ -28,9 +28,6 @@ var _grapple_time := 0.0  # Time remaining for grapple
 var _climbing := false  # Currently climbing a wall
 var _climb_speed := 3.0  # Speed when climbing
 
-## Teleport system
-var _teleport_system: Node = null
-
 ## Signals
 signal hp_changed(current: int, maximum: int)
 signal player_died()
@@ -62,9 +59,6 @@ func _ready():
 
 	# Apply graphics settings to voxel viewer and rendering
 	_apply_graphics_settings()
-	
-	# Initialize teleport system
-	_init_teleport_system()
 
 
 func _has_climbing_claws() -> bool:
@@ -112,10 +106,6 @@ func _physics_process(delta: float):
 
 	# Only process keyboard input if enabled (not using console)
 	if input_enabled:
-		# Check for teleport input (E key)
-		if Input.is_action_just_pressed("ui_accept"):  # E or default interact key
-			_try_teleport()
-		
 		# Check for climbing
 		var has_claws = _has_climbing_claws()
 		var wall_ahead = has_claws and _check_wall_ahead()
@@ -348,20 +338,4 @@ func set_input_enabled(enabled: bool) -> void:
 	else:
 		print("[CharacterController] Input disabled")
 
-
-## Initialize the teleport system
-func _init_teleport_system() -> void:
-	const TeleportSystem = preload("./teleport_system.gd")
-	_teleport_system = TeleportSystem.new()
-	_teleport_system.player = self
-	add_child(_teleport_system)
-
-
-## Attempt to teleport to the next ruin
-func _try_teleport() -> void:
-	if _teleport_system:
-		_teleport_system.teleport_to_next_ruin()
-
-	else:
-		print("[CharacterController] Input disabled (console/menu active)")
 

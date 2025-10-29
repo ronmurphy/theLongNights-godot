@@ -1,7 +1,7 @@
 ## Manages flying ruins generation, tracking, and teleportation between them
 extends Node
 
-const RuinGenerator = preload("./ruin_generator.gd")
+const RuinGen = preload("./ruin_generator.gd")
 const Structure = preload("./structure.gd")
 
 ## List of all ruin structures that have been generated
@@ -71,7 +71,7 @@ func generate_ruins() -> void:
 		var ruin_size = Vector3i(size_base, size_height, size_base)
 		
 		# Create generator and generate ruin
-		var generator = RuinGenerator.new(ruin_size, ruin_seed + i, i, num_ruins)
+		var generator = RuinGen.new(ruin_size, ruin_seed + i, i, num_ruins)
 		var ruin_structure = generator.generate()
 		ruins.append(ruin_structure)
 		

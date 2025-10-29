@@ -16,7 +16,6 @@ const GameConsole = preload("res://long_nights/GameConsole.gd")
 const GameOverScreen = preload("res://long_nights/GameOverScreen.gd")
 const PartyUI = preload("res://long_nights/PartyUI.gd")
 const EnemySpawner = preload("res://long_nights/EnemySpawner.gd")
-const RuinManager = preload("./generator/ruin_manager.gd")
 
 @onready var _light : DirectionalLight3D = $DirectionalLight3D
 @onready var _terrain : VoxelTerrain = $VoxelTerrain
@@ -155,16 +154,6 @@ func _ready():
 		var spawner = EnemySpawner.new()
 		add_child(spawner)
 		print("The Long Nights: Enemy spawner initialized")
-
-		# Initialize ruin system
-		var ruin_manager = RuinManager.new()
-		ruin_manager.name = "RuinManager"
-		add_child(ruin_manager)
-		ruin_manager.initialize(5)  # Generate 5 ruins
-		print("The Long Nights: Ruin system initialized with 5 ruins")
-		
-		# Add ruins to the voxel terrain
-		_add_ruins_to_terrain(ruin_manager)
 
 		# Spawn player at saved position (or default)
 		var spawn_pos = WorldManager.get_player_position()
@@ -350,32 +339,3 @@ func _add_companion_to_ui() -> void:
 	)
 
 	print("blocky_game: Companion %s [%s] added to party UI" % [companion_name, CompanionManager.get_role_name()])
-
-
-## Add all generated ruins to the voxel terrain
-func _add_ruins_to_terrain(ruin_manager: Node) -> void:
-	var vt = _terrain.get_voxel_tool()
-	vt.channel = VoxelBuffer.CHANNEL_TYPE
-	
-	for i in range(ruin_manager.num_ruins):
-		var ruin = ruin_manager.get_ruin(i)
-		var world_pos = ruin_manager.get_ruin_position(i)
-		
-		if not ruin or not ruin.voxels:
-			continue
-		
-		# Get ruin dimensions
-		var size = ruin.voxels.get_size()
-		
-		# Copy each voxel from the ruin structure to the world
-		for x in range(size.x):
-			for y in range(size.y):
-				for z in range(size.z):
-					var voxel_type = ruin.voxels.get_voxel(x, y, z)
-					if voxel_type != 0:  # Skip air (0)
-						var world_x = int(world_pos.x) + x
-						var world_y = int(world_pos.y) + y
-						var world_z = int(world_pos.z) + z
-						vt.set_voxel(Vector3i(world_x, world_y, world_z), voxel_type)
-	
-	print("blocky_game: %d ruins added to voxel terrain" % ruin_manager.num_ruins)
