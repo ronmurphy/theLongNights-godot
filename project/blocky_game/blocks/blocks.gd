@@ -213,6 +213,14 @@ func _init():
 		"voxels": ["birch_log_y", "birch_log_x", "birch_log_z"],
 		"transparent": false
 	})
+	_create_block({
+		"name": "water_block_",
+		"gui_model": "water_block_.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["water_block_"],
+		"transparent": false
+	})
+
 
 
 func get_block(id: int) -> Block:

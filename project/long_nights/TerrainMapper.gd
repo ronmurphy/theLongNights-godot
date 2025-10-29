@@ -25,6 +25,8 @@ var mode_button_single: Button = null
 var mode_button_multi: Button = null
 var mode_status_label: Label = null
 var save_button: Button = null
+var auto_edit_checkbox: CheckBox = null
+var auto_edit_enabled: bool = false
 
 # 3D rendering components for isometric sprite generation
 var viewport_3d: SubViewport
@@ -235,6 +237,12 @@ func _build_ui():
 	obj_file_text.text = "Copy from dirt.obj and update vt values"
 	right_vbox.add_child(obj_file_text)
 	
+	# Auto-edit checkbox (EXPERIMENTAL)
+	auto_edit_checkbox = CheckBox.new()
+	auto_edit_checkbox.text = "⚠️ Auto-edit project files (EXPERIMENTAL - Backup first!)"
+	auto_edit_checkbox.toggled.connect(_on_auto_edit_toggled)
+	right_vbox.add_child(auto_edit_checkbox)
+	
 	# Close/Save buttons
 	var button_container = HBoxContainer.new()
 	button_container.add_theme_constant_override("separation", 10)
@@ -299,6 +307,26 @@ func _close_mapper():
 		party_ui.visible = true
 	
 	print("[TerrainMapper] Closed")
+
+func _on_auto_edit_toggled(enabled: bool):
+	auto_edit_enabled = enabled
+	if enabled:
+		# Show warning when enabling
+		var warning = AcceptDialog.new()
+		warning.title = "⚠️ WARNING - Experimental Feature"
+		warning.dialog_text = "Auto-editing will modify:\n• generator.gd\n• voxel_library.tres\n\nMAKE SURE YOU HAVE BACKUPS!\n\nIf something goes wrong, you can restore from git or backups."
+		warning.size = Vector2i(450, 200)
+		add_child(warning)
+		warning.popup_centered()
+		warning.confirmed.connect(func(): warning.queue_free())
+		warning.canceled.connect(func():
+			auto_edit_checkbox.button_pressed = false
+			auto_edit_enabled = false
+			warning.queue_free()
+		)
+		print("[TerrainMapper] Auto-edit ENABLED - BE CAREFUL!")
+	else:
+		print("[TerrainMapper] Auto-edit disabled (safe mode)")
 
 func _on_mode_single_pressed():
 	current_mode = TextureMode.SINGLE
@@ -914,6 +942,15 @@ func _save_block_files(block_name: String):
 	
 	print("[TerrainMapper] ✓ Block saved successfully to: ", ProjectSettings.globalize_path(dir_path))
 	
+	# 4. Auto-edit project files if enabled
+	if auto_edit_enabled:
+		print("[TerrainMapper] Auto-edit enabled - attempting to modify project files...")
+		var auto_edit_success = _auto_edit_project_files(block_name)
+		if auto_edit_success:
+			print("[TerrainMapper] ✓ Auto-edit completed successfully!")
+		else:
+			print("[TerrainMapper] ⚠️ Auto-edit failed - check instructions.txt for manual steps")
+	
 	# Show completion dialog
 	_show_completion_dialog(block_name, dir_path)
 	
@@ -1088,3 +1125,131 @@ func _show_completion_dialog(block_name: String, dir_path: String):
 	)
 	
 	dialog.popup_centered()
+
+
+func _auto_edit_project_files(block_name: String) -> bool:
+	"""Automatically edit generator.gd and blocks.gd (EXPERIMENTAL)"""
+	var success = true
+	
+	# 1. Edit generator.gd - add const
+	if not _auto_edit_generator(block_name):
+		print("[TerrainMapper] Failed to auto-edit generator.gd")
+		success = false
+	
+	# 2. Edit blocks.gd - add _create_block() call
+	if not _auto_edit_blocks(block_name):
+		print("[TerrainMapper] Failed to auto-edit blocks.gd")
+		success = false
+	
+	# 3. Edit voxel_library.tres - skip (too complex, use Godot UI)
+	print("[TerrainMapper] Skipping voxel_library.tres auto-edit (use Godot UI)")
+	
+	return success
+
+
+func _auto_edit_generator(block_name: String) -> bool:
+	"""Add block constant to generator.gd"""
+	var generator_path = "res://blocky_game/generator/generator.gd"
+	
+	# Read the file
+	var file = FileAccess.open(generator_path, FileAccess.READ)
+	if not file:
+		print("[TerrainMapper] ERROR: Could not open generator.gd")
+		return false
+	
+	var content = file.get_as_text()
+	file.close()
+	
+	# Find the highest block const number
+	var regex = RegEx.new()
+	regex.compile("const\\s+\\w+\\s*=\\s*(\\d+)")
+	var matches = regex.search_all(content)
+	
+	var max_number = 0
+	for match in matches:
+		var num = int(match.get_string(1))
+		if num > max_number:
+			max_number = num
+	
+	var new_number = max_number + 1
+	var const_name = block_name.to_upper()
+	var new_const_line = "const %s = %d" % [const_name, new_number]
+	
+	print("[TerrainMapper] Adding: %s" % new_const_line)
+	
+	# Find where to insert (after BIRCH_LOG or last const)
+	var insert_pattern = "const BIRCH_LOG = \\d+"
+	regex.compile(insert_pattern)
+	var insert_match = regex.search(content)
+	
+	if insert_match:
+		var insert_pos = insert_match.get_end()
+		# Find the end of the line
+		var line_end = content.find("\n", insert_pos)
+		if line_end != -1:
+			# Insert after this line
+			var new_content = content.substr(0, line_end + 1) + new_const_line + "\n" + content.substr(line_end + 1)
+			
+			# Write back
+			file = FileAccess.open(generator_path, FileAccess.WRITE)
+			if file:
+				file.store_string(new_content)
+				file.close()
+				print("[TerrainMapper] ✓ Successfully added const to generator.gd")
+				return true
+			else:
+				print("[TerrainMapper] ERROR: Could not write to generator.gd")
+				return false
+	
+	print("[TerrainMapper] ERROR: Could not find insertion point in generator.gd")
+	return false
+
+
+func _auto_edit_blocks(block_name: String) -> bool:
+	"""Add _create_block() call to blocks.gd"""
+	var blocks_path = "res://blocky_game/blocks/blocks.gd"
+	
+	# Read the file
+	var file = FileAccess.open(blocks_path, FileAccess.READ)
+	if not file:
+		print("[TerrainMapper] ERROR: Could not open blocks.gd")
+		return false
+	
+	var content = file.get_as_text()
+	file.close()
+	
+	# Generate the _create_block call
+	var create_block_code = "\t_create_block({\n"
+	create_block_code += "\t\t\"name\": \"%s\",\n" % block_name
+	create_block_code += "\t\t\"gui_model\": \"%s.obj\",\n" % block_name
+	create_block_code += "\t\t\"rotation_type\": ROTATION_TYPE_NONE,\n"
+	create_block_code += "\t\t\"voxels\": [\"%s\"],\n" % block_name
+	create_block_code += "\t\t\"transparent\": false\n"
+	create_block_code += "\t})\n"
+	
+	print("[TerrainMapper] Adding _create_block() for: %s" % block_name)
+	
+	# Find where to insert - after the last _create_block (birch_log) and before the first func
+	# Look for the pattern: "})" followed by blank lines then "func get_block"
+	var regex = RegEx.new()
+	regex.compile("\\}\\)\\n+func get_block")
+	var insert_match = regex.search(content)
+	
+	if insert_match:
+		var insert_pos = insert_match.get_start() + 2  # After the "})"
+		# Insert before the blank line and func
+		var new_content = content.substr(0, insert_pos) + "\n" + create_block_code + content.substr(insert_pos)
+		
+		# Write back
+		file = FileAccess.open(blocks_path, FileAccess.WRITE)
+		if file:
+			file.store_string(new_content)
+			file.close()
+			print("[TerrainMapper] ✓ Successfully added _create_block() to blocks.gd")
+			return true
+		else:
+			print("[TerrainMapper] ERROR: Could not write to blocks.gd")
+			return false
+	
+	print("[TerrainMapper] ERROR: Could not find insertion point in blocks.gd")
+	return false
