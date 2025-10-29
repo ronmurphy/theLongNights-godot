@@ -43,7 +43,7 @@ func _explode(voxel_hit_pos: Vector3, explosion_pos: Vector3):
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer():
 		if mp.is_server():
-			_terrain_tool.do_sphere(voxel_hit_pos, 4.0)
+			_do_sphere_safe(voxel_hit_pos, 4.0)
 			_damage_nearby_entities(explosion_pos, 6.0, 50)  # 6 block radius, 50 damage
 			rpc(&"receive_explode", explosion_pos)
 			_create_explosion_vfx(explosion_pos)
@@ -52,9 +52,31 @@ func _explode(voxel_hit_pos: Vector3, explosion_pos: Vector3):
 		# to find when the collision occurs, but it can lead to false positives if terrain is synced
 		# out of order, so it's more reliable to explicitely be told when to play the explosion
 	else:
+		_do_sphere_safe(voxel_hit_pos, 4.0)
 		_damage_nearby_entities(explosion_pos, 6.0, 50)  # 6 block radius, 50 damage
 		_create_explosion_vfx(explosion_pos)
 		queue_free()
+
+
+func _do_sphere_safe(center: Vector3, radius: float):
+	"""Destroy blocks in sphere, but skip bedrock (voxel ID 28)"""
+	var r_int = int(ceil(radius))
+	
+	# Iterate through all positions in bounding box
+	for y in range(-r_int, r_int + 1):
+		for z in range(-r_int, r_int + 1):
+			for x in range(-r_int, r_int + 1):
+				var pos = center + Vector3(x, y, z)
+				var dist = pos.distance_to(center)
+				
+				# If position is within sphere radius
+				if dist <= radius:
+					# Check what block is there
+					var voxel_id = _terrain_tool.get_voxel(pos)
+					
+					# Only destroy if it's not bedrock (voxel ID 28) and not air (0)
+					if voxel_id != 0 and voxel_id != 28:
+						_terrain_tool.set_voxel(pos, 0)  # 0 = air
 
 
 @rpc("authority", "call_remote", "reliable", 0)
@@ -101,5 +123,3 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int) -> voi
 			# Apply damage (could scale with distance)
 			var scaled_damage = int(damage * (1.0 - (distance / radius)))
 			entity.take_damage(scaled_damage, self)
-
-

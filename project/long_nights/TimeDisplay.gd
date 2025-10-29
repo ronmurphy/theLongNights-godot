@@ -5,6 +5,8 @@ extends Control
 var time_label: Label
 var day_label: Label
 var bloodmoon_warning: Label
+var coord_label: Label
+var _player: Node3D = null
 
 func _ready() -> void:
 	# Create labels if not in scene tree
@@ -22,6 +24,11 @@ func _ready() -> void:
 		bloodmoon_warning = Label.new()
 		bloodmoon_warning.name = "BloodmoonWarning"
 		add_child(bloodmoon_warning)
+	
+	if not coord_label:
+		coord_label = Label.new()
+		coord_label.name = "CoordLabel"
+		add_child(coord_label)
 
 	# Style labels
 	_setup_labels()
@@ -32,10 +39,37 @@ func _ready() -> void:
 	TimeManager.bloodmoon_started.connect(_on_bloodmoon_started)
 	TimeManager.bloodmoon_ended.connect(_on_bloodmoon_ended)
 
+	# Find player
+	_find_player()
+
 	# Initial update
 	_update_display()
 
 	print("TimeDisplay: UI ready")
+
+func _find_player() -> void:
+	# Try to find the player by group first (most reliable)
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0:
+		_player = players[0]
+		print("TimeDisplay: Found player in 'player' group")
+		return
+	
+	# Try to find the player/avatar in the scene tree
+	var player_node = get_node_or_null("/root/Main/Game/CharacterAvatar")
+	if player_node:
+		_player = player_node
+		print("TimeDisplay: Found player at CharacterAvatar")
+		return
+	
+	# Try Players container
+	var players_container = get_node_or_null("/root/Main/Game/Players")
+	if players_container and players_container.get_child_count() > 0:
+		_player = players_container.get_child(0)
+		print("TimeDisplay: Found player in Players container")
+		return
+	
+	print("TimeDisplay: Could not find player node")
 
 func _setup_labels() -> void:
 	# Get viewport size for positioning
@@ -66,6 +100,15 @@ func _setup_labels() -> void:
 	bloodmoon_warning.add_theme_color_override("font_outline_color", Color.BLACK)
 	bloodmoon_warning.add_theme_constant_override("outline_size", 3)
 	bloodmoon_warning.visible = false
+	
+	# Coordinate label (top-left corner)
+	coord_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	coord_label.position = Vector2(10, 10)
+	coord_label.size = Vector2(300, 30)
+	coord_label.add_theme_font_size_override("font_size", 16)
+	coord_label.add_theme_color_override("font_color", Color.WHITE)
+	coord_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	coord_label.add_theme_constant_override("outline_size", 2)
 
 func _on_time_changed(_hour: int) -> void:
 	_update_display()
@@ -106,6 +149,16 @@ func _on_bloodmoon_ended() -> void:
 	bloodmoon_warning.visible = false
 
 func _process(_delta: float) -> void:
+	# Update coordinates
+	if _player:
+		var pos = _player.global_position
+		coord_label.text = "Pos: X:%.0f Y:%.0f Z:%.0f" % [pos.x, pos.y, pos.z]
+	else:
+		# Try to find player if we don't have it yet
+		if not _player:
+			_find_player()
+		coord_label.text = "Pos: ---"
+	
 	# Keep bloodmoon warning centered if screen resizes
 	if bloodmoon_warning.visible:
 		var screen_size = get_viewport_rect().size

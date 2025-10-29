@@ -88,10 +88,10 @@ func _physics_process(_delta):
 	if hit != null:
 		_cursor.show()
 		_cursor.set_position(hit.position)
-		DDD.set_text("Pointed voxel", str(hit.position))
+		# DDD.set_text("Pointed voxel", str(hit.position))  # Hidden - coords shown in TimeDisplay
 	else:
 		_cursor.hide()
-		DDD.set_text("Pointed voxel", "---")
+		# DDD.set_text("Pointed voxel", "---")  # Hidden - coords shown in TimeDisplay
 
 	# Use hotbar selection (equipped weapons interfere with block placement)
 	var inv_item: InventoryItem = _hotbar.get_selected_item()
@@ -115,7 +115,12 @@ func _physics_process(_delta):
 			
 			if _action_use and has_cube:
 				var pos = hit.position
-				_place_single_block(pos, 0)
+				# Check if block is bedrock (block ID 13, voxel ID 28)
+				var rm := _block_types.get_raw_mapping(hit_raw_id)
+				if rm.block_id != 13:  # Not bedrock
+					_place_single_block(pos, 0)
+				else:
+					print("Cannot destroy bedrock!")
 			
 			elif _action_place:
 				var pos = hit.previous_position

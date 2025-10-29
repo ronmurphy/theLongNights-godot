@@ -11,6 +11,11 @@ var _next_rocket_id := 1
 
 
 func use(trans: Transform3D):
+	# Check altitude - can't fire rockets below y=-200 (air too thin!)
+	if trans.origin.y < -200:
+		print("Cannot fire rocket below y=-200 - air too thin!")
+		return
+	
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans)

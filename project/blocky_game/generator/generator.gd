@@ -157,7 +157,8 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, lod: int):
 		buffer.fill(AIR, _CHANNEL)
 
 	elif origin_in_voxels.y + block_size < _heightmap_min_y:
-		buffer.fill(DIRT, _CHANNEL)
+		# Deep underground below heightmap - fill with stone/ores/bedrock
+		_fill_deep_underground(buffer, origin_in_voxels.y, block_size, chunk_pos)
 
 	else:
 		var rng := RandomNumberGenerator.new()
@@ -173,39 +174,70 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, lod: int):
 				var height := _get_height_at(gx, gz)
 				var relative_height := height - oy
 				
-				# Dirt and grass
-				if relative_height > block_size:
-					buffer.fill_area(DIRT,
-						Vector3(x, 0, z), Vector3(x + 1, block_size, z + 1), _CHANNEL)
-					# Add ore/stone in deeper underground layers
-					_add_ores_to_column(buffer, x, z, 0, block_size, oy, rng)
-				elif relative_height > 0:
-					buffer.fill_area(DIRT,
-						Vector3(x, 0, z), Vector3(x + 1, relative_height, z + 1), _CHANNEL)
-					# Add ore/stone to underground blocks
-					_add_ores_to_column(buffer, x, z, 0, relative_height, oy, rng)
-					if height >= 0:
-						buffer.set_voxel(GRASS, x, relative_height - 1, z, _CHANNEL)
-						if relative_height < block_size and rng.randf() < 0.2:
+				# For each vertical position, check if we're above or below heightmap
+				for y in block_size:
+					var world_y = oy + y
+					
+					# Below heightmap minimum (-32), use deep underground generation
+					if world_y < _heightmap_min_y:
+						if world_y == -256:
+							buffer.set_voxel(BEDROCK, x, y, z, _CHANNEL)
+						elif world_y > -256:
+							# Generate stone with ores
+							var block_type = STONE
+							
+							# Depth-based dirt pockets
+							if world_y > -64 and rng.randf() < 0.1:
+								block_type = DIRT
+							elif world_y > -128 and world_y <= -64 and rng.randf() < 0.05:
+								block_type = DIRT
+							elif world_y > -200 and world_y <= -128 and rng.randf() < 0.02:
+								block_type = DIRT
+							
+							buffer.set_voxel(block_type, x, y, z, _CHANNEL)
+							
+							# Add ores to stone
+							if block_type == STONE:
+								var iron_chance = 0.04 if world_y > -64 else (0.06 if world_y > -128 else (0.08 if world_y > -200 else 0.10))
+								if rng.randf() < iron_chance:
+									buffer.set_voxel(IRON_ORE, x, y, z, _CHANNEL)
+								else:
+									var gold_chance = 0.0
+									if world_y <= -64 and world_y > -128:
+										gold_chance = 0.03
+									elif world_y <= -128 and world_y > -200:
+										gold_chance = 0.06
+									elif world_y <= -200:
+										gold_chance = 0.08
+									if gold_chance > 0 and rng.randf() < gold_chance:
+										buffer.set_voxel(GOLD_ORE, x, y, z, _CHANNEL)
+					
+					# Within heightmap range, use normal terrain generation
+					elif y < relative_height:
+						# Fill with dirt below the surface
+						if y < relative_height - 1:
+							buffer.set_voxel(DIRT, x, y, z, _CHANNEL)
+						# Top block of terrain (surface)
+						elif y == relative_height - 1 and height >= 0:
+							buffer.set_voxel(GRASS, x, y, z, _CHANNEL)
+						else:
+							buffer.set_voxel(DIRT, x, y, z, _CHANNEL)
+					# Place foliage on top of grass
+					elif y == relative_height and height >= 0 and y > 0:
+						var below_block = buffer.get_voxel(x, y - 1, z, _CHANNEL)
+						if below_block == GRASS and rng.randf() < 0.2:
 							var foliage = TALL_GRASS
 							if rng.randf() < 0.1:
 								foliage = DEAD_SHRUB
 							elif rng.randf() < (0.4 if WorldManager.is_halloween_world() else 0.05):
-								# 40% chance for pumpkins on Halloween! 🎃 Otherwise 5%
 								foliage = PUMPKIN
-							buffer.set_voxel(foliage, x, relative_height, z, _CHANNEL)
-				
-				# Water
-				if height < 0 and oy < 0:
-					var start_relative_height := 0
-					if relative_height > 0:
-						start_relative_height = relative_height
-					buffer.fill_area(WATER_FULL,
-						Vector3(x, start_relative_height, z), 
-						Vector3(x + 1, block_size, z + 1), _CHANNEL)
-					if oy + block_size == 0:
-						# Surface block
-						buffer.set_voxel(WATER_TOP, x, block_size - 1, z, _CHANNEL)
+							buffer.set_voxel(foliage, x, y, z, _CHANNEL)
+					# Water
+					elif height < 0 and world_y < 0 and world_y >= height:
+						if world_y == -1:
+							buffer.set_voxel(WATER_TOP, x, y, z, _CHANNEL)
+						else:
+							buffer.set_voxel(WATER_FULL, x, y, z, _CHANNEL)
 						
 				gx += 1
 
@@ -267,29 +299,75 @@ static func _get_chunk_seed_2d(cpos: Vector3) -> int:
 	return int(cpos.x) ^ (31 * int(cpos.z))
 
 
-# Add ores and stone to underground blocks based on depth
-func _add_ores_to_column(buffer: VoxelBuffer, x: int, z: int, start_y: int, end_y: int, chunk_y: int, rng: RandomNumberGenerator):
-	for y in range(start_y, end_y):
+# Fill deep underground (below heightmap min at y=-32 down to bedrock at y=-256)
+func _fill_deep_underground(buffer: VoxelBuffer, chunk_y: int, block_size: int, chunk_pos: Vector3):
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _get_chunk_seed_2d(chunk_pos)
+	
+	for y in block_size:
 		var world_y = chunk_y + y
-		var current_block = buffer.get_voxel(x, y, z, _CHANNEL)
 		
-		# Only replace dirt blocks
-		if current_block != DIRT:
+		# Bedrock layer at y=-256
+		if world_y == -256:
+			buffer.fill_area(BEDROCK, Vector3(0, y, 0), Vector3(block_size, y + 1, block_size), _CHANNEL)
 			continue
 		
-		# Stone starts appearing below surface (y < 5) and becomes more common deeper
-		if world_y < 5:
-			var stone_chance = min(0.3 + abs(world_y) * 0.05, 0.8)  # 30% at y=5, up to 80% deep
-			if rng.randf() < stone_chance:
-				buffer.set_voxel(STONE, x, y, z, _CHANNEL)
+		# Below bedrock layer, nothing generates
+		if world_y < -256:
+			buffer.fill_area(AIR, Vector3(0, y, 0), Vector3(block_size, y + 1, block_size), _CHANNEL)
+			continue
+		
+		# Above bedrock, generate stone with ores
+		for x in block_size:
+			for z in block_size:
+				var block_type = STONE
 				
-				# Iron ore spawns in stone (y < 0), 3% chance
-				if world_y < 0 and rng.randf() < 0.03:
-					buffer.set_voxel(IRON_ORE, x, y, z, _CHANNEL)
+				# Depth-based distribution
+				if world_y > -64:
+					# y=-32 to y=-64: 90% stone, 10% dirt pockets
+					if rng.randf() < 0.1:
+						block_type = DIRT
+				elif world_y > -128:
+					# y=-64 to y=-128: 95% stone, 5% dirt
+					if rng.randf() < 0.05:
+						block_type = DIRT
+				elif world_y > -200:
+					# y=-128 to y=-200: 98% stone, 2% dirt
+					if rng.randf() < 0.02:
+						block_type = DIRT
+				# else: y=-200 to y=-257: 100% stone
 				
-				# Gold ore spawns deeper (y < -10), 1% chance
-				elif world_y < -10 and rng.randf() < 0.01:
-					buffer.set_voxel(GOLD_ORE, x, y, z, _CHANNEL)
+				# Place the base block (stone or dirt)
+				buffer.set_voxel(block_type, x, y, z, _CHANNEL)
+				
+				# Add ores (only in stone blocks)
+				if block_type == STONE:
+					# Iron ore distribution by depth
+					var iron_chance = 0.0
+					if world_y > -64:
+						iron_chance = 0.04  # 4% at shallow depths
+					elif world_y > -128:
+						iron_chance = 0.06  # 6% at medium depths
+					elif world_y > -200:
+						iron_chance = 0.08  # 8% at deep depths
+					else:
+						iron_chance = 0.10  # 10% very deep
+					
+					if rng.randf() < iron_chance:
+						buffer.set_voxel(IRON_ORE, x, y, z, _CHANNEL)
+						continue  # Don't place gold if we placed iron
+					
+					# Gold ore distribution by depth
+					var gold_chance = 0.0
+					if world_y <= -64 and world_y > -128:
+						gold_chance = 0.03  # 3% starts appearing
+					elif world_y <= -128 and world_y > -200:
+						gold_chance = 0.06  # 6% more common deeper
+					elif world_y <= -200:
+						gold_chance = 0.08  # 8% very deep
+					
+					if gold_chance > 0 and rng.randf() < gold_chance:
+						buffer.set_voxel(GOLD_ORE, x, y, z, _CHANNEL)
 
 
 func _get_height_at(x: int, z: int) -> int:
