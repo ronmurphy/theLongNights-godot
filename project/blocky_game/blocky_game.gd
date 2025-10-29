@@ -244,13 +244,48 @@ func _spawn_character(peer_id: int, pos: Vector3) -> Node3D:
 	if _characters_container.has_node(node_name):
 		_logger.error(str("Character ", peer_id, " already created"))
 		return null
+	
+	# Ensure spawn position is safe (not inside blocks)
+	var safe_pos = _find_safe_spawn_position(pos)
+	
 	var character : Node3D = CharacterScene.instantiate()
 	character.name = node_name
-	character.position = pos
+	character.position = safe_pos
 	character.terrain = get_terrain().get_path()
 	character.add_to_group("player")  # Add to group for easy finding
 	_characters_container.add_child(character)
+	
+	if safe_pos != pos:
+		print("Player spawn adjusted from y=", pos.y, " to safe position y=", safe_pos.y)
+	
 	return character
+
+
+func _find_safe_spawn_position(pos: Vector3) -> Vector3:
+	"""Find a safe spawn position, moving upward if the player is inside blocks"""
+	var terrain_tool = _terrain.get_voxel_tool()
+	var check_pos = pos
+	var max_checks = 300  # Check up to 300 blocks above (from y=-256 to y=44)
+	
+	# Check if current position and the block above (for head room) are both air
+	for i in range(max_checks):
+		var voxel_at_feet = terrain_tool.get_voxel(check_pos)
+		var voxel_at_head = terrain_tool.get_voxel(check_pos + Vector3(0, 1, 0))
+		
+		# If both feet and head positions are air (0), this is safe
+		if voxel_at_feet == 0 and voxel_at_head == 0:
+			return check_pos
+		
+		# Move up one block and check again
+		check_pos.y += 1
+		
+		# If we've reached the sky, just use this position
+		if check_pos.y > 100:
+			return check_pos
+	
+	# If all else fails, spawn at a safe altitude
+	print("Warning: Could not find safe spawn position, spawning at y=10")
+	return Vector3(pos.x, 10, pos.z)
 
 
 func _spawn_remote_character(peer_id: int, pos: Vector3) -> Node3D:
