@@ -17,8 +17,6 @@ var multi_selection_step: int = 0  # 0=top, 1=side, 2=bottom
 # UI Elements
 var terrain_image: TextureRect = null
 var grid_canvas: Control = null
-var grid_coordinates_text: TextEdit = null
-var uv_coordinates_text: TextEdit = null
 var sprite_preview: TextureRect
 var sprite_preview_panel: Panel
 var mode_button_single: Button = null
@@ -33,8 +31,6 @@ var viewport_3d: SubViewport
 var camera_3d: Camera3D
 var cube_mesh_instance: MeshInstance3D
 var cube_material: StandardMaterial3D
-var blocks_gd_text: TextEdit = null
-var obj_file_text: TextEdit = null
 
 # OBJ file templates
 const SINGLE_TEXTURE_TEMPLATE = """# Blender v2.83.0 OBJ File: 'blocks.blend'
@@ -135,13 +131,11 @@ func _build_ui():
 	left_panel.add_child(grid_canvas)
 	grid_canvas.set_anchors_preset(Control.PRESET_FULL_RECT)
 	
-	# RIGHT: Info panels
-	var right_scroll = ScrollContainer.new()
-	right_scroll.custom_minimum_size = Vector2(400, 600)
-	h_split.add_child(right_scroll)
-	
+	# RIGHT: Streamlined panel - no scrolling needed
 	var right_vbox = VBoxContainer.new()
-	right_scroll.add_child(right_vbox)
+	right_vbox.custom_minimum_size = Vector2(400, 600)
+	right_vbox.add_theme_constant_override("separation", 15)
+	h_split.add_child(right_vbox)
 	
 	# Mode Selection
 	var mode_label = Label.new()
@@ -169,43 +163,32 @@ func _build_ui():
 	mode_status_label = Label.new()
 	mode_status_label.text = "Single texture mode - all faces use same texture"
 	mode_status_label.add_theme_font_size_override("font_size", 12)
+	mode_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	mode_status_label.custom_minimum_size = Vector2(350, 0)
 	right_vbox.add_child(mode_status_label)
 	
-	# Grid Coordinates
-	var grid_label = Label.new()
-	grid_label.text = "GRID COORDINATES (x, y)"
-	grid_label.add_theme_font_size_override("font_size", 14)
-	right_vbox.add_child(grid_label)
+	# Sprite Preview - centered and prominent
+	var preview_container = VBoxContainer.new()
+	preview_container.add_theme_constant_override("separation", 5)
+	right_vbox.add_child(preview_container)
 	
-	grid_coordinates_text = TextEdit.new()
-	grid_coordinates_text.custom_minimum_size = Vector2(350, 40)
-	grid_coordinates_text.text = "Click a grid cell"
-	right_vbox.add_child(grid_coordinates_text)
+	var preview_title = Label.new()
+	preview_title.text = "SPRITE PREVIEW"
+	preview_title.add_theme_font_size_override("font_size", 14)
+	preview_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_container.add_child(preview_title)
 	
-	# UV Coordinates
-	var uv_label = Label.new()
-	uv_label.text = "UV COORDINATES"
-	uv_label.add_theme_font_size_override("font_size", 14)
-	right_vbox.add_child(uv_label)
-	
-	uv_coordinates_text = TextEdit.new()
-	uv_coordinates_text.custom_minimum_size = Vector2(350, 60)
-	uv_coordinates_text.text = "U: 0.0 - 0.0625\nV: 0.0 - 0.0625"
-	right_vbox.add_child(uv_coordinates_text)
-	
-	# Add sprite preview panel - positioned to the right of OBJ template
 	sprite_preview_panel = Panel.new()
-	sprite_preview_panel.position = Vector2(975, 340)  # Moved right and aligned with OBJ section
-	sprite_preview_panel.size = Vector2(140, 180)
-	add_child(sprite_preview_panel)
+	sprite_preview_panel.custom_minimum_size = Vector2(300, 300)
+	preview_container.add_child(sprite_preview_panel)
 	
 	var preview_label = Label.new()
-	preview_label.text = "(Click to Save)"
-	preview_label.position = Vector2(10, 5)
+	preview_label.text = "(Click to Save Sprite)"
+	preview_label.position = Vector2(85, 15)
 	sprite_preview_panel.add_child(preview_label)
 	
 	sprite_preview = TextureRect.new()
-	sprite_preview.position = Vector2(10, 30)
+	sprite_preview.position = Vector2(86, 86)
 	sprite_preview.custom_minimum_size = Vector2(128, 128)
 	sprite_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	sprite_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -215,31 +198,14 @@ func _build_ui():
 	# Set up 3D rendering viewport for isometric sprites (deferred until in tree)
 	call_deferred("_setup_3d_viewport")
 	
-	# blocks.gd Template
-	var blocks_label = Label.new()
-	blocks_label.text = "BLOCKS.GD TEMPLATE"
-	blocks_label.add_theme_font_size_override("font_size", 12)
-	right_vbox.add_child(blocks_label)
-	
-	blocks_gd_text = TextEdit.new()
-	blocks_gd_text.custom_minimum_size = Vector2(350, 100)
-	blocks_gd_text.text = "_create_block({\n    \"name\": \"new_block\",\n    \"gui_model\": \"new_block.obj\"\n})"
-	right_vbox.add_child(blocks_gd_text)
-	
-	# OBJ File Template
-	var obj_label = Label.new()
-	obj_label.text = "OBJ FILE TEMPLATE"
-	obj_label.add_theme_font_size_override("font_size", 12)
-	right_vbox.add_child(obj_label)
-	
-	obj_file_text = TextEdit.new()
-	obj_file_text.custom_minimum_size = Vector2(350, 150)
-	obj_file_text.text = "Copy from dirt.obj and update vt values"
-	right_vbox.add_child(obj_file_text)
+	# Add flexible spacer to push buttons to bottom
+	var spacer = Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_vbox.add_child(spacer)
 	
 	# Auto-edit checkbox (EXPERIMENTAL)
 	auto_edit_checkbox = CheckBox.new()
-	auto_edit_checkbox.text = "⚠️ Auto-edit project files (EXPERIMENTAL - Backup first!)"
+	auto_edit_checkbox.text = "⚠️ Auto-edit project files (EXPERIMENTAL)"
 	auto_edit_checkbox.toggled.connect(_on_auto_edit_toggled)
 	right_vbox.add_child(auto_edit_checkbox)
 	
@@ -481,33 +447,6 @@ func _update_info_display():
 func _update_info_single(cell: Vector2i):
 	if cell.x < 0 or cell.y < 0:
 		return
-	
-	var u_min = (cell.x * (1.0 / grid_size))
-	var u_max = ((cell.x + 1) * (1.0 / grid_size))
-	var v_min = (cell.y * (1.0 / grid_size))
-	var v_max = ((cell.y + 1) * (1.0 / grid_size))
-	
-	grid_coordinates_text.text = "(%d, %d)" % [cell.x, cell.y]
-	
-	uv_coordinates_text.text = "U: %.4f - %.4f\nV: %.4f - %.4f" % [u_min, u_max, v_min, v_max]
-	
-	var block_name = "new_block_%d_%d" % [cell.x, cell.y]
-	blocks_gd_text.text = "_create_block({\n    \"name\": \"%s\",\n    \"gui_model\": \"%s.obj\",\n    \"rotation_type\": ROTATION_TYPE_NONE,\n    \"voxels\": [\"%s\"],\n    \"transparent\": false\n})" % [block_name, block_name, block_name]
-	
-	var v_min_obj = 1.0 - v_max
-	var v_max_obj = 1.0 - v_min
-	
-	var uv_template = ""
-	for face in range(6):
-		uv_template += "# Face %d:\nvt %.4f %.4f\nvt %.4f %.4f\nvt %.4f %.4f\nvt %.4f %.4f\n\n" % [
-			face + 1,
-			u_min, v_max_obj,
-			u_max, v_max_obj,
-			u_max, v_min_obj,
-			u_min, v_min_obj
-		]
-	
-	obj_file_text.text = "# Grid: (%d, %d)\n# Copy from dirt.obj and replace vt lines:\n\n%s" % [cell.x, cell.y, uv_template]
 	
 	# Generate sprite preview for single mode
 	if current_mode == TextureMode.SINGLE:
@@ -1090,8 +1029,7 @@ func _generate_instructions(block_name: String) -> String:
 		inst += "==================================================\n"
 		inst += "TEXTURE INFO (Single)\n"
 		inst += "==================================================\n"
-		inst += "Grid: (%d, %d)\n" % [selected_cell.x, selected_cell.y]
-		inst += uv_coordinates_text.text + "\n\n"
+		inst += "Grid: (%d, %d)\n\n" % [selected_cell.x, selected_cell.y]
 	else:
 		inst += "==================================================\n"
 		inst += "TEXTURE INFO (Multi)\n"
