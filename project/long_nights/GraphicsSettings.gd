@@ -22,6 +22,7 @@ var profiles := {
 		"transparent_cull_mode": 2,
 		"voxel_viewer_requires_collisions": true,  # Still need collisions for player
 		"voxel_viewer_requires_visuals": true,
+		"grass_sway_enabled": false,  # Disable grass sway on low quality
 		# Fog settings - fog starts 5 chunks before camera cutoff, fully opaque at cutoff
 		"day_fog_start": 44.0,      # 5 chunks before cutoff (49 - 5)
 		"day_fog_end": 49.0,        # Full opacity at camera edge
@@ -44,6 +45,7 @@ var profiles := {
 		"transparent_cull_mode": 2,
 		"voxel_viewer_requires_collisions": true,
 		"voxel_viewer_requires_visuals": true,
+		"grass_sway_enabled": true,  # Enable grass sway on medium quality
 		# Fog settings - fog starts 5 chunks before camera cutoff
 		"day_fog_start": 136.12,     # 5 chunks before cutoff (141.12 - 5)
 		"day_fog_end": 141.12,
@@ -66,6 +68,7 @@ var profiles := {
 		"transparent_cull_mode": 2,
 		"voxel_viewer_requires_collisions": true,
 		"voxel_viewer_requires_visuals": true,
+		"grass_sway_enabled": true,  # Enable grass sway on high quality
 		# Fog settings - fog starts 5 chunks before camera cutoff
 		"day_fog_start": 151.8,     # 5 chunks before cutoff (156.8 - 5)
 		"day_fog_end": 156.8,
@@ -176,6 +179,10 @@ func is_enabled(feature_name: String) -> bool:
 ## Get setting with fallback
 func get_setting_or(setting_name: String, default_value):
 	return current_settings.get(setting_name, default_value)
+
+## Check if grass sway is enabled for current quality
+func is_grass_sway_enabled() -> bool:
+	return current_settings.get("grass_sway_enabled", false)
 
 # ============================================================================
 # Internal: Apply settings to scene tree
