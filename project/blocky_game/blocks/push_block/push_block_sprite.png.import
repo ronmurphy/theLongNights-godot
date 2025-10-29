@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bixk7tvnar65g"
-path="res://.godot/imported/terrain.original.png-a882b5fe50d3ec30583a2b1ed9f68ba9.ctex"
+uid="uid://btnfbnlh4yt12"
+path="res://.godot/imported/push_block_sprite.png-795a223cd86c87a6714f106400caf010.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/blocks/terrain.original.png"
-dest_files=["res://.godot/imported/terrain.original.png-a882b5fe50d3ec30583a2b1ed9f68ba9.ctex"]
+source_file="res://blocky_game/blocks/push_block/push_block_sprite.png"
+dest_files=["res://.godot/imported/push_block_sprite.png-795a223cd86c87a6714f106400caf010.ctex"]
 
 [params]
 

@@ -220,6 +220,38 @@ func _init():
 		"voxels": ["water_block_"],
 		"transparent": false
 	})
+	_create_block({
+		"name": "sand",
+		"gui_model": "sand.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["sand"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "sand_stone",
+		"gui_model": "sand_stone.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["sand_stone"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "crate",
+		"gui_model": "crate.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["crate"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "push_block",
+		"gui_model": "push_block.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["push_block"],
+		"transparent": false
+	})
+
+
+
+
 
 
 

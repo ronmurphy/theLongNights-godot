@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cpl2rgdaooav3"
-path="res://.godot/imported/terrain2.png-5938bcf9834edda4484d6c15e0b91623.ctex"
+uid="uid://cgdsfl8s8gsyj"
+path="res://.godot/imported/crate_sprite.png-7b9615df80d42c39cb1b09658b749a0a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/blocks/terrain2.png"
-dest_files=["res://.godot/imported/terrain2.png-5938bcf9834edda4484d6c15e0b91623.ctex"]
+source_file="res://blocky_game/blocks/crate/crate_sprite.png"
+dest_files=["res://.godot/imported/crate_sprite.png-7b9615df80d42c39cb1b09658b749a0a.ctex"]
 
 [params]
 

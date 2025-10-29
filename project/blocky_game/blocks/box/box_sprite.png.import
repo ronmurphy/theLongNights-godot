@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cp23oxj80a280"
-path="res://.godot/imported/block_sprite_2025-10-28_13-57-46.png-dbf4af4a57585274f7a8a5d43b864f15.ctex"
+uid="uid://h3h83jjbe6ew"
+path="res://.godot/imported/box_sprite.png-a4ca7d6326040c6efbdf15a83f2ef952.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/blocks/block_sprite_2025-10-28_13-57-46.png"
-dest_files=["res://.godot/imported/block_sprite_2025-10-28_13-57-46.png-dbf4af4a57585274f7a8a5d43b864f15.ctex"]
+source_file="res://blocky_game/blocks/box/box_sprite.png"
+dest_files=["res://.godot/imported/box_sprite.png-a4ca7d6326040c6efbdf15a83f2ef952.ctex"]
 
 [params]
 

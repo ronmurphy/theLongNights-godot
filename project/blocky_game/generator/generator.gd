@@ -27,8 +27,13 @@ const RUIN_STONE = 33
 const RUIN_FLOOR = 34
 const TELEPORT_STONE = 35
 const BIRCH_LOG = 36  # birch_log_y variant
+const PUSH_BLOCK = 42
+const CRATE = 41
+const SAND_STONE = 40
+const SAND = 39
 const WATER_BLOCK_ = 38
 const WATER_BARREL = 37
+
 
 const _CHANNEL = VoxelBuffer.CHANNEL_TYPE
 
