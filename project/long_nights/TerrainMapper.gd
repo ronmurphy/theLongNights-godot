@@ -1086,10 +1086,17 @@ func _auto_edit_project_files(block_name: String) -> bool:
 
 
 func _auto_edit_generator(block_name: String) -> bool:
-	"""Add block constant to generator.gd"""
+	"""Add block constant to generator.gd by reading voxel_library.tres"""
 	var generator_path = "res://blocky_game/generator/generator.gd"
+	var voxel_library_path = "res://blocky_game/blocks/voxel_library.tres"
 	
-	# Read the file
+	# First, count entries in voxel_library.tres to get the correct next ID
+	var next_id = _get_next_block_id_from_library(voxel_library_path)
+	if next_id < 0:
+		print("[TerrainMapper] ERROR: Could not read voxel_library.tres")
+		return false
+	
+	# Read the generator file
 	var file = FileAccess.open(generator_path, FileAccess.READ)
 	if not file:
 		print("[TerrainMapper] ERROR: Could not open generator.gd")
@@ -1098,25 +1105,14 @@ func _auto_edit_generator(block_name: String) -> bool:
 	var content = file.get_as_text()
 	file.close()
 	
-	# Find the highest block const number
-	var regex = RegEx.new()
-	regex.compile("const\\s+\\w+\\s*=\\s*(\\d+)")
-	var matches = regex.search_all(content)
-	
-	var max_number = 0
-	for match in matches:
-		var num = int(match.get_string(1))
-		if num > max_number:
-			max_number = num
-	
-	var new_number = max_number + 1
 	var const_name = block_name.to_upper()
-	var new_const_line = "const %s = %d" % [const_name, new_number]
+	var new_const_line = "const %s = %d" % [const_name, next_id]
 	
-	print("[TerrainMapper] Adding: %s" % new_const_line)
+	print("[TerrainMapper] Adding: %s (from voxel_library count)" % new_const_line)
 	
-	# Find where to insert (after BIRCH_LOG or last const)
-	var insert_pattern = "const BIRCH_LOG = \\d+"
+	# Find where to insert (after the last const or after TEST if it exists)
+	var insert_pattern = "const TEST = \\d+|const PUSH_BLOCK = \\d+"
+	var regex = RegEx.new()
 	regex.compile(insert_pattern)
 	var insert_match = regex.search(content)
 	
@@ -1133,7 +1129,7 @@ func _auto_edit_generator(block_name: String) -> bool:
 			if file:
 				file.store_string(new_content)
 				file.close()
-				print("[TerrainMapper] ✓ Successfully added const to generator.gd")
+				print("[TerrainMapper] ✓ Successfully added const to generator.gd at ID %d" % next_id)
 				return true
 			else:
 				print("[TerrainMapper] ERROR: Could not write to generator.gd")
@@ -1141,6 +1137,28 @@ func _auto_edit_generator(block_name: String) -> bool:
 	
 	print("[TerrainMapper] ERROR: Could not find insertion point in generator.gd")
 	return false
+
+
+## Get the next available block ID by counting entries in voxel_library.tres
+func _get_next_block_id_from_library(library_path: String) -> int:
+	"""Count how many blocks are in voxel_library.tres to get next ID"""
+	var file = FileAccess.open(library_path, FileAccess.READ)
+	if not file:
+		print("[TerrainMapper] ERROR: Could not open voxel_library.tres")
+		return -1
+	
+	var content = file.get_as_text()
+	file.close()
+	
+	# Count occurrences of "resource_name =" to get block count
+	var regex = RegEx.new()
+	regex.compile("resource_name\\s*=")
+	var matches = regex.search_all(content)
+	
+	var block_count = matches.size()
+	print("[TerrainMapper] Found %d blocks in voxel_library.tres, next ID will be %d" % [block_count, block_count])
+	
+	return block_count
 
 
 func _auto_edit_blocks(block_name: String) -> bool:
