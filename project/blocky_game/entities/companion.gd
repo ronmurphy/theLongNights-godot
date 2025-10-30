@@ -71,6 +71,10 @@ func _ready():
 		_back_sprite_path = sprite_path.get_basename() + "_back.png"
 		_create_sprite(sprite_path, 0.004)
 
+		# Only apply stencil shader on medium/high quality (skip on low for performance)
+		if GraphicsSettings.get_current_profile() != "low":
+			_apply_stencil_shader(sprite_path)
+
 	# Get weapon path and load weapon item
 	weapon_path = CompanionManager.get_companion_weapon()
 	_load_weapon()
@@ -640,6 +644,12 @@ func _update_sprite_direction() -> void:
 			if back_texture:
 				_sprite.texture = back_texture
 				_current_sprite_is_front = false
+				# Update shader textures if using stencil shader
+				if _sprite.material_override:
+					_sprite.material_override.set_shader_parameter("main_texture", back_texture)
+					# Also update the silhouette shader texture
+					if _sprite.material_override.next_pass:
+						_sprite.material_override.next_pass.set_shader_parameter("main_texture", back_texture)
 			else:
 				push_error("Failed to load back texture: %s" % _back_sprite_path)
 		elif should_show_front and _front_sprite_path != "":
@@ -648,5 +658,48 @@ func _update_sprite_direction() -> void:
 			if front_texture:
 				_sprite.texture = front_texture
 				_current_sprite_is_front = true
+				# Update shader textures if using stencil shader
+				if _sprite.material_override:
+					_sprite.material_override.set_shader_parameter("main_texture", front_texture)
+					# Also update the silhouette shader texture
+					if _sprite.material_override.next_pass:
+						_sprite.material_override.next_pass.set_shader_parameter("main_texture", front_texture)
 			else:
 				push_error("Failed to load front texture: %s" % _front_sprite_path)
+
+
+func _apply_stencil_shader(texture_path: String) -> void:
+	"""Apply stencil-based silhouette shader to the companion sprite"""
+	if not _sprite:
+		push_warning("Companion: Cannot apply stencil shader, sprite not found")
+		return
+
+	# Load the stencil material (first pass)
+	var stencil_material = load("res://blocky_game/entities/companion_shaders/companion_stencil_material.tres")
+	if not stencil_material:
+		push_error("Companion: Failed to load stencil material")
+		return
+
+	# Load the silhouette material (second pass)
+	var silhouette_material = load("res://blocky_game/entities/companion_shaders/companion_silhouette_material.tres")
+	if not silhouette_material:
+		push_error("Companion: Failed to load silhouette material")
+		return
+
+	# Duplicate materials so each companion instance has its own
+	stencil_material = stencil_material.duplicate()
+	silhouette_material = silhouette_material.duplicate()
+
+	# Set the texture on both shaders
+	var texture = load(texture_path)
+	if texture:
+		stencil_material.set_shader_parameter("main_texture", texture)
+		silhouette_material.set_shader_parameter("main_texture", texture)
+
+	# Apply the stencil material to the sprite
+	_sprite.material_override = stencil_material
+
+	# Set the silhouette as the Next Pass
+	stencil_material.next_pass = silhouette_material
+
+	print("Companion: Applied stencil silhouette shader")
