@@ -1,90 +1,160 @@
-# Dialogue System Design
+# Dialogue System - Implementation Complete ✅
+
+**Status:** FULLY IMPLEMENTED AND WORKING
+**Date:** October 30, 2025
+**Implementation Time:** ~4 hours
+
+---
 
 ## Overview
-Visual novel-style dialogue system for companion conversations, NPC interactions, tutorials, and story progression.
 
-## Visual Design Reference
-Based on the visual novel screenshot showing:
-- Large character portraits (left = NPC/companion, right = player)
-- Character name tags with speaker highlighting
-- Clean dialogue box with readable text
-- Character stat panels on sides
-- Blurred game background for focus
-- "Close" button for dismissal
+Visual novel-style dialogue system for companion conversations, NPC interactions, tutorials, and story progression. Features character portraits with mood changes, variable substitution, manual/click advancement, and progress tracking.
 
-## Assets Available
+---
 
-### Character Portraits
-Location: `/home/brad/Godot/theLongNights/assets/art/player_avatars/`
+## Features Implemented
 
-**Format**: `{race}_{gender}_{mood}.png`
+### Core Features ✅
+- ✅ Character portraits (left = companion/NPC, right = player)
+- ✅ Sequential message display
+- ✅ Manual advance (X key + left-click anywhere)
+- ✅ Mood/expression changes during dialogue
+- ✅ Variable substitution ({{player_name}}, {{companion_name}}, etc.)
+- ✅ Progress tracking (one-time dialogues with `"once": true`)
+- ✅ Save/load dialogue history
+- ✅ Character name system (player + companion)
+- ✅ Quiz integration (player name input after character creation)
 
-**Races**: dwarf, elf, goblin, human
-**Genders**: male, female
-**Moods**:
-- (none) = Normal/calm pose
-- `_ready` = Alert/combat stance
-- `_attack` = Aggressive/angry
-- `_back` = Rear view (walking away)
+### Input System ✅
+- **X Key** - Advance dialogue
+- **Left Mouse Click** - Advance dialogue (click anywhere on screen)
+- **No auto-advance timer** - Players can take breaks without missing content
+- **Background blocks game interaction** - Can't place blocks during dialogue
 
-**Special**: `narrator.png` for system messages
+---
 
-### Portrait Usage in Dialogue
-Characters can change expression mid-conversation:
+## Character Name System
+
+### Player Names
+When the quiz completes, players can input their custom name or accept a default based on race/gender:
+
+| Race   | Male      | Female   |
+|--------|-----------|----------|
+| Dwarf  | Thrain    | Katrin   |
+| Elf    | Aelindor  | Lyralei  |
+| Goblin | Grix      | Snick    |
+| Human  | Marcus    | Elena    |
+
+**Quiz Flow:**
+1. Answer 3 personality questions (role, race, gender)
+2. Name input screen appears with default name pre-filled
+3. Player can type custom name or press Enter to accept default
+4. Name is saved and used throughout game
+
+### Companion Names
+Companions get complementary names based on their race/gender (opposite from player):
+
+| Race   | Male      | Female   |
+|--------|-----------|----------|
+| Dwarf  | Borin     | Helga    |
+| Elf    | Faelar    | Sylvara  |
+| Goblin | Zikk      | Nixie    |
+| Human  | Thomas    | Sarah    |
+
+**Companion Selection Logic:**
+- Player Tank → Companion Healer
+- Player Wizard → Companion Tank
+- Player Healer → Companion Rogue
+- Player Rogue → Companion Wizard
+
+Companion race is always different from player for diversity.
+
+---
+
+## System Architecture
+
+### Files Structure
 ```
-Companion: "Hey there!" → elf_female.png (calm)
-Companion: "Watch out!" → elf_female_ready.png (alert)
-Companion: "Take THIS!" → elf_female_attack.png (angry)
+project/
+├── long_nights/
+│   ├── DialogueManager.gd          # Singleton - loads JSON, tracks progress
+│   ├── PlayerData.gd                # Singleton - player character data + name
+│   ├── CompanionManager.gd          # Singleton - companion data + name
+│   └── CharacterQuiz.gd             # Character creation with name input
+├── blocky_game/
+│   ├── gui/dialogue/
+│   │   ├── DialogueUI.tscn          # UI scene
+│   │   └── DialogueUI.gd            # UI controller
+│   └── main.gd                      # Quiz → game integration
+└── assets/
+    └── data/dialogues/
+        └── companion_intro.json     # Example dialogue data
 ```
 
-## JSON Data Structure (from old JS version)
+### Autoload Singletons
+Registered in `project.godot`:
+- **DialogueManager** - Manages dialogue system
+- **PlayerData** - Stores player stats + name
+- **CompanionManager** - Stores companion stats + name
 
-### Original Files
-- `/assets/data/companion_introduction.json` - Node-based dialogue graph (complex)
-- `/assets/data/tutorialScripts.json` - Event-triggered tutorials (simpler) ✅ **Use this structure**
+---
 
-### Recommended Godot Structure
-Consolidate into trigger-based system (simpler than node graphs):
+## DialogueManager.gd API
 
+### Core Functions
+```gdscript
+# Load dialogue data from JSON file
+func load_dialogue_file(path: String) -> bool
+
+# Trigger a dialogue by ID
+func trigger_dialogue(dialogue_id: String) -> bool
+
+# Check if dialogue has been seen
+func has_seen_dialogue(dialogue_id: String) -> bool
+
+# Mark dialogue as seen (auto-called when triggered)
+func mark_dialogue_seen(dialogue_id: String) -> void
+
+# Reset all progress (for new game)
+func reset_progress() -> void
+```
+
+### Signals
+```gdscript
+signal dialogue_started(dialogue_id: String)
+signal dialogue_ended(dialogue_id: String)
+```
+
+### Variable Substitution
+Text in JSON can use these variables:
+- `{{player_name}}` → "Marcus" (or custom name)
+- `{{companion_name}}` → "Sylvara"
+- `{{companion_race}}` → "elf"
+- `{{player_race}}` → "human"
+
+---
+
+## JSON Dialogue Format
+
+### Basic Structure
 ```json
 {
-  "tutorials": {
-    "game_start": {
-      "id": "game_start",
-      "trigger": "on_game_start",
+  "dialogues": {
+    "dialogue_id": {
+      "id": "dialogue_id",
       "once": true,
       "messages": [
         {
           "speaker": "companion",
           "mood": "normal",
-          "text": "Hey there! Welcome to the world!",
-          "delay": 2000
+          "text": "Hey {{player_name}}! I'm {{companion_name}}.",
+          "delay": 0
         },
         {
           "speaker": "companion",
           "mood": "ready",
-          "text": "Let me show you the ropes!",
-          "delay": 1500
-        }
-      ]
-    },
-
-    "ruin_entrance": {
-      "id": "ruin_entrance",
-      "trigger": "on_ruin_entered",
-      "once": true,
-      "messages": [
-        {
-          "speaker": "companion",
-          "mood": "normal",
-          "text": "This place is ancient... I wonder who built it?",
-          "delay": 1500
-        },
-        {
-          "speaker": "companion",
-          "mood": "ready",
-          "text": "Stay alert. There might be enemies inside!",
-          "delay": 2000
+          "text": "Let's explore this world together!",
+          "delay": 0
         }
       ]
     }
@@ -93,193 +163,451 @@ Consolidate into trigger-based system (simpler than node graphs):
 ```
 
 ### Message Fields
-- `speaker`: "companion" | "narrator" | "player" | custom NPC ID
-- `mood`: "normal" | "ready" | "attack" | "back"
-- `text`: Dialogue text to display
-- `delay`: Milliseconds before advancing to next message (0 = wait for player input)
-- `side` (optional): "left" | "right" (default: companion=left, player=right)
+| Field    | Type   | Description                                          |
+|----------|--------|------------------------------------------------------|
+| speaker  | string | "companion", "player", "narrator", or custom NPC ID  |
+| mood     | string | Portrait state (see Moods section)                   |
+| text     | string | Dialogue text (supports {{variables}})               |
+| delay    | int    | **DEPRECATED** - No longer used (manual advance only)|
 
-### Variable Substitution
-Support for dynamic text:
-- `{{companion_name}}` - Replaced with actual companion name
-- `{{player_name}}` - Player character name
-- `{{companion_race}}` - dwarf/elf/goblin/human
+**Note:** The `delay` field is kept for backwards compatibility but is ignored. All dialogue now requires manual advancement.
 
-## System Architecture
+### Dialogue Metadata
+| Field | Type    | Description                                    |
+|-------|---------|------------------------------------------------|
+| id    | string  | Unique dialogue identifier                     |
+| once  | boolean | If true, only shows once per save file         |
 
-### DialogueManager Singleton
-**Path**: `res://long_nights/DialogueManager.gd`
-**Autoload**: Yes
+### Speaker Types
+- **"companion"** - Uses CompanionManager race/gender/name, portrait on left
+- **"player"** - Uses PlayerData race/gender/name, portrait on right
+- **"narrator"** - Uses narrator.png, no portrait on right
 
-**Responsibilities**:
-1. Load dialogue JSON files
-2. Track which tutorials have been shown (save to file)
-3. Provide trigger functions (e.g., `trigger_dialogue("ruin_entrance")`)
-4. Emit signals when dialogue starts/ends
-5. Handle variable substitution
+---
 
-**Key Functions**:
+## Portrait System
+
+### Current Available Moods
+Location: `assets/art/player_avatars/`
+
+**Filename Format:** `{race}_{gender}_{mood}.png`
+
+**Currently Available:**
+- `{race}_{gender}.png` - Normal/calm expression
+- `{race}_{gender}_ready.png` - Alert/prepared stance
+- `{race}_{gender}_attack.png` - Aggressive/angry expression
+- `{race}_{gender}_back.png` - Rear view (walking away)
+- `narrator.png` - Special portrait for system messages
+
+### 🎨 **TODO: Additional Moods Needed**
+
+**Essential Moods to Create (Priority 1):**
+- `_happy` - Smiling, cheerful (celebrations, good news, jokes)
+- `_sad` - Downcast, melancholic (bad news, loss, disappointment)
+- `_worried` - Concerned, anxious (danger approaching, uncertain)
+- `_angry` - Frowning, upset (conflict, disagreement, frustration)
+
+**Nice-to-Have Moods (Priority 2):**
+- `_surprised` - Wide eyes, shocked (unexpected events, revelations)
+- `_embarrassed` - Blushing, awkward (caught off-guard, social mishaps)
+- `_hurt` - In pain, grimacing (after taking damage, injuries)
+- `_thinking` - Contemplative, hand on chin (puzzles, decisions)
+
+**Total Images to Create:**
+- 4 essential moods × 4 races × 2 genders = **32 images**
+- 4 nice-to-have moods × 4 races × 2 genders = **32 more images**
+- **Total: 64 new portrait images**
+
+**Races:** dwarf, elf, goblin, human
+**Genders:** male, female
+
+**Example Filenames:**
+```
+human_male_happy.png
+elf_female_sad.png
+dwarf_male_worried.png
+goblin_female_angry.png
+```
+
+---
+
+## DialogueUI.gd - User Interface
+
+### UI Layout
+```
+DialogueUI (CanvasLayer)
+├── BackgroundDim (ColorRect - blocks game input)
+├── LeftPortrait (TextureRect - companion/NPC)
+├── RightPortrait (TextureRect - player)
+└── DialogueBox (PanelContainer)
+    └── MarginContainer
+        └── VBoxContainer
+            ├── SpeakerName (Label)
+            ├── DialogueText (RichTextLabel)
+            └── CloseButton (Button - "Press X or Click")
+```
+
+### Input Handling
+- **X Key** - Captured via `_input()` with `InputEventKey`
+- **Mouse Click** - Background ColorRect captures all clicks via `gui_input`
+- **Input Consumption** - Uses `get_viewport().set_input_as_handled()` to prevent game interaction
+
+### Advance Logic
+1. If not last message → show next message
+2. If last message → close dialogue and emit `dialogue_closed` signal
+3. Background dim blocks all mouse interaction with game world
+
+---
+
+## Integration Examples
+
+### Triggering Dialogue from Code
 ```gdscript
-func load_dialogue_data(path: String) -> void
-func trigger_dialogue(dialogue_id: String) -> bool
-func has_seen_dialogue(dialogue_id: String) -> bool
-func mark_dialogue_seen(dialogue_id: String) -> void
-func get_portrait_path(speaker: String, race: String, gender: String, mood: String) -> String
-```
-
-**Signals**:
-```gdscript
-signal dialogue_started(dialogue_id: String)
-signal dialogue_ended(dialogue_id: String)
-signal message_changed(message_index: int)
-```
-
-### DialogueUI Scene
-**Path**: `res://blocky_game/gui/dialogue/dialogue_ui.tscn`
-
-**Node Structure**:
-```
-DialogueUI (Control)
-├─ BackgroundBlur (ColorRect with blur shader)
-├─ LeftPortrait (TextureRect)
-├─ RightPortrait (TextureRect)
-├─ LeftStatsPanel (Panel)
-├─ RightStatsPanel (Panel)
-├─ DialogueBox (Panel)
-│  ├─ SpeakerTag (Label)
-│  ├─ MessageText (RichTextLabel)
-│  └─ CloseButton (Button)
-└─ TopNotification (Panel)
-```
-
-**UI Script Responsibilities**:
-1. Show/hide dialogue UI
-2. Display character portraits
-3. Show message text (with optional typewriter effect)
-4. Handle "Close" button and auto-advance
-5. Update speaker tag highlighting
-6. Connect to DialogueManager signals
-
-### Integration Points
-
-**Trigger Events** (connect these in game code):
-- `on_game_start` - First time player starts
-- `on_ruin_entered` - Player enters ruin teleport stone area
-- `on_item_crafted` - Player crafts specific item
-- `on_first_night` - First nightfall
-- `on_companion_spawned` - When companion first appears
-- `on_boss_defeated` - After boss fight
-
-**Example Trigger**:
-```gdscript
-# In blocky_game.gd when player spawns
+# In blocky_game.gd (on game start)
 func _on_player_spawned():
+    # Load dialogue data first
+    DialogueManager.load_dialogue_file("res://assets/data/dialogues/companion_intro.json")
+
+    # Trigger game start dialogue
     if not DialogueManager.has_seen_dialogue("game_start"):
         DialogueManager.trigger_dialogue("game_start")
 ```
 
-## File Locations
+### Loading Multiple Dialogue Files
+```gdscript
+func _ready():
+    DialogueManager.load_dialogue_file("res://assets/data/dialogues/companion_intro.json")
+    DialogueManager.load_dialogue_file("res://assets/data/dialogues/tutorials.json")
+    DialogueManager.load_dialogue_file("res://assets/data/dialogues/ruin_encounters.json")
+```
 
-### JSON Dialogue Files
-- `res://assets/data/dialogues/companion_intro.json` - Companion introduction
-- `res://assets/data/dialogues/tutorials.json` - Tutorial messages
-- `res://assets/data/dialogues/ruin_encounters.json` - Ruin-specific dialogue
-- `res://assets/data/dialogues/story_events.json` - Main story progression
+### Console Command for Testing
+```gdscript
+# In GameConsole.gd
+func _cmd_dialogue(args: Array):
+    if args.is_empty():
+        add_output("[color=yellow]Usage: dialogue <dialogue_id>[/color]")
+        add_output("Available dialogues: game_start, first_night, ruin_discovered")
+        return
 
-### Save Data
-- `user://dialogue_progress.json` - Tracks which dialogues have been seen
+    var dialogue_id = args[0]
+    DialogueManager.trigger_dialogue(dialogue_id)
+```
 
-### Portrait Paths (already exist)
-- `res://assets/art/player_avatars/{race}_{gender}.png`
-- `res://assets/art/player_avatars/{race}_{gender}_ready.png`
-- `res://assets/art/player_avatars/{race}_{gender}_attack.png`
-- `res://assets/art/player_avatars/{race}_{gender}_back.png`
-- `res://assets/art/player_avatars/narrator.png`
+Console usage:
+```bash
+dialogue game_start
+dialogue first_night
+dialogue reset  # Reset all progress
+```
 
-## Implementation Plan (Tomorrow Evening - 6 hours)
+---
 
-### Phase 1: Core System (2 hours)
-1. Create DialogueManager.gd singleton
-2. Implement JSON loading
-3. Create progress tracking (save/load)
-4. Test with simple dialogue
+## Example Dialogue Files
 
-### Phase 2: UI Scene (2 hours)
-1. Build DialogueUI.tscn layout
-2. Implement portrait swapping
-3. Add typewriter effect (optional)
-4. Style dialogue box to match screenshot
-5. Add speaker highlighting
+### Game Start Introduction
+**File:** `assets/data/dialogues/companion_intro.json`
 
-### Phase 3: Integration (1.5 hours)
-1. Consolidate old JSON files
-2. Create new dialogue files in Godot structure
-3. Connect triggers in game code
-4. Test companion introduction
-5. Test ruin entrance dialogue
+```json
+{
+  "dialogues": {
+    "game_start": {
+      "id": "game_start",
+      "once": true,
+      "messages": [
+        {
+          "speaker": "companion",
+          "mood": "normal",
+          "text": "Hey there! Welcome to the world! I'm {{companion_name}}, your companion.",
+          "delay": 0
+        },
+        {
+          "speaker": "companion",
+          "mood": "ready",
+          "text": "This place can be dangerous, especially at night. Stick with me, {{player_name}}!",
+          "delay": 0
+        },
+        {
+          "speaker": "player",
+          "mood": "normal",
+          "text": "Thanks {{companion_name}}. I'm ready for anything!",
+          "delay": 0
+        }
+      ]
+    }
+  }
+}
+```
 
-### Phase 4: Polish (30 min)
-1. Add sound effects (text blips, dialogue open/close)
-2. Add fade-in/out animations
-3. Test with different companions
-4. Verify all moods work correctly
+### First Night Warning
+```json
+{
+  "dialogues": {
+    "first_night": {
+      "id": "first_night",
+      "once": true,
+      "messages": [
+        {
+          "speaker": "companion",
+          "mood": "worried",
+          "text": "{{player_name}}, the sun is setting. Monsters come out at night!",
+          "delay": 0
+        },
+        {
+          "speaker": "companion",
+          "mood": "ready",
+          "text": "Stay close to me. We'll survive this together.",
+          "delay": 0
+        }
+      ]
+    }
+  }
+}
+```
 
-## Features to Consider
+---
 
-### Must Have
-- ✅ Show character portraits
-- ✅ Display dialogue text
-- ✅ Sequential messages
-- ✅ Auto-advance with delays
-- ✅ Manual advance (Close button)
-- ✅ Track seen dialogues
-- ✅ Trigger-based system
-- ✅ Variable substitution
-- ✅ Mood/expression changes
+## Save Data Format
 
-### Nice to Have
-- Typewriter text effect
-- Voice blip sounds (Animal Crossing style)
-- Fade in/out transitions
-- Shake/bounce portrait animations
-- Background blur shader
-- Skip dialogue option (hold button)
+### Dialogue Progress
+**File:** `user://dialogue_progress.json`
 
-### Future Enhancements
-- Branching dialogue choices (player responses)
-- Dialogue history log
-- Voice acting support
-- Localization support
-- Dialogue editor tool
+```json
+{
+  "seen_dialogues": {
+    "game_start": true,
+    "first_night": true,
+    "ruin_discovered": false
+  },
+  "timestamp": 1698678000
+}
+```
 
-## Notes from Old System
+### Player Character Data
+**File:** `user://player_character.save`
 
-### Removed Features (tester feedback)
-- ❌ Backpack pickup tutorial (testers hated finding backpack to unlock hotbar)
-- ❌ Workbench system (too complex)
-- ❌ Tool bench system (too complex)
+```json
+{
+  "role": "tank",
+  "race": "human",
+  "gender": "male",
+  "player_name": "Marcus"
+}
+```
 
-### Systems to Keep/Add Back
-- ✅ Kitchen bench (cooking system - was good, bring back)
-- ✅ Companion introduction
-- ✅ Ruin hints from companion (already written in tutorialScripts.json lines 66-80!)
+### Companion Data
+**File:** `user://companion.save`
 
-### Existing Dialogue Content Ready to Port
-From tutorialScripts.json:
-- Game start introduction ✅
-- First ruin sighting ✅
-- Ruin entrance warning ✅
-- Night warning ✅
-- Ghost encounter ✅
-- Rabbit hunting hint ✅
+```json
+{
+  "race": "elf",
+  "role": "healer",
+  "gender": "female",
+  "companion_name": "Sylvara",
+  "equipped_weapon_id": 9
+}
+```
 
-## Ready for Tomorrow!
-All assets are in place, structure is planned, and we have 6 hours to build a polished dialogue system from scratch. This will be the foundation for:
-- Companion interactions
-- Tutorial system
-- Story progression
-- Ruin encounters
-- NPC conversations
-- Boss dialogue
+---
 
-Let's do this! 🎮✨
+## PartyUI Integration
+
+The Party UI (top-right corner) displays character names instead of race names:
+
+**Before:**
+```
+Human [Tank]
+Elf [Healer]
+```
+
+**After:**
+```
+Marcus [Tank]
+Sylvara [Healer]
+```
+
+**File:** `long_nights/PartyUI.gd:262, 358`
+
+---
+
+## Testing Checklist
+
+### ✅ Completed Tests
+- [x] Quiz shows name input after questions
+- [x] Default names appear correctly
+- [x] Custom names save and load
+- [x] Companion gets correct complementary name
+- [x] Dialogue displays both character names
+- [x] Variable substitution works ({{player_name}}, {{companion_name}})
+- [x] X key advances dialogue
+- [x] Left-click anywhere advances dialogue
+- [x] Last message shows "Press X or Click to Close"
+- [x] One-time dialogues don't repeat
+- [x] Progress resets on new game
+- [x] Portrait mood changes work (_normal → _ready → _attack)
+- [x] PartyUI shows character names
+
+### 🎨 Art Tasks Remaining
+- [ ] Create essential mood portraits (happy, sad, worried, angry) - 32 images
+- [ ] Create nice-to-have mood portraits (surprised, embarrassed, hurt, thinking) - 32 images
+- [ ] Test all new moods in dialogue system
+- [ ] Update companion_intro.json to use new moods
+
+---
+
+## Console Commands
+
+```bash
+# Trigger dialogues
+dialogue game_start
+dialogue first_night
+dialogue ruin_discovered
+
+# Reset all dialogue progress (for testing)
+dialogue reset
+
+# List available dialogues
+dialogue
+```
+
+---
+
+## Future Enhancements (Not Implemented)
+
+### Possible Future Features
+- [ ] Choice system (branching dialogue with 2-4 options)
+- [ ] Typewriter text effect
+- [ ] Voice blip sounds (Animal Crossing style)
+- [ ] Portrait animations (bounce, shake)
+- [ ] Background blur shader
+- [ ] Dialogue history log
+- [ ] Skip dialogue (hold button to fast-forward)
+
+**Note:** The old JavaScript version had a node-based visual novel editor (Sargem) with choice nodes, combat nodes, show art nodes, give items nodes, etc. We're keeping the current system simple and JSON-based. If complex branching is needed later, the JSON format can be extended without major refactoring.
+
+---
+
+## Code Refactoring Notes
+
+### Name Generation Consolidation
+All character name generation is centralized in `CharacterQuiz.gd:237-254`:
+
+```gdscript
+static func get_default_name(race: String, gender: String, is_companion: bool = false) -> String
+```
+
+**Usage:**
+- `CharacterQuiz.get_default_name("human", "male", false)` → "Marcus"
+- `CharacterQuiz.get_default_name("elf", "female", true)` → "Sylvara"
+
+This eliminates duplicate code in PlayerData and CompanionManager.
+
+---
+
+## Architecture Decisions
+
+### Why Manual Advance Only?
+**Original Design:** Auto-advance after delay (e.g., 2500ms)
+**Problem:** Players might leave during dialogue (bathroom, drink, etc.) and miss content
+**Solution:** All dialogue requires X key or left-click to advance
+
+**Benefits:**
+- Players control pacing
+- No missed dialogue
+- Can read at their own speed
+- Can pause mid-conversation
+
+### Why No Node Editor?
+**Old System:** Visual node-based editor (Sargem) with complex branching
+**Current System:** Simple JSON trigger-based dialogues
+
+**Reasoning:**
+- JSON is easier to edit outside game
+- No need to rebuild editor in Godot
+- Simpler = fewer bugs
+- Can extend JSON format later if needed
+- Most dialogues are linear anyway
+
+---
+
+## Performance Considerations
+
+### Dialogue UI Lifecycle
+1. **Created on first trigger** - DialogueManager instantiates DialogueUI.tscn
+2. **Reused for all dialogues** - Same UI instance persists in scene tree
+3. **Hidden when not in use** - `visible = false` instead of destroying
+4. **Portrait textures loaded on demand** - `load()` called when needed
+
+### Save File Size
+- Dialogue progress: ~1KB for 50 dialogues
+- Character data: <1KB
+- Total overhead: Negligible
+
+---
+
+## Known Issues & Limitations
+
+### Current Limitations
+- No branching choices (single linear path per dialogue)
+- No typewriter effect (instant text display)
+- No dialogue history/backlog
+- Portrait moods limited to existing images (see TODO section)
+- Cannot interrupt ongoing dialogue (must advance to end)
+
+### Not Issues (By Design)
+- ~~Auto-advance timer~~ - Removed intentionally
+- ~~ESC to close~~ - Would conflict with pause menu
+- ~~Click on dialogue box to advance~~ - Background click is better UX
+
+---
+
+## File Locations Reference
+
+### Code Files
+- `project/long_nights/DialogueManager.gd` - Core dialogue system
+- `project/long_nights/PlayerData.gd` - Player character data + name
+- `project/long_nights/CompanionManager.gd` - Companion data + name
+- `project/long_nights/CharacterQuiz.gd` - Character creation + name input
+- `project/long_nights/PartyUI.gd` - Top-right UI with character names
+- `project/blocky_game/gui/dialogue/DialogueUI.gd` - UI controller
+- `project/blocky_game/gui/dialogue/DialogueUI.tscn` - UI scene
+- `project/blocky_game/main.gd` - Quiz integration
+- `project/long_nights/GameConsole.gd` - Console dialogue command
+
+### Data Files
+- `project/assets/data/dialogues/companion_intro.json` - Example dialogue
+- `user://dialogue_progress.json` - Save file (dialogue history)
+- `user://player_character.save` - Save file (player data)
+- `user://companion.save` - Save file (companion data)
+
+### Art Assets
+- `project/assets/art/player_avatars/{race}_{gender}.png` - Normal portraits
+- `project/assets/art/player_avatars/{race}_{gender}_ready.png` - Alert portraits
+- `project/assets/art/player_avatars/{race}_{gender}_attack.png` - Angry portraits
+- `project/assets/art/player_avatars/{race}_{gender}_back.png` - Rear view
+- `project/assets/art/player_avatars/narrator.png` - Narrator portrait
+
+---
+
+## Summary
+
+The dialogue system is **fully functional and production-ready**. It successfully integrates with:
+- Character creation quiz
+- Player/companion name system
+- Party UI display
+- Save/load system
+- Console commands for testing
+
+**What works great:**
+- Manual advance feels natural and player-controlled
+- Variable substitution makes dialogues personal
+- One-time dialogues prevent repetition
+- Portrait mood changes add visual interest
+- Integration with existing systems is seamless
+
+**What needs work:**
+- **Create mood portraits** (happy, sad, worried, angry) - 32 images needed
+- Write more dialogue content for story events
+- Add dialogue triggers throughout game (night warnings, ruin discoveries, etc.)
+
+**Overall:** The system provides a solid foundation for storytelling, companion interaction, tutorials, and NPC conversations. Ready for content creation! 🎉

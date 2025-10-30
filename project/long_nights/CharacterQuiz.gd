@@ -2,7 +2,7 @@ extends CanvasLayer
 ## CharacterQuiz - Initial character creation quiz
 ## Determines player role, race, and gender through personality questions
 
-signal quiz_completed(role: String, race: String, gender: String)
+signal quiz_completed(role: String, race: String, gender: String, player_name: String)
 
 # Quiz state
 var current_question: int = 0
@@ -195,8 +195,96 @@ func _finish_quiz() -> void:
 	print("  Race: %s" % answers["race"])
 	print("  Gender: %s" % answers["gender"])
 
-	# Emit completion signal
-	quiz_completed.emit(answers["role"], answers["race"], answers["gender"])
+	# Show name input screen
+	_show_name_input()
+
+
+func _show_name_input() -> void:
+	# Get default name based on quiz results
+	var default_name = get_default_name(answers["race"], answers["gender"], false)
+
+	# Clear question UI
+	progress_label.text = "Final Step"
+	question_label.text = "What is your name, traveler?"
+
+	# Clear previous buttons
+	for child in button_container.get_children():
+		child.queue_free()
+
+	# Create name input field
+	var name_input = LineEdit.new()
+	name_input.text = default_name
+	name_input.custom_minimum_size = Vector2(500, 50)
+	name_input.add_theme_font_size_override("font_size", 20)
+	name_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_input.placeholder_text = "Enter your name..."
+	name_input.select_all()  # Pre-select so typing replaces it
+
+	# Style the LineEdit
+	var input_style = StyleBoxFlat.new()
+	input_style.bg_color = Color(0.2, 0.18, 0.15)
+	input_style.set_border_width_all(2)
+	input_style.border_color = Color(0.6, 0.5, 0.3)
+	input_style.corner_radius_top_left = 4
+	input_style.corner_radius_top_right = 4
+	input_style.corner_radius_bottom_left = 4
+	input_style.corner_radius_bottom_right = 4
+	name_input.add_theme_stylebox_override("normal", input_style)
+
+	var input_focus = StyleBoxFlat.new()
+	input_focus.bg_color = Color(0.25, 0.22, 0.18)
+	input_focus.set_border_width_all(3)
+	input_focus.border_color = Color(0.8, 0.7, 0.4)
+	input_focus.corner_radius_top_left = 4
+	input_focus.corner_radius_top_right = 4
+	input_focus.corner_radius_bottom_left = 4
+	input_focus.corner_radius_bottom_right = 4
+	name_input.add_theme_stylebox_override("focus", input_focus)
+
+	button_container.add_child(name_input)
+
+	# Create continue button
+	var continue_button = Button.new()
+	continue_button.text = "Begin Adventure"
+	continue_button.custom_minimum_size = Vector2(500, 50)
+	continue_button.add_theme_font_size_override("font_size", 18)
+
+	# Style button
+	var button_style = StyleBoxFlat.new()
+	button_style.bg_color = Color(0.3, 0.25, 0.2)
+	button_style.set_border_width_all(2)
+	button_style.border_color = Color(0.5, 0.4, 0.3)
+	continue_button.add_theme_stylebox_override("normal", button_style)
+
+	var button_hover = StyleBoxFlat.new()
+	button_hover.bg_color = Color(0.4, 0.35, 0.25)
+	button_hover.set_border_width_all(2)
+	button_hover.border_color = Color(0.7, 0.6, 0.4)
+	continue_button.add_theme_stylebox_override("hover", button_hover)
+
+	# Connect button
+	continue_button.pressed.connect(_on_name_confirmed.bind(name_input))
+
+	# Also allow Enter key to confirm
+	name_input.text_submitted.connect(func(_text): _on_name_confirmed(name_input))
+
+	button_container.add_child(continue_button)
+
+	# Focus the input field
+	name_input.grab_focus()
+
+
+func _on_name_confirmed(name_input: LineEdit) -> void:
+	var player_name = name_input.text.strip_edges()
+
+	# If empty, use default
+	if player_name == "":
+		player_name = get_default_name(answers["race"], answers["gender"], false)
+
+	print("  Player Name: %s" % player_name)
+
+	# Emit completion signal with name
+	quiz_completed.emit(answers["role"], answers["race"], answers["gender"], player_name)
 
 	# Hide quiz
 	queue_free()
@@ -231,3 +319,24 @@ static func get_race_name(race: String) -> String:
 		"dwarf": return "Dwarf"
 		"goblin": return "Goblin"
 		_: return "Unknown"
+
+
+## Get default character name based on race, gender, and whether it's a companion
+static func get_default_name(race: String, gender: String, is_companion: bool = false) -> String:
+	var player_names = {
+		"dwarf": {"male": "Thrain", "female": "Katrin"},
+		"elf": {"male": "Aelindor", "female": "Lyralei"},
+		"goblin": {"male": "Grix", "female": "Snick"},
+		"human": {"male": "Marcus", "female": "Elena"}
+	}
+
+	var companion_names = {
+		"dwarf": {"male": "Borin", "female": "Helga"},
+		"elf": {"male": "Faelar", "female": "Sylvara"},
+		"goblin": {"male": "Zikk", "female": "Nixie"},
+		"human": {"male": "Thomas", "female": "Sarah"}
+	}
+
+	var names = companion_names if is_companion else player_names
+	var fallback = "Companion" if is_companion else "Wanderer"
+	return names.get(race, {}).get(gender, fallback)

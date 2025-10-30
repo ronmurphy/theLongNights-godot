@@ -259,7 +259,7 @@ func _update_player_ui() -> void:
 	# Update name
 	var name_label = player_ui.get_node("InfoVBox/NameLabel")
 	if name_label:
-		name_label.text = PlayerData.get_race_name()
+		name_label.text = PlayerData.player_name
 
 	# Update role
 	var role_label = player_ui.get_node("InfoVBox/RoleLabel")
@@ -355,7 +355,7 @@ func add_companion(companion_name: String, race: String, role: String, hp: int, 
 	# Update name
 	var name_label = companion_ui.get_node("InfoVBox/NameLabel")
 	if name_label:
-		name_label.text = CharacterQuiz.get_race_name(race)
+		name_label.text = CompanionManager.get_companion_name()
 
 	# Update role
 	var role_label = companion_ui.get_node("InfoVBox/RoleLabel")

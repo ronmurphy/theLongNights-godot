@@ -15,6 +15,7 @@ const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
 var companion_race: String = "elf"
 var companion_role: String = "healer"
 var companion_gender: String = "female"  # All companions are female for now
+var companion_name: String = ""  # Companion's personal name
 var equipped_weapon_id: int = -1  # -1 means use default weapon
 
 
@@ -50,8 +51,11 @@ func set_companion_from_player() -> void:
 			# Prefer goblin for rogue
 			companion_race = "goblin" if "goblin" in races else races[0]
 
-	print("CompanionManager: Companion will be %s %s (to complement %s %s)" % [
-		companion_race, companion_role, PlayerData.race, PlayerData.role
+	# Set companion name based on race and gender
+	companion_name = CharacterQuiz.get_default_name(companion_race, companion_gender, true)
+
+	print("CompanionManager: Companion will be %s - %s %s (to complement %s %s)" % [
+		companion_name, companion_race, companion_role, PlayerData.race, PlayerData.role
 	])
 
 
@@ -107,7 +111,7 @@ func get_avatar_path(state: String = "") -> String:
 
 ## Get display name
 func get_companion_name() -> String:
-	return CharacterQuiz.get_race_name(companion_race)
+	return companion_name if companion_name != "" else CharacterQuiz.get_default_name(companion_race, companion_gender, true)
 
 
 func get_role_name() -> String:
@@ -120,9 +124,10 @@ func save_to_file() -> void:
 		"race": companion_race,
 		"role": companion_role,
 		"gender": companion_gender,
+		"companion_name": companion_name,
 		"equipped_weapon_id": equipped_weapon_id
 	}
-	
+
 	var file = FileAccess.open("user://companion.save", FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(save_data))
@@ -154,6 +159,11 @@ func load_from_file() -> bool:
 	companion_race = save_data.get("race", "elf")
 	companion_role = save_data.get("role", "healer")
 	companion_gender = save_data.get("gender", "female")
+	companion_name = save_data.get("companion_name", "")
 	equipped_weapon_id = save_data.get("equipped_weapon_id", -1)
-	
+
+	# If no name was saved, generate one
+	if companion_name == "":
+		companion_name = CharacterQuiz.get_default_name(companion_race, companion_gender, true)
+
 	return true

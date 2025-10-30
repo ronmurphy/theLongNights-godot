@@ -1,0 +1,128 @@
+{
+  "dialogues": {
+    "game_start": {
+      "id": "game_start",
+      "once": true,
+      "messages": [
+        {
+          "speaker": "companion",
+          "mood": "normal",
+          "text": "Hey there! Welcome to the world! I'm {{companion_name}}, your companion.",
+          "delay": 2500
+        },
+        {
+          "speaker": "companion",
+          "mood": "normal",
+          "text": "I'll be helping you survive out here in The Long Nights.",
+          "delay": 2000
+        },
+        {
+          "speaker": "companion",
+          "mood": "ready",
+          "text": "Use WASD to move, and your mouse to look around. Let's explore together!",
+          "delay": 0
+        }
+      ]
+    },
+
+    "first_night": {
+      "id": "first_night",
+      "once": true,
+      "messages": [
+        {
+          "speaker": "companion",
+          "mood": "ready",
+          "text": "Uh oh... it's getting dark. Ghosts come out at night!",
+          "delay": 2000
+        },
+        {
+          "speaker": "companion",
+          "mood": "ready",
+          "text": "Stay alert and keep your health up. We'll get through this together!",
+          "delay": 0
+        }
+      ]
+    },
+
+    "ruin_discovered": {
+      "id": "ruin_discovered",
+      "once": true,
+      "messages": [
+        {
+          "speaker": "companion",
+          "mood": "normal",
+          "text": "Wait... I see something strange in the distance. To the north.",
+          "delay": 2000
+        },
+        {
+          "speaker": "companion",
+          "mood": "ready",
+          "text": "It looks like... an old structure? Some kind of ruin, maybe?",
+          "delay": 2000
+        },
+        {
+          "speaker": "companion",
+          "mood": "normal",
+          "text": "We should investigate while it's still daylight. Ruins can be dangerous at night, but there might be treasure inside!",
+          "delay": 0
+        }
+      ]
+    },
+
+    "ruin_entrance": {
+      "id": "ruin_entrance",
+      "once": true,
+      "messages": [
+        {
+          "speaker": "companion",
+          "mood": "normal",
+          "text": "This place is ancient... I wonder who built it?",
+          "delay": 1500
+        },
+        {
+          "speaker": "companion",
+          "mood": "ready",
+          "text": "Stay alert. There might be enemies inside, and I see some kind of puzzle mechanisms.",
+          "delay": 2000
+        },
+        {
+          "speaker": "companion",
+          "mood": "normal",
+          "text": "Look for glowing stones - they might teleport us to other places!",
+          "delay": 0
+        }
+      ]
+    },
+
+    "test_dialogue": {
+      "id": "test_dialogue",
+      "once": false,
+      "messages": [
+        {
+          "speaker": "narrator",
+          "mood": "normal",
+          "text": "This is a test dialogue from the narrator!",
+          "delay": 1500
+        },
+        {
+          "speaker": "companion",
+          "mood": "normal",
+          "text": "And now your companion is speaking!",
+          "delay": 1500
+        },
+        {
+          "speaker": "companion",
+          "mood": "ready",
+          "text": "They can even change moods mid-conversation!",
+          "delay": 1500
+        },
+        {
+          "speaker": "companion",
+          "mood": "attack",
+          "text": "Like this angry pose!",
+          "delay": 0
+        }
+      ]
+    }
+  }
+}

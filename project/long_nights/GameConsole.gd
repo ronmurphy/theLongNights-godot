@@ -225,6 +225,9 @@ func _register_commands() -> void:
 	commands["damage"] = _cmd_damage
 	commands["heal"] = _cmd_heal
 	commands["hp"] = _cmd_hp
+	commands["dialogue"] = _cmd_dialogue
+	commands["dlg"] = _cmd_dialogue  # Short alias
+	commands["testhunt"] = _cmd_testhunt
 
 ## Commands Implementation
 
@@ -277,6 +280,11 @@ func _cmd_help(_args: Array) -> void:
 	add_output("  [color=yellow]hp[/color] - Show current HP")
 	add_output("  [color=yellow]damage <amount>[/color] - Damage player (for testing)")
 	add_output("  [color=yellow]heal <amount>[/color] - Heal player")
+	add_output("")
+	add_output("[color=cyan]Dialogue Commands:[/color]")
+	add_output("  [color=yellow]dialogue <id>[/color] - Trigger a dialogue (or 'dlg' for short)")
+	add_output("  [color=yellow]dialogue reset[/color] - Reset dialogue progress")
+	add_output("  [color=yellow]testhunt success/failure[/color] - Test hunt return dialogue")
 
 func _cmd_clear(_args: Array) -> void:
 	output_label.clear()
@@ -709,3 +717,57 @@ func _cmd_heal(args: Array) -> void:
 
 	player.heal(amount)
 	add_output("[color=lime]Healed player for %d HP (HP: %d/%d)[/color]" % [amount, player.current_hp, player.max_hp])
+
+
+func _cmd_dialogue(args: Array) -> void:
+	if args.is_empty():
+		add_output("[color=yellow]Usage: dialogue <dialogue_id>[/color]")
+		add_output("[color=yellow]Available dialogues:[/color]")
+		add_output("  test_dialogue - Test all mood changes")
+		add_output("  game_start - Companion introduction")
+		add_output("  first_night - Night warning")
+		add_output("  ruin_discovered - Ruin sighting")
+		add_output("  ruin_entrance - Ruin entrance")
+		add_output("")
+		add_output("[color=cyan]Tips:[/color]")
+		add_output("  Use 'dialogue reset' to reset progress (see dialogues again)")
+		return
+
+	var dialogue_id = args[0].to_lower()
+
+	if dialogue_id == "reset":
+		DialogueManager.reset_progress()
+		add_output("[color=lime]Dialogue progress reset! All dialogues can be seen again.[/color]")
+		return
+
+	# Try to trigger the dialogue
+	var success = DialogueManager.trigger_dialogue(dialogue_id)
+
+	if success:
+		add_output("[color=lime]Triggered dialogue: " + dialogue_id + "[/color]")
+	else:
+		add_output("[color=red]Failed to trigger dialogue: " + dialogue_id + "[/color]")
+		add_output("[color=yellow]Check if dialogue ID is correct or if it's already been seen (once-only)[/color]")
+
+
+func _cmd_testhunt(args: Array) -> void:
+	"""Test hunt return dialogue with fake items (no actual items given)"""
+	if args.is_empty():
+		add_output("[color=yellow]Usage: testhunt <success|failure>[/color]")
+		add_output("  success - Test dialogue with found items (fake)")
+		add_output("  failure - Test dialogue with no items found")
+		add_output("[color=gray]Note: No items are actually added to inventory[/color]")
+		return
+
+	var mode = args[0].to_lower()
+
+	if mode == "success":
+		# Test successful hunt dialogue (no items given)
+		HuntingSystem.test_hunt_dialogue(true)
+		add_output("[color=lime]Triggered successful hunt dialogue (no items added)[/color]")
+	elif mode == "failure":
+		# Test failed hunt dialogue
+		HuntingSystem.test_hunt_dialogue(false)
+		add_output("[color=lime]Triggered failed hunt dialogue[/color]")
+	else:
+		add_output("[color=red]Invalid mode. Use 'success' or 'failure'[/color]")

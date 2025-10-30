@@ -43,13 +43,17 @@ func _on_main_menu_new_game_requested(seed: int):
 	_main_menu.hide()
 
 
-func _on_quiz_completed(role: String, race: String, gender: String):
+func _on_quiz_completed(role: String, race: String, gender: String, player_name: String):
 	# Save character data
-	PlayerData.set_character(role, race, gender)
+	PlayerData.set_character(role, race, gender, player_name)
 	PlayerData.save_to_file()
 
 	# Determine companion based on player choices
 	CompanionManager.set_companion_from_player()
+	CompanionManager.save_to_file()
+
+	# Reset dialogue progress for new game
+	DialogueManager.reset_progress()
 
 	# Create new world with specified seed
 	if not WorldManager.create_new_world(_pending_seed):

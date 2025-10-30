@@ -66,6 +66,9 @@ func _ready():
 	# Apply graphics settings to the loaded scene
 	GraphicsSettings.apply_profile(GraphicsSettings.get_current_profile())
 
+	# Load dialogue files
+	DialogueManager.load_dialogue_file("res://assets/data/dialogues/companion_intro.json")
+
 	if _network_mode == NETWORK_MODE_HOST:
 		_logger.prefix = "Server: "
 		
@@ -346,6 +349,10 @@ func _spawn_companion() -> void:
 		companion.position = Vector3(0, 64, 0)  # Default spawn
 
 	print("blocky_game: Companion %s spawned at %s" % [CompanionManager.get_companion_name(), companion.position])
+
+	# Trigger companion introduction dialogue
+	await get_tree().create_timer(1.0).timeout  # Brief delay before dialogue
+	DialogueManager.trigger_dialogue("game_start")
 
 
 func _add_companion_to_ui() -> void:

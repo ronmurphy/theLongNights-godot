@@ -164,19 +164,25 @@ func _complete_hunt():
 	"""Complete the hunt and return companion with all loot"""
 	if not is_hunting:
 		return
-	
+
 	is_hunting = false
-	
+
 	# Return companion and re-enable teleport
 	if hunted_companion and hunted_companion.has_method("set_hunting"):
 		hunted_companion.set_hunting(false)
-	
+
 	var final_loot = hunt_loot.duplicate()
 	hunt_loot = []
 	hunted_companion = null
-	
+
 	print("HuntingSystem: Hunt complete! Companion returns with %d items" % final_loot.size())
 	hunt_completed.emit(final_loot)
+
+	# Add loot to inventory
+	var item_summary = add_loot_to_inventory(final_loot)
+
+	# Show dialogue with hunt results
+	_show_hunt_return_dialogue(item_summary)
 
 
 func _discover_items() -> Array:
@@ -294,4 +300,78 @@ func add_loot_to_inventory(loot: Array) -> Dictionary:
 	
 	print("HuntingSystem: Added to inventory: %s" % item_summary)
 	return item_summary
+
+
+func _show_hunt_return_dialogue(item_summary: Dictionary):
+	"""Show dialogue when companion returns from hunt"""
+	_show_hunt_dialogue(item_summary)
+
+
+func _show_hunt_dialogue(item_summary: Dictionary):
+	"""Internal function to generate and show hunt return dialogue"""
+	# Determine if hunt was successful
+	var success = item_summary.size() > 0
+
+	# Choose mood based on success
+	# TODO: Replace with _happy/_sad when art is ready
+	# For now: _ready = happy (found items), normal = sad (nothing found)
+	var mood = "ready" if success else "normal"
+
+	# Generate dialogue text
+	var text = ""
+	if success:
+		# Success message
+		text = "Look at what I found!"
+
+		# List items
+		var item_list = []
+		for item_name in item_summary.keys():
+			var count = item_summary[item_name]
+			var display_name = item_name.replace("_", " ").capitalize()
+			if count > 1:
+				item_list.append("%d %s" % [count, display_name])
+			else:
+				item_list.append(display_name)
+
+		# Add items to text
+		text += "\n\n"
+		for i in range(item_list.size()):
+			text += "• " + item_list[i]
+			if i < item_list.size() - 1:
+				text += "\n"
+	else:
+		# Failure message
+		text = "I looked everywhere, but I didn't find anything... Sorry {{player_name}}."
+
+	# Create dynamic dialogue
+	var hunt_dialogue = {
+		"id": "hunt_return",
+		"messages": [
+			{
+				"speaker": "companion",
+				"mood": mood,
+				"text": text,
+				"delay": 0
+			}
+		]
+	}
+
+	# Trigger dialogue
+	DialogueManager.trigger_dynamic_dialogue(hunt_dialogue)
+
+
+## Test function for console - shows dialogue WITHOUT adding items
+func test_hunt_dialogue(success: bool):
+	"""Console-only test function that doesn't give items"""
+	if success:
+		# Fake successful hunt
+		var fake_summary = {
+			"rabbit": 2,
+			"berries": 3,
+			"egg": 1
+		}
+		_show_hunt_dialogue(fake_summary)
+	else:
+		# Fake failed hunt
+		_show_hunt_dialogue({})
 
