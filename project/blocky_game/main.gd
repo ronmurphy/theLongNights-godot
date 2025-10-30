@@ -69,13 +69,8 @@ func _on_main_menu_backup_world_requested():
 
 
 func _start_game():
-	# Force reload the generator GDScript so it picks up the current seed from world.config
-	# This is necessary because the generator's _init() only runs once when first loaded
-	var generator_script_path = "res://blocky_game/generator/generator.gd"
-	if ResourceLoader.has_cached(generator_script_path):
-		# Clear the cached script so _init() runs again with new seed
-		var script = load(generator_script_path)
-		script.reload()
+	# Note: The generator will read the seed from WorldManager when it initializes
+	# No need to force script reload as each new game instance creates fresh generator instances
 
 	_game = BlockyGameScene.instantiate()
 	_game.set_network_mode(BlockyGame.NETWORK_MODE_SINGLEPLAYER)

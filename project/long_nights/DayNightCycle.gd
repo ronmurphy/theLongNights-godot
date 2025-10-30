@@ -147,18 +147,12 @@ func _update_fog(hour: int) -> void:
 	if not environment or not environment.environment:
 		return
 
-	var fog_start: float
-	var fog_end: float
 	var fog_color: Color
 
 	# Determine fog based on time of day
 	if hour >= 6 and hour < 18:  # Daytime (6am-6pm)
-		fog_start = GraphicsSettings.get_day_fog_start()
-		fog_end = GraphicsSettings.get_day_fog_end()
 		fog_color = Color(0.7, 0.7, 0.7)  # Light gray fog
 	else:  # Nighttime
-		fog_start = GraphicsSettings.get_night_fog_start()
-		fog_end = GraphicsSettings.get_night_fog_end()
 		fog_color = Color(0.1, 0.1, 0.15)  # Dark blue fog
 
 	# Apply fog settings
@@ -182,9 +176,6 @@ func _update_fog_bloodmoon() -> void:
 
 	if not environment or not environment.environment:
 		return
-
-	var fog_start = GraphicsSettings.get_bloodmoon_fog_start()
-	var fog_end = GraphicsSettings.get_bloodmoon_fog_end()
 
 	# Bloodmoon fog: dark crimson/blood red
 	var bloodmoon_color = Color(0.5, 0.0, 0.0)  # Deep red

@@ -18,7 +18,7 @@ func _ready():
 		_update_grass_material()
 
 
-func _on_graphics_settings_applied(settings: Dictionary) -> void:
+func _on_graphics_settings_applied(_settings: Dictionary) -> void:
 	# Update grass material when settings change
 	_update_grass_material()
 
