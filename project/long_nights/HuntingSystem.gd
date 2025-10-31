@@ -374,4 +374,3 @@ func test_hunt_dialogue(success: bool):
 	else:
 		# Fake failed hunt
 		_show_hunt_dialogue({})
-
