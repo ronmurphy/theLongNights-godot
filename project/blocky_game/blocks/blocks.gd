@@ -43,6 +43,7 @@ class RawMapping:
 var _voxel_library := preload("res://blocky_game/blocks/voxel_library.tres")
 var _blocks = []
 var _raw_mappings = []
+var _block_colors = {}  # Cache for sampled block colors {block_id: Color}
 
 
 func _init():
@@ -282,6 +283,81 @@ func get_raw_mapping(raw_id: int) -> RawMapping:
 
 func get_block_count() -> int:
 	return len(_blocks)
+
+
+func get_block_color(block_id: int) -> Color:
+	"""Get cached color for a block, or sample it from the texture if not cached"""
+	# Return cached color if available
+	if _block_colors.has(block_id):
+		return _block_colors[block_id]
+
+	# Sample color from terrain texture (center of block texture in atlas)
+	var block = get_block(block_id)
+	if block == null:
+		return Color.WHITE  # Fallback
+
+	# For now, use a simplified color sampling
+	# This will work with seasonal textures as long as we sample after seasonal swap
+	var sampled_color = _sample_block_color_from_texture(block)
+	_block_colors[block_id] = sampled_color
+	print("Cached color for block %d: %s" % [block_id, sampled_color])
+	return sampled_color
+
+
+func _sample_block_color_from_texture(block: Block) -> Color:
+	"""Sample the average color from a block's texture in the terrain atlas"""
+	var block_name = block.base_info.name
+
+	# Load terrain.png directly as an Image (not as a compiled texture resource)
+	var image = Image.new()
+	var error = image.load("res://blocky_game/blocks/terrain.png")
+	if error != OK:
+		print("Warning: Could not load terrain.png for color sampling, error code: %d" % error)
+		return Color.WHITE
+
+	if image.is_empty():
+		print("Warning: terrain.png is empty")
+		return Color.WHITE
+
+	# Define which blocks to sample and where in the atlas (UV coordinates in texture units)
+	# Terrain atlas is 16x16 blocks, so each block is 1/16th of the texture
+	# These are [column, row] indices in the grid (0-15 each)
+	var block_uv_map = {
+		"leaves": Vector2i(1, 0),      # Column 1, Row 0
+		"grass": Vector2i(0, 0),       # Column 0, Row 0 - grass block top
+		"tall_grass": Vector2i(0, 1),  # Column 0, Row 1 - tall grass texture
+		"dead_shrub": Vector2i(1, 1),  # Column 1, Row 1 - dead shrub texture
+		"log": Vector2i(2, 0),         # Column 2, Row 0 - log side
+		"birch_log": Vector2i(3, 0),   # Column 3, Row 0 - birch log side
+		"dirt": Vector2i(2, 1),        # Column 2, Row 1 - dirt block
+		"stone": Vector2i(3, 1),       # Column 3, Row 1 - stone block
+		"pumpkin": Vector2i(14, 0),    # Column 14, Row 0 - pumpkin
+		"water": Vector2i(14, 1),      # Column 14, Row 1 - water
+		"sand": Vector2i(15, 2),       # Column 15, Row 2 - sand
+		"planks": Vector2i(4, 0)       # Column 4, Row 0 - planks
+	}
+
+	if not block_uv_map.has(block_name):
+		print("Block '%s' not in UV map, returning white" % block_name)
+		return Color.WHITE
+
+	# Get the UV coordinates for this block
+	var uv = block_uv_map[block_name]
+	var block_size = image.get_width() / 16  # Assume 16x16 grid
+
+	# Sample from the center of the block's texture
+	var sample_x = (uv.x * block_size) + (block_size / 2)
+	var sample_y = (uv.y * block_size) + (block_size / 2)
+
+	# Convert to integers and clamp to valid range
+	sample_x = clampi(int(sample_x), 0, image.get_width() - 1)
+	sample_y = clampi(int(sample_y), 0, image.get_height() - 1)
+
+	# Sample the pixel color
+	var color = image.get_pixel(sample_x, sample_y)
+	print("Sampled %s at UV(%d,%d) pixel(%d,%d): %s" % [block_name, uv.x, uv.y, sample_x, sample_y, color])
+
+	return color
 
 
 func _create_block(params: Dictionary):

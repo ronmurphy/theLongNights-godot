@@ -3,7 +3,97 @@
 **Project Start:** October 25, 2025
 **Engine:** Godot 4.5 with Zylann's Voxel Module (v1.5)
 **Platform:** Linux (Arch), Windows export capability
-**Current Status:** Graphics optimization system complete, fog system active, Terrain Mapper tool implemented
+**Current Status:** Falling leaf particles with real texture color sampling, creative mode inventory management, torch recovery system
+
+---
+
+## Session 5: October 31, 2025 (Falling Leaf Particles & Creative Mode)
+
+### Falling Leaf Particle System - COMPLETE ✅
+**Purpose:** When breaking leaves with appropriate tools (machete/tree_feller), spawn falling colored particles that descend 2 blocks and fade out
+
+**Features Implemented:**
+- ✅ Particles only spawn on non-"low" graphics quality
+- ✅ Particles only spawn when breaking leaves with machete (ID 8) or tree_feller (ID 11)
+- ✅ Each leaf break spawns 8 small particles that fall 2 blocks over 1 second
+- ✅ Particles fade out while falling (alpha to 0)
+- ✅ Auto-destroy after animation completes
+- ✅ Color sampled from actual terrain.png texture (not hardcoded)
+
+**Texture Color Sampling System - COMPLETE ✅**
+**Purpose:** Sample actual block colors from terrain.png atlas instead of hardcoding values
+
+**Files Modified:**
+- ✅ `blocky_game/blocks/blocks.gd` - Added `get_block_color()` and `_sample_block_color_from_texture()`
+- ✅ `blocky_game/player/avatar_interaction.gd` - Added `_spawn_block_particles()` and `_spawn_falling_particles()`
+
+**Technical Details:**
+- Used `Image.load()` instead of `preload()` to bypass Godot texture compression
+- Maps block names to (column, row) coordinates in 16×16 texture grid
+- Samples pixel color from center of block's atlas position
+- Caches results to avoid re-sampling same block
+- Supports 12 blocks: leaves, grass, tall_grass, dead_shrub, log, birch_log, dirt, stone, pumpkin, water, sand, planks
+
+**Console Output When Sampling:**
+```
+Cached color for block 10: Color(...)
+Sampled leaves at UV(1,0) pixel(24,8): Color(0.4, 0.6, 0.2, 1.0)
+Spawning particles for leaves (block_id=10) with color Color(0.4, 0.6, 0.2, 1.0)
+```
+
+### Creative Mode System - COMPLETE ✅
+**Purpose:** Toggle between creative and survival modes with automatic inventory management
+
+**Files Modified:**
+- ✅ `blocky_game/player/avatar_interaction.gd` - Added `set_creative_mode()`, inventory backup/restore
+- ✅ `blocky_game/gui/inventory/inventory.gd` - Added loadout system
+- ✅ `blocky_game/gui/hotbar/hotbar.gd` - Added `refresh_display()`
+- ✅ `long_nights/GameConsole.gd` - Added `creative on/off` console commands
+
+**Features Implemented:**
+- ✅ `creative on` - Toggle creative mode (instant block breaking, no block collection)
+- ✅ `creative off` - Toggle back to survival mode
+- ✅ Automatic survival inventory backup when entering creative
+- ✅ Automatic inventory restoration when exiting creative
+- ✅ Creative loadout: all building blocks (IDs 1-12) with quick-access hotbar
+- ✅ Survival loadout: machete + 10 torches in hotbar slot 8 (last slot)
+- ✅ Blocks don't consume from inventory in creative mode
+- ✅ No collection of broken blocks in creative mode
+
+### Torch Recovery System - COMPLETE ✅
+**Purpose:** When mining blocks in survival mode, automatically recover thrown torches
+
+**Features Implemented:**
+- ✅ When mining any block, check if torches are in hotbar
+- ✅ If torch present, add one back to inventory when mining
+- ✅ Scan 6 adjacent block faces (±X, ±Y, ±Z) for thrown torch objects
+- ✅ Remove thrown torch objects from scene when mining near them
+- ✅ Prevents torch loss when mining in dark areas
+
+### Smart Block Inventory - COMPLETE ✅
+**Purpose:** Prioritize hotbar placement for newly-mined block types
+
+**Features Implemented:**
+- ✅ New block types go to empty hotbar slots first (before bag)
+- ✅ Starting inventory gives machete in slot 0 and 10 torches in slot 8
+- ✅ Avoids placing blocks in item slots (like torch slot)
+- ✅ Inventory updates hotbar display when switching between creative/survival
+
+### Issues Resolved This Session:
+- ✅ Fixed texture color sampling (Image.load vs preload)
+- ✅ Fixed integer conversion for pixel coordinates (clampi + int casting)
+- ✅ Removed blocking await loops in particle spawning
+- ✅ Proper node tree ordering for particle positioning
+- ✅ Hotbar display refresh on loadout switches
+- ✅ Path resolution for node references in console commands
+- ✅ Inventory signal emissions for UI updates
+
+### Session Summary
+- Implemented falling particle effect system with real texture color sampling
+- Created creative/survival mode toggle with inventory management
+- Added torch recovery and smart block placement systems
+- All systems tested and working with proper console output ✅
+- Provides foundation for expanding particles to other blocks (grass, etc.)
 
 ---
 

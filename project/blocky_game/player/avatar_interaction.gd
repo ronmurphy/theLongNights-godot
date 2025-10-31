@@ -211,17 +211,19 @@ func _process_block_breaking(pos: Vector3, block_id: int, delta: float, inv_item
 
 	# In creative mode, break instantly
 	if _creative_mode:
-		_break_block(pos, block_id, false)
+		_break_block(pos, block_id, false, -1)
 		_reset_breaking_progress()
 		return
 
 	# Get mining power from equipped item or bare hands
 	var mining_power = BARE_HAND_MINING_POWER
+	var tool_id = -1  # -1 = bare hands, otherwise item ID
 	if inv_item != null and inv_item.type == InventoryItem.TYPE_ITEM:
 		var item = _item_db.get_item(inv_item.id)
 		var item_mining_power = item.get_mining_power()
 		if item_mining_power > 0:
 			mining_power = item_mining_power
+			tool_id = inv_item.id  # Store the tool ID
 
 	# Calculate break time based on mining power
 	var break_time_required = BASE_BLOCK_HARDNESS / float(mining_power)
@@ -240,11 +242,11 @@ func _process_block_breaking(pos: Vector3, block_id: int, delta: float, inv_item
 	# Check if block is broken
 	if _break_progress >= break_time_required:
 		# Break the block!
-		_break_block(pos, block_id, mining_power > 0)
+		_break_block(pos, block_id, mining_power > 0, tool_id)
 		_reset_breaking_progress()
 
 
-func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool):
+func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool, tool_id: int = -1):
 	# Remove the block from terrain
 	_place_single_block(pos, 0)
 
@@ -261,6 +263,9 @@ func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool):
 
 		# Check adjacent faces for thrown torches and remove them
 		_remove_adjacent_torches(pos)
+
+		# Spawn block-specific particles (leaves, etc.)
+		_spawn_block_particles(block_id, pos, tool_id)
 	else:
 		print("Destroyed block %d at %s (not added to inventory)" % [block_id, pos])
 
@@ -477,6 +482,97 @@ func _recover_torch_on_mining():
 		print("Recovered torch from mining and placed in new stack!")
 	else:
 		print("Could not recover torch - inventory full!")
+
+
+func _spawn_block_particles(block_id: int, block_pos: Vector3, tool_id: int):
+	"""Spawn falling particles when a block is broken (leaves, etc.)
+	Only spawns if graphics quality is not 'low' and tool is appropriate"""
+
+	# Check graphics quality - skip particles on low settings
+	if GraphicsSettings.get_current_profile() == "low":
+		return
+
+	# Define which tools allow particle spawning
+	var particle_tools = [8, 11]  # 8=machete, 11=tree_feller
+
+	# Define which blocks should spawn particles (by name)
+	var particle_block_names = ["leaves"]
+
+	# Get block name
+	var block = _block_types.get_block(block_id)
+	if block == null:
+		return
+
+	var block_name = block.base_info.name
+
+	# Check if this block should spawn particles
+	if not (block_name in particle_block_names):
+		return
+
+	# Check if the tool is appropriate for particles
+	if not (tool_id in particle_tools):
+		return
+
+	# Get the block color
+	var block_color = _block_types.get_block_color(block_id)
+	print("Spawning particles for %s (block_id=%d) with color %s" % [block_name, block_id, block_color])
+
+	# Spawn falling particles
+	_spawn_falling_particles(block_pos, block_color)
+
+
+func _spawn_falling_particles(origin_pos: Vector3, color: Color):
+	"""Create falling particles that descend 2 blocks and fade out"""
+	# Number of particles to spawn
+	var particle_count = 8
+	var fall_distance = 2.0
+	var fall_time = 1.0
+
+	for i in range(particle_count):
+		# Create a simple particle node
+		var particle = Node3D.new()
+		particle.name = "FallingBlockParticle_%d" % i
+
+		# Create a small mesh for the particle
+		var mesh_instance = MeshInstance3D.new()
+		var mesh = BoxMesh.new()
+		mesh.size = Vector3(0.1, 0.1, 0.1)  # Small cube
+		mesh_instance.mesh = mesh
+
+		# Create material with the block color
+		var material = StandardMaterial3D.new()
+		material.albedo_color = color
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mesh_instance.material_override = material
+
+		particle.add_child(mesh_instance)
+
+		# Add to terrain first (required before setting global_position)
+		_terrain.add_child(particle)
+
+		# Randomize spawn position around the block center
+		var spread = 0.3
+		var offset = Vector3(
+			randf_range(-spread, spread),
+			randf_range(-0.1, 0.2),
+			randf_range(-spread, spread)
+		)
+		particle.global_position = origin_pos + Vector3(0.5, 0.5, 0.5) + offset
+
+		# Animate falling
+		var tween = particle.create_tween()
+		tween.set_parallel(true)  # Run animations in parallel
+
+		# Fall down 2 blocks
+		tween.tween_property(particle, "global_position",
+			particle.global_position + Vector3(0, -fall_distance, 0),
+			fall_time)
+
+		# Fade out alpha
+		tween.tween_property(material, "albedo_color:a", 0.0, fall_time)
+
+		# Auto-destroy after animation completes (callback, no await in loop)
+		tween.finished.connect(particle.queue_free)
 
 
 func _reset_breaking_progress():
