@@ -28,6 +28,10 @@ var _companion_weapon_slot_view = null
 var _player_equipment_panel = null
 var _companion_equipment_panel = null
 
+# Loadout management for creative/survival mode switching
+var _backed_up_inventory: Array = []  # Backup of survival mode inventory
+var _backed_up_player_weapon: InventoryItem = null  # Backup of survival mode player weapon
+
 
 func _ready():
 	# Create equipment panels first
@@ -37,25 +41,10 @@ func _ready():
 	assert(_bag_container.get_child_count() == BAG_WIDTH * BAG_HEIGHT)
 	assert(_hotbar_container.get_child_count() == BAG_WIDTH * HOTBAR_HEIGHT)
 
-	# Initial contents
+	# Initial contents - Survival mode loadout: machete + 10 torches
 	var hotbar_begin_index := BAG_WIDTH * BAG_HEIGHT
-	_slots[hotbar_begin_index + 0] = _make_item(InventoryItem.TYPE_BLOCK, 1)
-	_slots[hotbar_begin_index + 1] = _make_item(InventoryItem.TYPE_BLOCK, 2)
-	_slots[hotbar_begin_index + 2] = _make_item(InventoryItem.TYPE_BLOCK, 3)
-	_slots[hotbar_begin_index + 3] = _make_item(InventoryItem.TYPE_BLOCK, 4)
-	_slots[hotbar_begin_index + 4] = _make_item(InventoryItem.TYPE_BLOCK, 5)
-	_slots[hotbar_begin_index + 5] = _make_item(InventoryItem.TYPE_ITEM, 2)  # Climbing claws
-	_slots[hotbar_begin_index + 6] = _make_item(InventoryItem.TYPE_ITEM, 1)  # Grappling hook
-	_slots[hotbar_begin_index + 7] = _make_item(InventoryItem.TYPE_ITEM, 0)  # Rocket launcher
-	_slots[hotbar_begin_index + 8] = _make_item(InventoryItem.TYPE_BLOCK, 9)
-	_slots[0] = _make_item(InventoryItem.TYPE_BLOCK, 8)
-	_slots[1] = _make_item(InventoryItem.TYPE_ITEM, 3)  # Ice bow in bag slot 1
-	_slots[2] = _make_item(InventoryItem.TYPE_ITEM, 4)  # Fire staff in bag slot 2
-	_slots[3] = _make_item(InventoryItem.TYPE_ITEM, 5)  # Throwing knives in bag slot 3
-	# Torch in bag slot 4 with stack of 10
-	var torch_item = _make_item(InventoryItem.TYPE_ITEM, 6)
-	torch_item.count = 10
-	_slots[4] = torch_item
+	_slots[hotbar_begin_index + 0] = _make_item(InventoryItem.TYPE_ITEM, 8)  # Machete in hotbar slot 0
+	_slots[hotbar_begin_index + 8] = _make_item_with_count(InventoryItem.TYPE_ITEM, 6, 10)  # 10x torches in last hotbar slot (slot 8)
 
 	# Init views
 	var slot_idx := 0
@@ -77,6 +66,138 @@ static func _make_item(type, id):
 	i.id = id
 	i.type = type
 	return i
+
+
+static func _make_item_with_count(type, id, count):
+	var i = InventoryItem.new()
+	i.id = id
+	i.type = type
+	i.count = count
+	return i
+
+
+## LOADOUT MANAGEMENT FOR CREATIVE/SURVIVAL MODES
+
+func _backup_current_inventory() -> void:
+	"""Backup current inventory before switching to creative mode"""
+	_backed_up_inventory.clear()
+	_backed_up_inventory.resize(_slots.size())
+
+	# Deep copy all slots
+	for i in range(_slots.size()):
+		if _slots[i] != null:
+			var backup_item = InventoryItem.new()
+			backup_item.id = _slots[i].id
+			backup_item.type = _slots[i].type
+			backup_item.count = _slots[i].count
+			_backed_up_inventory[i] = backup_item
+
+	# Backup player weapon
+	if _player_weapon_slot != null:
+		_backed_up_player_weapon = InventoryItem.new()
+		_backed_up_player_weapon.id = _player_weapon_slot.id
+		_backed_up_player_weapon.type = _player_weapon_slot.type
+		_backed_up_player_weapon.count = _player_weapon_slot.count
+	else:
+		_backed_up_player_weapon = null
+
+	print("Inventory backed up for creative mode switch")
+
+
+func _restore_backed_up_inventory() -> void:
+	"""Restore backed up inventory when exiting creative mode"""
+	_slots.clear()
+	_slots.resize(BAG_WIDTH * (BAG_HEIGHT + HOTBAR_HEIGHT))
+
+	# Restore all slots from backup
+	for i in range(_backed_up_inventory.size()):
+		if _backed_up_inventory[i] != null:
+			var restore_item = InventoryItem.new()
+			restore_item.id = _backed_up_inventory[i].id
+			restore_item.type = _backed_up_inventory[i].type
+			restore_item.count = _backed_up_inventory[i].count
+			_slots[i] = restore_item
+
+	# Restore player weapon
+	if _backed_up_player_weapon != null:
+		_player_weapon_slot = InventoryItem.new()
+		_player_weapon_slot.id = _backed_up_player_weapon.id
+		_player_weapon_slot.type = _backed_up_player_weapon.type
+		_player_weapon_slot.count = _backed_up_player_weapon.count
+	else:
+		_player_weapon_slot = null
+
+	_backed_up_inventory.clear()
+	_backed_up_player_weapon = null
+
+	print("Inventory restored from creative mode")
+	_update_views()
+	_refresh_hotbar_display()
+	emit_signal("equipment_changed")
+	emit_signal("changed")
+
+
+func _create_survival_loadout() -> void:
+	"""Set inventory to survival mode loadout: machete + 10 torches"""
+	# Clear inventory completely
+	_slots.clear()
+	_slots.resize(BAG_WIDTH * (BAG_HEIGHT + HOTBAR_HEIGHT))
+
+	# Clear player weapon
+	_player_weapon_slot = null
+
+	# Hotbar: machete in slot 0, torches in slot 8 (last hotbar slot)
+	var hotbar_begin_index := BAG_WIDTH * BAG_HEIGHT
+	_slots[hotbar_begin_index + 0] = _make_item(InventoryItem.TYPE_ITEM, 8)  # Machete (ID 8)
+	_slots[hotbar_begin_index + 8] = _make_item_with_count(InventoryItem.TYPE_ITEM, 6, 10)  # 10x torches (ID 6)
+
+	print("Survival loadout applied: machete + 10 torches")
+	_update_views()
+	_refresh_hotbar_display()
+	emit_signal("equipment_changed")
+	emit_signal("changed")
+
+
+func _create_creative_loadout() -> void:
+	"""Set inventory to creative mode loadout: all common building blocks"""
+	# Clear inventory completely
+	_slots.clear()
+	_slots.resize(BAG_WIDTH * (BAG_HEIGHT + HOTBAR_HEIGHT))
+
+	# Clear player weapon
+	_player_weapon_slot = null
+
+	# Block IDs to include (common building blocks, excluding axes like logs)
+	var block_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # Common block IDs
+
+	# Fill hotbar first with block ID 1-5 for quick access
+	var hotbar_begin_index := BAG_WIDTH * BAG_HEIGHT
+	for i in range(min(5, block_ids.size())):
+		_slots[hotbar_begin_index + i] = _make_item(InventoryItem.TYPE_BLOCK, block_ids[i])
+
+	# Fill bag slots with remaining blocks
+	var bag_slot = 0
+	for block_id in block_ids:
+		if bag_slot >= BAG_WIDTH * BAG_HEIGHT:
+			break
+		# Skip if already in hotbar
+		if block_id > 5:
+			_slots[bag_slot] = _make_item(InventoryItem.TYPE_BLOCK, block_id)
+			bag_slot += 1
+
+	print("Creative loadout applied: common building blocks")
+	_update_views()
+	_refresh_hotbar_display()
+	emit_signal("equipment_changed")
+	emit_signal("changed")
+
+
+func _refresh_hotbar_display() -> void:
+	"""Refresh the hotbar UI to display current inventory"""
+	var hotbar = get_node_or_null("../HotBar")
+	if hotbar and hotbar.has_method("refresh_display"):
+		# Use call_deferred to ensure UI is updated after inventory changes
+		hotbar.call_deferred("refresh_display")
 
 
 func _update_views():

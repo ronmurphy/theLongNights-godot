@@ -288,8 +288,11 @@ func _cmd_help(_args: Array) -> void:
 	add_output("  [color=yellow]testhunt success/failure[/color] - Test hunt return dialogue")
 	add_output("")
 	add_output("[color=cyan]Build/Creative Commands:[/color]")
-	add_output("  [color=yellow]creative on[/color] - Enable creative mode (instant block breaking, no collection)")
-	add_output("  [color=yellow]creative off[/color] - Disable creative mode (return to normal mining)")
+	add_output("  [color=yellow]creative on[/color] - Enable creative mode (instant building, all blocks in inventory)")
+	add_output("    * Current inventory backed up automatically")
+	add_output("    * Loads all building blocks into inventory")
+	add_output("  [color=yellow]creative off[/color] - Disable creative mode (return to survival)")
+	add_output("    * Restores previous inventory or resets to survival loadout")
 
 func _cmd_clear(_args: Array) -> void:
 	output_label.clear()
@@ -817,9 +820,12 @@ func _cmd_creative(args: Array) -> void:
 		avatar_interaction.set_creative_mode(true)
 		add_output("[color=lime]Creative mode ENABLED[/color]")
 		add_output("[color=cyan]Blocks break instantly and are not collected[/color]")
+		add_output("[color=cyan]Block placement is instant and doesn't consume items[/color]")
+		add_output("[color=yellow]Inventory backed up and loaded with all building blocks[/color]")
 	elif mode == "off":
 		avatar_interaction.set_creative_mode(false)
 		add_output("[color=lime]Creative mode DISABLED[/color]")
 		add_output("[color=cyan]Normal mining mode active[/color]")
+		add_output("[color=yellow]Inventory restored to survival loadout (machete + 10 torches)[/color]")
 	else:
 		add_output("[color=red]Invalid mode. Use 'creative on' or 'creative off'[/color]")

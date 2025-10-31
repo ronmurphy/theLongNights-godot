@@ -148,8 +148,9 @@ func _physics_process(_delta):
 					if inv_item != null and inv_item.count > 0:
 						_place_single_block(pos, inv_item.id)
 						print("Place voxel at ", pos)
-						# Decrement block count in hotbar
-						_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
+						# Decrement block count in hotbar (but NOT in creative mode)
+						if not _creative_mode:
+							_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
 					elif inv_item != null:
 						print("No more blocks to place!")
 				else:
@@ -254,6 +255,12 @@ func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool):
 	elif add_to_inventory:
 		_add_block_to_inventory(block_id)
 		print("Broke block %d at %s (added to inventory)" % [block_id, pos])
+
+		# In survival mode, recover a torch when mining blocks
+		_recover_torch_on_mining()
+
+		# Check adjacent faces for thrown torches and remove them
+		_remove_adjacent_torches(pos)
 	else:
 		print("Destroyed block %d at %s (not added to inventory)" % [block_id, pos])
 
@@ -292,7 +299,69 @@ func _spawn_mining_particles(pos: Vector3):
 
 
 func _add_block_to_inventory(block_id: int):
-	# Find first existing stack of this block type or empty slot
+	# Only apply special hotbar priority in survival mode (not creative)
+	if _creative_mode:
+		_add_block_to_inventory_standard(block_id)
+		return
+
+	# Find first existing stack of this block type
+	var slots = _inventory._slots
+	var BAG_WIDTH = _inventory.BAG_WIDTH
+	var BAG_HEIGHT = _inventory.BAG_HEIGHT
+	var hotbar_begin_index = BAG_WIDTH * BAG_HEIGHT
+	var hotbar_end_index = hotbar_begin_index + BAG_WIDTH
+
+	var existing_stack_slot = -1
+	for i in range(slots.size()):
+		if slots[i] != null and slots[i].type == InventoryItem.TYPE_BLOCK and slots[i].id == block_id:
+			# Found existing stack of this block
+			existing_stack_slot = i
+			break
+
+	# If block type already exists, add to that stack
+	if existing_stack_slot != -1:
+		slots[existing_stack_slot].count += 1
+		_inventory.emit_signal("changed")
+		print("Added block %d to existing stack (count: %d)" % [block_id, slots[existing_stack_slot].count])
+		return
+
+	# Block type doesn't exist - prioritize hotbar for new block types (but skip items)
+	var empty_hotbar_slot = -1
+	var empty_bag_slot = -1
+
+	# Search hotbar first for empty slots (skip slots with items)
+	for i in range(hotbar_begin_index, hotbar_end_index):
+		if slots[i] == null:
+			empty_hotbar_slot = i
+			break
+
+	# If hotbar is full, search bag for empty slots (skip slots with items)
+	if empty_hotbar_slot == -1:
+		for i in range(hotbar_begin_index):
+			if slots[i] == null:
+				empty_bag_slot = i
+				break
+
+	# Add to hotbar if available, otherwise bag, otherwise drop
+	var new_item = InventoryItem.new()
+	new_item.id = block_id
+	new_item.type = InventoryItem.TYPE_BLOCK
+	new_item.count = 1
+
+	if empty_hotbar_slot != -1:
+		slots[empty_hotbar_slot] = new_item
+		_inventory.emit_signal("changed")
+		print("Added NEW block %d to hotbar slot %d" % [block_id, empty_hotbar_slot - hotbar_begin_index])
+	elif empty_bag_slot != -1:
+		slots[empty_bag_slot] = new_item
+		_inventory.emit_signal("changed")
+		print("Added NEW block %d to bag slot %d (hotbar full)" % [block_id, empty_bag_slot])
+	else:
+		print("Inventory full! Block %d dropped" % block_id)
+
+
+func _add_block_to_inventory_standard(block_id: int):
+	"""Standard inventory addition (used in creative mode or fallback)"""
 	var slots = _inventory._slots
 	var existing_stack_slot = -1
 	var empty_slot = -1
@@ -323,6 +392,91 @@ func _add_block_to_inventory(block_id: int):
 		print("Added block %d to new stack in slot %d" % [block_id, empty_slot])
 	else:
 		print("Inventory full! Block %d dropped" % block_id)
+
+
+func _remove_adjacent_torches(block_pos: Vector3):
+	"""Check all 6 adjacent block faces for thrown torches and remove them from the scene"""
+	# Get the game node where torches are spawned
+	var game_node = get_node_or_null("/root/Main/Game")
+	if game_node == null:
+		return
+
+	# Define the 6 adjacent positions (up, down, left, right, forward, back)
+	var adjacent_offsets = [
+		Vector3(0, 1, 0),   # Up
+		Vector3(0, -1, 0),  # Down
+		Vector3(1, 0, 0),   # Right
+		Vector3(-1, 0, 0),  # Left
+		Vector3(0, 0, 1),   # Back
+		Vector3(0, 0, -1)   # Forward
+	]
+
+	# Check each adjacent position
+	for offset in adjacent_offsets:
+		var check_pos = block_pos + offset
+
+		# Look for thrown torches at or near this position
+		for child in game_node.get_children():
+			# Check if this is a thrown torch (scene name contains "ThrownTorch" or similar)
+			if "thrown_torch" in child.name.to_lower() or child.get_script() != null and "thrown_torch" in child.get_script().resource_path.to_lower():
+				var distance = child.global_position.distance_to(check_pos + Vector3(0.5, 0.5, 0.5))
+
+				# If torch is at this block face (within 1 unit), remove it
+				if distance < 1.0:
+					print("Removed thrown torch at %s" % check_pos)
+					child.queue_free()
+
+
+func _recover_torch_on_mining():
+	"""Recover a thrown torch and add it back to inventory when mining in survival mode"""
+	# Torch item ID is 6
+	const TORCH_ITEM_ID = 6
+
+	var slots = _inventory._slots
+	var BAG_WIDTH = _inventory.BAG_WIDTH
+	var BAG_HEIGHT = _inventory.BAG_HEIGHT
+	var hotbar_begin_index = BAG_WIDTH * BAG_HEIGHT
+
+	# Look for existing torch stack in inventory
+	var existing_torch_slot = -1
+	for i in range(slots.size()):
+		if slots[i] != null and slots[i].type == InventoryItem.TYPE_ITEM and slots[i].id == TORCH_ITEM_ID:
+			existing_torch_slot = i
+			break
+
+	# If torch stack exists, add to it
+	if existing_torch_slot != -1:
+		slots[existing_torch_slot].count += 1
+		_inventory.emit_signal("changed")
+		print("Recovered torch from mining! (count: %d)" % slots[existing_torch_slot].count)
+		return
+
+	# No torch stack exists - need to find a slot for it
+	# Look for empty hotbar slot first (but not slot 8 where we keep torches in survival mode)
+	var empty_slot = -1
+	for i in range(hotbar_begin_index, hotbar_begin_index + BAG_WIDTH):
+		if i != hotbar_begin_index + 8 and slots[i] == null:  # Skip slot 8 (reserved for torches)
+			empty_slot = i
+			break
+
+	# If no empty hotbar slot, look in bag
+	if empty_slot == -1:
+		for i in range(hotbar_begin_index):
+			if slots[i] == null:
+				empty_slot = i
+				break
+
+	# If we found an empty slot, add the torch there
+	if empty_slot != -1:
+		var torch_item = InventoryItem.new()
+		torch_item.id = TORCH_ITEM_ID
+		torch_item.type = InventoryItem.TYPE_ITEM
+		torch_item.count = 1
+		slots[empty_slot] = torch_item
+		_inventory.emit_signal("changed")
+		print("Recovered torch from mining and placed in new stack!")
+	else:
+		print("Could not recover torch - inventory full!")
 
 
 func _reset_breaking_progress():
@@ -379,8 +533,16 @@ func set_creative_mode(enabled: bool) -> void:
 	_creative_mode = enabled
 	if _creative_mode:
 		print("Creative mode ENABLED - blocks break instantly and are not collected")
+		# Backup current inventory and switch to creative loadout
+		_inventory._backup_current_inventory()
+		_inventory._create_creative_loadout()
 	else:
 		print("Creative mode DISABLED - normal mining mode active")
+		# Restore backed up inventory or apply survival loadout
+		if _inventory._backed_up_inventory.size() > 0:
+			_inventory._restore_backed_up_inventory()
+		else:
+			_inventory._create_survival_loadout()
 
 
 func _can_place_voxel_at(pos: Vector3):

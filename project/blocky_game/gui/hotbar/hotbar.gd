@@ -130,3 +130,8 @@ func select_previous_slot():
 
 func _on_Inventory_changed():
 	_update_views()
+
+
+func refresh_display():
+	"""Manually refresh hotbar display (called when loadouts are switched)"""
+	_update_views()
