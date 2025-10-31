@@ -51,6 +51,9 @@ var _breaking_block_pos : Vector3 = Vector3.ZERO
 var _break_progress : float = 0.0
 var _is_breaking := false
 
+# Creative mode toggle
+var _creative_mode := false
+
 
 func _ready():
 	var mesh := Util.create_wirecube_mesh(Color(0,0,0))
@@ -205,6 +208,12 @@ func _process_block_breaking(pos: Vector3, block_id: int, delta: float, inv_item
 		_is_breaking = true
 		print("Started breaking block at ", pos)
 
+	# In creative mode, break instantly
+	if _creative_mode:
+		_break_block(pos, block_id, false)
+		_reset_breaking_progress()
+		return
+
 	# Get mining power from equipped item or bare hands
 	var mining_power = BARE_HAND_MINING_POWER
 	if inv_item != null and inv_item.type == InventoryItem.TYPE_ITEM:
@@ -238,8 +247,11 @@ func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool):
 	# Remove the block from terrain
 	_place_single_block(pos, 0)
 
-	# Add to inventory if using proper mining tool
-	if add_to_inventory:
+	# In creative mode, never add to inventory
+	if _creative_mode:
+		print("Broke block %d at %s (creative mode - not added)" % [block_id, pos])
+	# Add to inventory if using proper mining tool and not in creative mode
+	elif add_to_inventory:
 		_add_block_to_inventory(block_id)
 		print("Broke block %d at %s (added to inventory)" % [block_id, pos])
 	else:
@@ -360,6 +372,15 @@ func _unhandled_input(event: InputEvent):
 			if _hotbar_keys.has(event.keycode):
 				var slot_index = _hotbar_keys[event.keycode]
 				_hotbar.select_slot(slot_index)
+
+
+func set_creative_mode(enabled: bool) -> void:
+	"""Toggle creative mode on/off"""
+	_creative_mode = enabled
+	if _creative_mode:
+		print("Creative mode ENABLED - blocks break instantly and are not collected")
+	else:
+		print("Creative mode DISABLED - normal mining mode active")
 
 
 func _can_place_voxel_at(pos: Vector3):

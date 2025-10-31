@@ -228,6 +228,7 @@ func _register_commands() -> void:
 	commands["dialogue"] = _cmd_dialogue
 	commands["dlg"] = _cmd_dialogue  # Short alias
 	commands["testhunt"] = _cmd_testhunt
+	commands["creative"] = _cmd_creative
 
 ## Commands Implementation
 
@@ -285,6 +286,10 @@ func _cmd_help(_args: Array) -> void:
 	add_output("  [color=yellow]dialogue <id>[/color] - Trigger a dialogue (or 'dlg' for short)")
 	add_output("  [color=yellow]dialogue reset[/color] - Reset dialogue progress")
 	add_output("  [color=yellow]testhunt success/failure[/color] - Test hunt return dialogue")
+	add_output("")
+	add_output("[color=cyan]Build/Creative Commands:[/color]")
+	add_output("  [color=yellow]creative on[/color] - Enable creative mode (instant block breaking, no collection)")
+	add_output("  [color=yellow]creative off[/color] - Disable creative mode (return to normal mining)")
 
 func _cmd_clear(_args: Array) -> void:
 	output_label.clear()
@@ -787,3 +792,34 @@ func _cmd_testhunt(args: Array) -> void:
 		add_output("[color=lime]Triggered failed hunt dialogue[/color]")
 	else:
 		add_output("[color=red]Invalid mode. Use 'success' or 'failure'[/color]")
+
+
+func _cmd_creative(args: Array) -> void:
+	"""Toggle creative mode on/off"""
+	if args.is_empty():
+		add_output("[color=yellow]Usage: creative <on|off>[/color]")
+		return
+
+	var mode = args[0].to_lower()
+	var player = get_tree().get_first_node_in_group("player")
+
+	if player == null:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+
+	# Get the avatar interaction script (node is called "Interaction")
+	var avatar_interaction = player.get_node_or_null("Interaction")
+	if avatar_interaction == null:
+		add_output("[color=red]Error: Interaction node not found[/color]")
+		return
+
+	if mode == "on":
+		avatar_interaction.set_creative_mode(true)
+		add_output("[color=lime]Creative mode ENABLED[/color]")
+		add_output("[color=cyan]Blocks break instantly and are not collected[/color]")
+	elif mode == "off":
+		avatar_interaction.set_creative_mode(false)
+		add_output("[color=lime]Creative mode DISABLED[/color]")
+		add_output("[color=cyan]Normal mining mode active[/color]")
+	else:
+		add_output("[color=red]Invalid mode. Use 'creative on' or 'creative off'[/color]")
