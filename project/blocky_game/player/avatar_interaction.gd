@@ -46,7 +46,7 @@ var _current_held_item_id := -1
 
 # Block breaking system
 const BASE_BLOCK_HARDNESS = 100.0  # Base time to break a block
-const BARE_HAND_MINING_POWER = 5   # Mining power when no tool equipped
+const BARE_HAND_MINING_POWER = 10   # Mining power when no tool equipped
 var _breaking_block_pos : Vector3 = Vector3.ZERO
 var _break_progress : float = 0.0
 var _is_breaking := false
