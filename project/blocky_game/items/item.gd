@@ -13,3 +13,10 @@ var base_info := BaseInfo.new()
 func use(_trans: Transform3D):
 	pass
 
+
+# Returns the mining power for this item
+# 0 = cannot mine blocks (special items like torch, grapple)
+# >0 = can mine blocks, higher = faster mining
+func get_mining_power() -> int:
+	return 0  # Default: cannot mine
+

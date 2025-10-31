@@ -13,6 +13,10 @@ const ATTACK_SPEED = 1.0  # Slowest attack speed
 const CLEAVE_ANGLE = 45.0  # Wide attack arc
 
 
+func get_mining_power() -> int:
+	return DAMAGE  # Best for mining (especially wood)
+
+
 func use(trans: Transform3D):
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():

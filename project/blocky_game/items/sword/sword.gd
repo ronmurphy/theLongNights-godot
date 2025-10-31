@@ -12,6 +12,10 @@ const DAMAGE = 30  # Higher damage than machete
 const ATTACK_SPEED = 0.75  # Slower than machete
 
 
+func get_mining_power() -> int:
+	return DAMAGE  # Good for mining
+
+
 func use(trans: Transform3D):
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():

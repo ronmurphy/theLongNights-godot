@@ -13,6 +13,10 @@ const KNOCKBACK_FORCE = 10.0
 const AOE_RADIUS = 3.0
 
 
+func get_mining_power() -> int:
+	return DAMAGE  # Good for mining stone/ore
+
+
 func use(trans: Transform3D):
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():

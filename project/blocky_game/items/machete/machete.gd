@@ -12,6 +12,10 @@ const DAMAGE = 20  # Higher single-target damage than hammer
 const ATTACK_SPEED = 0.5  # Fast attack (cooldown in seconds)
 
 
+func get_mining_power() -> int:
+	return DAMAGE  # Decent for mining
+
+
 func use(trans: Transform3D):
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():

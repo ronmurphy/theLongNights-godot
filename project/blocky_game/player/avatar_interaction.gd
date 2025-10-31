@@ -39,9 +39,17 @@ var _terrain_tool : VoxelTool = null
 var _cursor : MeshInstance3D = null
 var _action_place := false
 var _action_use := false
+var _action_use_held := false  # Track if use button is being held down
 var _action_pick := false
 var _torch_light : OmniLight3D = null
 var _current_held_item_id := -1
+
+# Block breaking system
+const BASE_BLOCK_HARDNESS = 100.0  # Base time to break a block
+const BARE_HAND_MINING_POWER = 5   # Mining power when no tool equipped
+var _breaking_block_pos : Vector3 = Vector3.ZERO
+var _break_progress : float = 0.0
+var _is_breaking := false
 
 
 func _ready():
@@ -107,22 +115,29 @@ func _physics_process(_delta):
 		if _torch_light:
 			_torch_light.visible = (_current_held_item_id == 6)
 	
-	# These inputs have to be in _fixed_process because they rely on collision queries
+	# Block placement and breaking
 	if inv_item == null or inv_item.type == InventoryItem.TYPE_BLOCK:
 		if hit != null:
 			var hit_raw_id := _terrain_tool.get_voxel(hit.position)
 			var has_cube := hit_raw_id != 0
-			
-			if _action_use and has_cube:
+
+			# Handle block breaking with hold-to-break mechanic
+			if _action_use_held and has_cube:
 				var pos = hit.position
-				# Check if block is bedrock (block ID 13, voxel ID 28)
+				# Check if block is bedrock (block ID 13)
 				var rm := _block_types.get_raw_mapping(hit_raw_id)
 				if rm.block_id != 13:  # Not bedrock
-					_place_single_block(pos, 0)
+					_process_block_breaking(pos, rm.block_id, _delta, inv_item)
 				else:
 					print("Cannot destroy bedrock!")
-			
-			elif _action_place:
+					_reset_breaking_progress()
+			else:
+				# Not holding use button or no cube - reset progress
+				if _is_breaking:
+					_reset_breaking_progress()
+
+			# Handle block placement
+			if _action_place:
 				var pos = hit.previous_position
 				if has_cube == false:
 					pos = hit.position
@@ -132,11 +147,36 @@ func _physics_process(_delta):
 						print("Place voxel at ", pos)
 				else:
 					print("Can't place here!")
-				
+
+	# Handle weapon/item usage
 	elif inv_item.type == InventoryItem.TYPE_ITEM:
-		if _action_use:
-			var item = _item_db.get_item(inv_item.id)
-			item.use(_head.global_transform)
+		var item = _item_db.get_item(inv_item.id)
+		var mining_power = item.get_mining_power()
+
+		# Check if this is a mining tool being held on a block
+		if mining_power > 0 and hit != null and _action_use_held:
+			# This is a mining tool being used on a block
+			var hit_raw_id := _terrain_tool.get_voxel(hit.position)
+			var has_cube := hit_raw_id != 0
+			if has_cube:
+				var pos = hit.position
+				var rm := _block_types.get_raw_mapping(hit_raw_id)
+				if rm.block_id != 13:  # Not bedrock
+					_process_block_breaking(pos, rm.block_id, _delta, inv_item)
+				else:
+					print("Cannot destroy bedrock!")
+					_reset_breaking_progress()
+			else:
+				# No block - reset progress
+				_reset_breaking_progress()
+		elif _action_use:
+			# Single click with non-mining tool or mining tool in air - use item normally
+			if mining_power == 0 or hit == null or not _action_use_held:
+				item.use(_head.global_transform)
+				_reset_breaking_progress()
+		elif _is_breaking:
+			# Was mining but stopped holding - reset
+			_reset_breaking_progress()
 	
 	if _action_pick and hit != null:
 		var hit_raw_id = _terrain_tool.get_voxel(hit.position)
@@ -146,6 +186,130 @@ func _physics_process(_delta):
 	_action_place = false
 	_action_use = false
 	_action_pick = false
+
+
+func _process_block_breaking(pos: Vector3, block_id: int, delta: float, inv_item):
+	# Check if we're breaking a new block
+	if not _is_breaking or _breaking_block_pos != pos:
+		_breaking_block_pos = pos
+		_break_progress = 0.0
+		_is_breaking = true
+		print("Started breaking block at ", pos)
+
+	# Get mining power from equipped item or bare hands
+	var mining_power = BARE_HAND_MINING_POWER
+	if inv_item != null and inv_item.type == InventoryItem.TYPE_ITEM:
+		var item = _item_db.get_item(inv_item.id)
+		var item_mining_power = item.get_mining_power()
+		if item_mining_power > 0:
+			mining_power = item_mining_power
+
+	# Calculate break time based on mining power
+	var break_time_required = BASE_BLOCK_HARDNESS / float(mining_power)
+
+	# Accumulate progress
+	_break_progress += delta
+
+	# Calculate and show progress
+	var progress_percent = (_break_progress / break_time_required) * 100.0
+	_hotbar.set_mining_progress(progress_percent)
+
+	# Spawn particles occasionally
+	if fmod(_break_progress, 0.1) < delta:  # Every 0.1 seconds
+		_spawn_mining_particles(pos)
+
+	# Check if block is broken
+	if _break_progress >= break_time_required:
+		# Break the block!
+		_break_block(pos, block_id, mining_power > 0)
+		_reset_breaking_progress()
+
+
+func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool):
+	# Remove the block from terrain
+	_place_single_block(pos, 0)
+
+	# Add to inventory if using proper mining tool
+	if add_to_inventory:
+		_add_block_to_inventory(block_id)
+		print("Broke block %d at %s (added to inventory)" % [block_id, pos])
+	else:
+		print("Destroyed block %d at %s (not added to inventory)" % [block_id, pos])
+
+
+func _spawn_mining_particles(pos: Vector3):
+	# Create small particle burst at block being mined
+	var particles = GPUParticles3D.new()
+	particles.position = pos + Vector3(0.5, 0.5, 0.5)  # Center of block
+	particles.emitting = true
+	particles.one_shot = true
+	particles.amount = 5
+	particles.lifetime = 0.3
+	particles.explosiveness = 1.0
+
+	# Particle material
+	var material = ParticleProcessMaterial.new()
+	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	material.emission_box_extents = Vector3(0.3, 0.3, 0.3)
+	material.direction = Vector3(0, 1, 0)
+	material.spread = 30.0
+	material.initial_velocity_min = 1.0
+	material.initial_velocity_max = 2.0
+	material.gravity = Vector3(0, -5.0, 0)
+	material.scale_min = 0.05
+	material.scale_max = 0.1
+	material.color = Color(0.7, 0.7, 0.7)  # Gray dust particles
+
+	particles.process_material = material
+
+	# Add to scene
+	_terrain.add_child(particles)
+
+	# Auto-delete using timer instead of await
+	var timer = get_tree().create_timer(0.5)
+	timer.timeout.connect(func(): particles.queue_free())
+
+
+func _add_block_to_inventory(block_id: int):
+	# Find first existing stack of this block type or empty slot
+	var slots = _inventory._slots
+	var existing_stack_slot = -1
+	var empty_slot = -1
+
+	for i in range(slots.size()):
+		if slots[i] != null and slots[i].type == InventoryItem.TYPE_BLOCK and slots[i].id == block_id:
+			# Found existing stack of this block
+			existing_stack_slot = i
+			break
+		elif slots[i] == null and empty_slot == -1:
+			# Found first empty slot
+			empty_slot = i
+
+	# Add to existing stack or create new stack
+	if existing_stack_slot != -1:
+		# Add to existing stack
+		slots[existing_stack_slot].count += 1
+		_inventory.emit_signal("changed")
+		print("Added block %d to existing stack (count: %d)" % [block_id, slots[existing_stack_slot].count])
+	elif empty_slot != -1:
+		# Create new stack in empty slot
+		var item = InventoryItem.new()
+		item.id = block_id
+		item.type = InventoryItem.TYPE_BLOCK
+		item.count = 1
+		slots[empty_slot] = item
+		_inventory.emit_signal("changed")
+		print("Added block %d to new stack in slot %d" % [block_id, empty_slot])
+	else:
+		print("Inventory full! Block %d dropped" % block_id)
+
+
+func _reset_breaking_progress():
+	if _is_breaking:
+		_is_breaking = false
+		_break_progress = 0.0
+		_hotbar.set_mining_progress(0.0)
+		# DDD.set_text("Mining", "")
 
 
 func _unhandled_input(event: InputEvent):
@@ -159,23 +323,28 @@ func _unhandled_input(event: InputEvent):
 	var ui_open = console_open or terrain_mapper_open
 
 	if event is InputEventMouseButton:
-		if event.pressed:
-			match event.button_index:
-				MOUSE_BUTTON_LEFT:
-					if not ui_open:
+		match event.button_index:
+			MOUSE_BUTTON_LEFT:
+				if not ui_open:
+					if event.pressed:
 						_action_use = true
-				MOUSE_BUTTON_RIGHT:
-					if not ui_open:
-						_action_place = true
-				MOUSE_BUTTON_MIDDLE:
-					if not ui_open:
-						_action_pick = true
-				MOUSE_BUTTON_WHEEL_DOWN:
-					if not ui_open:
-						_hotbar.select_next_slot()
-				MOUSE_BUTTON_WHEEL_UP:
-					if not ui_open:
-						_hotbar.select_previous_slot()
+						_action_use_held = true
+					else:
+						_action_use_held = false
+						# Reset breaking progress when button released
+						_reset_breaking_progress()
+			MOUSE_BUTTON_RIGHT:
+				if not ui_open and event.pressed:
+					_action_place = true
+			MOUSE_BUTTON_MIDDLE:
+				if not ui_open and event.pressed:
+					_action_pick = true
+			MOUSE_BUTTON_WHEEL_DOWN:
+				if not ui_open and event.pressed:
+					_hotbar.select_next_slot()
+			MOUSE_BUTTON_WHEEL_UP:
+				if not ui_open and event.pressed:
+					_hotbar.select_previous_slot()
 
 	elif event is InputEventKey:
 		if event.pressed and not ui_open:
