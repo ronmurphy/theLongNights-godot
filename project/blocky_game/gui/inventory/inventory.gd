@@ -97,6 +97,28 @@ func get_hotbar_slot_data(i) -> InventoryItem:
 	return _slots[hotbar_begin_index + i]
 
 
+func decrement_hotbar_slot(i: int) -> bool:
+	"""Decrement count of item in hotbar slot i. Returns true if successful, false if slot is empty or count is 0."""
+	var hotbar_begin_index := BAG_WIDTH * BAG_HEIGHT
+	var slot_index = hotbar_begin_index + i
+	var item = _slots[slot_index]
+
+	if item == null:
+		return false
+
+	# Decrement count
+	item.count -= 1
+
+	# If count reaches 0 or below, remove the item
+	if item.count <= 0:
+		_slots[slot_index] = null
+		print("Removed item from hotbar slot %d (count reached 0)" % i)
+
+	# Update UI
+	emit_signal("changed")
+	return true
+
+
 func get_player_equipped_weapon() -> InventoryItem:
 	"""Get the player's currently equipped weapon"""
 	return _player_weapon_slot

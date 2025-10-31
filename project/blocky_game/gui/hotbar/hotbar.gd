@@ -101,6 +101,10 @@ func get_selected_item() -> InventoryItem:
 	return _inventory.get_hotbar_slot_data(_hotbar_index)
 
 
+func get_selected_slot_index() -> int:
+	return _hotbar_index
+
+
 func try_select_slot_by_block_id(block_id: int):
 	for i in _inventory.get_hotbar_slot_count():
 		var item = _inventory.get_hotbar_slot_data(i)

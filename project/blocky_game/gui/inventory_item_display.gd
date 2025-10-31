@@ -38,7 +38,7 @@ func set_item(data: InventoryItem):
 	elif data.type == InventoryItem.TYPE_BLOCK:
 		var block := _block_types.get_block(data.id)
 		var sprite_texture = block.base_info.sprite_texture
-		
+
 		# Check if this block has no sprite (might be tinted)
 		if sprite_texture == null:
 			# This is a tinted block - we need to find its tint and apply it
@@ -46,17 +46,22 @@ func set_item(data: InventoryItem):
 			texture = null
 		else:
 			texture = sprite_texture
-		
+
+		# Show count for blocks when more than 1
 		if _count_label:
-			_count_label.visible = false
+			if data.count > 1:
+				_count_label.text = str(data.count)
+				_count_label.visible = true
+			else:
+				_count_label.visible = false
 
 	elif data.type == InventoryItem.TYPE_ITEM:
 		var item := _item_db.get_item(data.id)
 		texture = item.base_info.sprite
 
-		# Show count for torches (item id 6)
+		# Show count for all items when more than 1
 		if _count_label:
-			if data.id == 6 and data.count > 1:  # Torch
+			if data.count > 1:
 				_count_label.text = str(data.count)
 				_count_label.visible = true
 			else:

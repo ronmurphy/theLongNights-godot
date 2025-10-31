@@ -142,9 +142,13 @@ func _physics_process(_delta):
 				if has_cube == false:
 					pos = hit.position
 				if _can_place_voxel_at(pos):
-					if inv_item != null:
+					if inv_item != null and inv_item.count > 0:
 						_place_single_block(pos, inv_item.id)
 						print("Place voxel at ", pos)
+						# Decrement block count in hotbar
+						_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
+					elif inv_item != null:
+						print("No more blocks to place!")
 				else:
 					print("Can't place here!")
 
@@ -172,8 +176,13 @@ func _physics_process(_delta):
 		elif _action_use:
 			# Single click with non-mining tool or mining tool in air - use item normally
 			if mining_power == 0 or hit == null or not _action_use_held:
-				item.use(_head.global_transform)
-				_reset_breaking_progress()
+				if inv_item.count > 0:
+					item.use(_head.global_transform)
+					# Decrement item count in hotbar
+					_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
+					_reset_breaking_progress()
+				else:
+					print("No more items to use!")
 		elif _is_breaking:
 			# Was mining but stopped holding - reset
 			_reset_breaking_progress()
