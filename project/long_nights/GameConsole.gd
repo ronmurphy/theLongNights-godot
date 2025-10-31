@@ -453,7 +453,16 @@ func _cmd_give(args: Array) -> void:
 		"staff": 4,
 		"throwing_knives": 5,
 		"knives": 5,
-		"torch": 6
+		"torch": 6,
+		"stone_hammer": 7,
+		"stonehammer": 7,
+		"hammer": 7,
+		"machete": 8,
+		"crossbow": 9,
+		"sword": 10,
+		"tree_feller": 11,
+		"treefeller": 11,
+		"axe": 11
 	}
 
 	if not item_map.has(item_name):
@@ -517,12 +526,19 @@ func _cmd_list(args: Array) -> void:
 	if subcmd == "items":
 		add_output("[color=lime]=== Available Items ===[/color]")
 		add_output("")
-		add_output("[color=cyan]Weapons (Infinite Ammo):[/color]")
+		add_output("[color=cyan]Ranged Weapons (Infinite Ammo):[/color]")
 		add_output("  [color=yellow]rocket_launcher[/color] - Explosive projectile launcher")
 		add_output("  [color=yellow]grappling_hook[/color] (or 'grapple') - Arc to distant blocks")
 		add_output("  [color=yellow]ice_bow[/color] (or 'bow') - Zigzag homing ice arrow")
 		add_output("  [color=yellow]fire_staff[/color] (or 'staff') - Meteor strike from sky")
 		add_output("  [color=yellow]throwing_knives[/color] (or 'knives') - Spiral attack")
+		add_output("  [color=yellow]crossbow[/color] - Precision ranged weapon")
+		add_output("")
+		add_output("[color=cyan]Melee Weapons:[/color]")
+		add_output("  [color=yellow]machete[/color] - Fast slashing weapon (20 dmg, 0.5s)")
+		add_output("  [color=yellow]sword[/color] - Balanced melee weapon (30 dmg, 0.75s)")
+		add_output("  [color=yellow]treefeller[/color] (or 'axe') - Heavy axe with cleave (35 dmg, 1.0s)")
+		add_output("  [color=yellow]stonehammer[/color] (or 'hammer') - Crushing weapon with AOE")
 		add_output("")
 		add_output("[color=cyan]Tools:[/color]")
 		add_output("  [color=yellow]climbing_claws[/color] (or 'claws') - Climb vertical walls")

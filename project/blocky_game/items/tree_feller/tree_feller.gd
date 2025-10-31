@@ -1,15 +1,16 @@
 extends "../item.gd"
-## Machete - Fast melee weapon with slash attack
-## Used by human companions
-## Deals single-target damage with quick attack speed
+## Tree Feller - Heavy axe weapon with cleaving slash
+## Slower than sword but deals massive damage
+## Can hit multiple targets in arc
 
 const SERVER_PEER_ID = 1
 
 @onready var _terrain : VoxelTerrain = get_node("/root/Main/Game/VoxelTerrain")
 
-const MAX_TARGET_DISTANCE = 4.0  # Medium melee range
-const DAMAGE = 20  # Higher single-target damage than hammer
-const ATTACK_SPEED = 0.5  # Fast attack (cooldown in seconds)
+const MAX_TARGET_DISTANCE = 4.0  # Medium range
+const DAMAGE = 35  # Highest melee damage
+const ATTACK_SPEED = 1.0  # Slowest attack speed
+const CLEAVE_ANGLE = 45.0  # Wide attack arc
 
 
 func use(trans: Transform3D):
@@ -24,79 +25,63 @@ func _use(trans: Transform3D):
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
-	# Find target entity with raycast
-	var target_entity = _find_target_entity(origin, direction)
+	# Find ALL targets in cleave arc
+	var target_entities = _find_targets_in_arc(origin, direction)
 
-	if target_entity:
-		# Direct hit on entity
-		_slash_attack(target_entity, origin)
+	if target_entities.size() > 0:
+		# Hit all entities in arc
+		for entity in target_entities:
+			_cleave_attack(entity, origin)
 	else:
 		# Slash at air (show slash effect)
 		var slash_pos = origin + direction * 2.0
 		_spawn_slash_effect(slash_pos, direction)
 
-	print("Machete slash!")
+	print("Tree Feller cleave! Hit %d targets" % target_entities.size())
 
 
-func _find_target_entity(origin: Vector3, direction: Vector3) -> Node:
-	# Raycast to find entities in attack direction
-	var space_state = get_tree().root.get_world_3d().direct_space_state
-	var query = PhysicsRayQueryParameters3D.create(
-		origin,
-		origin + direction * MAX_TARGET_DISTANCE
-	)
-
-	var result = space_state.intersect_ray(query)
-	if result:
-		return result.collider
-
-	# If no physics hit, check entities manually
+func _find_targets_in_arc(origin: Vector3, direction: Vector3) -> Array:
+	var targets = []
 	var entities = get_tree().get_nodes_in_group("entities")
-	var closest_entity = null
-	var closest_distance = MAX_TARGET_DISTANCE
 
 	for entity in entities:
 		if not entity.is_alive:
-			continue
-
-		# Check if entity is roughly in front of player
-		var to_entity = entity.global_position - origin
-		var distance = to_entity.length()
-
-		if distance > MAX_TARGET_DISTANCE:
-			continue
-
-		# Check if entity is in attack cone (60 degree arc)
-		var angle = direction.angle_to(to_entity.normalized())
-		if angle > deg_to_rad(30):  # 30 degrees each side = 60 degree cone
 			continue
 
 		# Only attack enemies
 		if entity.team != EntityBase.Team.ENEMY:
 			continue
 
-		if distance < closest_distance:
-			closest_distance = distance
-			closest_entity = entity
+		# Check if entity is in range
+		var to_entity = entity.global_position - origin
+		var distance = to_entity.length()
 
-	return closest_entity
+		if distance > MAX_TARGET_DISTANCE:
+			continue
+
+		# Check if entity is in wide cleave arc
+		var angle = direction.angle_to(to_entity.normalized())
+		if angle <= deg_to_rad(CLEAVE_ANGLE / 2.0):  # Half angle on each side
+			targets.append(entity)
+
+	return targets
 
 
-func _slash_attack(entity: Node, attacker_pos: Vector3):
+func _cleave_attack(entity: Node, attacker_pos: Vector3):
 	# Deal damage
 	entity.take_damage(DAMAGE, self)
 
 	# Spawn slash effect at entity position
 	_spawn_slash_effect(entity.global_position, (entity.global_position - attacker_pos).normalized())
 
-	print("Machete hit %s for %d damage!" % [entity.entity_name, DAMAGE])
+	print("Tree Feller hit %s for %d damage!" % [entity.entity_name, DAMAGE])
 
 
 func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 	# Create slash effect quad with shader
 	var mesh_inst = MeshInstance3D.new()
 	var quad = QuadMesh.new()
-	quad.size = Vector2(2.0, 2.0)  # 2x2 meter slash
+	quad.size = Vector2(3.0, 3.0)  # Largest slash (heavy axe)
 	mesh_inst.mesh = quad
 
 	# Load and configure slash shader
@@ -115,9 +100,9 @@ func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 	noise_texture.height = 128
 
 	material.set_shader_parameter("base_noise", noise_texture)
-	material.set_shader_parameter("slash_color", Color(0.8, 0.9, 1.0, 1.0))  # Light blue/white
-	material.set_shader_parameter("emission_strength", 2.0)
-	material.set_shader_parameter("time_scale", 4.0)  # Fast slash
+	material.set_shader_parameter("slash_color", Color(0.6, 0.8, 0.4, 1.0))  # Green slash (woodsy)
+	material.set_shader_parameter("emission_strength", 3.0)
+	material.set_shader_parameter("time_scale", 3.0)  # Slow, heavy slash
 
 	mesh_inst.material_override = material
 
@@ -141,7 +126,7 @@ func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 	mesh_inst.global_transform.basis = Basis(right, up_tilted, -forward_adjusted)
 
 	# Auto-delete after animation
-	await get_tree().create_timer(0.25).timeout  # Short slash animation
+	await get_tree().create_timer(0.33).timeout  # Longest animation (heavy weapon)
 	mesh_inst.queue_free()
 
 

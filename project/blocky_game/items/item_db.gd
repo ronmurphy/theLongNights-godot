@@ -49,6 +49,14 @@ func _init():
 		"name": "crossbow",
 		"behavior": "crossbow.gd"
 	})
+	_create_item({
+		"name": "sword",
+		"behavior": "sword.gd"
+	})
+	_create_item({
+		"name": "tree_feller",
+		"behavior": "tree_feller.gd"
+	})
 	# Food items from hunting
 	_create_item({
 		"name": "egg",

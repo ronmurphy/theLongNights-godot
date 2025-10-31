@@ -38,8 +38,9 @@ func _use(trans: Transform3D):
 		# Hit nothing, use position in front of player
 		impact_pos = origin + direction * MAX_TARGET_DISTANCE
 
-	# Create dust particle effect at impact
+	# Create visual effects at impact
 	_spawn_dust_particles(impact_pos)
+	_spawn_impact_shockwave(impact_pos)
 
 	# Damage and knockback entities in AOE
 	_damage_nearby_entities(impact_pos, AOE_RADIUS, DAMAGE, KNOCKBACK_FORCE)
@@ -78,6 +79,50 @@ func _spawn_dust_particles(pos: Vector3):
 	# Auto-delete after lifetime
 	await get_tree().create_timer(1.0).timeout
 	particles.queue_free()
+
+
+func _spawn_impact_shockwave(pos: Vector3):
+	# Create shockwave effect quad with shader
+	var mesh_inst = MeshInstance3D.new()
+	var quad = QuadMesh.new()
+	quad.size = Vector2(AOE_RADIUS * 2.0, AOE_RADIUS * 2.0)  # Match AOE radius
+	mesh_inst.mesh = quad
+
+	# Load and configure impact shader
+	var material = ShaderMaterial.new()
+	material.shader = load("res://blocky_game/items/impact_effect.gdshader")
+
+	# Create noise texture
+	var noise_texture = NoiseTexture2D.new()
+	var noise = FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+	noise.cellular_distance_function = FastNoiseLite.DISTANCE_EUCLIDEAN
+	noise.frequency = 0.1
+	noise_texture.noise = noise
+	noise_texture.seamless = true
+	noise_texture.width = 256
+	noise_texture.height = 256
+
+	material.set_shader_parameter("base_noise", noise_texture)
+	material.set_shader_parameter("impact_color", Color(0.8, 0.6, 0.4, 1.0))  # Dust/stone
+	material.set_shader_parameter("emission_strength", 2.5)
+	material.set_shader_parameter("time_scale", 3.0)
+	material.set_shader_parameter("noise_scale", 2.0)
+
+	mesh_inst.material_override = material
+
+	# Add to scene first (required before setting global_position/rotation)
+	get_node("/root/Main/Game").add_child(mesh_inst)
+
+	# Position on ground, oriented horizontally
+	mesh_inst.global_position = pos + Vector3(0, 0.1, 0)  # Slightly above ground
+
+	# Rotate to be parallel with ground (facing up)
+	mesh_inst.rotation.x = -PI / 2.0  # Rotate 90 degrees to face up
+
+	# Auto-delete after animation
+	await get_tree().create_timer(0.33).timeout
+	mesh_inst.queue_free()
 
 
 func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockback: float):

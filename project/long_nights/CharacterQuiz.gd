@@ -340,3 +340,18 @@ static func get_default_name(race: String, gender: String, is_companion: bool = 
 	var names = companion_names if is_companion else player_names
 	var fallback = "Companion" if is_companion else "Wanderer"
 	return names.get(race, {}).get(gender, fallback)
+
+
+## Get movement speed multiplier based on race
+static func get_race_speed_multiplier(race: String) -> float:
+	match race:
+		"elf":
+			return 1.0  # Base speed (most agile)
+		"human":
+			return 0.85  # Slightly slower
+		"dwarf":
+			return 0.7  # Short legs, heavy armor
+		"goblin":
+			return 0.7  # Short but scrappy
+		_:
+			return 1.0  # Fallback to base speed

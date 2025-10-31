@@ -1,15 +1,15 @@
 extends "../item.gd"
-## Machete - Fast melee weapon with slash attack
-## Used by human companions
-## Deals single-target damage with quick attack speed
+## Sword - Balanced melee weapon with powerful slash attack
+## Higher damage than machete, slightly slower
+## Deals single-target damage with medium attack speed
 
 const SERVER_PEER_ID = 1
 
 @onready var _terrain : VoxelTerrain = get_node("/root/Main/Game/VoxelTerrain")
 
-const MAX_TARGET_DISTANCE = 4.0  # Medium melee range
-const DAMAGE = 20  # Higher single-target damage than hammer
-const ATTACK_SPEED = 0.5  # Fast attack (cooldown in seconds)
+const MAX_TARGET_DISTANCE = 4.5  # Slightly longer reach than machete
+const DAMAGE = 30  # Higher damage than machete
+const ATTACK_SPEED = 0.75  # Slower than machete
 
 
 func use(trans: Transform3D):
@@ -32,10 +32,10 @@ func _use(trans: Transform3D):
 		_slash_attack(target_entity, origin)
 	else:
 		# Slash at air (show slash effect)
-		var slash_pos = origin + direction * 2.0
+		var slash_pos = origin + direction * 2.5
 		_spawn_slash_effect(slash_pos, direction)
 
-	print("Machete slash!")
+	print("Sword slash!")
 
 
 func _find_target_entity(origin: Vector3, direction: Vector3) -> Node:
@@ -89,14 +89,14 @@ func _slash_attack(entity: Node, attacker_pos: Vector3):
 	# Spawn slash effect at entity position
 	_spawn_slash_effect(entity.global_position, (entity.global_position - attacker_pos).normalized())
 
-	print("Machete hit %s for %d damage!" % [entity.entity_name, DAMAGE])
+	print("Sword hit %s for %d damage!" % [entity.entity_name, DAMAGE])
 
 
 func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 	# Create slash effect quad with shader
 	var mesh_inst = MeshInstance3D.new()
 	var quad = QuadMesh.new()
-	quad.size = Vector2(2.0, 2.0)  # 2x2 meter slash
+	quad.size = Vector2(2.5, 2.5)  # Larger slash than machete
 	mesh_inst.mesh = quad
 
 	# Load and configure slash shader
@@ -115,9 +115,9 @@ func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 	noise_texture.height = 128
 
 	material.set_shader_parameter("base_noise", noise_texture)
-	material.set_shader_parameter("slash_color", Color(0.8, 0.9, 1.0, 1.0))  # Light blue/white
-	material.set_shader_parameter("emission_strength", 2.0)
-	material.set_shader_parameter("time_scale", 4.0)  # Fast slash
+	material.set_shader_parameter("slash_color", Color(1.0, 0.9, 0.7, 1.0))  # Golden slash
+	material.set_shader_parameter("emission_strength", 2.5)
+	material.set_shader_parameter("time_scale", 3.5)  # Slightly slower, heavier slash
 
 	mesh_inst.material_override = material
 
@@ -141,7 +141,7 @@ func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 	mesh_inst.global_transform.basis = Basis(right, up_tilted, -forward_adjusted)
 
 	# Auto-delete after animation
-	await get_tree().create_timer(0.25).timeout  # Short slash animation
+	await get_tree().create_timer(0.28).timeout  # Slightly longer animation
 	mesh_inst.queue_free()
 
 

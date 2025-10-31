@@ -1,6 +1,8 @@
 extends GroundEntity
 class_name Companion
 
+const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
+
 ## Companion - AI companion that follows player and assists in combat
 ## Based on CompanionManager settings (race/role)
 ## Attacks what player attacks, uses items based on role
@@ -60,6 +62,10 @@ func _ready():
 	attack_damage = CompanionManager.get_companion_attack_bonus()
 	movement_speed = 4.0  # Base movement speed
 
+	# Apply race-based speed multiplier
+	var speed_multiplier = CharacterQuiz.get_race_speed_multiplier(CompanionManager.companion_race)
+	movement_speed *= speed_multiplier
+
 	# Set collision box (similar to player)
 	set_collision_box(Vector3(0.8, 1.6, 0.8))
 
@@ -96,6 +102,7 @@ func _ready():
 		defense,
 		attack_damage
 	])
+	print("  Speed multiplier: %.2fx (Race: %s)" % [speed_multiplier, CompanionManager.companion_race])
 
 
 func _get_inventory():

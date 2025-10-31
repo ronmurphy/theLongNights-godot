@@ -1,5 +1,7 @@
 extends Node3D
 
+const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
+
 @export var speed := 5.0
 @export var gravity := 9.8
 @export var jump_force := 5.0
@@ -50,12 +52,18 @@ func _ready():
 	max_mana = PlayerData.max_mana
 	current_mana = PlayerData.current_mana
 
+	# Apply race-based speed multiplier
+	var speed_multiplier = CharacterQuiz.get_race_speed_multiplier(PlayerData.race)
+	speed *= speed_multiplier
+	_climb_speed *= speed_multiplier
+
 	# Initialize HP
 	current_hp = max_hp
 	add_to_group("player")
 
 	print("Player initialized as %s %s [%s]" % [PlayerData.get_race_name(), PlayerData.get_role_name(), PlayerData.gender])
 	print("  HP: %d, Defense: %d%%, Attack: +%d" % [max_hp, defense, attack_bonus])
+	print("  Speed multiplier: %.2fx (Race: %s)" % [speed_multiplier, PlayerData.race])
 
 	# Apply graphics settings to voxel viewer and rendering
 	_apply_graphics_settings()
