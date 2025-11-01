@@ -29,6 +29,7 @@ var _grappling := false  # Grappling hook active
 var _grapple_time := 0.0  # Time remaining for grapple
 var _climbing := false  # Currently climbing a wall
 var _climb_speed := 3.0  # Speed when climbing
+var _gravity_disabled := false  # Temporary gravity suspension (for teleporting)
 
 ## Signals
 signal hp_changed(current: int, maximum: int)
@@ -151,10 +152,10 @@ func _physics_process(delta: float):
 				_velocity.x = motor.x
 				_velocity.z = motor.z
 
-		# Apply gravity (unless climbing)
-		if not _climbing:
+		# Apply gravity (unless climbing or gravity disabled)
+		if not _climbing and not _gravity_disabled:
 			_velocity.y -= gravity * delta
-		
+
 		if _grounded and Input.is_key_pressed(KEY_SPACE):
 			_velocity.y = jump_force
 			_grounded = false
@@ -162,7 +163,8 @@ func _physics_process(delta: float):
 		# Input disabled (console open) - stop movement and still apply gravity
 		_velocity.x = 0
 		_velocity.z = 0
-		_velocity.y -= gravity * delta
+		if not _gravity_disabled:
+			_velocity.y -= gravity * delta
 		_climbing = false
 	
 	var motion := _velocity * delta
@@ -275,6 +277,21 @@ func _apply_graphics_settings() -> void:
 	# Log current profile
 	var profile = GraphicsSettings.get_current_profile()
 	print("[CharacterController] Graphics profile: ", profile.to_upper())
+
+
+## Teleport/Gravity Control Functions
+
+func disable_gravity() -> void:
+	"""Temporarily disable gravity (used during teleportation)"""
+	_gravity_disabled = true
+	_velocity.y = 0  # Stop vertical movement
+	print("Gravity disabled for teleport")
+
+
+func enable_gravity() -> void:
+	"""Re-enable gravity after teleportation"""
+	_gravity_disabled = false
+	print("Gravity re-enabled")
 
 
 ## Player HP and Combat Functions

@@ -118,6 +118,19 @@ func _physics_process(_delta):
 		if _torch_light:
 			_torch_light.visible = (_current_held_item_id == 6)
 	
+	# Check for teleport stone interaction (before other block interactions)
+	# Trigger on single click (not hold-to-mine)
+	if hit != null and _action_use:
+		var hit_raw_id := _terrain_tool.get_voxel(hit.position)
+		if hit_raw_id != 0:
+			var rm := _block_types.get_raw_mapping(hit_raw_id)
+			# Teleport stone is block ID 20
+			if rm.block_id == 20:
+				_handle_teleport_stone_interaction(hit.position)
+				_action_use = false
+				_action_use_held = false  # Prevent mining the block
+				return  # Don't process other interactions
+
 	# Block placement and breaking
 	if inv_item == null or inv_item.type == InventoryItem.TYPE_BLOCK:
 		if hit != null:
@@ -669,3 +682,180 @@ func _place_single_block(pos: Vector3, block_id: int):
 func receive_place_single_block(_pos: Vector3, _look_dir: Vector3, _block_id: int):
 	# The server has a different script for remote players
 	push_error("Didn't expect this method to be called")
+
+
+func _handle_teleport_stone_interaction(teleport_stone_pos: Vector3) -> void:
+	"""Called when player right-clicks on a teleport stone"""
+	print("Player interacted with teleport stone at: ", teleport_stone_pos)
+
+	# Show confirmation dialog
+	_show_teleport_confirmation_dialog()
+
+
+func _show_teleport_confirmation_dialog() -> void:
+	"""Show a confirmation dialog before teleporting"""
+	# Create confirmation dialog (has OK and Cancel buttons built-in)
+	var dialog = ConfirmationDialog.new()
+	dialog.title = "Teleport Stone"
+	dialog.dialog_text = "This teleport stone will take you to another ruin.\nThis is a one-way journey.\n\nAre you ready to teleport?"
+	dialog.ok_button_text = "Yes, Teleport"
+	dialog.cancel_button_text = "No, Cancel"
+
+	# Connect signals
+	dialog.confirmed.connect(_execute_teleport)
+	dialog.canceled.connect(_on_teleport_canceled)
+	dialog.confirmed.connect(func(): dialog.queue_free())
+	dialog.canceled.connect(func(): dialog.queue_free())
+
+	# Auto-free when closed
+	dialog.close_requested.connect(func(): dialog.queue_free())
+
+	# Add to scene and show
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+	# Release mouse for dialog interaction
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _on_teleport_canceled() -> void:
+	"""Called when player cancels teleport"""
+	print("Teleport canceled")
+	# Restore mouse capture
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _execute_teleport() -> void:
+	"""Actually perform the teleportation to a new ruin"""
+	print("Teleporting player to new ruin...")
+
+	# Restore mouse capture immediately
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+	# Get player controller
+	var player_controller = get_parent()
+
+	# Disable gravity before teleporting
+	if player_controller.has_method("disable_gravity"):
+		player_controller.disable_gravity()
+
+	# Get RuinSpawner from game
+	var ruin_spawner = get_node_or_null("/root/Main/Game/RuinSpawner")
+	if not ruin_spawner:
+		push_error("RuinSpawner not found!")
+		if player_controller.has_method("enable_gravity"):
+			player_controller.enable_gravity()
+		return
+
+	# Generate random position for new ruin (can be anywhere - ground or sky!)
+	var player_pos = player_controller.global_position
+	var random_offset = Vector3(
+		randf_range(-200, 200),
+		randf_range(50, 150),  # Random Y height - flying ruins in the sky!
+		randf_range(-200, 200)
+	)
+	var target_pos = player_pos + random_offset
+
+	# CINEMATIC APPROACH: Teleport player FIRST, then materialize ruin around them
+	# Calculate where player will stand on the ruin floor
+	var teleport_target = target_pos + Vector3(3, 3, 3)
+	player_controller.global_position = teleport_target
+	print("Player teleported to: ", teleport_target)
+	print("Ruin materializing...")
+
+	# Create magical particle effect at ruin center
+	var particles = _create_materialization_particles(target_pos + Vector3(4, 4, 4))
+
+	# Spawn the new ruin at the target position
+	# Player will watch it materialize around them!
+	# This takes ~2 seconds due to chunk generation
+	var ruin_pos = await ruin_spawner.spawn_ruin_at(target_pos)
+
+	# Remove particle effect
+	if particles:
+		particles.emitting = false
+		await get_tree().create_timer(1.0).timeout  # Let particles fade out
+		particles.queue_free()
+
+	if ruin_pos != Vector3.ZERO:
+		print("Ruin materialized successfully!")
+
+		# Re-enable gravity (blocks are guaranteed to exist now)
+		if player_controller.has_method("enable_gravity"):
+			player_controller.enable_gravity()
+	else:
+		push_error("Failed to spawn new ruin!")
+		# Re-enable gravity on failure
+		if player_controller.has_method("enable_gravity"):
+			player_controller.enable_gravity()
+
+
+func _create_materialization_particles(center_pos: Vector3) -> CPUParticles3D:
+	"""Create magical particle effect for ruin materialization"""
+	var particles = CPUParticles3D.new()
+	particles.position = center_pos
+
+	# Particle appearance
+	particles.emitting = true
+	particles.amount = 100
+	particles.lifetime = 3.0
+	particles.one_shot = false
+	particles.explosiveness = 0.0
+	particles.randomness = 0.3
+	particles.local_coords = false
+
+	# Emission shape - sphere around ruin
+	particles.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	particles.emission_sphere_radius = 8.0
+
+	# Particle movement - swirl upward
+	particles.direction = Vector3(0, 1, 0)
+	particles.spread = 180.0
+	particles.gravity = Vector3(0, 2, 0)  # Float upward
+	particles.initial_velocity_min = 0.5
+	particles.initial_velocity_max = 2.0
+
+	# Particle size - make them MUCH bigger
+	particles.scale_amount_min = 3.0
+	particles.scale_amount_max = 5.0
+
+	# Color gradient - bright glowing cyan
+	var gradient = Gradient.new()
+	gradient.add_point(0.0, Color(0.4, 0.8, 1.0, 0.8))
+	gradient.add_point(0.5, Color(0.5, 0.9, 1.0, 0.6))
+	gradient.add_point(1.0, Color(0.3, 0.6, 0.9, 0.0))
+	particles.color_ramp = gradient
+
+	# Use QuadMesh instead of SphereMesh (simpler, works better with particles)
+	var mesh = QuadMesh.new()
+	mesh.size = Vector2(0.3, 0.3)  # Bigger base size
+	particles.mesh = mesh
+
+	# Create bright emissive material
+	var material = StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	material.albedo_color = Color(0.7, 1.0, 1.0, 1.0)  # Bright cyan
+	particles.material_override = material
+
+	# Add to scene
+	_terrain.add_child(particles)
+
+	# Add a pulsing light for guaranteed visibility
+	var light = OmniLight3D.new()
+	light.light_color = Color(0.4, 0.8, 1.0)  # Cyan
+	light.light_energy = 0.0  # Start at 0
+	light.omni_range = 20.0
+	light.omni_attenuation = 1.5
+	particles.add_child(light)
+
+	# Animate light pulsing
+	var tween = light.create_tween()
+	tween.set_loops(0)  # Infinite loop
+	tween.tween_property(light, "light_energy", 8.0, 0.5)
+	tween.tween_property(light, "light_energy", 3.0, 0.5)
+
+	print("Materialization particles + pulsing light created at: ", center_pos)
+	return particles

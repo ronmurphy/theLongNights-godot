@@ -148,6 +148,22 @@ func _ready():
 		add_child(terrain_mapper)
 		print("The Long Nights: Terrain mapper ready (Ctrl+T)")
 
+		# Add ruins system
+		var RuinLibrary = preload("res://blocky_game/ruins/RuinLibrary.gd")
+		var ruin_library = RuinLibrary.new()
+		ruin_library.name = "RuinLibrary"
+		add_child(ruin_library)
+
+		var RuinSpawner = preload("res://blocky_game/ruins/RuinSpawner.gd")
+		var ruin_spawner = RuinSpawner.new()
+		ruin_spawner.name = "RuinSpawner"
+		add_child(ruin_spawner)
+
+		# Initialize spawner after it's in the tree
+		await get_tree().process_frame
+		ruin_spawner.initialize(ruin_library, _blocks, _terrain)
+		print("The Long Nights: Ruins system initialized")
+
 		# Add game over screen
 		var game_over = GameOverScreen.new()
 		add_child(game_over)
@@ -161,6 +177,13 @@ func _ready():
 		# Spawn player at saved position (or default)
 		var spawn_pos = WorldManager.get_player_position()
 		_spawn_character(SERVER_PEER_ID, spawn_pos)
+
+		# Spawn initial crashed ruin near spawn (wait for terrain to generate first)
+		await get_tree().create_timer(1.0).timeout
+		var ruin_spawner_node = get_node_or_null("RuinSpawner")
+		if ruin_spawner_node:
+			await ruin_spawner_node.spawn_ruin_near_spawn(Vector3i(3, 0, 3))
+			print("The Long Nights: Initial crashed ruin spawned")
 
 		# Spawn companion and add to Party UI (after a brief delay so PartyUI is ready)
 		await get_tree().create_timer(0.5).timeout

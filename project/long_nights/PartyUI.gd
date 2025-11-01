@@ -209,7 +209,9 @@ func _connect_to_player() -> void:
 	# Find player
 	player_node = get_tree().get_first_node_in_group("player")
 	if not player_node:
-		push_warning("PartyUI: Could not find player")
+		# Player not spawned yet, retry after a delay
+		await get_tree().create_timer(0.5).timeout
+		_connect_to_player()
 		return
 
 	# Connect to player HP changes
@@ -252,9 +254,14 @@ func _update_player_ui() -> void:
 	var avatar_path = PlayerData.get_avatar_path("ready")
 	var avatar_texture_rect = player_ui.get_node("AvatarBG/AvatarTexture")
 	if avatar_texture_rect:
-		var texture = load(avatar_path)
-		if texture:
-			avatar_texture_rect.texture = texture
+		if ResourceLoader.exists(avatar_path):
+			var texture = load(avatar_path)
+			if texture:
+				avatar_texture_rect.texture = texture
+			else:
+				push_warning("PartyUI: Failed to load player avatar texture from: ", avatar_path)
+		else:
+			push_warning("PartyUI: Player avatar path does not exist: ", avatar_path)
 
 	# Update name
 	var name_label = player_ui.get_node("InfoVBox/NameLabel")

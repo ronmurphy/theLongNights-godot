@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk:*)",
+      "Bash(for dir in project/blocky_game/items/*/)",
+      "Bash(ls:*)",
+      "Bash(xargs:*)",
+      "Bash(done)",
+      "Bash(mv:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:godotshaders.com)",
+      "Bash(for f in 85606000-9e0b-11f0-9071-751b1304f5b1.jpg 85659020-9e0b-11f0-9071-751b1304f5b1.jpg gold-sides.jpg iron-sides.jpg palm_wood-sides.jpg palm_wood-top-bottom.jpg pine_wood-sides.jpg pumpkin-sides.jpg pumpkin-top.jpg sandstone.jpg)",
+      "Bash(do mv \"$f\" \"$f%.jpg.png\")",
+      "Bash(for f in 85606000-9e0b-11f0-9071-751b1304f5b1.jpg.import 85659020-9e0b-11f0-9071-751b1304f5b1.jpg.import gold-sides.jpg.import iron-sides.jpg.import palm_wood-sides.jpg.import palm_wood-top-bottom.jpg.import pine_wood-sides.jpg.import pumpkin-sides.jpg.import pumpkin-top.jpg.import sandstone.jpg.import)",
+      "Bash(do mv \"$f\" \"$f%.jpg.import.png.import\")",
+      "Bash(identify:*)",
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --headless --check-only --script \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\ruins\\RuinSpawner.gd\")",
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --headless --check-only --script \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\player\\avatar_interaction.gd\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

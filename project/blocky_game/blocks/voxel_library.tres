@@ -1,4 +1,4 @@
-[gd_resource type="VoxelBlockyLibrary" load_steps=80 format=3 uid="uid://ctn2wqssoxvj5"]
+[gd_resource type="VoxelBlockyLibrary" load_steps=81 format=3 uid="uid://ctn2wqssoxvj5"]
 
 [ext_resource type="ArrayMesh" uid="uid://rq0nk6t5jqyc" path="res://blocky_game/blocks/grass/grass.obj" id="1"]
 [ext_resource type="ArrayMesh" uid="uid://dmi1fa4udxhx3" path="res://blocky_game/blocks/dirt/dirt.obj" id="2"]
@@ -8,7 +8,7 @@
 [ext_resource type="ArrayMesh" uid="uid://bur41ote1leoo" path="res://blocky_game/blocks/log/log_z.obj" id="5"]
 [ext_resource type="ArrayMesh" uid="uid://b1ip507w1anoc" path="res://blocky_game/blocks/stairs/stairs_nx.obj" id="6"]
 [ext_resource type="Material" uid="uid://o6pjkujm0owf" path="res://blocky_game/blocks/terrain_material_foliage.tres" id="6_7k7uf"]
-[ext_resource type="Material" path="res://blocky_game/blocks/terrain_material_foliage_wind.tres" id="6_wind"]
+[ext_resource type="Material" uid="uid://br12cvh4qyl4" path="res://blocky_game/blocks/terrain_material_foliage_wind.tres" id="6_wind"]
 [ext_resource type="ArrayMesh" uid="uid://dm05scqbatw2v" path="res://blocky_game/blocks/planks/planks.obj" id="7"]
 [ext_resource type="ArrayMesh" uid="uid://djfyehvrktts5" path="res://blocky_game/blocks/tall_grass/tall_grass.obj" id="8"]
 [ext_resource type="Material" path="res://blocky_game/blocks/terrain_material_transparent.tres" id="8_l6bxt"]

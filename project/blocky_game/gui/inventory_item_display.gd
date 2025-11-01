@@ -32,12 +32,16 @@ func _ready():
 func set_item(data: InventoryItem):
 	if data == null:
 		texture = null
+		tooltip_text = ""
 		if _count_label:
 			_count_label.visible = false
 
 	elif data.type == InventoryItem.TYPE_BLOCK:
 		var block := _block_types.get_block(data.id)
 		var sprite_texture = block.base_info.sprite_texture
+
+		# Set tooltip with block name
+		tooltip_text = block.base_info.name.capitalize()
 
 		# Check if this block has no sprite (might be tinted)
 		if sprite_texture == null:
@@ -58,6 +62,9 @@ func set_item(data: InventoryItem):
 	elif data.type == InventoryItem.TYPE_ITEM:
 		var item := _item_db.get_item(data.id)
 		texture = item.base_info.sprite
+
+		# Set tooltip with item name
+		tooltip_text = item.base_info.name.capitalize()
 
 		# Show count for all items when more than 1
 		if _count_label:

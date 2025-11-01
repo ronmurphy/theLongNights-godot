@@ -167,8 +167,9 @@ func _create_creative_loadout() -> void:
 	# Clear player weapon
 	_player_weapon_slot = null
 
-	# Block IDs to include (common building blocks, excluding axes like logs)
-	var block_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # Common block IDs
+	# Block IDs to include (common building blocks)
+	# Valid IDs: 0-26 (see blocks.gd for full list)
+	var block_ids = [1, 2, 3, 4, 5, 7, 10, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23, 24, 25, 26]  # Common block IDs
 
 	# Fill hotbar first with block ID 1-5 for quick access
 	var hotbar_begin_index := BAG_WIDTH * BAG_HEIGHT
