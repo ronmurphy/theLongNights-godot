@@ -230,6 +230,7 @@ func _register_commands() -> void:
 	commands["testhunt"] = _cmd_testhunt
 	commands["creative"] = _cmd_creative
 	commands["season"] = _cmd_season
+	commands["perfmon"] = _cmd_perfmon
 
 ## Commands Implementation
 
@@ -298,6 +299,10 @@ func _cmd_help(_args: Array) -> void:
 	add_output("    * Loads all building blocks into inventory")
 	add_output("  [color=yellow]creative off[/color] - Disable creative mode (return to survival)")
 	add_output("    * Restores previous inventory or resets to survival loadout")
+	add_output("")
+	add_output("[color=cyan]Performance Monitoring:[/color]")
+	add_output("  [color=yellow]perfmon start[/color] - Start FPS/frame time monitoring")
+	add_output("  [color=yellow]perfmon stop[/color] - Stop monitoring and show report")
 
 func _cmd_clear(_args: Array) -> void:
 	output_label.clear()
@@ -878,3 +883,31 @@ func _cmd_season(args: Array) -> void:
 		add_output("[color=cyan]Textures updated[/color]")
 	else:
 		add_output("[color=red]Error: apply_season method not found[/color]")
+
+
+func _cmd_perfmon(args: Array) -> void:
+	"""Performance monitoring commands"""
+	var perfmon = get_node_or_null("/root/PerformanceMonitor")
+	if perfmon == null:
+		add_output("[color=red]Error: PerformanceMonitor not loaded (add to autoloads)[/color]")
+		return
+
+	if args.is_empty():
+		add_output("[color=yellow]Usage: perfmon <start|stop>[/color]")
+		add_output("  start - Begin monitoring FPS and frame times")
+		add_output("  stop  - Stop monitoring and show performance report")
+		return
+
+	var subcmd = args[0].to_lower()
+
+	if subcmd == "start":
+		if perfmon.has_method("start_monitoring"):
+			perfmon.start_monitoring()
+			add_output("[color=lime]Performance monitoring started[/color]")
+			add_output("[color=cyan]Change season now, then type 'perfmon stop' to see impact[/color]")
+	elif subcmd == "stop":
+		if perfmon.has_method("stop_monitoring"):
+			var report = perfmon.stop_monitoring()
+			add_output(report)
+	else:
+		add_output("[color=red]Invalid command. Use 'perfmon start' or 'perfmon stop'[/color]")

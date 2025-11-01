@@ -28,6 +28,8 @@ PlayerData="*res://long_nights/PlayerData.gd"
 CompanionManager="*res://long_nights/CompanionManager.gd"
 HuntingSystem="*res://long_nights/HuntingSystem.gd"
 DialogueManager="*res://long_nights/DialogueManager.gd"
+PerformanceMonitor="*res://long_nights/PerformanceMonitor.gd"
+WinterIceSystem="*res://long_nights/WinterIceSystem.gd"
 
 [display]
 

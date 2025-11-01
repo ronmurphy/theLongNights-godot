@@ -69,15 +69,15 @@ func advance_day() -> void:
 		advance_week()
 
 	# Check for season changes (every ~90 days = 3 months, rotating through 4 seasons)
-	var season_cycle_days = 90  # ~3 months per season
-	var new_season = SEASONS[((current_day - 1) / season_cycle_days) % 4]
-	if new_season != current_season:
-		current_season = new_season
-		season_changed.emit(current_season)
-		print("🌍 Season changed: %s" % current_season.to_upper())
+	# Only recalculate every 90 days to avoid unnecessary division operations
+	if current_day % 90 == 1:  # Day 1, 91, 181, 271 (season transition days)
+		var season_cycle_days = 90
+		var new_season = SEASONS[((current_day - 1) / season_cycle_days) % 4]
+		if new_season != current_season:
+			current_season = new_season
+			season_changed.emit(current_season)
 
 	day_changed.emit(current_day)
-	print("📅 Day changed: Day %d" % current_day)
 
 func advance_week() -> void:
 	current_week += 1
