@@ -77,9 +77,8 @@ func _ready():
 		_back_sprite_path = sprite_path.get_basename() + "_back.png"
 		_create_sprite(sprite_path, 0.004)
 
-		# Only apply stencil shader on medium/high quality (skip on low for performance)
-		if GraphicsSettings.get_current_profile() != "low":
-			_apply_stencil_shader(sprite_path)
+		# Apply stencil shader on all graphics settings
+		_apply_stencil_shader(sprite_path)
 
 	# Get weapon path and load weapon item
 	weapon_path = CompanionManager.get_companion_weapon()

@@ -1,0 +1,380 @@
+extends Node
+## SeasonalTextureSystem - Manages dynamic seasonal texture swapping
+## Modifies terrain.png texture in memory and updates terrain chunks
+## Simple approach: blit seasonal tiles into terrain.png, then update terrain
+
+# Paths
+const SEASONAL_CONFIG_PATH = "res://blocky_game/blocks/seasonal_textures.json"
+const TERRAIN_TEXTURE_PATH = "res://blocky_game/blocks/terrain.png"
+const SEASONAL_ATLAS_PATH = "res://blocky_game/blocks/%s.png"  # spring/summer/autumn/winter
+
+# Season names (must match TimeManager)
+const SEASONS = ["spring", "summer", "autumn", "winter"]
+const TILE_SIZE = 16  # Each tile is 16x16 pixels
+
+# State
+var _seasonal_mapping: Dictionary = {}  # Block name -> {terrain: [x,y], spring: [x,y], ...}
+var _seasonal_atlases: Dictionary = {}  # {spring: Image, summer: Image, ...}
+var _current_season: String = ""
+var _terrain_image: Image = null  # The actual terrain.png image we modify
+var _terrain_material: StandardMaterial3D = null  # Reference to terrain material
+var _foliage_material: StandardMaterial3D = null  # Reference to foliage material
+var _foliage_wind_material: Material = null  # Reference to foliage_wind material (can be ShaderMaterial or StandardMaterial3D)
+var _current_terrain_texture: ImageTexture = null  # Keep reference to current texture
+
+func _ready() -> void:
+	print("🌍 SeasonalTextureSystem initializing...")
+
+	# Load the seasonal mapping JSON
+	_load_seasonal_mapping()
+
+	# Pre-load all 4 seasonal atlases and convert to match terrain format
+	_preload_seasonal_atlases()
+
+	# Load the terrain.png image that we'll modify
+	_load_terrain_image()
+
+	# Connect to TimeManager for season changes
+	_connect_to_time_manager()
+
+	# Material finding and season application happens immediately now (companion already loaded)
+	_find_terrain_material()
+
+	# Create the ImageTexture ONCE at startup (reuse throughout game lifetime)
+	_current_terrain_texture = ImageTexture.create_from_image(_terrain_image)
+	print("  ✓ Created reusable ImageTexture for seasonal updates")
+
+	# Defer season application to next frame to avoid blocking main thread
+	# This allows game UI and other systems to finish initializing while we do texture work
+	call_deferred("_apply_season_based_on_time")
+
+	print("🌍 SeasonalTextureSystem ready (season applies next frame)")
+
+func _process(_delta: float) -> void:
+	# Connect to TimeManager on first process (after it's initialized)
+	var time_manager = get_node_or_null("/root/TimeManager")
+	if time_manager and _seasonal_atlases.size() > 0:
+		_connect_to_time_manager()
+		set_process(false)  # Only need to do this once
+
+func _connect_to_time_manager() -> void:
+	"""Connect to TimeManager's season_changed signal"""
+	var time_manager = get_node_or_null("/root/TimeManager")
+	if time_manager and not time_manager.season_changed.is_connected(_on_season_changed):
+		time_manager.season_changed.connect(_on_season_changed)
+
+
+func _load_seasonal_mapping() -> void:
+	"""Load the JSON mapping file that defines seasonal texture swaps"""
+	var file = FileAccess.open(SEASONAL_CONFIG_PATH, FileAccess.READ)
+	if file == null:
+		push_error("Failed to load seasonal mapping from %s" % SEASONAL_CONFIG_PATH)
+		return
+
+	var json = JSON.new()
+	var error = json.parse(file.get_as_text())
+	if error != OK:
+		push_error("Failed to parse seasonal mapping JSON: %s" % json.get_error_message())
+		return
+
+	_seasonal_mapping = json.data
+	print("✅ Loaded seasonal mapping with %d block entries" % _seasonal_mapping.size())
+
+
+func _preload_seasonal_atlases() -> void:
+	"""Pre-load all 4 seasonal atlases and decompress them for editing"""
+	print("📦 Pre-loading seasonal atlases...")
+
+	for season in SEASONS:
+		var atlas_path = SEASONAL_ATLAS_PATH % season
+		var texture = load(atlas_path)
+
+		if not texture or not (texture is Texture2D):
+			push_error("Failed to load seasonal atlas: %s" % atlas_path)
+			continue
+
+		# Convert texture to image
+		var image = texture.get_image()
+		if image == null:
+			push_error("Failed to get image from seasonal atlas: %s" % season)
+			continue
+
+		# Decompress the image if it's compressed
+		if image.is_compressed():
+			image.decompress()
+			print("  ℹ️ Decompressed %s.png" % season)
+
+		_seasonal_atlases[season] = image
+		print("  ✓ Loaded %s.png (%dx%d, format: %s)" % [season, image.get_width(), image.get_height(), _get_format_name(image.get_format())])
+
+
+func _load_terrain_image() -> void:
+	"""Load the terrain.png texture that we'll modify in memory"""
+	var texture = load(TERRAIN_TEXTURE_PATH)
+	if not texture or not (texture is Texture2D):
+		push_error("Failed to load terrain texture: %s" % TERRAIN_TEXTURE_PATH)
+		return
+
+	# Get the image from the texture
+	_terrain_image = texture.get_image()
+	if _terrain_image == null:
+		push_error("Failed to get image from terrain texture")
+		return
+
+	# Decompress the image if it's compressed
+	if _terrain_image.is_compressed():
+		_terrain_image.decompress()
+		print("  ℹ️ Decompressed terrain.png")
+
+	print("✅ Loaded terrain.png (%dx%d, format: %s)" % [_terrain_image.get_width(), _terrain_image.get_height(), _get_format_name(_terrain_image.get_format())])
+
+
+func _find_terrain_material() -> void:
+	"""Find all terrain materials that use terrain.png - keep original references to update in-place"""
+	# Load all three materials (do NOT duplicate - we need to modify the originals that voxel library uses)
+	var mat = load("res://blocky_game/blocks/terrain_material.tres")
+	if mat and mat is StandardMaterial3D:
+		_terrain_material = mat
+		print("✅ Found terrain material (StandardMaterial3D)")
+
+	var foliage_mat = load("res://blocky_game/blocks/terrain_material_foliage.tres")
+	if foliage_mat and foliage_mat is StandardMaterial3D:
+		_foliage_material = foliage_mat
+		print("✅ Found terrain_material_foliage (StandardMaterial3D)")
+
+	var foliage_wind_mat = load("res://blocky_game/blocks/terrain_material_foliage_wind.tres")
+	if foliage_wind_mat and foliage_wind_mat is ShaderMaterial:
+		_foliage_wind_material = foliage_wind_mat
+		print("✅ Found terrain_material_foliage_wind (ShaderMaterial)")
+	elif foliage_wind_mat and foliage_wind_mat is StandardMaterial3D:
+		# Fallback in case it was changed
+		_foliage_wind_material = foliage_wind_mat
+		print("✅ Found terrain_material_foliage_wind (StandardMaterial3D)")
+
+	# Also search scene tree for terrain
+	var terrain = get_node_or_null("/root/Main/Game/VoxelTerrain")
+	if terrain:
+		print("✅ Found VoxelTerrain node for material updates")
+
+
+func _get_season_from_time() -> String:
+	"""Determine the current season based on TimeManager"""
+	var time_manager = get_node_or_null("/root/TimeManager")
+	if not time_manager:
+		return "spring"  # Default fallback
+
+	var current_day = time_manager.current_day
+
+	# Seasons: 3 months (90 days) per season = 360 days per year
+	# Days 1-90 = Spring, Days 91-180 = Summer, Days 181-270 = Autumn, Days 271-360 = Winter
+	var season_cycle_days = 90
+	var season_index = ((current_day - 1) / season_cycle_days) % 4
+
+	return SEASONS[season_index]
+
+
+func _apply_season_based_on_time() -> void:
+	"""Apply the appropriate season based on current in-game time"""
+	var season = _get_season_from_time()
+	if season != _current_season:
+		apply_season(season)
+
+
+func apply_season(season: String) -> void:
+	"""Swap seasonal tiles in terrain.png and update terrain (ONE TIME per season)"""
+	if not SEASONS.has(season):
+		push_error("Invalid season: %s" % season)
+		return
+
+	if season == _current_season:
+		print("Season already set to %s" % season)
+		return
+
+	if season not in _seasonal_atlases:
+		push_error("Seasonal atlas not loaded for %s" % season)
+		return
+
+	if _terrain_image == null:
+		push_error("Terrain image not loaded")
+		return
+
+	print("🍂 Applying season: %s" % season.to_upper())
+
+	# Blit seasonal tiles into terrain.png (one-time operation)
+	_swap_textures_for_season(season)
+
+	# Update the terrain to use the new texture and regenerate chunks
+	_update_terrain_chunks(season)
+
+	_current_season = season
+	print("✅ Season applied: %s" % season)
+
+
+func _swap_textures_for_season(season: String) -> void:
+	"""Copy seasonal tiles from seasonal atlas to terrain.png (one-time operation)"""
+	var seasonal_image = _seasonal_atlases[season]
+	var swapped_count = 0
+
+	print("  [DEBUG] Starting texture swap for season: %s" % season)
+	print("  [DEBUG] Seasonal image size: %dx%d" % [seasonal_image.get_width(), seasonal_image.get_height()])
+	print("  [DEBUG] Terrain image size: %dx%d" % [_terrain_image.get_width(), _terrain_image.get_height()])
+	print("  [DEBUG] Total blocks to swap: %d" % _seasonal_mapping.size())
+
+	for block_name in _seasonal_mapping:
+		var coords = _seasonal_mapping[block_name]
+
+		# Parse coordinates [x, y]
+		var x = int(coords[0])
+		var y = int(coords[1])
+
+		# Convert to pixel positions (same coordinates in both images)
+		var pixel_x = x * TILE_SIZE
+		var pixel_y = y * TILE_SIZE
+
+		# Create rect for tile
+		var tile_rect = Rect2i(pixel_x, pixel_y, TILE_SIZE, TILE_SIZE)
+
+		print("  [DEBUG] Processing block: %s at grid(%d,%d) = pixels(%d,%d)" % [block_name, x, y, pixel_x, pixel_y])
+
+		# Validate bounds in seasonal image
+		if pixel_x + TILE_SIZE > seasonal_image.get_width() or pixel_y + TILE_SIZE > seasonal_image.get_height():
+			push_warning("  [ERROR] Tile out of bounds for %s in %s: grid(%d,%d) pixels(%d,%d) vs image size %dx%d" % [block_name, season, x, y, pixel_x, pixel_y, seasonal_image.get_width(), seasonal_image.get_height()])
+			continue
+
+		# Validate bounds in terrain image
+		if pixel_x + TILE_SIZE > _terrain_image.get_width() or pixel_y + TILE_SIZE > _terrain_image.get_height():
+			push_warning("  [ERROR] Tile out of bounds for %s in terrain: grid(%d,%d) pixels(%d,%d) vs image size %dx%d" % [block_name, x, y, pixel_x, pixel_y, _terrain_image.get_width(), _terrain_image.get_height()])
+			continue
+
+		# Copy the seasonal tile to terrain using blit_rect (full replacement, not blending)
+		_terrain_image.blit_rect(seasonal_image, tile_rect, Vector2i(pixel_x, pixel_y))
+		swapped_count += 1
+		print("  ✓ Swapped %s at grid(%d,%d)" % [block_name, x, y])
+
+	print("  ✓ Total tiles swapped: %d" % swapped_count)
+
+
+func _update_terrain_chunks(season: String) -> void:
+	"""Force the terrain to reload and regenerate chunks with new texture"""
+	var terrain = get_node_or_null("/root/Main/Game/VoxelTerrain")
+	if not terrain:
+		push_error("VoxelTerrain not found")
+		return
+
+	print("  [DEBUG] Updating terrain material with modified image...")
+
+	# Update the reusable ImageTexture with the modified image data
+	# This is MUCH faster than creating a new texture (no GPU memory allocation)
+	_current_terrain_texture.set_image(_terrain_image)
+	print("  ✓ Updated reusable ImageTexture (in-place update, no new allocation)")
+
+	# Update all terrain materials with the reusable texture reference
+	var materials_updated = 0
+
+	# Update StandardMaterial3D materials
+	if _terrain_material:
+		_terrain_material.albedo_texture = _current_terrain_texture
+		materials_updated += 1
+		print("  ✓ Updated terrain_material texture reference")
+
+	if _foliage_material:
+		_foliage_material.albedo_texture = _current_terrain_texture
+		materials_updated += 1
+		print("  ✓ Updated terrain_material_foliage texture reference")
+
+	# Update ShaderMaterial (foliage_wind uses shader parameter for animated grass)
+	# Only update the shader for spring/summer when animated grass is visible
+	# For autumn/winter, the tall_grass just uses the static tile (no animation needed)
+	if _foliage_wind_material:
+		if _foliage_wind_material is ShaderMaterial and (season == "spring" or season == "summer"):
+			# Update shader parameter for animated grass in spring/summer
+			_foliage_wind_material.set_shader_parameter("albedo_texture", _current_terrain_texture)
+			materials_updated += 1
+			print("  ✓ Updated terrain_material_foliage_wind shader parameter reference")
+		elif _foliage_wind_material is StandardMaterial3D:
+			# Fallback for standard material
+			_foliage_wind_material.albedo_texture = _current_terrain_texture
+			materials_updated += 1
+			print("  ✓ Updated terrain_material_foliage_wind texture reference")
+
+	if materials_updated == 0:
+		print("  ⚠️ No terrain materials found to update")
+
+	# Now try to regenerate the terrain chunks
+	print("  [DEBUG] Attempting to regenerate chunks...")
+
+	var found_regen_method = false
+
+	# Try all possible regeneration methods
+	if terrain.has_method("regen_chunks"):
+		print("  [DEBUG] Using regen_chunks()")
+		terrain.regen_chunks()
+		found_regen_method = true
+		print("  ✓ Regenerated terrain chunks")
+
+	if terrain.has_method("remesh_chunks"):
+		print("  [DEBUG] Using remesh_chunks()")
+		terrain.remesh_chunks()
+		found_regen_method = true
+		print("  ✓ Remeshed terrain chunks")
+
+	if terrain.has_method("post_load"):
+		print("  [DEBUG] Using post_load()")
+		terrain.post_load()
+		found_regen_method = true
+		print("  ✓ Called post_load()")
+
+	if terrain.has_method("update_meshes"):
+		print("  [DEBUG] Using update_meshes()")
+		terrain.update_meshes()
+		found_regen_method = true
+		print("  ✓ Called update_meshes()")
+
+	if terrain.has_method("invalidate_all_chunks"):
+		print("  [DEBUG] Using invalidate_all_chunks()")
+		terrain.invalidate_all_chunks()
+		found_regen_method = true
+		print("  ✓ Invalidated all chunks")
+
+	if terrain.has_method("full_load"):
+		print("  [DEBUG] Using full_load()")
+		terrain.full_load()
+		found_regen_method = true
+		print("  ✓ Called full_load()")
+
+	if not found_regen_method:
+		print("  ⚠️ Could not find suitable chunk regeneration method on VoxelTerrain")
+		print("  [DEBUG] Available methods on VoxelTerrain:")
+		var method_list = terrain.get_method_list()
+		for method in method_list:
+			var method_name = method.name.to_lower()
+			if "mesh" in method_name or "regen" in method_name or "update" in method_name or "rebuild" in method_name or "invalidate" in method_name or "load" in method_name:
+				print("    - %s" % method.name)
+
+
+func _get_format_name(format: Image.Format) -> String:
+	"""Convert Image.Format enum to readable name"""
+	match format:
+		Image.FORMAT_L8: return "L8"
+		Image.FORMAT_LA8: return "LA8"
+		Image.FORMAT_R8: return "R8"
+		Image.FORMAT_RG8: return "RG8"
+		Image.FORMAT_RGB8: return "RGB8"
+		Image.FORMAT_RGBA8: return "RGBA8"
+		_: return "Unknown"
+
+
+func _on_season_changed(new_season: String) -> void:
+	"""Signal handler for when TimeManager emits season_changed signal"""
+	apply_season(new_season)
+
+
+## Console command support
+func apply_season_cmd(args: PackedStringArray) -> void:
+	"""Console command: season <spring|summer|autumn|winter>"""
+	if args.size() < 1:
+		print("Usage: season <spring|summer|autumn|winter>")
+		return
+
+	var season = args[0].to_lower()
+	apply_season(season)

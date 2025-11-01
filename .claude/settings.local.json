@@ -15,7 +15,10 @@
       "Bash(do mv \"$f\" \"$f%.jpg.import.png.import\")",
       "Bash(identify:*)",
       "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --headless --check-only --script \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\ruins\\RuinSpawner.gd\")",
-      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --headless --check-only --script \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\player\\avatar_interaction.gd\")"
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --headless --check-only --script \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\player\\avatar_interaction.gd\")",
+      "Bash(/home/bash/Godot/godot.linuxbsd.editor.x86_64:*)",
+      "Bash(/home/brad/Godot/godot.linuxbsd.editor.x86_64:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

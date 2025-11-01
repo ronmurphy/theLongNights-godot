@@ -229,6 +229,7 @@ func _register_commands() -> void:
 	commands["dlg"] = _cmd_dialogue  # Short alias
 	commands["testhunt"] = _cmd_testhunt
 	commands["creative"] = _cmd_creative
+	commands["season"] = _cmd_season
 
 ## Commands Implementation
 
@@ -251,6 +252,10 @@ func _cmd_help(_args: Array) -> void:
 	add_output("[color=cyan]Week Commands:[/color]")
 	add_output("  [color=yellow]week[/color] - Show current week")
 	add_output("  [color=yellow]week set <week>[/color] - Set week number")
+	add_output("")
+	add_output("[color=cyan]Season Commands:[/color]")
+	add_output("  [color=yellow]season[/color] - Show current season")
+	add_output("  [color=yellow]season <spring|summer|autumn|winter>[/color] - Change season")
 	add_output("")
 	add_output("[color=cyan]Bloodmoon Commands:[/color]")
 	add_output("  [color=yellow]bloodmoon start[/color] - Trigger bloodmoon")
@@ -829,3 +834,47 @@ func _cmd_creative(args: Array) -> void:
 		add_output("[color=yellow]Inventory restored to survival loadout (machete + 10 torches)[/color]")
 	else:
 		add_output("[color=red]Invalid mode. Use 'creative on' or 'creative off'[/color]")
+
+
+## Season Commands
+
+func _cmd_season(args: Array) -> void:
+	"""Change the current season and update textures"""
+	# Valid season names
+	var valid_seasons = ["spring", "summer", "autumn", "winter"]
+
+	if args.is_empty():
+		# Show current season
+		var time_manager = get_tree().root.get_node("TimeManager")
+		if time_manager:
+			var current_season = time_manager.current_season
+			add_output("[color=lime]Current season: %s[/color]" % current_season.to_upper())
+		add_output("[color=yellow]Usage: season <spring|summer|autumn|winter>[/color]")
+		return
+
+	var season = args[0].to_lower()
+
+	# Validate season
+	if not season in valid_seasons:
+		add_output("[color=red]Invalid season: " + season + "[/color]")
+		add_output("[color=yellow]Valid seasons: spring, summer, autumn, winter[/color]")
+		return
+
+	# Find the SeasonalTextureSystem node
+	var seasonal_system = get_node_or_null("/root/Main/Game/SeasonalTextureSystem")
+	if seasonal_system == null:
+		add_output("[color=red]Error: SeasonalTextureSystem not found[/color]")
+		return
+
+	# Update TimeManager's current season
+	var time_manager = get_tree().root.get_node("TimeManager")
+	if time_manager:
+		time_manager.current_season = season
+
+	# Apply the season textures
+	if seasonal_system.has_method("apply_season"):
+		seasonal_system.apply_season(season)
+		add_output("[color=lime]Season changed to: " + season.to_upper() + "[/color]")
+		add_output("[color=cyan]Textures updated[/color]")
+	else:
+		add_output("[color=red]Error: apply_season method not found[/color]")

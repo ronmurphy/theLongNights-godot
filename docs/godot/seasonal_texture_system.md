@@ -36,7 +36,6 @@ A JSON configuration file maps terrain.png coordinates to seasonal atlas coordin
   },
   "dirt": {
     "terrain": [2, 0]
-    // No seasonal variants - will never change
   }
 }
 ```
@@ -70,10 +69,10 @@ A JSON configuration file maps terrain.png coordinates to seasonal atlas coordin
 - Crops/vegetation
 - Water (frozen in winter?)
 - Snow cover (appears in winter, gone in other seasons)
+- Dirt 
 
 ## Blocks That Won't Change
 - Stone
-- Dirt
 - Sand
 - Ores
 - Manufactured blocks (iron, gold, etc.)

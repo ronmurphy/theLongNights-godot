@@ -16,6 +16,7 @@ const GameConsole = preload("res://long_nights/GameConsole.gd")
 const GameOverScreen = preload("res://long_nights/GameOverScreen.gd")
 const PartyUI = preload("res://long_nights/PartyUI.gd")
 const EnemySpawner = preload("res://long_nights/EnemySpawner.gd")
+const SeasonalTextureSystem = preload("res://long_nights/SeasonalTextureSystem.gd")
 
 @onready var _light : DirectionalLight3D = $DirectionalLight3D
 @onready var _terrain : VoxelTerrain = $VoxelTerrain
@@ -189,6 +190,12 @@ func _ready():
 		await get_tree().create_timer(0.5).timeout
 		_spawn_companion()
 		_add_companion_to_ui()
+
+		# Now add seasonal texture system (after companion is loaded)
+		var seasonal_system = SeasonalTextureSystem.new()
+		seasonal_system.name = "SeasonalTextureSystem"
+		add_child(seasonal_system)
+		print("The Long Nights: Seasonal texture system initialized")
 
 
 func _on_connected_to_server():

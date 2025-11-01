@@ -9,6 +9,7 @@ signal hour_changed(hour: int)
 signal bloodmoon_started
 signal bloodmoon_ended
 signal week_completed
+signal season_changed(season: String)
 
 # Constants
 const SECONDS_PER_IN_GAME_HOUR = 75.0  # 30 min / 24 hours = 75 seconds per hour
@@ -26,6 +27,10 @@ var elapsed_time: float = 0.0
 
 var is_bloodmoon: bool = false
 var time_paused: bool = false
+
+# Seasonal tracking
+const SEASONS = ["spring", "summer", "autumn", "winter"]
+var current_season: String = "spring"  # Start in spring
 
 func _ready() -> void:
 	print("⏰ TimeManager initialized")
@@ -62,6 +67,14 @@ func advance_day() -> void:
 	if current_day > DAYS_PER_WEEK:
 		current_day = 1
 		advance_week()
+
+	# Check for season changes (every ~90 days = 3 months, rotating through 4 seasons)
+	var season_cycle_days = 90  # ~3 months per season
+	var new_season = SEASONS[((current_day - 1) / season_cycle_days) % 4]
+	if new_season != current_season:
+		current_season = new_season
+		season_changed.emit(current_season)
+		print("🌍 Season changed: %s" % current_season.to_upper())
 
 	day_changed.emit(current_day)
 	print("📅 Day changed: Day %d" % current_day)
