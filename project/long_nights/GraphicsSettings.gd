@@ -82,15 +82,30 @@ var profiles := {
 # Global fog setting (applies to all profiles)
 var fog_enabled: bool = true
 
+# Resolution and window settings
+var window_resolution: Vector2i = Vector2i(1920, 1080)
+var fullscreen_enabled: bool = false
+var vsync_enabled: bool = true
+
+# Common resolution presets
+var resolution_presets := {
+	"1280x720": Vector2i(1280, 720),
+	"1920x1080": Vector2i(1920, 1080),
+	"2560x1440": Vector2i(2560, 1440),
+	"3840x2160": Vector2i(3840, 2160)
+}
+
 # Current active profile
 var current_profile: String = "medium"
 var current_settings: Dictionary = {}
 
 signal settings_changed(profile_name: String)
 signal settings_applied(settings: Dictionary)
+signal resolution_changed(resolution: Vector2i)
 
 func _ready() -> void:
 	load_settings()
+	apply_resolution()  # Apply resolution before profile
 	apply_profile(current_profile)
 
 ## Load settings from disk or initialize with defaults
@@ -111,6 +126,21 @@ func load_settings() -> void:
 			if data.has("fog_enabled"):
 				fog_enabled = data["fog_enabled"]
 				print("[GraphicsSettings] Loaded fog_enabled: ", fog_enabled)
+			
+			# Load resolution settings
+			if data.has("resolution"):
+				var res = data["resolution"]
+				if res is Array and res.size() == 2:
+					window_resolution = Vector2i(res[0], res[1])
+					print("[GraphicsSettings] Loaded resolution: ", window_resolution)
+			
+			if data.has("fullscreen"):
+				fullscreen_enabled = data["fullscreen"]
+				print("[GraphicsSettings] Loaded fullscreen: ", fullscreen_enabled)
+			
+			if data.has("vsync"):
+				vsync_enabled = data["vsync"]
+				print("[GraphicsSettings] Loaded vsync: ", vsync_enabled)
 		else:
 			print("[GraphicsSettings] Error parsing JSON: ", error)
 	else:
@@ -126,6 +156,9 @@ func save_settings() -> void:
 	var config_data = {
 		"profile": current_profile,
 		"fog_enabled": fog_enabled,
+		"resolution": [window_resolution.x, window_resolution.y],
+		"fullscreen": fullscreen_enabled,
+		"vsync": vsync_enabled,
 		"timestamp": Time.get_ticks_msec()
 	}
 
@@ -287,3 +320,67 @@ func get_bloodmoon_fog_start() -> float:
 
 func get_bloodmoon_fog_end() -> float:
 	return current_settings.get("bloodmoon_fog_end", 280.0)
+
+## Resolution and window settings
+func set_resolution(resolution: Vector2i) -> void:
+	window_resolution = resolution
+	apply_resolution()
+	save_settings()
+	resolution_changed.emit(resolution)
+
+func set_fullscreen(enabled: bool) -> void:
+	fullscreen_enabled = enabled
+	apply_resolution()
+	save_settings()
+
+func set_vsync(enabled: bool) -> void:
+	vsync_enabled = enabled
+	if enabled:
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
+	else:
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	save_settings()
+	print("[GraphicsSettings] VSync: ", "ENABLED" if enabled else "DISABLED")
+
+func apply_resolution() -> void:
+	# Skip resolution changes when running in editor (embedded window)
+	if OS.has_feature("editor"):
+		print("[GraphicsSettings] Running in editor - resolution changes disabled")
+		print("[GraphicsSettings] Resolution will apply when running exported game")
+		# Still apply VSync since that works in editor
+		if vsync_enabled:
+			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
+		else:
+			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+		return
+	
+	# Set window mode first
+	if fullscreen_enabled:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(window_resolution)
+		# Center window on screen
+		var screen_size = DisplayServer.screen_get_size()
+		var window_pos = (screen_size - window_resolution) / 2
+		DisplayServer.window_set_position(window_pos)
+	
+	# Apply VSync
+	if vsync_enabled:
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
+	else:
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	
+	print("[GraphicsSettings] Resolution: ", window_resolution, " | Fullscreen: ", fullscreen_enabled, " | VSync: ", vsync_enabled)
+
+func get_resolution() -> Vector2i:
+	return window_resolution
+
+func is_fullscreen() -> bool:
+	return fullscreen_enabled
+
+func is_vsync_enabled() -> bool:
+	return vsync_enabled
+
+func get_resolution_presets() -> Dictionary:
+	return resolution_presets
