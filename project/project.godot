@@ -30,6 +30,7 @@ HuntingSystem="*res://long_nights/HuntingSystem.gd"
 DialogueManager="*res://long_nights/DialogueManager.gd"
 PerformanceMonitor="*res://long_nights/PerformanceMonitor.gd"
 WinterIceSystem="*res://long_nights/WinterIceSystem.gd"
+RuinRegistry="*res://blocky_game/ruins/RuinRegistry.gd"
 
 [display]
 

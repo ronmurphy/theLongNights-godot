@@ -95,11 +95,16 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 	# Clean up temporary VoxelViewer
 	temp_viewer.queue_free()
 
-	# Add glowing lights at all teleport stone positions
-	for teleport_pos in template.teleport_stone_positions:
-		_add_teleport_stone_light(world_position + Vector3(teleport_pos))
+	# Register this ruin with the RuinRegistry
+	var ruin_data = RuinRegistry.register_ruin(world_position, template.name, template.teleport_stone_positions)
 
-	print("Placed ", blocks_placed, " blocks for ruin '", template.name, "' with ", template.teleport_stone_positions.size(), " teleport stone(s)")
+	# Add glowing lights at all teleport stone positions with correct colors
+	for i in range(ruin_data.teleport_stones.size()):
+		var stone = ruin_data.teleport_stones[i]
+		var stone_world_pos = world_position + Vector3(stone.local_pos)
+		_add_teleport_stone_light(stone_world_pos, stone.glow_color)
+
+	print("Placed ", blocks_placed, " blocks for ruin '", template.name, "' (", ruin_data.ruin_name, ") with ", template.teleport_stone_positions.size(), " teleport stone(s)")
 	return world_position
 
 
@@ -169,16 +174,17 @@ func get_teleport_stone_position(ruin_position: Vector3, ruin_name: String) -> V
 	return ruin_position + Vector3(template.teleport_stone_pos)
 
 
-func _add_teleport_stone_light(position: Vector3) -> void:
+func _add_teleport_stone_light(position: Vector3, color: Color = Color(0.4, 0.7, 1.0)) -> void:
 	"""
 	Add a glowing light at the teleport stone position to make it visible
+	Color is determined by portal type (blue=unvisited, white=visited, red=combat, green=return, purple=home)
 	"""
 	var light = OmniLight3D.new()
 	light.name = "TeleportStoneLight"
 	light.position = position + Vector3(0.5, 0.5, 0.5)  # Center of block
 
-	# Blue/cyan mystical glow
-	light.light_color = Color(0.4, 0.7, 1.0)
+	# Use the provided color (color-coded by portal type)
+	light.light_color = color
 	light.light_energy = 2.0
 	light.omni_range = 8.0
 	light.omni_attenuation = 2.0
@@ -186,4 +192,4 @@ func _add_teleport_stone_light(position: Vector3) -> void:
 	# Add the light to the terrain node (so it's part of the scene)
 	_terrain.add_child(light)
 
-	print("Added teleport stone light at: ", position)
+	print("Added teleport stone light at: ", position, " with color: ", color)

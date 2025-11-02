@@ -1,0 +1,241 @@
+extends Node
+
+# RuinRegistry - Global singleton for tracking all spawned ruins
+# Stores persistent data about visited ruins, teleport stones, and portal network
+
+# Portal/Stone Types
+enum StoneType {
+	NORMAL,    # Default portal - leads to new random ruin
+	RETURN,    # Can be revisited from anywhere using Portal Compass
+	HOME,      # Always returns to crashed tower (spawn point)
+	COMBAT     # Leads to ruin with enemies and better loot
+}
+
+# Data structure for a single teleport stone
+class TeleportStone:
+	var local_pos: Vector3i          # Position relative to ruin base
+	var stone_type: StoneType        # Type of portal
+	var glow_color: Color            # Visual color for the light
+	var has_been_used: bool = false  # Track if player used this specific stone
+
+	func _init(pos: Vector3i, type: StoneType, color: Color):
+		local_pos = pos
+		stone_type = type
+		glow_color = color
+
+# Data structure for a tracked ruin
+class RuinData:
+	var position: Vector3                      # World position where ruin spawned
+	var ruin_type: String                      # Template name (e.g., "coliseum")
+	var ruin_name: String                      # Generated unique name (e.g., "The Grand Coliseum")
+	var teleport_stones: Array[TeleportStone]  # Array of teleport stones in this ruin
+	var has_enemies: bool = false              # True for combat ruins
+	var enemies_defeated: bool = false         # Track if combat cleared
+	var chests_looted: Array[Vector3i] = []    # Track which chests opened
+	var visit_count: int = 0                   # How many times visited
+	var last_visited: int = 0                  # Game time timestamp (hours since start)
+
+	func _init(pos: Vector3, type: String, name: String):
+		position = pos
+		ruin_type = type
+		ruin_name = name
+
+# Registry storage
+var _ruins: Array[RuinData] = []
+var _used_names: Dictionary = {}  # Track used names per ruin type to ensure uniqueness
+
+# Name generation data
+var _name_prefixes = {
+	"crashed_tower_small": {
+		"prefixes": ["Fallen", "Broken", "Shattered", "Ruined"],
+		"suffixes": ["Spire", "Tower", "Beacon", "Observatory"]
+	},
+	"coliseum": {
+		"prefixes": ["The Grand", "Ancient", "Ruined", "Storm"],
+		"suffixes": ["Coliseum", "Arena", "Battle Grounds", "Pit"]
+	},
+	"sky_garden": {
+		"prefixes": ["Hanging", "Sky", "Celestial", "Floating"],
+		"suffixes": ["Gardens", "Oasis", "Grove", "Sanctuary"]
+	},
+	"ancient_temple": {
+		"prefixes": ["Temple of", "Sacred", "Ancient", "Holy"],
+		"suffixes": ["Winds", "Sanctuary", "Shrine", "Sanctuary"]
+	},
+	"wizard_tower": {
+		"prefixes": ["Wizard's", "Arcane", "Mage", "Sorcerer's"],
+		"suffixes": ["Spire", "Tower", "Observatory", "Sanctum"]
+	},
+	"ruined_plaza": {
+		"prefixes": ["Merchant", "Trade", "Central", "Ancient"],
+		"suffixes": ["Square", "Plaza", "Court", "Forum"]
+	},
+	"desert_shrine": {
+		"prefixes": ["Sand", "Desert", "Pyramid", "Dune"],
+		"suffixes": ["Temple", "Sanctum", "Shrine", "Tomb"]
+	},
+	"floating_forest": {
+		"prefixes": ["Floating", "Treetop", "Aerial", "Sky"],
+		"suffixes": ["Grove", "Haven", "Woodland", "Canopy"]
+	},
+	"grand_castle": {
+		"prefixes": ["Storm", "Cloud", "Sky", "Wind"],
+		"suffixes": ["Keep", "Fortress", "Citadel", "Bastion"]
+	},
+	"sky_city_district": {
+		"prefixes": ["Cloudtop", "Skyport", "Aerial", "High"],
+		"suffixes": ["District", "Quarter", "Plaza", "Ward"]
+	}
+}
+
+
+func _ready():
+	print("RuinRegistry initialized")
+
+
+func register_ruin(world_position: Vector3, ruin_type: String, teleport_positions: Array) -> RuinData:
+	"""
+	Register a newly spawned ruin with the registry
+	Returns the RuinData object for the registered ruin
+	"""
+	# Generate unique name
+	var ruin_name = _generate_unique_name(ruin_type)
+
+	# Create ruin data
+	var ruin_data = RuinData.new(world_position, ruin_type, ruin_name)
+
+	# Assign portal types and create teleport stones
+	for teleport_pos in teleport_positions:
+		var stone_type = _assign_portal_type(ruin_type, teleport_positions.size())
+		var glow_color = _get_glow_color_for_type(stone_type, false)  # Not visited yet
+		var stone = TeleportStone.new(Vector3i(teleport_pos), stone_type, glow_color)
+		ruin_data.teleport_stones.append(stone)
+
+	# Check if this is a combat ruin (20% chance)
+	if randf() < 0.20:
+		ruin_data.has_enemies = true
+		# Update all stones to combat type for combat ruins
+		for stone in ruin_data.teleport_stones:
+			stone.stone_type = StoneType.COMBAT
+			stone.glow_color = _get_glow_color_for_type(StoneType.COMBAT, false)
+
+	# Add to registry
+	_ruins.append(ruin_data)
+
+	print("Registered ruin: ", ruin_name, " (", ruin_type, ") at ", world_position, " with ", ruin_data.teleport_stones.size(), " portal(s)")
+
+	return ruin_data
+
+
+func get_ruin_at_position(world_position: Vector3, tolerance: float = 5.0) -> RuinData:
+	"""
+	Find a ruin at or near the given world position
+	Returns null if no ruin found
+	"""
+	for ruin in _ruins:
+		if ruin.position.distance_to(world_position) <= tolerance:
+			return ruin
+	return null
+
+
+func get_all_ruins() -> Array[RuinData]:
+	"""Return all registered ruins"""
+	return _ruins
+
+
+func get_visited_ruins() -> Array[RuinData]:
+	"""Return only ruins that have been visited at least once"""
+	var visited: Array[RuinData] = []
+	for ruin in _ruins:
+		if ruin.visit_count > 0:
+			visited.append(ruin)
+	return visited
+
+
+func mark_ruin_visited(ruin_data: RuinData, current_game_time: int = 0):
+	"""Mark a ruin as visited, increment visit count, update timestamp"""
+	ruin_data.visit_count += 1
+	ruin_data.last_visited = current_game_time
+	print("Ruin '", ruin_data.ruin_name, "' visited (count: ", ruin_data.visit_count, ")")
+
+
+func mark_stone_used(ruin_data: RuinData, stone_index: int):
+	"""Mark a specific teleport stone as having been used"""
+	if stone_index >= 0 and stone_index < ruin_data.teleport_stones.size():
+		ruin_data.teleport_stones[stone_index].has_been_used = true
+		# Update glow color to white (visited)
+		if ruin_data.teleport_stones[stone_index].stone_type == StoneType.NORMAL:
+			ruin_data.teleport_stones[stone_index].glow_color = _get_glow_color_for_type(StoneType.NORMAL, true)
+
+
+func _generate_unique_name(ruin_type: String) -> String:
+	"""Generate a unique name for the ruin type"""
+	if not _name_prefixes.has(ruin_type):
+		return "Unknown Ruin"
+
+	var names_data = _name_prefixes[ruin_type]
+	var prefixes = names_data["prefixes"]
+	var suffixes = names_data["suffixes"]
+
+	# Initialize used names tracking for this type
+	if not _used_names.has(ruin_type):
+		_used_names[ruin_type] = []
+
+	# Try to generate a unique name (max 100 attempts to avoid infinite loop)
+	for attempt in range(100):
+		var prefix = prefixes[randi() % prefixes.size()]
+		var suffix = suffixes[randi() % suffixes.size()]
+		var name = prefix + " " + suffix
+
+		if name not in _used_names[ruin_type]:
+			_used_names[ruin_type].append(name)
+			return name
+
+	# Fallback: append number if we couldn't find unique name
+	var base_name = prefixes[0] + " " + suffixes[0]
+	var counter = _used_names[ruin_type].size()
+	return base_name + " " + str(counter)
+
+
+func _assign_portal_type(ruin_type: String, total_stones: int) -> StoneType:
+	"""
+	Assign a random portal type based on spawn chances
+	- Return stones: 30% chance
+	- Home stones: 10% chance per ruin (only one per ruin)
+	- Normal: remaining
+	"""
+	# Home stones are rare and only one per ruin
+	# We'll handle this specially - only first stone can be home, with 10% chance
+	var rand = randf()
+
+	if rand < 0.10:
+		return StoneType.HOME
+	elif rand < 0.40:  # 30% for return (0.10 to 0.40)
+		return StoneType.RETURN
+	else:
+		return StoneType.NORMAL
+
+
+func _get_glow_color_for_type(stone_type: StoneType, has_been_used: bool) -> Color:
+	"""
+	Get the appropriate glow color for a portal type
+	- Blue/Cyan: Unvisited normal portal
+	- White/Silver: Visited normal portal
+	- Red: Combat portal
+	- Green: Return stone
+	- Purple: Home stone
+	"""
+	match stone_type:
+		StoneType.NORMAL:
+			if has_been_used:
+				return Color(0.9, 0.9, 1.0)  # White - visited
+			else:
+				return Color(0.4, 0.7, 1.0)  # Blue - unvisited
+		StoneType.RETURN:
+			return Color(0.2, 1.0, 0.4)  # Green
+		StoneType.HOME:
+			return Color(0.8, 0.3, 1.0)  # Purple
+		StoneType.COMBAT:
+			return Color(1.0, 0.2, 0.2)  # Red
+		_:
+			return Color(0.4, 0.7, 1.0)  # Default blue
