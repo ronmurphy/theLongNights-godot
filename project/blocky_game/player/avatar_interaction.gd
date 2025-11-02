@@ -118,7 +118,7 @@ func _physics_process(_delta):
 		if _torch_light:
 			_torch_light.visible = (_current_held_item_id == 6)
 	
-	# Check for teleport stone interaction (before other block interactions)
+	# Check for teleport stone and chest interaction (before other block interactions)
 	# Trigger on single click (not hold-to-mine)
 	if hit != null and _action_use:
 		var hit_raw_id := _terrain_tool.get_voxel(hit.position)
@@ -127,6 +127,12 @@ func _physics_process(_delta):
 			# Teleport stone is block ID 20
 			if rm.block_id == 20:
 				_handle_teleport_stone_interaction(hit.position)
+				_action_use = false
+				_action_use_held = false  # Prevent mining the block
+				return  # Don't process other interactions
+			# Chest is block ID 28
+			elif rm.block_id == 28:
+				_handle_chest_interaction(hit.position)
 				_action_use = false
 				_action_use_held = false  # Prevent mining the block
 				return  # Don't process other interactions
@@ -195,8 +201,10 @@ func _physics_process(_delta):
 			if mining_power == 0 or hit == null or not _action_use_held:
 				if inv_item.count > 0:
 					item.use(_head.global_transform)
-					# Decrement item count in hotbar
-					_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
+					# Only decrement consumables (torches = item ID 6)
+					# Weapons and tools have infinite uses
+					if inv_item.id == 6:  # torch
+						_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
 					_reset_breaking_progress()
 				else:
 					print("No more items to use!")
@@ -260,8 +268,18 @@ func _process_block_breaking(pos: Vector3, block_id: int, delta: float, inv_item
 
 
 func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool, tool_id: int = -1):
-	# Remove the block from terrain
-	_place_single_block(pos, 0)
+	# Check if breaking ice - replace with water instead of air
+	var block = _block_types.get_block(block_id)
+	var is_ice = (block.base_info.name == "ice")
+	
+	if is_ice:
+		# Breaking ice reveals water underneath
+		var water_block = _block_types.get_block_by_name("water")
+		var water_block_id = water_block.base_info.id
+		_place_single_block(pos, water_block_id)
+	else:
+		# Normal blocks become air
+		_place_single_block(pos, 0)
 
 	# In creative mode, never add to inventory
 	if _creative_mode:
@@ -271,11 +289,13 @@ func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool, tool_id: 
 		_add_block_to_inventory(block_id)
 		print("Broke block %d at %s (added to inventory)" % [block_id, pos])
 
-		# In survival mode, recover a torch when mining blocks
-		_recover_torch_on_mining()
-
 		# Check adjacent faces for thrown torches and remove them
-		_remove_adjacent_torches(pos)
+		# Returns the number of torches removed
+		var torches_removed = _remove_adjacent_torches(pos)
+
+		# Only recover torches if we actually found and removed any
+		if torches_removed > 0:
+			_recover_torches_to_inventory(torches_removed)
 
 		# Spawn block-specific particles (leaves, etc.)
 		_spawn_block_particles(block_id, pos, tool_id)
@@ -412,12 +432,15 @@ func _add_block_to_inventory_standard(block_id: int):
 		print("Inventory full! Block %d dropped" % block_id)
 
 
-func _remove_adjacent_torches(block_pos: Vector3):
-	"""Check all 6 adjacent block faces for thrown torches and remove them from the scene"""
+func _remove_adjacent_torches(block_pos: Vector3) -> int:
+	"""Check all 6 adjacent block faces for thrown torches and remove them from the scene.
+	Returns the number of torches removed."""
 	# Get the game node where torches are spawned
 	var game_node = get_node_or_null("/root/Main/Game")
 	if game_node == null:
-		return
+		return 0
+
+	var torches_removed = 0
 
 	# Define the 6 adjacent positions (up, down, left, right, forward, back)
 	var adjacent_offsets = [
@@ -443,10 +466,16 @@ func _remove_adjacent_torches(block_pos: Vector3):
 				if distance < 1.0:
 					print("Removed thrown torch at %s" % check_pos)
 					child.queue_free()
+					torches_removed += 1
+
+	return torches_removed
 
 
-func _recover_torch_on_mining():
-	"""Recover a thrown torch and add it back to inventory when mining in survival mode"""
+func _recover_torches_to_inventory(count: int):
+	"""Recover thrown torches and add them back to inventory when mining in survival mode"""
+	if count <= 0:
+		return
+
 	# Torch item ID is 6
 	const TORCH_ITEM_ID = 6
 
@@ -464,9 +493,9 @@ func _recover_torch_on_mining():
 
 	# If torch stack exists, add to it
 	if existing_torch_slot != -1:
-		slots[existing_torch_slot].count += 1
+		slots[existing_torch_slot].count += count
 		_inventory.emit_signal("changed")
-		print("Recovered torch from mining! (count: %d)" % slots[existing_torch_slot].count)
+		print("Recovered %d torch(es) from mining! (total count: %d)" % [count, slots[existing_torch_slot].count])
 		return
 
 	# No torch stack exists - need to find a slot for it
@@ -484,17 +513,17 @@ func _recover_torch_on_mining():
 				empty_slot = i
 				break
 
-	# If we found an empty slot, add the torch there
+	# If we found an empty slot, add the torches there
 	if empty_slot != -1:
 		var torch_item = InventoryItem.new()
 		torch_item.id = TORCH_ITEM_ID
 		torch_item.type = InventoryItem.TYPE_ITEM
-		torch_item.count = 1
+		torch_item.count = count
 		slots[empty_slot] = torch_item
 		_inventory.emit_signal("changed")
-		print("Recovered torch from mining and placed in new stack!")
+		print("Recovered %d torch(es) from mining and placed in new stack!" % count)
 	else:
-		print("Could not recover torch - inventory full!")
+		print("Could not recover %d torch(es) - inventory full!" % count)
 
 
 func _spawn_block_particles(block_id: int, block_pos: Vector3, tool_id: int):
@@ -859,3 +888,167 @@ func _create_materialization_particles(center_pos: Vector3) -> CPUParticles3D:
 
 	print("Materialization particles + pulsing light created at: ", center_pos)
 	return particles
+
+
+# Chest tracking - keep track of opened chests so they can't be looted twice
+var _opened_chests: Array[Vector3i] = []
+var _first_chest_opened := false  # Track if the special first chest has been opened
+
+
+func _handle_chest_interaction(chest_pos: Vector3) -> void:
+	"""Called when player right-clicks on a chest"""
+	var chest_pos_i = Vector3i(chest_pos)
+
+	# Check if this chest has already been opened
+	if chest_pos_i in _opened_chests:
+		_show_chest_message("This chest has already been looted!")
+		return
+
+	# Mark chest as opened
+	_opened_chests.append(chest_pos_i)
+
+	# Determine what loot to give
+	var loot_item_id: int
+	var loot_item_name: String
+
+	# First chest always gives grappling hook
+	if not _first_chest_opened:
+		_first_chest_opened = true
+		loot_item_id = 1  # grappling_hook
+		loot_item_name = "Grappling Hook"
+		print("Player found the first chest - giving grappling hook!")
+	else:
+		# Random loot from available weapons and tools
+		var loot_table = [
+			{"id": 0, "name": "Rocket Launcher"},
+			{"id": 2, "name": "Climbing Claws"},
+			{"id": 3, "name": "Ice Bow"},
+			{"id": 4, "name": "Fire Staff"},
+			{"id": 5, "name": "Throwing Knives"},
+			{"id": 6, "name": "Torch"},
+			{"id": 7, "name": "Stone Hammer"},
+			{"id": 8, "name": "Machete"},
+			{"id": 9, "name": "Crossbow"},
+			{"id": 10, "name": "Sword"},
+			{"id": 11, "name": "Tree Feller"}
+		]
+
+		var random_loot = loot_table[randi() % loot_table.size()]
+		loot_item_id = random_loot["id"]
+		loot_item_name = random_loot["name"]
+
+	# Give the item to the player
+	_give_item_to_player(loot_item_id)
+
+	# Show particles and message
+	_create_chest_open_particles(chest_pos)
+	_show_chest_message("You found: " + loot_item_name + "!")
+
+	print("Chest looted at ", chest_pos, " - gave ", loot_item_name)
+
+
+func _give_item_to_player(item_id: int) -> void:
+	"""Add item to player's inventory"""
+	# Find first empty slot in inventory
+	var slots = _inventory._slots
+	var empty_slot = -1
+	for i in range(slots.size()):
+		if slots[i] == null:
+			empty_slot = i
+			break
+
+	if empty_slot == -1:
+		print("Inventory is full! Item not given.")
+		_show_chest_message("Inventory is full! Item not given.")
+		return
+
+	# Create inventory item
+	var inv_item = InventoryItem.new()
+	inv_item.type = InventoryItem.TYPE_ITEM
+	inv_item.id = item_id
+	inv_item.count = 1
+
+	# Add to inventory
+	slots[empty_slot] = inv_item
+	_inventory._update_views()
+
+	print("Added item ID ", item_id, " to inventory slot ", empty_slot)
+
+
+func _create_chest_open_particles(chest_pos: Vector3) -> void:
+	"""Create yellow particle effect when chest is opened"""
+	var particles = CPUParticles3D.new()
+	particles.position = chest_pos + Vector3(0.5, 1.0, 0.5)  # Center above chest
+
+	# Particle appearance
+	particles.emitting = true
+	particles.amount = 30
+	particles.lifetime = 1.5
+	particles.one_shot = true
+	particles.explosiveness = 0.8
+	particles.local_coords = false
+
+	# Emission shape - burst from chest
+	particles.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	particles.emission_sphere_radius = 0.3
+
+	# Particle movement - burst upward
+	particles.direction = Vector3(0, 1, 0)
+	particles.spread = 45.0
+	particles.gravity = Vector3(0, -2, 0)  # Fall down after burst
+	particles.initial_velocity_min = 2.0
+	particles.initial_velocity_max = 4.0
+
+	# Particle size
+	particles.scale_amount_min = 0.3
+	particles.scale_amount_max = 0.6
+
+	# Color - bright yellow/gold
+	var gradient = Gradient.new()
+	gradient.add_point(0.0, Color(1.0, 1.0, 0.3, 1.0))  # Bright yellow
+	gradient.add_point(1.0, Color(1.0, 0.8, 0.0, 0.0))  # Gold to transparent
+
+	var color_ramp = GradientTexture1D.new()
+	color_ramp.gradient = gradient
+	particles.color_ramp = color_ramp
+
+	# Create bright emissive material
+	var material = StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	material.albedo_color = Color(1.0, 1.0, 0.5, 1.0)  # Bright yellow
+	particles.material_override = material
+
+	# Add to scene
+	_terrain.add_child(particles)
+
+	# Auto-cleanup
+	await get_tree().create_timer(2.0).timeout
+	particles.queue_free()
+
+
+func _show_chest_message(message: String) -> void:
+	"""Show a message dialog for chest loot"""
+	var dialog = AcceptDialog.new()
+	dialog.title = "Chest"
+	dialog.dialog_text = message
+	dialog.ok_button_text = "OK"
+
+	# Connect close signal
+	dialog.confirmed.connect(func():
+		dialog.queue_free()
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	)
+	dialog.close_requested.connect(func():
+		dialog.queue_free()
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	)
+
+	# Add to scene and show
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+	# Release mouse for dialog interaction
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

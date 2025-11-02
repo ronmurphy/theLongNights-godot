@@ -95,10 +95,11 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 	# Clean up temporary VoxelViewer
 	temp_viewer.queue_free()
 
-	# Add a glowing light at the teleport stone position
-	_add_teleport_stone_light(world_position + Vector3(template.teleport_stone_pos))
+	# Add glowing lights at all teleport stone positions
+	for teleport_pos in template.teleport_stone_positions:
+		_add_teleport_stone_light(world_position + Vector3(teleport_pos))
 
-	print("Placed ", blocks_placed, " blocks for ruin '", template.name, "'")
+	print("Placed ", blocks_placed, " blocks for ruin '", template.name, "' with ", template.teleport_stone_positions.size(), " teleport stone(s)")
 	return world_position
 
 

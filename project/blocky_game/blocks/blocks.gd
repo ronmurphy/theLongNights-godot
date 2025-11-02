@@ -249,6 +249,22 @@ func _init():
 		"voxels": ["push_block"],
 		"transparent": false
 	})
+	_create_block({
+		"name": "ice",
+		"gui_model": "ice.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["ice"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "chest",
+		"gui_model": "chest.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["chest"],
+		"transparent": false
+	})
+
+
 
 
 

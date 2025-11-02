@@ -460,12 +460,12 @@ func _cmd_give(args: Array) -> void:
 
 	# Item name to ID mapping
 	var item_map = {
-		"rocket_launcher": 0,
-		"grappling_hook": 1,
+		"rocketlauncher": 0,
+		"grapplinghook": 1,
 		"grapple": 1,
-		"climbing_claws": 2,
+		"climbingclaws": 2,
 		"claws": 2,
-		"ice_bow": 3,
+		"icebow": 3,
 		"bow": 3,
 		"fire_staff": 4,
 		"staff": 4,
@@ -545,10 +545,10 @@ func _cmd_list(args: Array) -> void:
 		add_output("[color=lime]=== Available Items ===[/color]")
 		add_output("")
 		add_output("[color=cyan]Ranged Weapons (Infinite Ammo):[/color]")
-		add_output("  [color=yellow]rocket_launcher[/color] - Explosive projectile launcher")
-		add_output("  [color=yellow]grappling_hook[/color] (or 'grapple') - Arc to distant blocks")
-		add_output("  [color=yellow]ice_bow[/color] (or 'bow') - Zigzag homing ice arrow")
-		add_output("  [color=yellow]fire_staff[/color] (or 'staff') - Meteor strike from sky")
+		add_output("  [color=yellow]rocketlauncher[/color] - Explosive projectile launcher")
+		add_output("  [color=yellow]grapplinghook[/color] (or 'grapple') - Arc to distant blocks")
+		add_output("  [color=yellow]icebow[/color] (or 'bow') - Zigzag homing ice arrow")
+		add_output("  [color=yellow]firestaff[/color] (or 'staff') - Meteor strike from sky")
 		add_output("  [color=yellow]throwing_knives[/color] (or 'knives') - Spiral attack")
 		add_output("  [color=yellow]crossbow[/color] - Precision ranged weapon")
 		add_output("")
@@ -871,10 +871,11 @@ func _cmd_season(args: Array) -> void:
 		add_output("[color=red]Error: SeasonalTextureSystem not found[/color]")
 		return
 
-	# Update TimeManager's current season
+	# Update TimeManager's current season and emit signal
 	var time_manager = get_tree().root.get_node("TimeManager")
 	if time_manager:
 		time_manager.current_season = season
+		time_manager.season_changed.emit(season)  # Emit signal so systems respond
 
 	# Apply the season textures
 	if seasonal_system.has_method("apply_season"):
