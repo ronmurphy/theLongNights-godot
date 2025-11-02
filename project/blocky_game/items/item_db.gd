@@ -38,6 +38,10 @@ func _init():
 		"behavior": "torch.gd"
 	})
 	_create_item({
+		"name": "portal_compass",
+		"behavior": "portal_compass.gd"
+	})
+	_create_item({
 		"name": "stone_hammer",
 		"behavior": "stone_hammer.gd"
 	})

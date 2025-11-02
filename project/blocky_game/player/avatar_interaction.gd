@@ -717,8 +717,62 @@ func _handle_teleport_stone_interaction(teleport_stone_pos: Vector3) -> void:
 	"""Called when player right-clicks on a teleport stone"""
 	print("Player interacted with teleport stone at: ", teleport_stone_pos)
 
-	# Show confirmation dialog
+	# Check if player is holding Portal Compass
+	var inv_item = _hotbar.get_selected_item()
+	if inv_item != null and inv_item.type == InventoryItem.TYPE_ITEM and inv_item.id == 7:  # Portal Compass
+		# Player has Portal Compass equipped!
+		print("Portal Compass detected! Opening navigation modal...")
+		_show_portal_compass_modal(teleport_stone_pos)
+		return
+
+	# Normal teleport behavior (show confirmation dialog)
 	_show_teleport_confirmation_dialog()
+
+
+func _show_portal_compass_modal(teleport_stone_pos: Vector3) -> void:
+	"""Show Portal Compass navigation modal (Phase 4 - placeholder for now)"""
+	var visited_ruins = RuinRegistry.get_visited_ruins()
+
+	# For Phase 3: Just show a message about what ruins have been visited
+	var message = "🧭 Portal Compass Activated!\n\n"
+
+	if visited_ruins.size() == 0:
+		message += "No ruins visited yet.\nExplore more to unlock destinations!"
+	else:
+		message += "Visited Ruins (" + str(visited_ruins.size()) + "):\n\n"
+		for ruin in visited_ruins:
+			var portal_types = []
+			for stone in ruin.teleport_stones:
+				match stone.stone_type:
+					RuinRegistry.StoneType.NORMAL:
+						portal_types.append("🔵")
+					RuinRegistry.StoneType.RETURN:
+						portal_types.append("💚")
+					RuinRegistry.StoneType.HOME:
+						portal_types.append("🟣")
+					RuinRegistry.StoneType.COMBAT:
+						portal_types.append("🔴")
+			message += "• " + ruin.ruin_name + " " + " ".join(portal_types) + "\n"
+
+		message += "\n📍 Navigation UI coming in Phase 4!"
+
+	var dialog = AcceptDialog.new()
+	dialog.title = "Portal Compass"
+	dialog.dialog_text = message
+	dialog.ok_button_text = "Close"
+
+	dialog.confirmed.connect(func():
+		dialog.queue_free()
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	)
+	dialog.close_requested.connect(func():
+		dialog.queue_free()
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	)
+
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func _show_teleport_confirmation_dialog() -> void:
@@ -808,6 +862,17 @@ func _execute_teleport() -> void:
 
 	if ruin_pos != Vector3.ZERO:
 		print("Ruin materialized successfully!")
+
+		# Mark this ruin as visited in the registry
+		var ruin_data = RuinRegistry.get_ruin_at_position(ruin_pos, 10.0)
+		if ruin_data:
+			# Get current game time (hours since start) from TimeManager if available
+			var current_time = 0
+			var time_manager = get_node_or_null("/root/TimeManager")
+			if time_manager and time_manager.has_method("get_total_hours"):
+				current_time = time_manager.get_total_hours()
+
+			RuinRegistry.mark_ruin_visited(ruin_data, current_time)
 
 		# Re-enable gravity (blocks are guaranteed to exist now)
 		if player_controller.has_method("enable_gravity"):
@@ -908,17 +973,24 @@ func _handle_chest_interaction(chest_pos: Vector3) -> void:
 	_opened_chests.append(chest_pos_i)
 
 	# Determine what loot to give
-	var loot_item_id: int
-	var loot_item_name: String
+	var loot_items: Array = []  # Can contain multiple items
+	var loot_messages: Array = []
 
 	# First chest always gives grappling hook
 	if not _first_chest_opened:
 		_first_chest_opened = true
-		loot_item_id = 1  # grappling_hook
-		loot_item_name = "Grappling Hook"
+		loot_items.append({"id": 1, "count": 1})  # grappling_hook
+		loot_messages.append("Grappling Hook")
 		print("Player found the first chest - giving grappling hook!")
 	else:
-		# Random loot from available weapons and tools
+		# 15% chance to find Portal Compass (2-3 compasses)
+		if randf() < 0.15:
+			var compass_count = randi() % 2 + 2  # 2 or 3
+			loot_items.append({"id": 7, "count": compass_count})  # portal_compass
+			loot_messages.append(str(compass_count) + "x Portal Compass")
+			print("Rare drop: Found ", compass_count, " Portal Compasses!")
+
+		# Always give a weapon/tool
 		var loot_table = [
 			{"id": 0, "name": "Rocket Launcher"},
 			{"id": 2, "name": "Climbing Claws"},
@@ -926,29 +998,31 @@ func _handle_chest_interaction(chest_pos: Vector3) -> void:
 			{"id": 4, "name": "Fire Staff"},
 			{"id": 5, "name": "Throwing Knives"},
 			{"id": 6, "name": "Torch"},
-			{"id": 7, "name": "Stone Hammer"},
-			{"id": 8, "name": "Machete"},
-			{"id": 9, "name": "Crossbow"},
-			{"id": 10, "name": "Sword"},
-			{"id": 11, "name": "Tree Feller"}
+			{"id": 8, "name": "Stone Hammer"},     # ID shifted from 7 to 8
+			{"id": 9, "name": "Machete"},          # ID shifted from 8 to 9
+			{"id": 10, "name": "Crossbow"},        # ID shifted from 9 to 10
+			{"id": 11, "name": "Sword"},           # ID shifted from 10 to 11
+			{"id": 12, "name": "Tree Feller"}      # ID shifted from 11 to 12
 		]
 
 		var random_loot = loot_table[randi() % loot_table.size()]
-		loot_item_id = random_loot["id"]
-		loot_item_name = random_loot["name"]
+		loot_items.append({"id": random_loot["id"], "count": 1})
+		loot_messages.append(random_loot["name"])
 
-	# Give the item to the player
-	_give_item_to_player(loot_item_id)
+	# Give all items to the player
+	for loot in loot_items:
+		_give_item_to_player(loot["id"], loot["count"])
 
 	# Show particles and message
 	_create_chest_open_particles(chest_pos)
-	_show_chest_message("You found: " + loot_item_name + "!")
+	var message = "You found: " + ", ".join(loot_messages) + "!"
+	_show_chest_message(message)
 
-	print("Chest looted at ", chest_pos, " - gave ", loot_item_name)
+	print("Chest looted at ", chest_pos, " - gave ", ", ".join(loot_messages))
 
 
-func _give_item_to_player(item_id: int) -> void:
-	"""Add item to player's inventory"""
+func _give_item_to_player(item_id: int, count: int = 1) -> void:
+	"""Add item to player's inventory with optional stack count"""
 	# Find first empty slot in inventory
 	var slots = _inventory._slots
 	var empty_slot = -1
@@ -966,13 +1040,13 @@ func _give_item_to_player(item_id: int) -> void:
 	var inv_item = InventoryItem.new()
 	inv_item.type = InventoryItem.TYPE_ITEM
 	inv_item.id = item_id
-	inv_item.count = 1
+	inv_item.count = count  # Use provided count (default 1)
 
 	# Add to inventory
 	slots[empty_slot] = inv_item
 	_inventory._update_views()
 
-	print("Added item ID ", item_id, " to inventory slot ", empty_slot)
+	print("Added item ID ", item_id, " (count: ", count, ") to inventory slot ", empty_slot)
 
 
 func _create_chest_open_particles(chest_pos: Vector3) -> void:

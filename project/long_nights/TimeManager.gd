@@ -116,3 +116,9 @@ func set_paused(paused: bool) -> void:
 ## Get current difficulty multiplier based on week
 func get_difficulty_multiplier() -> float:
 	return 1.0 + ((current_week - 1) * 0.3)  # 30% harder each week
+
+## Get total hours elapsed since game start (for ruin visit tracking)
+func get_total_hours() -> int:
+	var weeks_hours = (current_week - 1) * DAYS_PER_WEEK * HOURS_PER_DAY
+	var days_hours = (current_day - 1) * HOURS_PER_DAY
+	return weeks_hours + days_hours + current_hour
