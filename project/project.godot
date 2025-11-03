@@ -37,6 +37,11 @@ RuinRegistry="*res://blocky_game/ruins/RuinRegistry.gd"
 window/stretch/mode="2d"
 window/stretch/aspect="expand"
 
+[editor]
+
+version_control/plugin_name="GitPlugin"
+version_control/autoload_on_startup=true
+
 [filesystem]
 
 import/blender/enabled=false
