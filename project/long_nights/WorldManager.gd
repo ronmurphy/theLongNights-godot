@@ -114,6 +114,13 @@ func load_world() -> bool:
 		if "inventory" in data:
 			_world_data["inventory"] = data["inventory"]
 
+		# Load ruin registry data
+		if "ruin_registry" in data:
+			_world_data["ruin_registry"] = data["ruin_registry"]
+			# Immediately deserialize into RuinRegistry
+			if RuinRegistry.has_method("deserialize_registry"):
+				RuinRegistry.deserialize_registry(data["ruin_registry"])
+
 		print("WorldManager: World loaded - Seed: ", _world_data["seed"])
 		if _world_data["is_halloween"]:
 			print("🎃 This is a HALLOWEEN world! 👻")
@@ -160,6 +167,10 @@ func save_world() -> bool:
 	if inventory and inventory.has_method("serialize_inventory"):
 		_world_data["inventory"] = inventory.serialize_inventory()
 		print("WorldManager: Saved inventory data")
+
+	# Save ruin registry data
+	if RuinRegistry.has_method("serialize_registry"):
+		_world_data["ruin_registry"] = RuinRegistry.serialize_registry()
 
 	# Convert Vector3 to array for JSON
 	var save_data = _world_data.duplicate()
