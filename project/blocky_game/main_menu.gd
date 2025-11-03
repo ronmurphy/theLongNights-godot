@@ -146,6 +146,8 @@ func _show_new_game_dialog() -> void:
 
 func _add_shader_background() -> void:
 	# Create a ColorRect with the animated shader background
+	# Note: Shader changed from network_background to starfield on Nov 3, 2025
+	# Original network shader archived as: ARCHIVED_network_background.gdshader
 	_background_shader = ColorRect.new()
 	_background_shader.name = "ShaderBackground"
 	
