@@ -13,7 +13,7 @@ var _velocity := Vector3()
 var _terrain : VoxelTerrain = null
 var _trail_timer := 0.0
 
-@onready var _mesh : MeshInstance3D = $MeshInstance3D
+var _mesh : MeshInstance3D = null
 
 
 func _ready():
@@ -75,8 +75,11 @@ func initialize(sky_pos: Vector3, target_pos: Vector3, stack_count: int = 1):
 	var direction = (target_pos - sky_pos).normalized()
 	_velocity = direction * speed
 
-	# Point meteor downward
-	look_at(target_pos, Vector3.UP)
+	# Point meteor downward (use safe up vector to avoid colinear warnings)
+	var up_vector = Vector3.UP
+	if abs(direction.dot(Vector3.UP)) > 0.95:
+		up_vector = Vector3.RIGHT
+	look_at(target_pos, up_vector)
 
 
 func _physics_process(delta: float):
@@ -106,7 +109,12 @@ func _physics_process(delta: float):
 
 	# Point in direction of movement
 	if _velocity.length() > 0.1:
-		look_at(global_position + _velocity, Vector3.UP)
+		# Use a safe up vector to avoid colinear warnings when falling straight down
+		var up_vector = Vector3.UP
+		# If velocity is nearly vertical, use RIGHT as up vector instead
+		if abs(_velocity.normalized().dot(Vector3.UP)) > 0.95:
+			up_vector = Vector3.RIGHT
+		look_at(global_position + _velocity, up_vector)
 
 	# Check for collision with terrain
 	if _terrain != null:

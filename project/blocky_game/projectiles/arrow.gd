@@ -15,7 +15,7 @@ var _initial_direction := Vector3()
 var _terrain : VoxelTerrain = null
 var _owner_node : Node = null  # Who shot this arrow
 
-@onready var _mesh : MeshInstance3D = $MeshInstance3D
+var _mesh : MeshInstance3D = null
 
 
 func _ready():

@@ -15,7 +15,7 @@ var _circles_completed := 0.0
 var _terrain : VoxelTerrain = null
 var _trail_timer := 0.0
 
-@onready var _mesh : MeshInstance3D = $MeshInstance3D
+var _mesh : MeshInstance3D = null
 
 
 func _ready():
