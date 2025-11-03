@@ -684,16 +684,18 @@ func _create_floating_forest() -> RuinTemplate:
 		for x in range(size_x):
 			for z in range(size_z):
 				# Create irregular edge even in lower layers
+				# FIXED: Increased guaranteed radius from 14 to 18 (4 blocks wider all around)
 				var dist_to_center = Vector2(x - size_x/2, z - size_z/2).length()
-				if dist_to_center < 14 or (dist_to_center < 16 and randi() % 2 == 0):
+				if dist_to_center < 18 or (dist_to_center < 20 and randi() % 2 == 0):
 					blocks.append({"pos": Vector3i(x, layer, z), "block_id": 1, "variant": 0})  # dirt
 
 	# Dirt and grass base (irregular shape at surface)
 	for x in range(size_x):
 		for z in range(size_z):
 			# Create irregular edge
+			# FIXED: Increased guaranteed radius from 14 to 18 (4 blocks wider all around)
 			var dist_to_center = Vector2(x - size_x/2, z - size_z/2).length()
-			if dist_to_center < 14 or (dist_to_center < 16 and randi() % 2 == 0):
+			if dist_to_center < 18 or (dist_to_center < 20 and randi() % 2 == 0):
 				blocks.append({"pos": Vector3i(x, 0, z), "block_id": 1, "variant": 0})  # dirt
 				blocks.append({"pos": Vector3i(x, 1, z), "block_id": 2, "variant": 0})  # grass
 

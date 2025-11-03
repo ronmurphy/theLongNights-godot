@@ -661,7 +661,10 @@ func _unhandled_input(event: InputEvent):
 
 	elif event is InputEventKey:
 		if event.pressed and not ui_open:
-			if _hotbar_keys.has(event.keycode):
+			# Check for C key - Emergency Teleport with Portal Compass
+			if event.keycode == KEY_C:
+				_try_emergency_teleport()
+			elif _hotbar_keys.has(event.keycode):
 				var slot_index = _hotbar_keys[event.keycode]
 				_hotbar.select_slot(slot_index)
 
@@ -713,6 +716,24 @@ func receive_place_single_block(_pos: Vector3, _look_dir: Vector3, _block_id: in
 	push_error("Didn't expect this method to be called")
 
 
+func _try_emergency_teleport() -> void:
+	"""Try to use Portal Compass for emergency teleport from anywhere (costs 3)"""
+	# Check if player has Portal Compass equipped
+	var inv_item = _hotbar.get_selected_item()
+	if inv_item == null or inv_item.type != InventoryItem.TYPE_ITEM or inv_item.id != 7:
+		# Not holding Portal Compass
+		return
+
+	# Check if player has at least 3 compasses
+	if inv_item.count < 3:
+		_show_chest_message("Need 3 Portal Compasses for Emergency Teleport! (Have " + str(inv_item.count) + ")")
+		return
+
+	# Open portal compass modal in emergency mode
+	print("Emergency Teleport activated! Opening navigation modal...")
+	_show_portal_compass_modal(Vector3.ZERO, true)  # true = emergency mode
+
+
 func _handle_teleport_stone_interaction(teleport_stone_pos: Vector3) -> void:
 	"""Called when player right-clicks on a teleport stone"""
 	print("Player interacted with teleport stone at: ", teleport_stone_pos)
@@ -722,57 +743,155 @@ func _handle_teleport_stone_interaction(teleport_stone_pos: Vector3) -> void:
 	if inv_item != null and inv_item.type == InventoryItem.TYPE_ITEM and inv_item.id == 7:  # Portal Compass
 		# Player has Portal Compass equipped!
 		print("Portal Compass detected! Opening navigation modal...")
-		_show_portal_compass_modal(teleport_stone_pos)
+		_show_portal_compass_modal(teleport_stone_pos, false)  # false = normal mode
 		return
 
 	# Normal teleport behavior (show confirmation dialog)
 	_show_teleport_confirmation_dialog()
 
 
-func _show_portal_compass_modal(teleport_stone_pos: Vector3) -> void:
-	"""Show Portal Compass navigation modal (Phase 4 - placeholder for now)"""
-	var visited_ruins = RuinRegistry.get_visited_ruins()
+func _show_portal_compass_modal(teleport_stone_pos: Vector3, is_emergency: bool = false) -> void:
+	"""Show Portal Compass navigation modal (Phase 4a - List View)"""
+	# Disable character input while modal is open
+	var player_controller = get_parent()
+	if player_controller.has_method("set_input_enabled"):
+		player_controller.set_input_enabled(false)
 
-	# For Phase 3: Just show a message about what ruins have been visited
-	var message = "🧭 Portal Compass Activated!\n\n"
+	# Load and create the modal
+	var PortalCompassModal = load("res://blocky_game/gui/PortalCompassModal.gd")
+	var modal = PortalCompassModal.new()
 
-	if visited_ruins.size() == 0:
-		message += "No ruins visited yet.\nExplore more to unlock destinations!"
-	else:
-		message += "Visited Ruins (" + str(visited_ruins.size()) + "):\n\n"
-		for ruin in visited_ruins:
-			var portal_types = []
-			for stone in ruin.teleport_stones:
-				match stone.stone_type:
-					RuinRegistry.StoneType.NORMAL:
-						portal_types.append("🔵")
-					RuinRegistry.StoneType.RETURN:
-						portal_types.append("💚")
-					RuinRegistry.StoneType.HOME:
-						portal_types.append("🟣")
-					RuinRegistry.StoneType.COMBAT:
-						portal_types.append("🔴")
-			message += "• " + ruin.ruin_name + " " + " ".join(portal_types) + "\n"
+	# Set emergency mode if applicable
+	if is_emergency:
+		modal.set_meta("is_emergency", true)
 
-		message += "\n📍 Navigation UI coming in Phase 4!"
+	# Connect signals - pass emergency mode info
+	modal.destination_selected.connect(func(ruin_data):
+		_on_compass_destination_selected(ruin_data, is_emergency)
+	)
+	modal.modal_closed.connect(func():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		# Re-enable character input
+		if player_controller.has_method("set_input_enabled"):
+			player_controller.set_input_enabled(true)
+	)
 
-	var dialog = AcceptDialog.new()
-	dialog.title = "Portal Compass"
-	dialog.dialog_text = message
-	dialog.ok_button_text = "Close"
+	# Add to scene tree and show
+	get_tree().root.add_child(modal)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
+
+func _on_compass_destination_selected(ruin_data: RuinRegistry.RuinData, is_emergency: bool = false) -> void:
+	"""Called when player selects a destination in the Portal Compass modal"""
+	print("Player wants to travel to: ", ruin_data.ruin_name)
+
+	# Restore mouse capture
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+	# Get player controller reference for input re-enabling
+	var player_controller = get_parent()
+
+	# Show confirmation dialog with different messaging for emergency mode
+	var dialog = ConfirmationDialog.new()
+	var cost = 3 if is_emergency else 1
+	var mode_text = "🚨 Emergency Teleport" if is_emergency else "Portal Compass Travel"
+
+	dialog.title = mode_text
+	dialog.dialog_text = "Travel to " + ruin_data.ruin_name + "?\n\nThis will consume " + str(cost) + " Portal Compass" + ("es" if cost > 1 else "") + "."
+	dialog.ok_button_text = "Yes, Travel"
+	dialog.cancel_button_text = "Cancel"
+
+	# Connect confirmation
 	dialog.confirmed.connect(func():
+		_execute_compass_teleport(ruin_data, cost)
 		dialog.queue_free()
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		# Re-enable character input
+		if player_controller.has_method("set_input_enabled"):
+			player_controller.set_input_enabled(true)
+	)
+	dialog.canceled.connect(func():
+		dialog.queue_free()
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		# Re-enable character input on cancel
+		if player_controller.has_method("set_input_enabled"):
+			player_controller.set_input_enabled(true)
 	)
 	dialog.close_requested.connect(func():
 		dialog.queue_free()
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		# Re-enable character input on close
+		if player_controller.has_method("set_input_enabled"):
+			player_controller.set_input_enabled(true)
 	)
 
+	# Show confirmation
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _execute_compass_teleport(ruin_data: RuinRegistry.RuinData, cost: int = 1) -> void:
+	"""Teleport player to selected ruin using Portal Compass"""
+	print("Executing compass teleport to: ", ruin_data.ruin_name, " (cost: ", cost, ")")
+
+	# Check if player still has Portal Compass
+	var inv_item = _hotbar.get_selected_item()
+	if inv_item == null or inv_item.type != InventoryItem.TYPE_ITEM or inv_item.id != 7:
+		print("Error: Portal Compass no longer equipped!")
+		_show_chest_message("Portal Compass is not equipped!")
+		return
+
+	# Check if player has enough compasses
+	if inv_item.count < cost:
+		print("Error: Not enough Portal Compass charges! Need ", cost, ", have ", inv_item.count)
+		_show_chest_message("Not enough Portal Compass charges!")
+		return
+
+	# Decrement compass count by cost (1 for normal, 3 for emergency)
+	inv_item.count -= cost
+	if inv_item.count <= 0:
+		# Remove item from inventory if count reaches 0
+		var slot_index = _hotbar.get_selected_slot_index()
+		_inventory._slots[slot_index] = null
+		print("Portal Compass consumed (no charges remaining)")
+	else:
+		print("Portal Compass used - ", cost, " consumed (", inv_item.count, " remaining)")
+
+	_inventory._update_views()
+
+	# Get player controller
+	var player_controller = get_parent()
+
+	# Disable gravity before teleporting
+	if player_controller.has_method("disable_gravity"):
+		player_controller.disable_gravity()
+
+	# Calculate teleport destination (first teleport stone in the ruin)
+	var destination = ruin_data.position
+	if ruin_data.teleport_stones.size() > 0:
+		destination = ruin_data.position + Vector3(ruin_data.teleport_stones[0].local_pos)
+
+	# Add slight offset so player lands on top of the teleport stone
+	destination += Vector3(0.5, 1.5, 0.5)
+
+	# Teleport player
+	player_controller.global_position = destination
+	print("Player teleported to ", ruin_data.ruin_name, " at ", destination)
+
+	# Mark ruin as visited again (increment visit count)
+	var current_time = 0
+	var time_manager = get_node_or_null("/root/TimeManager")
+	if time_manager and time_manager.has_method("get_total_hours"):
+		current_time = time_manager.get_total_hours()
+	RuinRegistry.mark_ruin_visited(ruin_data, current_time)
+
+	# Re-enable gravity after a short delay
+	await get_tree().create_timer(0.5).timeout
+	if player_controller.has_method("enable_gravity"):
+		player_controller.enable_gravity()
+
+	print("Compass teleport complete!")
 
 
 func _show_teleport_confirmation_dialog() -> void:

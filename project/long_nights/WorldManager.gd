@@ -69,26 +69,40 @@ func is_halloween_world() -> bool:
 
 # Load world.config from disk
 func load_world() -> bool:
+	print("========================================")
+	print("WORLDMANAGER: load_world() called")
+
 	if not world_exists():
-		print("WorldManager: No world.config found")
+		print("WORLDMANAGER: No world.config found")
+		print("========================================")
 		return false
 
+	print("WORLDMANAGER: Opening world.config for reading: ", WORLD_CONFIG)
 	var file = FileAccess.open(WORLD_CONFIG, FileAccess.READ)
 	if file == null:
-		push_error("WorldManager: Failed to open world.config for reading")
+		var error = FileAccess.get_open_error()
+		push_error("WorldManager: Failed to open world.config for reading (error %d)" % error)
+		print("========================================")
 		return false
 
 	var json_string = file.get_as_text()
 	file.close()
+	print("WORLDMANAGER: Read JSON string (%d characters)" % json_string.length())
 
+	print("WORLDMANAGER: Parsing JSON...")
 	var json = JSON.new()
 	var error = json.parse(json_string)
 	if error != OK:
-		push_error("WorldManager: Failed to parse world.config JSON")
+		push_error("WorldManager: Failed to parse world.config JSON (error %d)" % error)
+		print("========================================")
 		return false
 
 	var data = json.data
+	print("WORLDMANAGER: JSON parsed successfully, data type: ", typeof(data))
+
 	if typeof(data) == TYPE_DICTIONARY:
+		print("WORLDMANAGER: JSON data keys: ", data.keys())
+
 		# Load data, keeping defaults for missing keys
 		if "seed" in data:
 			_world_data["seed"] = data["seed"]
@@ -110,39 +124,144 @@ func load_world() -> bool:
 		if "is_halloween" in data:
 			_world_data["is_halloween"] = data["is_halloween"]
 
-		print("WorldManager: World loaded - Seed: ", _world_data["seed"])
+		# Load inventory data
+		if "inventory" in data:
+			print("WORLDMANAGER: Found 'inventory' key in loaded JSON!")
+			print("WORLDMANAGER: Inventory data type: ", typeof(data["inventory"]))
+			_world_data["inventory"] = data["inventory"]
+			if typeof(data["inventory"]) == TYPE_DICTIONARY and data["inventory"].has("slots"):
+				print("WORLDMANAGER: Inventory has %d slots in loaded data" % data["inventory"]["slots"].size())
+		else:
+			print("WORLDMANAGER: No 'inventory' key found in loaded JSON")
+
+		print("WORLDMANAGER: World loaded - Seed: ", _world_data["seed"])
 		if _world_data["is_halloween"]:
 			print("🎃 This is a HALLOWEEN world! 👻")
+		print("WORLDMANAGER: load_world() SUCCESS!")
+		print("========================================")
 		return true
 
 	push_error("WorldManager: world.config is not a valid dictionary")
+	print("========================================")
 	return false
+
+
+func load_inventory_if_exists() -> bool:
+	"""Load inventory from save data if it exists. Returns true if inventory was loaded."""
+	print("========================================")
+	print("WORLDMANAGER: load_inventory_if_exists() called")
+	print("WORLDMANAGER: Checking if _world_data has 'inventory' key...")
+	print("WORLDMANAGER: _world_data keys: ", _world_data.keys())
+
+	if not _world_data.has("inventory"):
+		print("WORLDMANAGER: No 'inventory' key in _world_data - no saved inventory")
+		print("========================================")
+		return false
+
+	print("WORLDMANAGER: Found 'inventory' in _world_data!")
+	print("WORLDMANAGER: Inventory data type: ", typeof(_world_data["inventory"]))
+	if typeof(_world_data["inventory"]) == TYPE_DICTIONARY:
+		print("WORLDMANAGER: Inventory dictionary keys: ", _world_data["inventory"].keys())
+
+	print("WORLDMANAGER: Searching for player's inventory node...")
+
+	# Find the player node (added to 'player' group in blocky_game.gd)
+	var inventory = null
+	var player_nodes = get_tree().get_nodes_in_group("player")
+	if player_nodes.size() > 0:
+		var player = player_nodes[0]
+		print("WORLDMANAGER: Found player node: ", player.get_path())
+		inventory = player.get_node_or_null("Inventory")
+		if inventory:
+			print("WORLDMANAGER: Found inventory at: ", inventory.get_path())
+	else:
+		print("WORLDMANAGER: No player found in 'player' group")
+
+	if inventory == null:
+		print("WORLDMANAGER: ERROR - Inventory node NOT FOUND!")
+		print("========================================")
+		return false
+
+	print("WORLDMANAGER: Inventory node found: ", inventory.name)
+
+	if not inventory.has_method("deserialize_inventory"):
+		print("WORLDMANAGER: ERROR - Inventory node has no deserialize_inventory method!")
+		print("========================================")
+		return false
+
+	print("WORLDMANAGER: Calling inventory.deserialize_inventory()...")
+	inventory.deserialize_inventory(_world_data["inventory"])
+	print("WORLDMANAGER: deserialize_inventory() completed")
+	print("WORLDMANAGER: Inventory load SUCCESS!")
+	print("========================================")
+	return true
 
 
 # Save world.config to disk
 func save_world() -> bool:
+	print("========================================")
+	print("WORLDMANAGER: save_world() called")
+
 	# Update last played timestamp
 	_world_data["last_played"] = Time.get_datetime_string_from_system()
+	print("WORLDMANAGER: Updated last_played timestamp")
+
+	# Save inventory data
+	print("WORLDMANAGER: Searching for player's inventory node...")
+
+	# Find the player node (added to 'player' group in blocky_game.gd)
+	var inventory = null
+	var player_nodes = get_tree().get_nodes_in_group("player")
+	if player_nodes.size() > 0:
+		var player = player_nodes[0]
+		print("WORLDMANAGER: Found player node: ", player.get_path())
+		inventory = player.get_node_or_null("Inventory")
+		if inventory:
+			print("WORLDMANAGER: Found inventory at: ", inventory.get_path())
+	else:
+		print("WORLDMANAGER: No player found in 'player' group")
+
+	if inventory == null:
+		print("WORLDMANAGER: WARNING - Inventory node NOT FOUND! Saving without inventory data.")
+	elif not inventory.has_method("serialize_inventory"):
+		print("WORLDMANAGER: WARNING - Inventory has no serialize_inventory method!")
+	else:
+		print("WORLDMANAGER: Inventory node found, calling serialize_inventory()...")
+		var inventory_data = inventory.serialize_inventory()
+		_world_data["inventory"] = inventory_data
+		print("WORLDMANAGER: Inventory data saved to _world_data")
+		print("WORLDMANAGER: Inventory data type: ", typeof(inventory_data))
+		if typeof(inventory_data) == TYPE_DICTIONARY and inventory_data.has("slots"):
+			print("WORLDMANAGER: Inventory has %d slots in save data" % inventory_data["slots"].size())
 
 	# Convert Vector3 to array for JSON
 	var save_data = _world_data.duplicate()
 	var pos = _world_data["player_position"]
 	save_data["player_position"] = [pos.x, pos.y, pos.z]
 
+	print("WORLDMANAGER: Converting to JSON...")
 	var json_string = JSON.stringify(save_data, "\t")
+	print("WORLDMANAGER: JSON string length: %d characters" % json_string.length())
 
 	# Ensure save directory exists
 	DirAccess.make_dir_absolute(SAVE_DIR)
+	print("WORLDMANAGER: Ensured save directory exists: ", SAVE_DIR)
 
+	print("WORLDMANAGER: Opening file for writing: ", WORLD_CONFIG)
 	var file = FileAccess.open(WORLD_CONFIG, FileAccess.WRITE)
 	if file == null:
-		push_error("WorldManager: Failed to open world.config for writing")
+		var error = FileAccess.get_open_error()
+		push_error("WorldManager: Failed to open world.config for writing (error %d)" % error)
+		print("========================================")
 		return false
 
+	print("WORLDMANAGER: Writing JSON to file...")
 	file.store_string(json_string)
 	file.close()
 
-	print("WorldManager: World saved")
+	print("WORLDMANAGER: File written and closed successfully")
+	print("WORLDMANAGER: World save COMPLETE!")
+	print("========================================")
 	return true
 
 
