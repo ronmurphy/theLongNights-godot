@@ -287,3 +287,66 @@ func _on_bloodmoon_ended():
 	is_bloodmoon = false
 	_update_spawn_interval()
 	print("✅ Blood moon ended - Spawn rate returns to normal (Tier %d still unlocked)" % max_unlocked_tier)
+
+
+## ============================================================================
+## COMBAT RUIN SPAWNING (Public API)
+## ============================================================================
+
+func spawn_enemies_at_combat_ruin(ruin_position: Vector3, enemy_count: int = 0):
+	"""Spawn 3-5 enemies at a combat ruin when player arrives
+
+	Args:
+	    ruin_position: Center position of the ruin
+	    enemy_count: Number of enemies to spawn (default: random 3-5)
+	"""
+	# Default to 3-5 enemies if not specified
+	if enemy_count == 0:
+		enemy_count = randi_range(3, 5)
+
+	print("⚔️ Combat Ruin! Spawning %d enemies..." % enemy_count)
+
+	# Spawn enemies around the ruin
+	for i in range(enemy_count):
+		# Get a spawn position around the ruin
+		var spawn_pos = _get_safe_spawn_position_at_ruin(ruin_position, i, enemy_count)
+
+		# Pick enemy from available tiers (tiers 1-3 for combat ruins)
+		var enemy_key = _pick_enemy_for_combat_ruin()
+		if enemy_key != "":
+			_spawn_enemy(enemy_key, spawn_pos)
+
+
+func _get_safe_spawn_position_at_ruin(ruin_center: Vector3, index: int, total: int) -> Vector3:
+	"""Get a safe spawn position around the ruin, distributed evenly"""
+	# Distribute enemies in a circle around the ruin
+	var angle = (TAU / float(total)) * float(index)
+	var distance = randf_range(10.0, 20.0)  # 10-20 blocks from ruin center
+
+	var offset = Vector3(
+		cos(angle) * distance,
+		5.0,  # Start above ruin floor
+		sin(angle) * distance
+	)
+
+	return ruin_center + offset
+
+
+func _pick_enemy_for_combat_ruin() -> String:
+	"""Pick an enemy for combat ruin (tiers 1-3 only, regardless of time)"""
+	# Combat ruins always use tiers 1-3 (capped by unlocked tiers)
+	var max_tier = min(3, max_unlocked_tier)
+
+	# Build pool of enemies from tiers 1-3
+	var available_enemies := []
+	for tier in range(1, max_tier + 1):
+		if tier in enemies_by_tier:
+			available_enemies.append_array(enemies_by_tier[tier])
+
+	# If no enemies available, return empty
+	if available_enemies.is_empty():
+		push_warning("EnemySpawner: No enemies available for combat ruin (tiers 1-%d)" % max_tier)
+		return ""
+
+	# Pick random enemy
+	return available_enemies[randi() % available_enemies.size()]

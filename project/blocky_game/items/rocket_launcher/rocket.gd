@@ -89,10 +89,10 @@ func receive_explode(pos: Vector3):
 
 func _create_explosion_vfx(explosion_pos: Vector3):
 	# VFX are not created as children of the rocket because it gets destroyed shortly after.
-	
+
 	var explosion = ExplosionScene.instantiate()
 	explosion.position = explosion_pos
-	explosion.stack_bonus = stack_bonus  # Pass stack bonus to explosion for damage
+	# Note: Damage is already handled in _explode() with stack bonus
 	get_parent().add_child(explosion)
 	
 	# Create debris (respecting graphics settings)

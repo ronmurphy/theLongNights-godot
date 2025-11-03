@@ -898,6 +898,9 @@ func _execute_compass_teleport(ruin_data: RuinRegistry.RuinData, cost: int = 1) 
 		current_time = time_manager.get_total_hours()
 	RuinRegistry.mark_ruin_visited(ruin_data, current_time)
 
+	# Spawn enemies if this is a combat ruin that hasn't been cleared
+	_spawn_combat_enemies_if_needed(ruin_data)
+
 	# Re-enable gravity after a short delay
 	await get_tree().create_timer(0.5).timeout
 	if player_controller.has_method("enable_gravity"):
@@ -1004,6 +1007,9 @@ func _execute_teleport() -> void:
 				current_time = time_manager.get_total_hours()
 
 			RuinRegistry.mark_ruin_visited(ruin_data, current_time)
+
+			# Spawn enemies if this is a combat ruin
+			_spawn_combat_enemies_if_needed(ruin_data)
 
 		# Re-enable gravity (blocks are guaranteed to exist now)
 		if player_controller.has_method("enable_gravity"):
@@ -1257,3 +1263,19 @@ func _show_chest_message(message: String) -> void:
 
 	# Release mouse for dialog interaction
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _spawn_combat_enemies_if_needed(ruin_data: RuinRegistry.RuinData) -> void:
+	"""Check if ruin is a combat ruin and spawn enemies if not cleared"""
+	# Only spawn if this is a combat ruin
+	if not ruin_data.has_enemies:
+		return
+
+	# Only spawn if enemies haven't been defeated yet
+	if ruin_data.enemies_defeated:
+		print("Combat ruin already cleared - no enemies spawned")
+		return
+
+	# Spawn enemies at ruin position (EnemySpawner is an autoload singleton)
+	print("⚔️ Combat ruin detected! Spawning enemies...")
+	EnemySpawner.spawn_enemies_at_combat_ruin(ruin_data.position, 0)
