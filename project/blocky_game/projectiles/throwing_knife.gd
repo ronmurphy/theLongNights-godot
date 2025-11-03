@@ -147,11 +147,11 @@ func _spawn_magic_trail():
 	particle.global_position = global_position
 
 	# Fade out
-	var tween = particle.create_tween()
+	var tween = get_tree().create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(particle, "scale", Vector3.ZERO, 0.3)
 	tween.tween_property(material, "albedo_color:a", 0.0, 0.3)
-	tween.chain().tween_callback(particle.queue_free)
+	tween.tween_callback(particle.queue_free)
 
 
 func _check_entity_collision():
@@ -159,6 +159,10 @@ func _check_entity_collision():
 	var entities = get_tree().get_nodes_in_group("entities")
 
 	for entity in entities:
+		# Safety check: make sure entity is still valid
+		if not is_instance_valid(entity):
+			continue
+			
 		if not entity.is_alive:
 			continue
 
@@ -208,11 +212,11 @@ func _spawn_impact_sparkles(pos: Vector3):
 		var direction = Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)).normalized()
 
 		# Animate sparkle
-		var tween = particle.create_tween()
+		var tween = get_tree().create_tween()
 		tween.set_parallel(true)
 		tween.tween_property(particle, "global_position", pos + direction * 1.5, 0.4)
 		tween.tween_property(particle, "scale", Vector3.ZERO, 0.4)
-		tween.chain().tween_callback(particle.queue_free)
+		tween.tween_callback(particle.queue_free)
 
 
 func _on_impact(hit_pos: Vector3):

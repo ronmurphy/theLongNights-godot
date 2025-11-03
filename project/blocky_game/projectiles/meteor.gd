@@ -59,7 +59,7 @@ func _ready():
 	mesh_node.add_child(aura)
 
 	# Animate the aura pulsing
-	var tween = aura.create_tween()
+	var tween = get_tree().create_tween()
 	tween.set_loops()
 	tween.tween_property(aura, "scale", Vector3(1.2, 1.2, 1.2), 0.3)
 	tween.tween_property(aura, "scale", Vector3(0.9, 0.9, 0.9), 0.3)
@@ -150,7 +150,7 @@ func _spawn_fire_particle():
 	particle.global_position = global_position
 
 	# Fade out and remove particle after a short time
-	var tween = particle.create_tween()
+	var tween = get_tree().create_tween()
 	tween.tween_property(particle, "scale", Vector3.ZERO, 0.5)
 	tween.tween_callback(particle.queue_free)
 
@@ -240,8 +240,8 @@ func _spawn_fire_explosion(pos: Vector3):
 		).normalized()
 
 		# Animate fire ball flying outward and fading
-		var tween = particle.create_tween()
+		var tween = get_tree().create_tween()
 		tween.set_parallel(true)
 		tween.tween_property(particle, "global_position", pos + direction * 4.0, 0.8)
 		tween.tween_property(particle, "scale", Vector3.ZERO, 0.8)
-		tween.chain().tween_callback(particle.queue_free)
+		tween.tween_callback(particle.queue_free)

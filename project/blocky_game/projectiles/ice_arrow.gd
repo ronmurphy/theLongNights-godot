@@ -132,6 +132,10 @@ func _check_entity_collision():
 	var entities = get_tree().get_nodes_in_group("entities")
 
 	for entity in entities:
+		# Safety check: make sure entity is still valid
+		if not is_instance_valid(entity):
+			continue
+			
 		if not entity.is_alive:
 			continue
 
@@ -228,11 +232,11 @@ func _spawn_ice_trail_particle():
 	particle.rotation = Vector3(randf() * TAU, randf() * TAU, randf() * TAU)
 
 	# Fade out particle
-	var tween = particle.create_tween()
+	var tween = get_tree().create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(particle, "scale", Vector3.ZERO, 0.4)
 	tween.tween_property(material, "albedo_color:a", 0.0, 0.4)
-	tween.chain().tween_callback(particle.queue_free)
+	tween.tween_callback(particle.queue_free)
 
 
 func _spawn_ice_explosion(pos: Vector3):
@@ -263,8 +267,8 @@ func _spawn_ice_explosion(pos: Vector3):
 		).normalized()
 
 		# Animate shard flying outward and fading
-		var tween = shard.create_tween()
+		var tween = get_tree().create_tween()
 		tween.set_parallel(true)
 		tween.tween_property(shard, "global_position", pos + direction * 3.0, 0.6)
 		tween.tween_property(shard, "scale", Vector3.ZERO, 0.6)
-		tween.chain().tween_callback(shard.queue_free)
+		tween.tween_callback(shard.queue_free)

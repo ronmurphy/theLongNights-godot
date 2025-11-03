@@ -29,6 +29,10 @@ var companion_ui: Control
 # Reference to player
 var player_node: Node3D
 
+# Track previous HP to detect damage vs healing
+var _prev_player_hp: int = 0
+var _prev_companion_hp: int = 0
+
 
 func _get_inventory():
 	"""Helper to find inventory in scene tree"""
@@ -306,6 +310,12 @@ func _on_player_hp_changed(current: int, maximum: int) -> void:
 
 	if hp_label:
 		hp_label.text = "%d/%d HP" % [current, maximum]
+	
+	# Flash red only when taking damage (HP decreased)
+	if _prev_player_hp > 0 and current < _prev_player_hp:
+		_flash_avatar_red(player_ui)
+	
+	_prev_player_hp = current
 
 
 func _update_player_weapon() -> void:
@@ -424,6 +434,12 @@ func update_companion_hp(current: int, maximum: int) -> void:
 
 	if hp_label:
 		hp_label.text = "%d/%d HP" % [current, maximum]
+	
+	# Flash red only when taking damage (HP decreased)
+	if _prev_companion_hp > 0 and current < _prev_companion_hp:
+		_flash_avatar_red(companion_ui)
+	
+	_prev_companion_hp = current
 
 
 func _process(_delta: float) -> void:
@@ -528,3 +544,29 @@ func _update_hunt_timer() -> void:
 		hunt_timer_label.text = ""
 	else:
 		hunt_timer_label.text = "Hunting: %d:%02d remaining" % [hours_remaining, minutes_remaining]
+
+
+## Flash avatar red when taking damage
+func _flash_avatar_red(member_ui: Control) -> void:
+	if not member_ui:
+		return
+	
+	var avatar_texture = member_ui.get_node_or_null("AvatarBG/AvatarTexture")
+	if not avatar_texture:
+		return
+	
+	# Kill any existing tweens on this node to prevent conflicts
+	var tweens = get_tree().get_processed_tweens()
+	for tween in tweens:
+		if tween.is_valid():
+			tween.kill()
+	
+	# Store original modulate color
+	var original_color = Color(1.0, 1.0, 1.0, 1.0)  # Default white
+	
+	# Flash red
+	avatar_texture.modulate = Color(1.5, 0.5, 0.5, 1.0)  # Bright red tint
+	
+	# Tween back to original color
+	var tween = create_tween()
+	tween.tween_property(avatar_texture, "modulate", original_color, 0.3)

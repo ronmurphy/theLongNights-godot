@@ -86,6 +86,10 @@ func _check_entity_collision():
 	var entities = get_tree().get_nodes_in_group("entities")
 
 	for entity in entities:
+		# Safety check: make sure entity is still valid
+		if not is_instance_valid(entity):
+			continue
+			
 		if not entity.is_alive:
 			continue
 

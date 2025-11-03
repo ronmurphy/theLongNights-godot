@@ -77,6 +77,12 @@ func take_damage(amount: int, from: Node = null) -> void:
 	if _health_bar:
 		_update_health_bar()
 
+	# Blood spray particle effect on damage
+	_spawn_blood_spray()
+	
+	# Flash red when taking damage
+	_flash_red()
+
 	# Check for death
 	if current_hp <= 0:
 		die()
@@ -123,10 +129,210 @@ func die() -> void:
 
 ## Override in subclasses for death effects
 func _on_death() -> void:
-	# Fade out sprite
-	if _sprite:
-		var tween = create_tween()
-		tween.tween_property(_sprite, "modulate:a", 0.0, 1.5)
+	# Choose death effect based on graphics quality
+	match GraphicsSettings.current_profile:
+		"low":
+			_death_effect_low()
+		"medium":
+			_death_effect_medium()
+		"high":
+			_death_effect_high()
+		_:
+			# Fallback to medium if unknown
+			_death_effect_medium()
+
+
+## Low quality death: Simple particle puff
+func _death_effect_low() -> void:
+	print("Death effect LOW quality triggered")
+	if not _sprite:
+		print("WARNING: No sprite found for death effect")
+		return
+	
+	# Create particle explosion
+	var particles = GPUParticles3D.new()
+	add_child(particles)
+	
+	# Position at sprite location
+	particles.global_position = _sprite.global_position
+	
+	# Configure particle material
+	var material = ParticleProcessMaterial.new()
+	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	material.emission_sphere_radius = 0.5
+	material.direction = Vector3(0, 1, 0)
+	material.spread = 45.0
+	material.initial_velocity_min = 2.0
+	material.initial_velocity_max = 4.0
+	material.gravity = Vector3(0, -5.0, 0)
+	material.scale_min = 0.1
+	material.scale_max = 0.3
+	material.color = _sprite.modulate  # Use entity's color
+	
+	particles.process_material = material
+	particles.amount = 20
+	particles.lifetime = 0.5
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	
+	# Create simple quad mesh for particles
+	var quad_mesh = QuadMesh.new()
+	quad_mesh.size = Vector2(0.2, 0.2)
+	particles.draw_pass_1 = quad_mesh
+	
+	# Hide sprite immediately
+	_sprite.visible = false
+	
+	# Emit particles
+	particles.emitting = true
+	
+	# Clean up particles after they're done
+	await get_tree().create_timer(particles.lifetime + 0.5).timeout
+	particles.queue_free()
+
+
+## Blood spray effect when entity takes damage
+func _spawn_blood_spray() -> void:
+	if not _sprite:
+		return
+	
+	# Create particle effect
+	var particles = GPUParticles3D.new()
+	add_child(particles)
+	
+	# Position at sprite location
+	particles.global_position = _sprite.global_position
+	
+	# Configure particle material for blood spray
+	var material = ParticleProcessMaterial.new()
+	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	material.emission_sphere_radius = 0.3
+	material.direction = Vector3(0, 0.5, 0)  # Slight upward spray
+	material.spread = 60.0  # Wide spread for spray effect
+	material.initial_velocity_min = 1.5
+	material.initial_velocity_max = 3.0
+	material.gravity = Vector3(0, -8.0, 0)  # Faster fall than death particles
+	material.scale_min = 0.05
+	material.scale_max = 0.15
+	
+	# Red color for blood (with slight variation)
+	material.color = Color(0.8, 0.1, 0.1, 1.0)
+	material.color_ramp = _create_blood_fade_gradient()
+	
+	particles.process_material = material
+	particles.amount = 15  # Less particles than death effect
+	particles.lifetime = 1.5  # Increased from 0.6 for better visibility
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	
+	# Create simple quad mesh for particles
+	var quad_mesh = QuadMesh.new()
+	quad_mesh.size = Vector2(0.15, 0.15)
+	particles.draw_pass_1 = quad_mesh
+	
+	# Emit particles
+	particles.emitting = true
+	
+	# Clean up particles after they're done
+	await get_tree().create_timer(particles.lifetime + 0.5).timeout
+	particles.queue_free()
+
+
+## Create gradient for blood particles to fade out
+func _create_blood_fade_gradient() -> GradientTexture1D:
+	var gradient = Gradient.new()
+	gradient.set_color(0, Color(1, 1, 1, 1))  # Start opaque
+	gradient.set_color(1, Color(1, 1, 1, 0))  # Fade to transparent
+	
+	var gradient_texture = GradientTexture1D.new()
+	gradient_texture.gradient = gradient
+	return gradient_texture
+
+
+## Flash the sprite red when taking damage
+func _flash_red() -> void:
+	if not _sprite:
+		return
+	
+	# Store original modulate color
+	var original_color = _sprite.modulate
+	
+	# Flash red
+	_sprite.modulate = Color(1.5, 0.5, 0.5, 1.0)  # Bright red tint
+	
+	# Tween back to original color
+	var tween = create_tween()
+	tween.tween_property(_sprite, "modulate", original_color, 0.3)
+
+
+## Medium quality death: Dissolve shader effect (same as high but faster)
+func _death_effect_medium() -> void:
+	print("Death effect MEDIUM quality triggered")
+	if not _sprite:
+		print("WARNING: No sprite found for death effect")
+		return
+	
+	# Load and apply dissolve shader (same as high quality)
+	var dissolve_shader = load("res://blocky_game/shaders/entity_dissolve.gdshader")
+	var shader_material = ShaderMaterial.new()
+	shader_material.shader = dissolve_shader
+	
+	# Copy the original texture to the shader
+	if _sprite.texture:
+		shader_material.set_shader_parameter("texture_albedo", _sprite.texture)
+	
+	# Set shader parameters (faster wave speed for medium)
+	shader_material.set_shader_parameter("dissolve_amount", 0.0)
+	shader_material.set_shader_parameter("wave_height", 0.15)
+	shader_material.set_shader_parameter("wave_speed", 5.0)  # Faster than high
+	shader_material.set_shader_parameter("grain_size", 8.0)
+	
+	# Apply shader to sprite
+	_sprite.material_override = shader_material
+	
+	# Animate dissolve (faster than high quality)
+	var tween = create_tween()
+	tween.tween_method(
+		func(value): shader_material.set_shader_parameter("dissolve_amount", value),
+		0.0,
+		1.0,
+		0.8  # Faster than high (1.5s)
+	)
+
+
+## High quality death: Dissolve shader effect
+func _death_effect_high() -> void:
+	print("Death effect HIGH quality triggered")
+	if not _sprite:
+		print("WARNING: No sprite found for death effect")
+		return
+	
+	# Load and apply dissolve shader
+	var dissolve_shader = load("res://blocky_game/shaders/entity_dissolve.gdshader")
+	var shader_material = ShaderMaterial.new()
+	shader_material.shader = dissolve_shader
+	
+	# Copy the original texture to the shader
+	if _sprite.texture:
+		shader_material.set_shader_parameter("texture_albedo", _sprite.texture)
+	
+	# Set shader parameters
+	shader_material.set_shader_parameter("dissolve_amount", 0.0)
+	shader_material.set_shader_parameter("wave_height", 0.15)
+	shader_material.set_shader_parameter("wave_speed", 3.0)
+	shader_material.set_shader_parameter("grain_size", 8.0)
+	
+	# Apply shader to sprite
+	_sprite.material_override = shader_material
+	
+	# Animate dissolve
+	var tween = create_tween()
+	tween.tween_method(
+		func(value): shader_material.set_shader_parameter("dissolve_amount", value),
+		0.0,
+		1.0,
+		1.5
+	)
 
 
 ## Create a billboard sprite for this entity
