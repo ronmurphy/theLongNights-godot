@@ -7,8 +7,10 @@ extends GroundEntity
 @export var attack_range := 1.5
 @export var attack_cooldown := 1.5  # Slower attacks
 
-var _target_player: Node3D = null
+var _current_target: Node = null
 var _attack_timer := 0.0
+var _retarget_timer := 0.0
+const RETARGET_INTERVAL := 2.0  # Re-evaluate target every 2 seconds
 
 
 func _ready():
@@ -33,26 +35,57 @@ func _ready():
 	_sprite = _create_sprite("res://assets/art/entities/troglodyte_ready_pose_enhanced.png", 0.0025)
 	_create_health_bar()
 	set_collision_box(Vector3(0.6, 0.9, 0.6))  # Bigger
-	_find_player()
+	_find_best_target()
 
 
-func _find_player():
-	_target_player = get_tree().get_first_node_in_group("player")
+func _find_best_target():
+	"""Find the closest valid target (player OR companion)"""
+	var possible_targets = []
+
+	# Add player to potential targets
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.get("is_alive") == true:
+		possible_targets.append(player)
+
+	# Add ALL companions to potential targets
+	var companions = get_tree().get_nodes_in_group("friendly_entities")
+	for companion in companions:
+		if companion.get("is_alive") == true:
+			possible_targets.append(companion)
+
+	# Pick closest target
+	var closest = null
+	var closest_dist = INF
+	for target in possible_targets:
+		var dist = global_position.distance_to(target.global_position)
+		if dist < closest_dist:
+			closest = target
+			closest_dist = dist
+
+	_current_target = closest
 
 
 func _process(delta: float):
 	if not is_alive:
 		return
 
-	if _target_player == null:
-		_find_player()
-		return
+	# Re-evaluate target periodically
+	_retarget_timer -= delta
+	if _retarget_timer <= 0:
+		_find_best_target()
+		_retarget_timer = RETARGET_INTERVAL
+
+	# If no target or target is dead, find a new one
+	if _current_target == null or not is_instance_valid(_current_target) or _current_target.get("is_alive") != true:
+		_find_best_target()
+		if _current_target == null:
+			return
 
 	if _attack_timer > 0:
 		_attack_timer -= delta
 
-	var player_pos = _target_player.global_position
-	var distance = player_pos.distance_to(global_position)
+	var target_pos = _current_target.global_position
+	var distance = target_pos.distance_to(global_position)
 
 	var movement_input = Vector3.ZERO
 
@@ -60,7 +93,7 @@ func _process(delta: float):
 		pass  # Too far
 	elif distance > attack_range:
 		# Chase (slowly)
-		var direction = (player_pos - global_position).normalized()
+		var direction = (target_pos - global_position).normalized()
 		direction.y = 0
 		movement_input = direction * movement_speed
 	else:
@@ -73,14 +106,15 @@ func _process(delta: float):
 
 
 func _perform_attack():
-	if _target_player == null:
+	if _current_target == null:
 		return
 
-	print("%s attacks for %d damage!" % [entity_name, attack_damage])
+	var target_name = _current_target.get("entity_name") if _current_target.has_method("get") else "target"
+	print("%s attacks %s for %d damage!" % [entity_name, target_name, attack_damage])
 
-	# Actually damage the player
-	if _target_player.has_method("take_damage"):
-		_target_player.take_damage(attack_damage, self)
+	# Actually damage the target (player OR companion)
+	if _current_target.has_method("take_damage"):
+		_current_target.take_damage(attack_damage, self)
 
 	# Swap to attack sprite
 	if _sprite:

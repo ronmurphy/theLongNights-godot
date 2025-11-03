@@ -28,6 +28,7 @@ class RuinData:
 	var position: Vector3                      # World position where ruin spawned
 	var ruin_type: String                      # Template name (e.g., "coliseum")
 	var ruin_name: String                      # Generated unique name (e.g., "The Grand Coliseum")
+	var ruin_size: Vector3i                    # Bounding box dimensions (x, y, z)
 	var teleport_stones: Array[TeleportStone]  # Array of teleport stones in this ruin
 	var has_enemies: bool = false              # True for combat ruins
 	var enemies_defeated: bool = false         # Track if combat cleared
@@ -35,10 +36,11 @@ class RuinData:
 	var visit_count: int = 0                   # How many times visited
 	var last_visited: int = 0                  # Game time timestamp (hours since start)
 
-	func _init(pos: Vector3, type: String, name: String):
+	func _init(pos: Vector3, type: String, name: String, size: Vector3i = Vector3i(10, 10, 10)):
 		position = pos
 		ruin_type = type
 		ruin_name = name
+		ruin_size = size
 
 # Registry storage
 var _ruins: Array[RuinData] = []
@@ -93,7 +95,7 @@ func _ready():
 	print("RuinRegistry initialized")
 
 
-func register_ruin(world_position: Vector3, ruin_type: String, teleport_positions: Array) -> RuinData:
+func register_ruin(world_position: Vector3, ruin_type: String, teleport_positions: Array, ruin_size: Vector3i = Vector3i(10, 10, 10)) -> RuinData:
 	"""
 	Register a newly spawned ruin with the registry
 	Returns the RuinData object for the registered ruin
@@ -101,8 +103,8 @@ func register_ruin(world_position: Vector3, ruin_type: String, teleport_position
 	# Generate unique name
 	var ruin_name = _generate_unique_name(ruin_type)
 
-	# Create ruin data
-	var ruin_data = RuinData.new(world_position, ruin_type, ruin_name)
+	# Create ruin data with size
+	var ruin_data = RuinData.new(world_position, ruin_type, ruin_name, ruin_size)
 
 	# Assign portal types and create teleport stones
 	for teleport_pos in teleport_positions:

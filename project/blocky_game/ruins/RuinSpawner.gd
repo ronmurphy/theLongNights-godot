@@ -95,14 +95,17 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 	# Clean up temporary VoxelViewer
 	temp_viewer.queue_free()
 
-	# Register this ruin with the RuinRegistry
-	var ruin_data = RuinRegistry.register_ruin(world_position, template.name, template.teleport_stone_positions)
+	# Register this ruin with the RuinRegistry (including size for enemy scaling)
+	var ruin_data = RuinRegistry.register_ruin(world_position, template.name, template.teleport_stone_positions, template.size)
 
 	# Add glowing lights at all teleport stone positions with correct colors
 	for i in range(ruin_data.teleport_stones.size()):
 		var stone = ruin_data.teleport_stones[i]
 		var stone_world_pos = world_position + Vector3(stone.local_pos)
 		_add_teleport_stone_light(stone_world_pos, stone.glow_color)
+
+	# Add magical sphere around the ruin (color-coded by type)
+	_add_ruin_sphere(world_position, ruin_data, template.size)
 
 	print("Placed ", blocks_placed, " blocks for ruin '", template.name, "' (", ruin_data.ruin_name, ") with ", template.teleport_stone_positions.size(), " teleport stone(s)")
 	return world_position
@@ -193,3 +196,83 @@ func _add_teleport_stone_light(position: Vector3, color: Color = Color(0.4, 0.7,
 	_terrain.add_child(light)
 
 	print("Added teleport stone light at: ", position, " with color: ", color)
+
+
+func _add_ruin_sphere(ruin_position: Vector3, ruin_data: RuinRegistry.RuinData, ruin_size: Vector3i) -> void:
+	"""
+	Add a magical colored sphere around the ruin for visual atmosphere
+	- Combat ruins: Dark red, more opaque (ominous)
+	- Normal ruins: Portal stone color, subtle and transparent
+	- Sphere is properly sized and centered based on ruin dimensions
+	"""
+	var sphere_mesh_instance = MeshInstance3D.new()
+	sphere_mesh_instance.name = "RuinSphere"
+
+	# Calculate proper sphere radius from ruin size
+	# Use the largest horizontal dimension (x or z) and add padding
+	var horizontal_size = max(ruin_size.x, ruin_size.z)
+	var vertical_size = ruin_size.y
+
+	# Radius should encompass the entire ruin with some padding
+	# Use diagonal distance from center to corner, plus 5 blocks padding
+	var radius = sqrt(pow(horizontal_size / 2.0, 2) + pow(horizontal_size / 2.0, 2)) + 5.0
+
+	# Make sure sphere is tall enough vertically too
+	var vertical_radius = (vertical_size / 2.0) + 5.0
+	if vertical_radius > radius:
+		radius = vertical_radius
+
+	# Create sphere mesh with calculated size
+	var sphere_mesh = SphereMesh.new()
+	sphere_mesh.radius = radius
+	sphere_mesh.height = radius * 2.0  # Diameter
+	sphere_mesh.radial_segments = 32  # Smooth sphere
+	sphere_mesh.rings = 16
+	sphere_mesh_instance.mesh = sphere_mesh
+
+	# Create material
+	var material = StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED  # No lighting affects it
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED  # Visible from inside and outside
+	material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED  # Don't block other objects
+
+	# Determine color and opacity based on ruin type
+	var sphere_color: Color
+	var opacity: float
+
+	if ruin_data.has_enemies:
+		# Combat ruin - very dark red, ominous and threatening
+		sphere_color = Color(0.3, 0.0, 0.0)  # Much darker red
+		opacity = 0.45  # 45% opacity - more visible and foreboding
+	else:
+		# Normal ruin - use portal stone color but darkened, subtle
+		if ruin_data.teleport_stones.size() > 0:
+			var stone_color = ruin_data.teleport_stones[0].glow_color
+			# Darken the stone color significantly
+			sphere_color = stone_color.darkened(0.6)  # 60% darker
+			opacity = 0.15  # 15% opacity - slightly more visible
+		else:
+			# Fallback to dark blue
+			sphere_color = Color(0.2, 0.3, 0.5)  # Darker blue
+			opacity = 0.15
+
+	material.albedo_color = Color(sphere_color.r, sphere_color.g, sphere_color.b, opacity)
+
+	# Optional: Add slight emission for magical glow effect
+	if ruin_data.has_enemies:
+		material.emission_enabled = true
+		material.emission = Color(0.5, 0.0, 0.0)  # Faint red glow
+		material.emission_energy_multiplier = 0.3
+
+	sphere_mesh_instance.material_override = material
+
+	# Position sphere at TRUE CENTER of ruin (using actual size)
+	var center_offset = Vector3(ruin_size) / 2.0
+	sphere_mesh_instance.position = ruin_position + center_offset
+
+	# Add to terrain node (part of the world)
+	_terrain.add_child(sphere_mesh_instance)
+
+	var sphere_type = "COMBAT (red)" if ruin_data.has_enemies else "normal (" + str(sphere_color) + ")"
+	print("Added ", sphere_type, " sphere (radius: %.1f) around %dx%dx%d ruin at: %s" % [radius, ruin_size.x, ruin_size.y, ruin_size.z, ruin_position])

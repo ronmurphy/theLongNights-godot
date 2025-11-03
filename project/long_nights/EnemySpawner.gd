@@ -293,35 +293,91 @@ func _on_bloodmoon_ended():
 ## COMBAT RUIN SPAWNING (Public API)
 ## ============================================================================
 
-func spawn_enemies_at_combat_ruin(ruin_position: Vector3, enemy_count: int = 0):
-	"""Spawn 3-5 enemies at a combat ruin when player arrives
+func spawn_enemies_at_combat_ruin(ruin_position: Vector3, ruin_size: Vector3i):
+	"""Spawn enemies at a combat ruin - scaled by ruin size with tiered distribution
 
 	Args:
-	    ruin_position: Center position of the ruin
-	    enemy_count: Number of enemies to spawn (default: random 3-5)
+	    ruin_position: Base position of the ruin
+	    ruin_size: Dimensions of the ruin (x, y, z)
+
+	Scaling:
+	    - Small ruins (100 sq blocks): 3-5 enemies (mostly tier 1)
+	    - Medium ruins (400 sq blocks): 8-12 enemies (tier 1-2, maybe 1 tier 3)
+	    - Large ruins (900+ sq blocks): 15-25 enemies (fortress layout with tiered defense)
+
+	Distribution:
+	    - Tier 3: Center/tower areas (1 per 400 sq blocks)
+	    - Tier 2: Mid-range positions (1 per 150 sq blocks)
+	    - Tier 1: Perimeter/outer defenses (fill remaining count)
 	"""
-	# Default to 3-5 enemies if not specified
-	if enemy_count == 0:
-		enemy_count = randi_range(3, 5)
+	# Calculate ruin area (horizontal footprint)
+	var area = ruin_size.x * ruin_size.z
 
-	print("⚔️ Combat Ruin! Spawning %d enemies..." % enemy_count)
+	# Calculate enemy count based on area
+	# Base: 3-5 for ~100 sq blocks, scale up from there
+	var base_count = 4  # Average starting point
+	var area_multiplier = area / 100.0
+	var total_count = int(base_count + (area_multiplier * 1.5))  # +1.5 enemies per 100 sq blocks
+	total_count = clamp(total_count, 3, 30)  # Min 3, max 30 enemies
 
-	# Spawn enemies around the ruin
-	for i in range(enemy_count):
-		# Get a spawn position around the ruin
-		var spawn_pos = _get_safe_spawn_position_at_ruin(ruin_position, i, enemy_count)
+	# Calculate tier distribution based on area
+	var tier3_count = int(area / 400.0)  # 1 tier 3 per 400 sq blocks
+	var tier2_count = int(area / 150.0)  # 1 tier 2 per 150 sq blocks
+	var tier1_count = total_count - tier3_count - tier2_count
 
-		# Pick enemy from available tiers (tiers 1-3 for combat ruins)
-		var enemy_key = _pick_enemy_for_combat_ruin()
+	# Make sure we don't exceed total and have at least some tier 1s
+	tier3_count = min(tier3_count, int(total_count * 0.2))  # Max 20% tier 3
+	tier2_count = min(tier2_count, int(total_count * 0.4))  # Max 40% tier 2
+	tier1_count = total_count - tier3_count - tier2_count  # Rest are tier 1
+
+	# Cap tiers by what's unlocked
+	var max_available_tier = min(3, max_unlocked_tier)
+	if max_available_tier < 3:
+		tier1_count += tier3_count
+		tier3_count = 0
+	if max_available_tier < 2:
+		tier1_count += tier2_count
+		tier2_count = 0
+
+	print("⚔️ Combat Ruin! Size: %dx%d (%d sq blocks) - Spawning %d enemies (T3:%d, T2:%d, T1:%d)" %
+		[ruin_size.x, ruin_size.z, area, total_count, tier3_count, tier2_count, tier1_count])
+
+	# Calculate ruin center for positioning
+	var ruin_center = ruin_position + Vector3(ruin_size) / 2.0
+	var horizontal_radius = max(ruin_size.x, ruin_size.z) / 2.0
+
+	var spawn_index = 0
+
+	# Spawn Tier 3 enemies (center/tower - innermost positions)
+	for i in range(tier3_count):
+		var spawn_pos = _get_tiered_spawn_position(ruin_center, horizontal_radius, spawn_index, total_count, 0.3)
+		var enemy_key = _pick_enemy_by_tier(3)
 		if enemy_key != "":
 			_spawn_enemy(enemy_key, spawn_pos)
+		spawn_index += 1
+
+	# Spawn Tier 2 enemies (mid-range positions)
+	for i in range(tier2_count):
+		var spawn_pos = _get_tiered_spawn_position(ruin_center, horizontal_radius, spawn_index, total_count, 0.6)
+		var enemy_key = _pick_enemy_by_tier(2)
+		if enemy_key != "":
+			_spawn_enemy(enemy_key, spawn_pos)
+		spawn_index += 1
+
+	# Spawn Tier 1 enemies (perimeter - outermost positions)
+	for i in range(tier1_count):
+		var spawn_pos = _get_tiered_spawn_position(ruin_center, horizontal_radius, spawn_index, total_count, 0.9)
+		var enemy_key = _pick_enemy_by_tier(1)
+		if enemy_key != "":
+			_spawn_enemy(enemy_key, spawn_pos)
+		spawn_index += 1
 
 
-func _get_safe_spawn_position_at_ruin(ruin_center: Vector3, index: int, total: int) -> Vector3:
-	"""Get a safe spawn position around the ruin, distributed evenly"""
-	# Distribute enemies in a circle around the ruin
-	var angle = (TAU / float(total)) * float(index)
-	var distance = randf_range(10.0, 20.0)  # 10-20 blocks from ruin center
+func _get_tiered_spawn_position(ruin_center: Vector3, ruin_radius: float, index: int, total: int, distance_factor: float) -> Vector3:
+	"""Get spawn position based on tier (distance_factor: 0.3=center, 0.6=mid, 0.9=perimeter)"""
+	# Distribute evenly around circle
+	var angle = (TAU / float(total)) * float(index) + randf_range(-0.3, 0.3)  # Add slight randomness
+	var distance = ruin_radius * distance_factor + randf_range(-3.0, 3.0)  # Slight variation
 
 	var offset = Vector3(
 		cos(angle) * distance,
@@ -332,21 +388,18 @@ func _get_safe_spawn_position_at_ruin(ruin_center: Vector3, index: int, total: i
 	return ruin_center + offset
 
 
-func _pick_enemy_for_combat_ruin() -> String:
-	"""Pick an enemy for combat ruin (tiers 1-3 only, regardless of time)"""
-	# Combat ruins always use tiers 1-3 (capped by unlocked tiers)
-	var max_tier = min(3, max_unlocked_tier)
+func _pick_enemy_by_tier(desired_tier: int) -> String:
+	"""Pick a random enemy from a specific tier"""
+	# Cap by unlocked tiers
+	var tier = min(desired_tier, max_unlocked_tier)
 
-	# Build pool of enemies from tiers 1-3
-	var available_enemies := []
-	for tier in range(1, max_tier + 1):
-		if tier in enemies_by_tier:
-			available_enemies.append_array(enemies_by_tier[tier])
+	# Get enemies from this tier
+	if not tier in enemies_by_tier or enemies_by_tier[tier].is_empty():
+		# Fall back to tier 1 if requested tier not available
+		if tier == 1:
+			push_warning("EnemySpawner: No tier 1 enemies available!")
+			return ""
+		return _pick_enemy_by_tier(1)
 
-	# If no enemies available, return empty
-	if available_enemies.is_empty():
-		push_warning("EnemySpawner: No enemies available for combat ruin (tiers 1-%d)" % max_tier)
-		return ""
-
-	# Pick random enemy
-	return available_enemies[randi() % available_enemies.size()]
+	var tier_enemies = enemies_by_tier[tier]
+	return tier_enemies[randi() % tier_enemies.size()]

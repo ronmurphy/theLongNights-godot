@@ -1276,6 +1276,6 @@ func _spawn_combat_enemies_if_needed(ruin_data: RuinRegistry.RuinData) -> void:
 		print("Combat ruin already cleared - no enemies spawned")
 		return
 
-	# Spawn enemies at ruin position (EnemySpawner is an autoload singleton)
-	print("⚔️ Combat ruin detected! Spawning enemies...")
-	EnemySpawner.spawn_enemies_at_combat_ruin(ruin_data.position, 0)
+	# Spawn enemies scaled to ruin size (EnemySpawner is an autoload singleton)
+	print("⚔️ Combat ruin detected! Spawning size-scaled enemies...")
+	EnemySpawner.spawn_enemies_at_combat_ruin(ruin_data.position, ruin_data.ruin_size)
