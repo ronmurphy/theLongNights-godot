@@ -34,6 +34,7 @@ func _build_ui() -> void:
 	# Main panel (bottom half of screen)
 	console_panel = Panel.new()
 	console_panel.name = "ConsolePanel"
+	console_panel.focus_mode = Control.FOCUS_NONE  # Don't steal focus
 	add_child(console_panel)
 
 	# Style panel
@@ -48,6 +49,7 @@ func _build_ui() -> void:
 	output_label.name = "OutputLabel"
 	output_label.bbcode_enabled = true
 	output_label.scroll_following = true
+	output_label.focus_mode = Control.FOCUS_NONE  # Don't steal focus on scroll
 	console_panel.add_child(output_label)
 
 	# Input field (command entry)

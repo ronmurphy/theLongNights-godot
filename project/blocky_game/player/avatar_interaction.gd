@@ -630,7 +630,7 @@ func _unhandled_input(event: InputEvent):
 	# Check if console or terrain mapper is open - if so, don't process game inputs
 	var console = get_node_or_null("/root/Main/Game/GameConsole")
 	var console_open = console != null and console.is_visible
-	
+
 	var terrain_mapper = get_node_or_null("/root/Main/Game/TerrainMapper")
 	var terrain_mapper_open = terrain_mapper != null and terrain_mapper.is_visible
 
