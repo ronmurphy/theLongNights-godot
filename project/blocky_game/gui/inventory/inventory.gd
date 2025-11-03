@@ -34,33 +34,23 @@ var _backed_up_player_weapon: InventoryItem = null  # Backup of survival mode pl
 
 
 func _ready():
-	print("========================================")
-	print("INVENTORY _ready(): Starting initialization...")
-
 	# Create equipment panels first
 	_create_equipment_panels()
 
 	_slots.resize(BAG_WIDTH * (BAG_HEIGHT + HOTBAR_HEIGHT))
 	assert(_bag_container.get_child_count() == BAG_WIDTH * BAG_HEIGHT)
 	assert(_hotbar_container.get_child_count() == BAG_WIDTH * HOTBAR_HEIGHT)
-	print("INVENTORY _ready(): Slots array resized to %d" % _slots.size())
 
 	# Initial contents - Survival mode loadout: machete + 10 torches
 	# ONLY apply this for NEW games, not when loading a saved game
-	print("INVENTORY _ready(): Checking WorldManager._world_data for saved inventory...")
-	print("INVENTORY _ready(): WorldManager._world_data keys: ", WorldManager._world_data.keys())
 	var has_saved_inventory = WorldManager._world_data.has("inventory")
-	print("INVENTORY _ready(): has_saved_inventory = %s" % has_saved_inventory)
-
 	if not has_saved_inventory:
-		print("INVENTORY _ready(): No saved inventory found - applying starting loadout")
 		var hotbar_begin_index := BAG_WIDTH * BAG_HEIGHT
 		_slots[hotbar_begin_index + 0] = _make_item(InventoryItem.TYPE_ITEM, 9)  # Machete in hotbar slot 0 (ID 9, shifted by portal_compass insertion)
 		_slots[hotbar_begin_index + 8] = _make_item_with_count(InventoryItem.TYPE_ITEM, 6, 10)  # 10x torches in last hotbar slot (slot 8)
-		print("INVENTORY _ready(): Starting loadout applied (machete + 10 torches)")
+		print("Inventory: Applied starting loadout (new game)")
 	else:
-		print("INVENTORY _ready(): Saved inventory exists - skipping starting loadout")
-		print("INVENTORY _ready(): Inventory will be loaded by WorldManager.load_inventory_if_exists() later")
+		print("Inventory: Skipping starting loadout (loading saved game)")
 
 	# Init views
 	var slot_idx := 0
@@ -889,9 +879,6 @@ func _on_hunt_return_close(modal_bg: ColorRect, modal_dialog: Control) -> void:
 
 func serialize_inventory() -> Dictionary:
 	"""Convert inventory to Dictionary for saving"""
-	print("========================================")
-	print("INVENTORY SERIALIZE: Starting serialization...")
-
 	var data = {
 		"slots": [],
 		"player_weapon": null,
@@ -899,9 +886,7 @@ func serialize_inventory() -> Dictionary:
 	}
 
 	# Serialize inventory slots
-	var non_empty_count = 0
-	for i in range(_slots.size()):
-		var item = _slots[i]
+	for item in _slots:
 		if item == null:
 			data["slots"].append(null)
 		else:
@@ -910,10 +895,6 @@ func serialize_inventory() -> Dictionary:
 				"id": item.id,
 				"count": item.count
 			})
-			non_empty_count += 1
-			print("  Slot %d: type=%d, id=%d, count=%d" % [i, item.type, item.id, item.count])
-
-	print("INVENTORY SERIALIZE: Total slots=%d, non-empty=%d" % [_slots.size(), non_empty_count])
 
 	# Serialize equipped weapons
 	if _player_weapon_slot != null:
@@ -922,9 +903,6 @@ func serialize_inventory() -> Dictionary:
 			"id": _player_weapon_slot.id,
 			"count": _player_weapon_slot.count
 		}
-		print("INVENTORY SERIALIZE: Player weapon: type=%d, id=%d" % [_player_weapon_slot.type, _player_weapon_slot.id])
-	else:
-		print("INVENTORY SERIALIZE: No player weapon equipped")
 
 	if _companion_weapon_slot != null:
 		data["companion_weapon"] = {
@@ -932,35 +910,21 @@ func serialize_inventory() -> Dictionary:
 			"id": _companion_weapon_slot.id,
 			"count": _companion_weapon_slot.count
 		}
-		print("INVENTORY SERIALIZE: Companion weapon: type=%d, id=%d" % [_companion_weapon_slot.type, _companion_weapon_slot.id])
-	else:
-		print("INVENTORY SERIALIZE: No companion weapon equipped")
 
-	print("INVENTORY SERIALIZE: Serialization complete!")
-	print("========================================")
 	return data
 
 
 func deserialize_inventory(data: Dictionary) -> void:
 	"""Load inventory from Dictionary"""
-	print("========================================")
-	print("INVENTORY DESERIALIZE: Starting deserialization...")
-	print("INVENTORY DESERIALIZE: Data keys: ", data.keys())
-
 	if not data.has("slots"):
-		print("ERROR: Inventory data has no 'slots' key!")
-		print("========================================")
+		push_warning("Inventory data has no 'slots' key")
 		return
-
-	print("INVENTORY DESERIALIZE: slots array size=%d" % data["slots"].size())
 
 	# Clear existing inventory
 	for i in range(_slots.size()):
 		_slots[i] = null
-	print("INVENTORY DESERIALIZE: Cleared all %d slots" % _slots.size())
 
 	# Load slots
-	var loaded_count = 0
 	for i in range(min(data["slots"].size(), _slots.size())):
 		var slot_data = data["slots"][i]
 		if slot_data != null:
@@ -969,10 +933,6 @@ func deserialize_inventory(data: Dictionary) -> void:
 			item.id = slot_data["id"]
 			item.count = slot_data.get("count", 1)
 			_slots[i] = item
-			loaded_count += 1
-			print("  Loaded slot %d: type=%d, id=%d, count=%d" % [i, item.type, item.id, item.count])
-
-	print("INVENTORY DESERIALIZE: Loaded %d non-empty slots" % loaded_count)
 
 	# Load equipped weapons
 	_player_weapon_slot = null
@@ -985,9 +945,6 @@ func deserialize_inventory(data: Dictionary) -> void:
 		weapon.id = weapon_data["id"]
 		weapon.count = weapon_data.get("count", 1)
 		_player_weapon_slot = weapon
-		print("INVENTORY DESERIALIZE: Loaded player weapon: type=%d, id=%d" % [weapon.type, weapon.id])
-	else:
-		print("INVENTORY DESERIALIZE: No player weapon to load")
 
 	if data.has("companion_weapon") and data["companion_weapon"] != null:
 		var weapon_data = data["companion_weapon"]
@@ -996,9 +953,6 @@ func deserialize_inventory(data: Dictionary) -> void:
 		weapon.id = weapon_data["id"]
 		weapon.count = weapon_data.get("count", 1)
 		_companion_weapon_slot = weapon
-		print("INVENTORY DESERIALIZE: Loaded companion weapon: type=%d, id=%d" % [weapon.type, weapon.id])
-	else:
-		print("INVENTORY DESERIALIZE: No companion weapon to load")
 
 	# Update views
 	_update_views()
@@ -1006,19 +960,10 @@ func deserialize_inventory(data: Dictionary) -> void:
 	# Update equipment slot views
 	if _player_weapon_slot_view:
 		_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
-		print("INVENTORY DESERIALIZE: Updated player weapon view")
-	else:
-		print("INVENTORY DESERIALIZE: WARNING - Player weapon view not found!")
-
 	if _companion_weapon_slot_view:
 		_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
-		print("INVENTORY DESERIALIZE: Updated companion weapon view")
-	else:
-		print("INVENTORY DESERIALIZE: WARNING - Companion weapon view not found!")
 
 	# Refresh hotbar display to show loaded items
 	_refresh_hotbar_display()
-	print("INVENTORY DESERIALIZE: Refreshed hotbar display")
 
-	print("INVENTORY DESERIALIZE: Deserialization complete!")
-	print("========================================")
+	print("Inventory loaded from save data")

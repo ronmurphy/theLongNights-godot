@@ -192,13 +192,8 @@ func _ready():
 		_add_companion_to_ui()
 
 		# Load saved inventory if it exists (after player/companion are spawned)
-		print("========================================")
-		print("BLOCKY_GAME: Waiting 0.1s before loading inventory...")
 		await get_tree().create_timer(0.1).timeout
-		print("BLOCKY_GAME: Calling WorldManager.load_inventory_if_exists()...")
-		var inventory_loaded = WorldManager.load_inventory_if_exists()
-		print("BLOCKY_GAME: load_inventory_if_exists() returned: ", inventory_loaded)
-		print("========================================")
+		WorldManager.load_inventory_if_exists()
 
 		# Now add seasonal texture system (after companion is loaded)
 		var seasonal_system = SeasonalTextureSystem.new()

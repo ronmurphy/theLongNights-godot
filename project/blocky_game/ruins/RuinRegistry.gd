@@ -239,3 +239,98 @@ func _get_glow_color_for_type(stone_type: StoneType, has_been_used: bool) -> Col
 			return Color(1.0, 0.2, 0.2)  # Red
 		_:
 			return Color(0.4, 0.7, 1.0)  # Default blue
+
+
+## ============================================================================
+## SAVE/LOAD SYSTEM
+## ============================================================================
+
+func serialize_registry() -> Dictionary:
+	"""Serialize all ruin data for saving to world.config"""
+	var data = {
+		"ruins": [],
+		"used_names": _used_names
+	}
+
+	# Serialize each ruin
+	for ruin in _ruins:
+		var ruin_dict = {
+			"position": [ruin.position.x, ruin.position.y, ruin.position.z],
+			"ruin_type": ruin.ruin_type,
+			"ruin_name": ruin.ruin_name,
+			"has_enemies": ruin.has_enemies,
+			"enemies_defeated": ruin.enemies_defeated,
+			"chests_looted": [],
+			"visit_count": ruin.visit_count,
+			"last_visited": ruin.last_visited,
+			"teleport_stones": []
+		}
+
+		# Serialize chests looted
+		for chest_pos in ruin.chests_looted:
+			ruin_dict["chests_looted"].append([chest_pos.x, chest_pos.y, chest_pos.z])
+
+		# Serialize teleport stones
+		for stone in ruin.teleport_stones:
+			ruin_dict["teleport_stones"].append({
+				"local_pos": [stone.local_pos.x, stone.local_pos.y, stone.local_pos.z],
+				"stone_type": stone.stone_type,
+				"glow_color": [stone.glow_color.r, stone.glow_color.g, stone.glow_color.b, stone.glow_color.a],
+				"has_been_used": stone.has_been_used
+			})
+
+		data["ruins"].append(ruin_dict)
+
+	print("RuinRegistry: Serialized ", _ruins.size(), " ruins")
+	return data
+
+
+func deserialize_registry(data: Dictionary) -> void:
+	"""Load ruin data from save file"""
+	if not data.has("ruins"):
+		print("RuinRegistry: No ruins data to load")
+		return
+
+	# Clear existing data
+	_ruins.clear()
+	_used_names.clear()
+
+	# Restore used names
+	if data.has("used_names"):
+		_used_names = data["used_names"]
+
+	# Deserialize each ruin
+	for ruin_dict in data["ruins"]:
+		# Create ruin data
+		var pos_array = ruin_dict["position"]
+		var position = Vector3(pos_array[0], pos_array[1], pos_array[2])
+		var ruin_data = RuinData.new(position, ruin_dict["ruin_type"], ruin_dict["ruin_name"])
+
+		# Restore properties
+		ruin_data.has_enemies = ruin_dict.get("has_enemies", false)
+		ruin_data.enemies_defeated = ruin_dict.get("enemies_defeated", false)
+		ruin_data.visit_count = ruin_dict.get("visit_count", 0)
+		ruin_data.last_visited = ruin_dict.get("last_visited", 0)
+
+		# Restore chests looted
+		if ruin_dict.has("chests_looted"):
+			for chest_array in ruin_dict["chests_looted"]:
+				ruin_data.chests_looted.append(Vector3i(chest_array[0], chest_array[1], chest_array[2]))
+
+		# Restore teleport stones
+		if ruin_dict.has("teleport_stones"):
+			for stone_dict in ruin_dict["teleport_stones"]:
+				var local_pos_array = stone_dict["local_pos"]
+				var local_pos = Vector3i(local_pos_array[0], local_pos_array[1], local_pos_array[2])
+
+				var color_array = stone_dict["glow_color"]
+				var glow_color = Color(color_array[0], color_array[1], color_array[2], color_array[3])
+
+				var stone = TeleportStone.new(local_pos, stone_dict["stone_type"], glow_color)
+				stone.has_been_used = stone_dict.get("has_been_used", false)
+
+				ruin_data.teleport_stones.append(stone)
+
+		_ruins.append(ruin_data)
+
+	print("RuinRegistry: Loaded ", _ruins.size(), " ruins from save data")
