@@ -10,7 +10,7 @@ class BaseInfo:
 var base_info := BaseInfo.new()
 
 
-func use(_trans: Transform3D):
+func use(_trans: Transform3D, _stack_count: int = 1):
 	pass
 
 

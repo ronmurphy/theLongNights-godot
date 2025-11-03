@@ -6,7 +6,8 @@ extends Node3D
 var target_position : Vector3
 var speed := 30.0
 var lifetime := 8.0
-var damage := 15
+var base_damage := 15
+var stack_bonus := 0
 
 var _time := 0.0
 var _velocity := Vector3()
@@ -36,12 +37,13 @@ func _ready():
 	_mesh = mesh_node
 
 
-func initialize(start_pos: Vector3, target_pos: Vector3, initial_dir: Vector3, owner_node: Node = null):
+func initialize(start_pos: Vector3, target_pos: Vector3, initial_dir: Vector3, owner_node: Node = null, stack_count: int = 1):
 	global_position = start_pos
 	target_position = target_pos
 	_initial_direction = initial_dir.normalized()
 	_velocity = _initial_direction * speed
 	_owner_node = owner_node
+	stack_bonus = stack_count
 
 
 func _physics_process(delta: float):
@@ -100,8 +102,9 @@ func _check_entity_collision():
 
 func _on_hit_entity(entity: Node):
 	# Deal damage to entity
-	entity.take_damage(damage, _owner_node)
-	print("Arrow hit %s for %d damage!" % [entity.entity_name, damage])
+	var total_damage = base_damage + stack_bonus
+	entity.take_damage(total_damage, _owner_node)
+	print("Arrow hit %s for %d damage! (base: %d + stack: %d)" % [entity.entity_name, total_damage, base_damage, stack_bonus])
 
 	# Spawn hit particles
 	_spawn_hit_particles(global_position)

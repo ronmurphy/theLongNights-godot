@@ -8,6 +8,8 @@ var lifetime := 10.0
 var zigzag_frequency := 8.0  # How fast it zigzags
 var zigzag_amplitude := 0.5  # How wide the zigzag is
 var homing_strength := 3.0  # How strongly it homes toward target
+var base_damage := 20  # Base ice arrow damage
+var stack_bonus := 0  # Bonus damage from stacked weapons
 
 var _time := 0.0
 var _velocity := Vector3()
@@ -58,11 +60,12 @@ func _ready():
 	mesh_node.add_child(aura)
 
 
-func initialize(start_pos: Vector3, target_pos: Vector3, initial_dir: Vector3):
+func initialize(start_pos: Vector3, target_pos: Vector3, initial_dir: Vector3, stack_count: int = 1):
 	global_position = start_pos
 	target_position = target_pos
 	_initial_direction = initial_dir.normalized()
 	_velocity = _initial_direction * speed
+	stack_bonus = stack_count  # Store stack bonus for damage calculation
 
 
 func _physics_process(delta: float):
@@ -145,9 +148,9 @@ func _check_entity_collision():
 
 func _on_hit_entity(entity: Node):
 	"""Hit an entity with ice damage"""
-	var damage = 20  # Ice arrow damage
-	entity.take_damage(damage, self)
-	print("Ice arrow hit %s for %d damage!" % [entity.entity_name, damage])
+	var total_damage = base_damage + stack_bonus
+	entity.take_damage(total_damage, self)
+	print("Ice arrow hit %s for %d damage! (base: %d + stack: %d)" % [entity.entity_name, total_damage, base_damage, stack_bonus])
 
 	# Create ice explosion at entity position
 	_spawn_ice_explosion(entity.global_position)

@@ -17,15 +17,15 @@ func get_mining_power() -> int:
 	return DAMAGE  # Good for mining stone/ore
 
 
-func use(trans: Transform3D):
+func use(trans: Transform3D, stack_count: int = 1):
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
-		rpc_id(SERVER_PEER_ID, &"receive_use", trans)
+		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		_use(trans)
+		_use(trans, stack_count)
 
 
-func _use(trans: Transform3D):
+func _use(trans: Transform3D, stack_count: int = 1):
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
@@ -46,10 +46,11 @@ func _use(trans: Transform3D):
 	_spawn_dust_particles(impact_pos)
 	_spawn_impact_shockwave(impact_pos)
 
-	# Damage and knockback entities in AOE
-	_damage_nearby_entities(impact_pos, AOE_RADIUS, DAMAGE, KNOCKBACK_FORCE)
+	# Damage and knockback entities in AOE with stack bonus
+	var total_damage = DAMAGE + stack_count
+	_damage_nearby_entities(impact_pos, AOE_RADIUS, total_damage, KNOCKBACK_FORCE)
 
-	print("Stone Hammer impact at: ", impact_pos)
+	print("Stone Hammer impact at: ", impact_pos, " | Stack bonus: +", stack_count, " damage")
 
 
 func _spawn_dust_particles(pos: Vector3):
@@ -160,5 +161,5 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func receive_use(trans: Transform3D):
-	_use(trans)
+func receive_use(trans: Transform3D, stack_count: int = 1):
+	_use(trans, stack_count)

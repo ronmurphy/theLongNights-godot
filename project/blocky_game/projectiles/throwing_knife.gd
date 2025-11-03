@@ -7,6 +7,8 @@ var speed := 20.0
 var circle_radius := 3.0  # How far from target to circle
 var circles_before_impact := 3  # Number of full circles before hitting
 var lifetime := 10.0
+var base_damage := 12
+var stack_bonus := 0
 
 var _angle := 0.0  # Current angle around target
 var _circles_completed := 0.0
@@ -53,9 +55,10 @@ func _ready():
 	mesh_node.add_child(aura)
 
 
-func initialize(start_pos: Vector3, target_pos: Vector3):
+func initialize(start_pos: Vector3, target_pos: Vector3, stack_count: int = 1):
 	global_position = start_pos
 	target_position = target_pos
+	stack_bonus = stack_count
 
 	# Start at a random angle
 	_angle = randf() * TAU
@@ -172,9 +175,9 @@ func _check_entity_collision():
 
 func _on_hit_entity(entity: Node):
 	"""Hit an entity with knife damage"""
-	var damage = 18  # Throwing knife damage
-	entity.take_damage(damage, self)
-	print("Throwing knife hit %s for %d damage!" % [entity.entity_name, damage])
+	var total_damage = base_damage + stack_bonus
+	entity.take_damage(total_damage, self)
+	print("Throwing knife hit %s for %d damage! (base: %d + stack: %d)" % [entity.entity_name, total_damage, base_damage, stack_bonus])
 
 	# Spawn impact sparkles
 	_spawn_impact_sparkles(entity.global_position)

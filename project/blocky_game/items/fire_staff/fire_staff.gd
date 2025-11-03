@@ -10,15 +10,15 @@ const MAX_TARGET_DISTANCE = 100.0
 const SKY_HEIGHT = 50.0  # How high above target the meteor spawns
 
 
-func use(trans: Transform3D):
+func use(trans: Transform3D, stack_count: int = 1):
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
-		rpc_id(SERVER_PEER_ID, &"receive_use", trans)
+		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		_use(trans)
+		_use(trans, stack_count)
 
 
-func _use(trans: Transform3D):
+func _use(trans: Transform3D, stack_count: int = 1):
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
@@ -37,10 +37,10 @@ func _use(trans: Transform3D):
 
 	# Spawn meteor high in the sky above the target
 	var sky_pos = Vector3(target_pos.x, target_pos.y + SKY_HEIGHT, target_pos.z)
-	_spawn_meteor(sky_pos, target_pos)
+	_spawn_meteor(sky_pos, target_pos, stack_count)
 
 
-func _spawn_meteor(sky_pos: Vector3, target_pos: Vector3):
+func _spawn_meteor(sky_pos: Vector3, target_pos: Vector3, stack_count: int):
 	var meteor = Node3D.new()
 	meteor.set_script(Meteor)
 
@@ -48,11 +48,11 @@ func _spawn_meteor(sky_pos: Vector3, target_pos: Vector3):
 	_projectiles_container.add_child(meteor)
 
 	# Initialize after adding to tree
-	meteor.initialize(sky_pos, target_pos)
+	meteor.initialize(sky_pos, target_pos, stack_count)
 
-	print("Fire staff: Meteor strike called down at ", target_pos)
+	print("Fire staff: Meteor strike called down at ", target_pos, " | Stack bonus: +", stack_count, " damage")
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func receive_use(trans: Transform3D):
-	_use(trans)
+func receive_use(trans: Transform3D, stack_count: int = 1):
+	_use(trans, stack_count)

@@ -11,15 +11,15 @@ const PULL_SPEED = 20.0
 const ROPE_COLOR = Color(0.6, 0.4, 0.2)  # Brown rope
 
 
-func use(trans: Transform3D):
+func use(trans: Transform3D, stack_count: int = 1):
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
-		rpc_id(SERVER_PEER_ID, &"receive_use", trans)
+		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		_use(trans)
+		_use(trans, stack_count)
 
 
-func _use(trans: Transform3D):
+func _use(trans: Transform3D, stack_count: int = 1):
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
@@ -89,5 +89,5 @@ func _draw_grapple_rope(start_pos: Vector3, end_pos: Vector3):
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func receive_use(trans: Transform3D):
-	_use(trans)
+func receive_use(trans: Transform3D, stack_count: int = 1):
+	_use(trans, stack_count)

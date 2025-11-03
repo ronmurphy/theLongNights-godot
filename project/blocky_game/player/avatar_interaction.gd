@@ -201,7 +201,7 @@ func _physics_process(_delta):
 			# Single click with non-mining tool or mining tool in air - use item normally
 			if mining_power == 0 or hit == null or not _action_use_held:
 				if inv_item.count > 0:
-					item.use(_head.global_transform)
+					item.use(_head.global_transform, inv_item.count)
 					# Only decrement consumables (torches = item ID 6)
 					# Weapons and tools have infinite uses
 					if inv_item.id == 6:  # torch

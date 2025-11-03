@@ -12,15 +12,15 @@ const MAX_TARGET_DISTANCE = 80.0  # Ranged weapon
 const ARROW_DAMAGE = 15
 
 
-func use(trans: Transform3D):
+func use(trans: Transform3D, stack_count: int = 1):
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
-		rpc_id(SERVER_PEER_ID, &"receive_use", trans)
+		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		_use(trans)
+		_use(trans, stack_count)
 
 
-func _use(trans: Transform3D):
+func _use(trans: Transform3D, stack_count: int = 1):
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
@@ -37,11 +37,11 @@ func _use(trans: Transform3D):
 		# No block hit, target far away in that direction
 		target_pos = origin + direction * MAX_TARGET_DISTANCE
 
-	# Spawn arrow projectile
-	_spawn_arrow(origin, target_pos, direction)
+	# Spawn arrow projectile with stack bonus
+	_spawn_arrow(origin, target_pos, direction, stack_count)
 
 
-func _spawn_arrow(start_pos: Vector3, target_pos: Vector3, initial_dir: Vector3):
+func _spawn_arrow(start_pos: Vector3, target_pos: Vector3, initial_dir: Vector3, stack_count: int):
 	var arrow = Node3D.new()
 	arrow.set_script(Arrow)
 
@@ -49,11 +49,11 @@ func _spawn_arrow(start_pos: Vector3, target_pos: Vector3, initial_dir: Vector3)
 	_projectiles_container.add_child(arrow)
 
 	# Initialize after adding to tree (pass self as owner for damage tracking)
-	arrow.initialize(start_pos, target_pos, initial_dir, get_parent())
+	arrow.initialize(start_pos, target_pos, initial_dir, get_parent(), stack_count)
 
-	print("Crossbow fired!")
+	print("Crossbow fired! Stack bonus: +", stack_count, " damage")
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func receive_use(trans: Transform3D):
-	_use(trans)
+func receive_use(trans: Transform3D, stack_count: int = 1):
+	_use(trans, stack_count)

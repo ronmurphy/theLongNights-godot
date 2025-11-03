@@ -6,6 +6,8 @@ var target_position : Vector3
 var speed := 40.0  # Fast falling speed
 var explosion_radius := 3.0  # How big the explosion is
 var lifetime := 10.0
+var base_damage := 30
+var stack_bonus := 0
 
 var _velocity := Vector3()
 var _terrain : VoxelTerrain = null
@@ -63,10 +65,11 @@ func _ready():
 	tween.tween_property(aura, "scale", Vector3(0.9, 0.9, 0.9), 0.3)
 
 
-func initialize(sky_pos: Vector3, target_pos: Vector3):
+func initialize(sky_pos: Vector3, target_pos: Vector3, stack_count: int = 1):
 	"""Initialize meteor high in the sky above target"""
 	global_position = sky_pos
 	target_position = target_pos
+	stack_bonus = stack_count
 
 	# Calculate velocity to fall toward target
 	var direction = (target_pos - sky_pos).normalized()
@@ -166,8 +169,9 @@ func _on_impact(hit_pos: Vector3):
 		# Commit the changes
 		# vt doesn't need explicit commit in newer Godot Voxel versions
 
-	# Damage nearby entities
-	_damage_nearby_entities(hit_pos, explosion_radius, 40)
+	# Damage nearby entities with stack bonus
+	var total_damage = base_damage + stack_bonus
+	_damage_nearby_entities(hit_pos, explosion_radius, total_damage)
 
 	# Create fire explosion effects
 	_spawn_fire_explosion(hit_pos)

@@ -16,15 +16,15 @@ func get_mining_power() -> int:
 	return DAMAGE  # Good for mining
 
 
-func use(trans: Transform3D):
+func use(trans: Transform3D, stack_count: int = 1):
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
-		rpc_id(SERVER_PEER_ID, &"receive_use", trans)
+		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		_use(trans)
+		_use(trans, stack_count)
 
 
-func _use(trans: Transform3D):
+func _use(trans: Transform3D, stack_count: int = 1):
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
@@ -33,13 +33,13 @@ func _use(trans: Transform3D):
 
 	if target_entity:
 		# Direct hit on entity
-		_slash_attack(target_entity, origin)
+		_slash_attack(target_entity, origin, stack_count)
 	else:
 		# Slash at air (show slash effect)
 		var slash_pos = origin + direction * 2.5
 		_spawn_slash_effect(slash_pos, direction)
 
-	print("Sword slash!")
+	print("Sword slash! Stack bonus: +", stack_count, " damage")
 
 
 func _find_target_entity(origin: Vector3, direction: Vector3) -> Node:
@@ -86,14 +86,15 @@ func _find_target_entity(origin: Vector3, direction: Vector3) -> Node:
 	return closest_entity
 
 
-func _slash_attack(entity: Node, attacker_pos: Vector3):
-	# Deal damage
-	entity.take_damage(DAMAGE, self)
+func _slash_attack(entity: Node, attacker_pos: Vector3, stack_count: int = 1):
+	# Deal damage with stack bonus
+	var total_damage = DAMAGE + stack_count
+	entity.take_damage(total_damage, self)
 
 	# Spawn slash effect at entity position
 	_spawn_slash_effect(entity.global_position, (entity.global_position - attacker_pos).normalized())
 
-	print("Sword hit %s for %d damage!" % [entity.entity_name, DAMAGE])
+	print("Sword hit %s for %d damage! (base: %d + stack: %d)" % [entity.entity_name, total_damage, DAMAGE, stack_count])
 
 
 func _spawn_slash_effect(pos: Vector3, direction: Vector3):
@@ -150,5 +151,5 @@ func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func receive_use(trans: Transform3D):
-	_use(trans)
+func receive_use(trans: Transform3D, stack_count: int = 1):
+	_use(trans, stack_count)

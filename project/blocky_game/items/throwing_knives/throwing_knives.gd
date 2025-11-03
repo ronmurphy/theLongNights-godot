@@ -9,15 +9,15 @@ const ThrowingKnife = preload("../../projectiles/throwing_knife.gd")
 const MAX_TARGET_DISTANCE = 100.0
 
 
-func use(trans: Transform3D):
+func use(trans: Transform3D, stack_count: int = 1):
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
-		rpc_id(SERVER_PEER_ID, &"receive_use", trans)
+		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		_use(trans)
+		_use(trans, stack_count)
 
 
-func _use(trans: Transform3D):
+func _use(trans: Transform3D, stack_count: int = 1):
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
@@ -34,11 +34,11 @@ func _use(trans: Transform3D):
 		# No block hit, target far away in that direction
 		target_pos = origin + direction * MAX_TARGET_DISTANCE
 
-	# Spawn throwing knife projectile
-	_spawn_throwing_knife(origin, target_pos)
+	# Spawn throwing knife projectile with stack bonus
+	_spawn_throwing_knife(origin, target_pos, stack_count)
 
 
-func _spawn_throwing_knife(start_pos: Vector3, target_pos: Vector3):
+func _spawn_throwing_knife(start_pos: Vector3, target_pos: Vector3, stack_count: int):
 	var knife = Node3D.new()
 	knife.set_script(ThrowingKnife)
 
@@ -46,11 +46,11 @@ func _spawn_throwing_knife(start_pos: Vector3, target_pos: Vector3):
 	_projectiles_container.add_child(knife)
 
 	# Initialize after adding to tree
-	knife.initialize(start_pos, target_pos)
+	knife.initialize(start_pos, target_pos, stack_count)
 
-	print("Throwing knife launched! Target: ", target_pos)
+	print("Throwing knife launched! Target: ", target_pos, " | Stack bonus: +", stack_count, " damage")
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func receive_use(trans: Transform3D):
-	_use(trans)
+func receive_use(trans: Transform3D, stack_count: int = 1):
+	_use(trans, stack_count)

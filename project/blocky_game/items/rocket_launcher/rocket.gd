@@ -11,6 +11,7 @@ const ExplosionScene = preload("./rocket_explosion.tscn")
 var _direction := Vector3(0, 0, 1)
 var _speed := 20.0
 var _remaining_time := LIFETIME
+var stack_bonus := 0  # Damage bonus from stacked rocket launchers
 
 
 func set_direction(direction: Vector3):
@@ -41,10 +42,11 @@ func _physics_process(delta: float):
 
 func _explode(voxel_hit_pos: Vector3, explosion_pos: Vector3):
 	var mp := get_tree().get_multiplayer()
+	var total_damage = 50 + stack_bonus  # Base rocket damage + stack bonus
 	if mp.has_multiplayer_peer():
 		if mp.is_server():
 			_do_sphere_safe(voxel_hit_pos, 4.0)
-			_damage_nearby_entities(explosion_pos, 6.0, 50)  # 6 block radius, 50 damage
+			_damage_nearby_entities(explosion_pos, 6.0, total_damage)  # 6 block radius, damage with stack bonus
 			rpc(&"receive_explode", explosion_pos)
 			_create_explosion_vfx(explosion_pos)
 			queue_free()
@@ -53,7 +55,7 @@ func _explode(voxel_hit_pos: Vector3, explosion_pos: Vector3):
 		# out of order, so it's more reliable to explicitely be told when to play the explosion
 	else:
 		_do_sphere_safe(voxel_hit_pos, 4.0)
-		_damage_nearby_entities(explosion_pos, 6.0, 50)  # 6 block radius, 50 damage
+		_damage_nearby_entities(explosion_pos, 6.0, total_damage)  # 6 block radius, damage with stack bonus
 		_create_explosion_vfx(explosion_pos)
 		queue_free()
 
@@ -90,6 +92,7 @@ func _create_explosion_vfx(explosion_pos: Vector3):
 	
 	var explosion = ExplosionScene.instantiate()
 	explosion.position = explosion_pos
+	explosion.stack_bonus = stack_bonus  # Pass stack bonus to explosion for damage
 	get_parent().add_child(explosion)
 	
 	# Create debris (respecting graphics settings)
