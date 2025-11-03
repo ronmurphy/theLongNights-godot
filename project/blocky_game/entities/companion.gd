@@ -49,11 +49,12 @@ const MIN_SPEED_FOR_DIRECTION = 0.5  # Minimum speed to consider direction
 
 
 func _ready():
-	super._ready()
-
-	# Set up as friendly entity
+	# Set up as friendly entity BEFORE calling super._ready()
+	# (so entity_base adds us to the correct group)
 	team = Team.PLAYER
 	entity_name = CompanionManager.get_companion_name()
+
+	super._ready()
 
 	# Apply stats from CompanionManager
 	max_hp = CompanionManager.get_companion_max_hp()
