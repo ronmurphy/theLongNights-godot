@@ -390,15 +390,28 @@ func _on_slot_pressed(idx: int):
 			emit_signal("equipment_changed")
 		
 		else:
-			# Swap with occupied slot (only if dragging from inventory, not equipment)
+			# Occupied slot - check if we can stack or swap
 			if _dragged_slot >= 0 and _dragged_slot != idx:
-				# Swap
-				var tmp = _slots[idx]
-				_slots[idx] = _slots[_dragged_slot]
-				_slots[_dragged_slot] = tmp
-				_dragged_item_view.start(tmp)
-				_slot_views[idx].get_display().set_item(_slots[idx])
-				emit_signal("changed")
+				var target_item = _slots[idx]
+				
+				# Check if items are the same type and id (stackable)
+				if target_item.type == dragged_item.type and target_item.id == dragged_item.id:
+					# Combine stacks
+					target_item.count += dragged_item.count
+					_slots[_dragged_slot] = null
+					_slot_views[_dragged_slot].get_display().set_item(null)
+					_slot_views[idx].get_display().set_item(target_item)
+					_dragged_item_view.stop()
+					_dragged_slot = -1
+					emit_signal("changed")
+				else:
+					# Different items - swap them
+					var tmp = _slots[idx]
+					_slots[idx] = _slots[_dragged_slot]
+					_slots[_dragged_slot] = tmp
+					_dragged_item_view.start(tmp)
+					_slot_views[idx].get_display().set_item(_slots[idx])
+					emit_signal("changed")
 			else:
 				# Can't swap equipment slots with inventory - cancel drag
 				if _dragged_slot == -999:
