@@ -594,7 +594,7 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 	if is_player:
 		# Player: Single weapon slot (vertical layout)
 		var weapon_label = Label.new()
-		weapon_label.text = "Weapon"
+		weapon_label.text = "Accessory"
 		weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		weapon_label.add_theme_font_size_override("font_size", 12)
 		content_container.add_child(weapon_label)
