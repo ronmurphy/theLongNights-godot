@@ -62,9 +62,9 @@ Trigger when weapon is used in combat. Check `inv_item_or_count.skyshard_power` 
 | Power | Description | Status |
 |-------|-------------|--------|
 | life_steal | Heals 25% of damage dealt | ✅ Implemented |
-| meteor_strike | Summons meteor on hit | ✅ Implemented |
+| meteor_strike | Summons meteor on hit | ✅ Implemented | - no visible effect?
 | wind_dash | Speed boost for 3s after hit | ✅ Implemented |
-| lightning_chain | Damage jumps to nearby enemies | ✅ Implemented |
+| lightning_chain | Damage jumps to nearby enemies | ✅ Implemented | - no visible effect?
 | ice_burst | Freezes enemies in radius | ⏳ Pending |
 | poison_cloud | Leaves poison AoE on impact | ⏳ Pending |
 | knife_volley | Launches 3 knives on attack | ⏳ Pending |

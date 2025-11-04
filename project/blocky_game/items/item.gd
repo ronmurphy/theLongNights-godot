@@ -22,4 +22,3 @@ func use(_trans: Transform3D, _inv_item_or_count = 1):
 # >0 = can mine blocks, higher = faster mining
 func get_mining_power() -> int:
 	return 0  # Default: cannot mine
-

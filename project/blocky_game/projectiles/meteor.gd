@@ -1,6 +1,7 @@
 extends Node3D
 
 # Meteor projectile that falls from the sky with fire trail
+const EntityBase = preload("../entities/entity_base.gd")
 
 var target_position : Vector3
 var speed := 40.0  # Fast falling speed
@@ -14,6 +15,8 @@ var _terrain : VoxelTerrain = null
 var _trail_timer := 0.0
 
 var _mesh : MeshInstance3D = null
+var _owner_node : Node = null
+var _inv_item = null
 
 
 func _ready():
@@ -65,11 +68,13 @@ func _ready():
 	tween.tween_property(aura, "scale", Vector3(0.9, 0.9, 0.9), 0.3)
 
 
-func initialize(sky_pos: Vector3, target_pos: Vector3, stack_count: int = 1):
+func initialize(sky_pos: Vector3, target_pos: Vector3, stack_count: int = 1, owner_node: Node = null, inv_item = null):
 	"""Initialize meteor high in the sky above target"""
 	global_position = sky_pos
 	target_position = target_pos
 	stack_bonus = stack_count
+	_owner_node = owner_node
+	_inv_item = inv_item
 
 	# Calculate velocity to fall toward target
 	var direction = (target_pos - sky_pos).normalized()
@@ -206,9 +211,19 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int):
 
 		# Scale damage with distance (full damage at center, reduced at edge)
 		var scaled_damage = int(damage * (1.0 - (distance / radius)))
-		entity.take_damage(scaled_damage, self)
+		entity.take_damage(scaled_damage, _owner_node if _owner_node else self)
 
 		print("Meteor hit %s for %d damage (distance: %.1f)" % [entity.entity_name, scaled_damage, distance])
+		
+		# ⚡ SKYSHARD POWERS via Powers.gd
+		if typeof(_inv_item) == TYPE_OBJECT and _inv_item != null and _inv_item.skyshard_power != "":
+			Powers.execute_hotbar_power(_inv_item.skyshard_power, {
+				"entity": entity,
+				"position": entity.global_position,
+				"damage": scaled_damage,
+				"stack_count": stack_bonus,
+				"attacker": _owner_node if _owner_node else self
+			})
 
 
 func _spawn_fire_explosion(pos: Vector3):

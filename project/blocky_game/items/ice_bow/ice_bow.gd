@@ -15,10 +15,10 @@ func use(trans: Transform3D, inv_item_or_count = 1):
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		_use(trans, stack_count)
+		_use(trans, stack_count, inv_item_or_count)
 
 
-func _use(trans: Transform3D, stack_count: int = 1):
+func _use(trans: Transform3D, stack_count: int = 1, inv_item_or_count = 1):
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
@@ -36,10 +36,10 @@ func _use(trans: Transform3D, stack_count: int = 1):
 		target_pos = origin + direction * MAX_TARGET_DISTANCE
 
 	# Spawn ice arrow projectile with stack damage bonus
-	_spawn_ice_arrow(origin, target_pos, direction, stack_count)
+	_spawn_ice_arrow(origin, target_pos, direction, stack_count, inv_item_or_count)
 
 
-func _spawn_ice_arrow(start_pos: Vector3, target_pos: Vector3, initial_dir: Vector3, stack_count: int):
+func _spawn_ice_arrow(start_pos: Vector3, target_pos: Vector3, initial_dir: Vector3, stack_count: int, inv_item_or_count = 1):
 	var arrow = Node3D.new()
 	arrow.set_script(IceArrow)
 
@@ -47,7 +47,7 @@ func _spawn_ice_arrow(start_pos: Vector3, target_pos: Vector3, initial_dir: Vect
 	_projectiles_container.add_child(arrow)
 
 	# Initialize after adding to tree with stack bonus
-	arrow.initialize(start_pos, target_pos, initial_dir, stack_count)
+	arrow.initialize(start_pos, target_pos, initial_dir, get_parent(), stack_count, inv_item_or_count)
 
 	print("Ice bow fired! Target: ", target_pos, " | Stack bonus: +", stack_count, " damage")
 

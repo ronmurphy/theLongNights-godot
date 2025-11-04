@@ -464,7 +464,7 @@ func _cmd_give(args: Array) -> void:
 		if amount < 1:
 			amount = 1
 
-	# Item name to ID mapping
+	# Item name to ID mapping (must match item_db.gd order!)
 	var item_map = {
 		"rocketlauncher": 0,
 		"grapplinghook": 1,
@@ -478,15 +478,19 @@ func _cmd_give(args: Array) -> void:
 		"throwing_knives": 5,
 		"knives": 5,
 		"torch": 6,
-		"stone_hammer": 7,
-		"stonehammer": 7,
-		"hammer": 7,
-		"machete": 8,
-		"crossbow": 9,
-		"sword": 10,
-		"tree_feller": 11,
-		"treefeller": 11,
-		"axe": 11
+		"portal_compass": 7,
+		"compass": 7,
+		"stone_hammer": 8,
+		"stonehammer": 8,
+		"hammer": 8,
+		"machete": 9,
+		"crossbow": 10,
+		"sword": 11,
+		"tree_feller": 12,
+		"treefeller": 12,
+		"axe": 12,
+		"skyshard": 21,
+		"shard": 21
 	}
 
 	if not item_map.has(item_name):
@@ -526,8 +530,8 @@ func _cmd_give(args: Array) -> void:
 	item.id = item_id
 	item.type = InventoryItem.TYPE_ITEM
 
-	# Only torches can stack
-	if item_name == "torch":
+	# Items that can stack (consumed on use)
+	if item_name == "torch" or item_name == "skyshard" or item_name == "shard" or item_name == "portal_compass" or item_name == "compass":
 		item.count = amount
 	else:
 		# Other items have "infinite ammo" - single instance
@@ -538,7 +542,10 @@ func _cmd_give(args: Array) -> void:
 	slots[empty_slot] = item
 	inventory._update_views()
 
-	add_output("[color=lime]Gave " + (str(amount) + "x " if item_name == "torch" else "") + item_name + "[/color]")
+	var display_name = "skyshard" if (item_name == "shard") else item_name
+	display_name = "portal_compass" if (item_name == "compass") else display_name
+	var show_amount = (item_name == "torch" or item_name == "skyshard" or item_name == "shard" or item_name == "portal_compass" or item_name == "compass")
+	add_output("[color=lime]Gave " + (str(amount) + "x " if show_amount else "") + display_name + "[/color]")
 
 func _cmd_list(args: Array) -> void:
 	if args.is_empty():
@@ -566,6 +573,9 @@ func _cmd_list(args: Array) -> void:
 		add_output("")
 		add_output("[color=cyan]Tools:[/color]")
 		add_output("  [color=yellow]climbing_claws[/color] (or 'claws') - Climb vertical walls")
+		add_output("")
+		add_output("[color=cyan]Materials (Stackable):[/color]")
+		add_output("  [color=yellow]skyshard[/color] (or 'shard') - Rare material for weapon enhancement")
 		add_output("")
 		add_output("[color=cyan]Consumables (Stackable):[/color]")
 		add_output("  [color=yellow]torch[/color] - Throwable light source")

@@ -136,6 +136,7 @@ func _spawn_impact_shockwave(pos: Vector3):
 func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockback: float, inv_item_or_count = null):
 	var entities = get_tree().get_nodes_in_group("entities")
 	var total_heal = 0  # Track total healing for Life Steal
+	var hit_entities = []  # Track entities hit for Powers system
 
 	for entity in entities:
 		if not entity.is_alive:
@@ -163,16 +164,21 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 
 		print("Stone Hammer hit %s (distance: %.1f)" % [entity.entity_name, distance])
 
-		# ⚡ SKYSHARD POWER: Life Steal (accumulate healing)
-		if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "life_steal":
-			total_heal += int(damage * 0.25)  # 25% per enemy hit
+		# ⚡ SKYSHARD POWERS - Collect data for Powers system (called once after loop)
+		hit_entities.append(entity)
 
-		# ⚡ SKYSHARD POWER: Meteor Strike (spawn meteor on each enemy)
-		if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "meteor_strike":
-			var target_pos = entity.global_position
-			var sky_pos = Vector3(target_pos.x, target_pos.y + 50.0, target_pos.z)
-			_spawn_meteor(sky_pos, target_pos, damage)
-			print("☄️ Meteor Strike (AOE)! Meteor targeting %s" % entity.entity_name)
+
+	# ⚡ SKYSHARD POWERS - Execute power for each hit entity via Powers system
+	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power != "":
+		for hit_entity in hit_entities:
+			var power_context = {
+				"entity": hit_entity,
+				"position": hit_entity.global_position,
+				"stack_count": damage,
+				"damage_dealt": damage,
+				"attacker": get_tree().get_first_node_in_group("player")
+			}
+			Powers.execute_hotbar_power(inv_item_or_count.skyshard_power, power_context)
 
 	# Apply total healing (after all damage dealt)
 	if total_heal > 0:
@@ -226,15 +232,6 @@ func _lightning_chain_aoe(center: Vector3, aoe_radius: float, chain_damage: int)
 
 	if chained > 0:
 		print("⚡ Lightning Chain (AOE)! Hit %d enemies outside hammer radius" % chained)
-
-
-func _spawn_meteor(sky_pos: Vector3, target_pos: Vector3, damage: int):
-	"""Spawn a meteor for Meteor Strike power"""
-	var meteor = Node3D.new()
-	meteor.set_script(Meteor)
-	var game_node = get_node("/root/Main/Game")
-	game_node.add_child(meteor)
-	meteor.initialize(sky_pos, target_pos, damage)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)

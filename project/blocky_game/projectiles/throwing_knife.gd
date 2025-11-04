@@ -1,6 +1,7 @@
 extends Node3D
 
 # Magical throwing knife that circles around target before striking
+const EntityBase = preload("../entities/entity_base.gd")
 
 var target_position : Vector3
 var speed := 20.0
@@ -16,6 +17,8 @@ var _terrain : VoxelTerrain = null
 var _trail_timer := 0.0
 
 var _mesh : MeshInstance3D = null
+var _owner_node : Node = null
+var _inv_item = null
 
 
 func _ready():
@@ -55,10 +58,12 @@ func _ready():
 	mesh_node.add_child(aura)
 
 
-func initialize(start_pos: Vector3, target_pos: Vector3, stack_count: int = 1):
+func initialize(start_pos: Vector3, target_pos: Vector3, stack_count: int = 1, owner_node: Node = null, inv_item = null):
 	global_position = start_pos
 	target_position = target_pos
 	stack_bonus = stack_count
+	_owner_node = owner_node
+	_inv_item = inv_item
 
 	# Start at a random angle
 	_angle = randf() * TAU
@@ -180,8 +185,18 @@ func _check_entity_collision():
 func _on_hit_entity(entity: Node):
 	"""Hit an entity with knife damage"""
 	var total_damage = base_damage + stack_bonus
-	entity.take_damage(total_damage, self)
+	entity.take_damage(total_damage, _owner_node if _owner_node else self)
 	print("Throwing knife hit %s for %d damage! (base: %d + stack: %d)" % [entity.entity_name, total_damage, base_damage, stack_bonus])
+
+	# ⚡ SKYSHARD POWERS via Powers.gd
+	if typeof(_inv_item) == TYPE_OBJECT and _inv_item != null and _inv_item.skyshard_power != "":
+		Powers.execute_hotbar_power(_inv_item.skyshard_power, {
+			"entity": entity,
+			"position": entity.global_position,
+			"damage": total_damage,
+			"stack_count": stack_bonus,
+			"attacker": _owner_node if _owner_node else self
+		})
 
 	# Spawn impact sparkles
 	_spawn_impact_sparkles(entity.global_position)

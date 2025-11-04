@@ -32,6 +32,7 @@ PerformanceMonitor="*res://long_nights/PerformanceMonitor.gd"
 WinterIceSystem="*res://long_nights/WinterIceSystem.gd"
 EnemySpawner="*res://long_nights/EnemySpawner.gd"
 RuinRegistry="*res://blocky_game/ruins/RuinRegistry.gd"
+Powers="*res://long_nights/Powers.gd"
 
 [display]
 

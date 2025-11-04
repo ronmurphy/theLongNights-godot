@@ -3,6 +3,9 @@ extends Node3D
 ## Regular arrow projectile - straight shot with damage
 ## Used by crossbow
 
+const EntityBase = preload("../entities/entity_base.gd")
+const Meteor = preload("meteor.gd")
+
 var target_position : Vector3
 var speed := 30.0
 var lifetime := 8.0
@@ -14,6 +17,7 @@ var _velocity := Vector3()
 var _initial_direction := Vector3()
 var _terrain : VoxelTerrain = null
 var _owner_node : Node = null  # Who shot this arrow
+var _inv_item = null  # Inventory item with skyshard power
 
 var _mesh : MeshInstance3D = null
 
@@ -37,13 +41,14 @@ func _ready():
 	_mesh = mesh_node
 
 
-func initialize(start_pos: Vector3, target_pos: Vector3, initial_dir: Vector3, owner_node: Node = null, stack_count: int = 1):
+func initialize(start_pos: Vector3, target_pos: Vector3, initial_dir: Vector3, owner_node: Node = null, stack_count: int = 1, inv_item = null):
 	global_position = start_pos
 	target_position = target_pos
 	_initial_direction = initial_dir.normalized()
 	_velocity = _initial_direction * speed
 	_owner_node = owner_node
 	stack_bonus = stack_count
+	_inv_item = inv_item
 
 
 func _physics_process(delta: float):
@@ -109,6 +114,17 @@ func _on_hit_entity(entity: Node):
 	var total_damage = base_damage + stack_bonus
 	entity.take_damage(total_damage, _owner_node)
 	print("Arrow hit %s for %d damage! (base: %d + stack: %d)" % [entity.entity_name, total_damage, base_damage, stack_bonus])
+
+	# ⚡ SKYSHARD POWERS - Use centralized Powers system
+	if typeof(_inv_item) == TYPE_OBJECT and _inv_item != null and _inv_item.skyshard_power != "":
+		var power_context = {
+			"entity": entity,
+			"position": entity.global_position,
+			"stack_count": stack_bonus,
+			"damage_dealt": total_damage,
+			"attacker": _owner_node
+		}
+		Powers.execute_hotbar_power(_inv_item.skyshard_power, power_context)
 
 	# Spawn hit particles
 	_spawn_hit_particles(global_position)

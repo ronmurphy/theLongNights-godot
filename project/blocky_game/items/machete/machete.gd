@@ -101,20 +101,18 @@ func _slash_attack(entity: Node, attacker_pos: Vector3, inv_item_or_count):
 
 	print("Machete hit %s for %d damage!" % [entity.entity_name, total_damage])
 
-	# ⚡ SKYSHARD POWER: Life Steal
-	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "life_steal":
-		var heal_amount = int(total_damage * 0.25)  # 25% of damage dealt
-		var player = get_tree().get_first_node_in_group("player")
-		if player and player.has_method("heal"):
-			player.heal(heal_amount)
-			print("💚 Life Steal! Healed %d HP" % heal_amount)
+	# ⚡ SKYSHARD POWERS - Use centralized Powers system
+	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power != "":
+		var power_context = {
+			"entity": entity,
+			"position": entity.global_position,
+			"stack_count": stack_count,
+			"damage_dealt": total_damage,
+			"attacker": get_tree().get_first_node_in_group("player")
+		}
+		Powers.execute_hotbar_power(inv_item_or_count.skyshard_power, power_context)
 
-	# ⚡ SKYSHARD POWER: Meteor Strike
-	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "meteor_strike":
-		var target_pos = entity.global_position
-		var sky_pos = Vector3(target_pos.x, target_pos.y + 50.0, target_pos.z)
-		_spawn_meteor(sky_pos, target_pos, stack_count)
-		print("☄️ Meteor Strike! Calling down meteor on %s" % entity.entity_name)
+	# ⚡ SKYSHARD POWER: Wind Dash
 
 	# ⚡ SKYSHARD POWER: Wind Dash
 	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "wind_dash":
@@ -205,15 +203,6 @@ func _lightning_chain(origin: Vector3, chain_damage: int, primary_target: Node):
 
 	if chained > 0:
 		print("⚡ Lightning Chain! Hit %d additional enemies" % chained)
-
-
-func _spawn_meteor(sky_pos: Vector3, target_pos: Vector3, stack_count: int):
-	"""Spawn a meteor for Meteor Strike power"""
-	var meteor = Node3D.new()
-	meteor.set_script(Meteor)
-	var game_node = get_node("/root/Main/Game")
-	game_node.add_child(meteor)
-	meteor.initialize(sky_pos, target_pos, stack_count)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
