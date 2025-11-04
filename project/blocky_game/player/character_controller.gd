@@ -30,6 +30,9 @@ var _grapple_time := 0.0  # Time remaining for grapple
 var _climbing := false  # Currently climbing a wall
 var _climb_speed := 3.0  # Speed when climbing
 var _gravity_disabled := false  # Temporary gravity suspension (for teleporting)
+var _wind_dash_active := false  # Wind Dash power active
+var _wind_dash_time := 0.0  # Time remaining for Wind Dash
+var _flame_aura_timer := 0.0  # Timer for Flame Aura damage ticks
 
 ## Signals
 signal hp_changed(current: int, maximum: int)
@@ -113,6 +116,21 @@ func _physics_process(delta: float):
 		if _grapple_time <= 0:
 			_grappling = false
 
+	# Handle Wind Dash state
+	if _wind_dash_active:
+		_wind_dash_time -= delta
+		if _wind_dash_time <= 0:
+			_wind_dash_active = false
+			print("💨 Wind Dash ended")
+
+	# Handle Flame Aura passive power (burns nearby enemies every second)
+	_flame_aura_timer += delta
+	if _flame_aura_timer >= 1.0:
+		_flame_aura_timer = 0.0
+		var equipped_weapon = _get_equipped_weapon()
+		if equipped_weapon and equipped_weapon.skyshard_power == "flame_aura":
+			_apply_flame_aura()
+
 	# Only process keyboard input if enabled (not using console)
 	if input_enabled:
 		# Check for climbing
@@ -147,7 +165,12 @@ func _physics_process(delta: float):
 				if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D):
 					motor += right
 
-				motor = motor.normalized() * speed
+				# Apply Wind Dash speed multiplier
+				var effective_speed = speed
+				if _wind_dash_active:
+					effective_speed *= 2.0  # Double speed during Wind Dash
+
+				motor = motor.normalized() * effective_speed
 
 				_velocity.x = motor.x
 				_velocity.z = motor.z
@@ -157,7 +180,14 @@ func _physics_process(delta: float):
 			_velocity.y -= gravity * delta
 
 		if _grounded and Input.is_key_pressed(KEY_SPACE):
-			_velocity.y = jump_force
+			# ⚡ SKYSHARD POWER: Moon Jump (triple jump height when equipped)
+			var jump_multiplier = 1.0
+			var equipped_weapon = _get_equipped_weapon()
+			if equipped_weapon and equipped_weapon.skyshard_power == "moon_jump":
+				jump_multiplier = 3.0
+				print("🌙 Moon Jump active! Tripled jump height!")
+
+			_velocity.y = jump_force * jump_multiplier
 			_grounded = false
 	else:
 		# Input disabled (console open) - stop movement and still apply gravity
@@ -360,6 +390,38 @@ func heal(amount: int) -> void:
 
 	hp_changed.emit(current_hp, max_hp)
 	print("Player healed %d HP (HP: %d/%d)" % [amount, current_hp, max_hp])
+
+
+## Activate Wind Dash power (called by weapons)
+func activate_wind_dash() -> void:
+	"""Start a 3-second speed boost"""
+	_wind_dash_active = true
+	_wind_dash_time = 3.0
+	print("💨 Wind Dash activated! Speed doubled for 3 seconds!")
+
+
+## Apply Flame Aura damage to nearby enemies (passive power)
+func _apply_flame_aura() -> void:
+	"""Burn all nearby enemies within 4 blocks"""
+	const FLAME_RADIUS = 4.0
+	const FLAME_DAMAGE = 5
+
+	var entities = get_tree().get_nodes_in_group("entities")
+	var burned_count = 0
+
+	for entity in entities:
+		# Skip if not alive or not enemy
+		if not entity.is_alive or entity.team != EntityBase.Team.ENEMY:
+			continue
+
+		# Check if within flame aura radius
+		var distance = entity.global_position.distance_to(global_position)
+		if distance <= FLAME_RADIUS:
+			entity.take_damage(FLAME_DAMAGE, self)
+			burned_count += 1
+
+	if burned_count > 0:
+		print("🔥 Flame Aura! Burned %d nearby enemies for %d damage each" % [burned_count, FLAME_DAMAGE])
 
 
 ## Player death

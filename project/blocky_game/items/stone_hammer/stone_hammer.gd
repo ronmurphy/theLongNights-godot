@@ -181,6 +181,52 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 			player.heal(total_heal)
 			print("💚 Life Steal (AOE)! Healed %d HP from multiple enemies" % total_heal)
 
+	# ⚡ SKYSHARD POWER: Wind Dash (activate once if any enemy hit)
+	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "wind_dash":
+		var hit_count = 0
+		for entity in entities:
+			if entity.is_alive and entity.team == EntityBase.Team.ENEMY:
+				var distance = entity.global_position.distance_to(center)
+				if distance <= radius:
+					hit_count += 1
+
+		if hit_count > 0:
+			var player = get_tree().get_first_node_in_group("player")
+			if player and player.has_method("activate_wind_dash"):
+				player.activate_wind_dash()
+
+	# ⚡ SKYSHARD POWER: Lightning Chain (chain from impact center to enemies outside AOE)
+	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "lightning_chain":
+		_lightning_chain_aoe(center, radius, int(damage * 0.5))
+
+
+func _lightning_chain_aoe(center: Vector3, aoe_radius: float, chain_damage: int):
+	"""Chain lightning to enemies OUTSIDE the AOE (extends reach)"""
+	const CHAIN_RADIUS = 8.0  # Longer than single-target version
+	const MAX_CHAINS = 3
+
+	var entities = get_tree().get_nodes_in_group("entities")
+	var chained = 0
+
+	for entity in entities:
+		if chained >= MAX_CHAINS:
+			break
+
+		# Skip if not alive or not enemy
+		if not entity.is_alive or entity.team != EntityBase.Team.ENEMY:
+			continue
+
+		var distance = entity.global_position.distance_to(center)
+
+		# Only chain to enemies OUTSIDE the AOE radius but within chain radius
+		if distance > aoe_radius and distance <= CHAIN_RADIUS:
+			entity.take_damage(chain_damage, self)
+			chained += 1
+			print("⚡ Lightning chained to %s (distance: %.1f)" % [entity.entity_name, distance])
+
+	if chained > 0:
+		print("⚡ Lightning Chain (AOE)! Hit %d enemies outside hammer radius" % chained)
+
 
 func _spawn_meteor(sky_pos: Vector3, target_pos: Vector3, damage: int):
 	"""Spawn a meteor for Meteor Strike power"""

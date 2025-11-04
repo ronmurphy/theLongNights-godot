@@ -39,6 +39,12 @@ func _use(trans: Transform3D, inv_item_or_count):
 		# Hit all entities in arc
 		for entity in target_entities:
 			_cleave_attack(entity, origin, inv_item_or_count)
+
+		# ⚡ SKYSHARD POWER: Wind Dash (activate once if any enemy hit)
+		if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "wind_dash":
+			var player = get_tree().get_first_node_in_group("player")
+			if player and player.has_method("activate_wind_dash"):
+				player.activate_wind_dash()
 	else:
 		# Slash at air (show slash effect)
 		var slash_pos = origin + direction * 2.0
@@ -100,6 +106,37 @@ func _cleave_attack(entity: Node, attacker_pos: Vector3, inv_item_or_count):
 		var sky_pos = Vector3(target_pos.x, target_pos.y + 50.0, target_pos.z)
 		_spawn_meteor(sky_pos, target_pos, stack_count)
 		print("☄️ Meteor Strike! Calling down meteor on %s" % entity.entity_name)
+
+	# ⚡ SKYSHARD POWER: Lightning Chain
+	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "lightning_chain":
+		_lightning_chain(entity.global_position, int(total_damage * 0.5), entity)
+
+
+func _lightning_chain(origin: Vector3, chain_damage: int, primary_target: Node):
+	"""Chain lightning damage to nearby enemies"""
+	const CHAIN_RADIUS = 5.0
+	const MAX_CHAINS = 3
+
+	var entities = get_tree().get_nodes_in_group("entities")
+	var chained = 0
+
+	for entity in entities:
+		if chained >= MAX_CHAINS:
+			break
+
+		# Skip if not alive, not enemy, or is the primary target
+		if not entity.is_alive or entity.team != EntityBase.Team.ENEMY or entity == primary_target:
+			continue
+
+		# Check if within chain radius
+		var distance = entity.global_position.distance_to(origin)
+		if distance <= CHAIN_RADIUS:
+			entity.take_damage(chain_damage, self)
+			chained += 1
+			print("⚡ Lightning chained to %s for %d damage!" % [entity.entity_name, chain_damage])
+
+	if chained > 0:
+		print("⚡ Lightning Chain! Hit %d additional enemies" % chained)
 
 
 func _spawn_slash_effect(pos: Vector3, direction: Vector3):

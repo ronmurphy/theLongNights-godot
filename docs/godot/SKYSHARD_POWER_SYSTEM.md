@@ -62,12 +62,12 @@ Trigger when weapon is used in combat. Check `inv_item_or_count.skyshard_power` 
 | Power | Description | Status |
 |-------|-------------|--------|
 | life_steal | Heals 25% of damage dealt | ✅ Implemented |
-| meteor_strike | Summons meteor on hit | ⏳ Pending |
+| meteor_strike | Summons meteor on hit | ✅ Implemented |
+| wind_dash | Speed boost for 3s after hit | ✅ Implemented |
+| lightning_chain | Damage jumps to nearby enemies | ✅ Implemented |
 | ice_burst | Freezes enemies in radius | ⏳ Pending |
-| lightning_chain | Damage jumps to nearby enemies | ⏳ Pending |
 | poison_cloud | Leaves poison AoE on impact | ⏳ Pending |
 | knife_volley | Launches 3 knives on attack | ⏳ Pending |
-| wind_dash | Speed boost for 3s after hit | ⏳ Pending |
 
 ### Passive Powers (EQUIP)
 Always active while weapon is in equipment slot. Check equipped weapon in relevant system.
@@ -75,8 +75,8 @@ Always active while weapon is in equipment slot. Check equipped weapon in releva
 | Power | Description | Status |
 |-------|-------------|--------|
 | stone_skin | +50% defense | ✅ Implemented |
-| moon_jump | Triple jump height | ⏳ Pending |
-| flame_aura | Burns nearby enemies constantly | ⏳ Pending |
+| moon_jump | Triple jump height | ✅ Implemented |
+| flame_aura | Burns nearby enemies constantly | ✅ Implemented |
 
 ## Adding New Active Powers (HOTBAR)
 
@@ -231,6 +231,123 @@ var equipped_weapon = _get_equipped_weapon()
 if equipped_weapon and equipped_weapon.skyshard_power == "stone_skin":
     effective_defense = int(defense * 1.5)  # +50% defense
     print("🛡️ Stone Skin active! Defense boosted: %d → %d" % [defense, effective_defense])
+```
+
+### Meteor Strike (Active - HOTBAR)
+**Location:** All melee weapons (sword, machete, stone_hammer, tree_feller)
+```gdscript
+# In _slash_attack or _cleave_attack function
+if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "meteor_strike":
+    var target_pos = entity.global_position
+    var sky_pos = Vector3(target_pos.x, target_pos.y + 50.0, target_pos.z)
+    _spawn_meteor(sky_pos, target_pos, stack_count)
+    print("☄️ Meteor Strike! Calling down meteor on %s" % entity.entity_name)
+
+func _spawn_meteor(sky_pos: Vector3, target_pos: Vector3, stack_count: int):
+    var meteor = Node3D.new()
+    meteor.set_script(Meteor)
+    var game_node = get_node("/root/Main/Game")
+    game_node.add_child(meteor)
+    meteor.initialize(sky_pos, target_pos, stack_count)
+```
+
+### Moon Jump (Passive - EQUIP)
+**Location:** `character_controller.gd:159-168`
+```gdscript
+# In _physics_process, when handling jump input
+if _grounded and Input.is_key_pressed(KEY_SPACE):
+    var jump_multiplier = 1.0
+    var equipped_weapon = _get_equipped_weapon()
+    if equipped_weapon and equipped_weapon.skyshard_power == "moon_jump":
+        jump_multiplier = 3.0
+        print("🌙 Moon Jump active! Tripled jump height!")
+
+    _velocity.y = jump_force * jump_multiplier
+    _grounded = false
+```
+
+### Wind Dash (Active - HOTBAR)
+**Location:** All melee weapons + `character_controller.gd:386-391`
+```gdscript
+# In weapon attack function
+if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "wind_dash":
+    var player = get_tree().get_first_node_in_group("player")
+    if player and player.has_method("activate_wind_dash"):
+        player.activate_wind_dash()
+
+# In character_controller.gd
+func activate_wind_dash() -> void:
+    _wind_dash_active = true
+    _wind_dash_time = 3.0
+    print("💨 Wind Dash activated! Speed doubled for 3 seconds!")
+
+# Speed multiplier applied during movement calculation (line 160-162)
+var effective_speed = speed
+if _wind_dash_active:
+    effective_speed *= 2.0  # Double speed during Wind Dash
+motor = motor.normalized() * effective_speed
+```
+
+### Lightning Chain (Active - HOTBAR)
+**Location:** All melee weapons
+```gdscript
+# In weapon attack function
+if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "lightning_chain":
+    _lightning_chain(entity.global_position, int(total_damage * 0.5), entity)
+
+func _lightning_chain(origin: Vector3, chain_damage: int, primary_target: Node):
+    const CHAIN_RADIUS = 5.0
+    const MAX_CHAINS = 3
+
+    var entities = get_tree().get_nodes_in_group("entities")
+    var chained = 0
+
+    for entity in entities:
+        if chained >= MAX_CHAINS:
+            break
+
+        if not entity.is_alive or entity.team != EntityBase.Team.ENEMY or entity == primary_target:
+            continue
+
+        var distance = entity.global_position.distance_to(origin)
+        if distance <= CHAIN_RADIUS:
+            entity.take_damage(chain_damage, self)
+            chained += 1
+            print("⚡ Lightning chained to %s for %d damage!" % [entity.entity_name, chain_damage])
+
+    if chained > 0:
+        print("⚡ Lightning Chain! Hit %d additional enemies" % chained)
+```
+
+### Flame Aura (Passive - EQUIP)
+**Location:** `character_controller.gd:126-132, 403-424`
+```gdscript
+# In _physics_process, check every 1 second
+_flame_aura_timer += delta
+if _flame_aura_timer >= 1.0:
+    _flame_aura_timer = 0.0
+    var equipped_weapon = _get_equipped_weapon()
+    if equipped_weapon and equipped_weapon.skyshard_power == "flame_aura":
+        _apply_flame_aura()
+
+func _apply_flame_aura() -> void:
+    const FLAME_RADIUS = 4.0
+    const FLAME_DAMAGE = 5
+
+    var entities = get_tree().get_nodes_in_group("entities")
+    var burned_count = 0
+
+    for entity in entities:
+        if not entity.is_alive or entity.team != EntityBase.Team.ENEMY:
+            continue
+
+        var distance = entity.global_position.distance_to(global_position)
+        if distance <= FLAME_RADIUS:
+            entity.take_damage(FLAME_DAMAGE, self)
+            burned_count += 1
+
+    if burned_count > 0:
+        print("🔥 Flame Aura! Burned %d nearby enemies for %d damage each" % [burned_count, FLAME_DAMAGE])
 ```
 
 ## Combat Priority Fix
