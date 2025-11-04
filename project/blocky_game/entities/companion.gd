@@ -35,7 +35,9 @@ var FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE
 var ATTACK_RANGE = BASE_ATTACK_RANGE
 
 ## Behavior mode
-var support_mode := "normal"  # "normal", "aggressive", "defensive"
+var support_mode := "normal"  # "normal", "aggressive", "defensive", "guard"
+var _guard_position: Vector3 = Vector3.ZERO  # Position to guard when in guard mode
+var _is_guarding: bool = false  # Whether actively guarding a position
 
 ## Weapon reference (loaded from CompanionManager)
 var weapon_path: String = ""
@@ -96,6 +98,10 @@ func _ready():
 	# Get weapon path and load weapon item
 	weapon_path = CompanionManager.get_companion_weapon()
 	_load_weapon()
+	
+	# Load saved accessory if available
+	if CompanionManager.saved_accessory_id >= 0:
+		_load_accessory(CompanionManager.saved_accessory_id)
 	
 	# Connect to inventory equipment changes
 	call_deferred("_connect_to_inventory")
@@ -189,6 +195,33 @@ func _load_weapon():
 	push_warning("Companion: Could not find weapon %s in database" % weapon_name)
 
 
+func _load_accessory(accessory_id: int):
+	# Get item database reference
+	var item_db = get_node_or_null("/root/Main/Game/Items")
+	if not item_db:
+		push_warning("Companion: Could not find item database")
+		return
+	
+	# Load the accessory item from database
+	var accessory_item = item_db.get_item(accessory_id)
+	if accessory_item:
+		# Load InventoryItem class
+		const InventoryItem = preload("res://blocky_game/player/inventory_item.gd")
+		
+		# Create inventory item
+		var inv_item = InventoryItem.new()
+		inv_item.type = InventoryItem.TYPE_ITEM
+		inv_item.id = accessory_id
+		inv_item.count = 1
+		inv_item.skyshard_power = ""  # Powers are loaded from inventory separately
+		
+		# Store as equipped accessory
+		_equipped_accessory_item = inv_item
+		print("Companion loaded accessory: %s (ID: %d)" % [accessory_item.base_info.name, accessory_id])
+	else:
+		push_warning("Companion: Could not load accessory ID %d" % accessory_id)
+
+
 func _find_player():
 	# Find player in the "player" group
 	var players = get_tree().get_nodes_in_group("player")
@@ -255,8 +288,16 @@ func set_behavior_mode(mode: String):
 	_apply_behavior_modifiers()
 	
 	# Update PartyUI to show behavior mode
-	var party_ui = get_node_or_null("/root/Main/Game/PartyUI")
-	if party_ui and party_ui.has_method("update_companion_behavior"):
+	# Find PartyUI by searching for a node with the update_companion_behavior method
+	var party_ui = null
+	var game_node = get_tree().root.get_node_or_null("Main/Game")
+	if game_node:
+		for child in game_node.get_children():
+			if child.has_method("update_companion_behavior"):
+				party_ui = child
+				break
+	
+	if party_ui:
 		party_ui.update_companion_behavior(mode)
 	
 	print("🎯 %s switched to %s mode" % [entity_name, mode.capitalize()])
@@ -269,18 +310,28 @@ func _apply_behavior_modifiers():
 			# Double attack range, stay closer to player for support
 			ATTACK_RANGE = BASE_ATTACK_RANGE * 2.0
 			FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE * 0.7
+			_is_guarding = false
 			print("  ⚔️ Aggressive: Attack range x2 (%.1f blocks)" % ATTACK_RANGE)
 		
 		"defensive":
 			# Shorter attack range, stay very close to player
 			ATTACK_RANGE = BASE_ATTACK_RANGE * 0.6
 			FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE * 0.5
+			_is_guarding = false
 			print("  🛡️ Defensive: Close range (%.1f blocks), protective stance" % ATTACK_RANGE)
+		
+		"guard":
+			# Set guard position to current location, don't follow player
+			_guard_position = global_position
+			_is_guarding = true
+			ATTACK_RANGE = BASE_ATTACK_RANGE * 1.2  # Slightly longer range for area defense
+			print("  🏰 Guard: Defending position at (%.1f, %.1f, %.1f)" % [_guard_position.x, _guard_position.y, _guard_position.z])
 		
 		"normal":
 			# Reset to defaults
 			ATTACK_RANGE = BASE_ATTACK_RANGE
 			FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE
+			_is_guarding = false
 			print("  ⚖️ Normal: Balanced behavior")
 
 
@@ -289,10 +340,17 @@ func _initialize_behavior_mode():
 	# Wait for PartyUI to be ready
 	await get_tree().create_timer(0.5).timeout
 	
-	var party_ui = get_node_or_null("/root/Main/Game/PartyUI")
-	if party_ui and party_ui.has_method("update_companion_behavior"):
+	# Find PartyUI by searching for a node with the update_companion_behavior method
+	var party_ui = null
+	var game_node = get_tree().root.get_node_or_null("Main/Game")
+	if game_node:
+		for child in game_node.get_children():
+			if child.has_method("update_companion_behavior"):
+				party_ui = child
+				break
+	
+	if party_ui:
 		party_ui.update_companion_behavior(support_mode)
-		print("  ⚖️ Companion behavior initialized: %s" % support_mode.capitalize())
 
 
 
@@ -318,9 +376,9 @@ func _process(delta: float):
 		_update_sprite_direction()  # Also update sprite during hunting!
 		return
 
-	# Check if player is too far away and needs teleport
+	# Check if player is too far away and needs teleport (NOT in guard mode)
 	var distance_to_player = global_position.distance_to(_player.global_position)
-	if distance_to_player > TELEPORT_DISTANCE:
+	if not _is_guarding and distance_to_player > TELEPORT_DISTANCE:
 		# Only teleport if player is on the ground (check _grounded variable)
 		if _player.get("_grounded") == true:
 			_teleport_to_player()
@@ -343,7 +401,29 @@ func _process(delta: float):
 
 
 func _update_state():
-	# Check if we have a target and can attack
+	# Guard mode: Stay at guard position, only attack nearby enemies
+	if _is_guarding:
+		# Don't follow player, stay near guard position
+		var distance_to_guard_pos = global_position.distance_to(_guard_position)
+		
+		# If we've wandered too far from guard position, return to it
+		if distance_to_guard_pos > 3.0:
+			_state = State.FOLLOWING  # Reuse FOLLOWING state to return to guard position
+			return
+		
+		# Check if we have a target to attack
+		if _current_target != null and is_instance_valid(_current_target) and _current_target.is_alive:
+			var distance = global_position.distance_to(_current_target.global_position)
+			var attack_range = ATTACK_RANGE if is_ranged_weapon else MELEE_RANGE
+			if distance <= attack_range:
+				_state = State.ATTACKING
+				return
+		
+		# Otherwise stay idle at guard position
+		_state = State.IDLE
+		return
+	
+	# Normal behavior: Check if we have a target and can attack
 	if _current_target != null and is_instance_valid(_current_target):
 		if _current_target.is_alive:
 			var distance = global_position.distance_to(_current_target.global_position)
@@ -370,7 +450,15 @@ func _handle_idle(delta: float):
 
 
 func _handle_following(delta: float):
-	# Move towards player
+	# In guard mode, return to guard position instead of following player
+	if _is_guarding:
+		var direction = (_guard_position - global_position).normalized()
+		direction.y = 0  # Don't move vertically
+		var velocity_input = direction * movement_speed * MOVE_SPEED_MULTIPLIER
+		apply_ground_movement(delta, velocity_input)
+		return
+	
+	# Normal mode: Move towards player
 	var direction = (_player.global_position - global_position).normalized()
 	direction.y = 0  # Don't move vertically
 

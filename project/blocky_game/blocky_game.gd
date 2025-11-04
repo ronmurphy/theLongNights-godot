@@ -373,16 +373,38 @@ func _spawn_companion() -> void:
 	# Add to scene first so terrain is available
 	add_child(companion)
 
-	# Spawn near player on the ground
-	var player = _characters_container.get_node_or_null(str(SERVER_PEER_ID))
-	if player:
-		var spawn_pos = player.position + Vector3(2, 5, 2)  # Start above player
-		# Find ground below
-		companion.position = companion.find_ground_position(spawn_pos, 15.0)
-	else:
-		companion.position = Vector3(0, 64, 0)  # Default spawn
+	# Check if we have saved companion data from CompanionManager
+	var saved_behavior = CompanionManager.saved_behavior_mode
+	var saved_position = CompanionManager.saved_position
+	var saved_guard_position = CompanionManager.saved_guard_position
 
-	print("blocky_game: Companion %s spawned at %s" % [CompanionManager.get_companion_name(), companion.position])
+	# Spawn companion at saved position or near player
+	if saved_position != null:
+		companion.position = Vector3(saved_position[0], saved_position[1], saved_position[2])
+		print("blocky_game: Companion %s spawned at saved position %s" % [CompanionManager.get_companion_name(), companion.position])
+	else:
+		# First time spawn - place near player
+		var player = _characters_container.get_node_or_null(str(SERVER_PEER_ID))
+		if player:
+			var spawn_pos = player.position + Vector3(2, 5, 2)  # Start above player
+			# Find ground below
+			companion.position = companion.find_ground_position(spawn_pos, 15.0)
+		else:
+			companion.position = Vector3(0, 64, 0)  # Default spawn
+		print("blocky_game: Companion %s spawned at %s" % [CompanionManager.get_companion_name(), companion.position])
+	
+	# Restore behavior mode and guard position after companion is ready
+	if saved_behavior != "normal" or saved_guard_position != null:
+		# Wait a frame for companion to fully initialize
+		await get_tree().process_frame
+		
+		# Restore guard position if it was saved
+		if saved_guard_position != null:
+			companion._guard_position = Vector3(saved_guard_position[0], saved_guard_position[1], saved_guard_position[2])
+		
+		# Set behavior mode (this will apply modifiers and update UI)
+		companion.set_behavior_mode(saved_behavior)
+		print("blocky_game: Restored companion behavior: %s" % saved_behavior)
 
 	# Trigger companion introduction dialogue
 	await get_tree().create_timer(1.0).timeout  # Brief delay before dialogue

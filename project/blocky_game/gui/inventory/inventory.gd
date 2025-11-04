@@ -530,17 +530,18 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 		behavior_buttons_vbox = VBoxContainer.new()
 		behavior_buttons_vbox.add_theme_constant_override("separation", 4)
 		
-		# Create 3 behavior buttons with emojis
-		var behaviors = ["normal", "aggressive", "defensive"]
-		var emojis = ["⚖️", "⚔️", "🛡️"]
+		# Create 4 behavior buttons with emojis
+		var behaviors = ["normal", "aggressive", "defensive", "guard"]
+		var emojis = ["⚖️", "⚔️", "🛡️", "🏰"]
 		var colors = [
 			Color(0.7, 0.7, 0.7),   # Normal - gray
 			Color(1.0, 0.3, 0.3),   # Aggressive - red
-			Color(0.3, 0.5, 1.0)    # Defensive - blue
+			Color(0.3, 0.5, 1.0),   # Defensive - blue
+			Color(0.8, 0.6, 0.3)    # Guard - orange/brown
 		]
-		var tooltips = ["Normal: Balanced behavior", "Aggressive: Attack more enemies from farther away", "Defensive: Stay close and protect"]
+		var tooltips = ["Normal: Balanced behavior", "Aggressive: Attack more enemies from farther away", "Defensive: Stay close and protect", "Guard: Stay at current position and defend"]
 		
-		for i in range(3):
+		for i in range(4):
 			var btn = Button.new()
 			btn.name = behaviors[i].capitalize() + "Button"
 			btn.text = emojis[i]
@@ -809,7 +810,11 @@ func _on_accessory_slot_pressed():
 				equipment_changed.emit()
 				print("✨ Equipped accessory with power: %s" % dragged_item.skyshard_power)
 			else:
+				# Invalid item - return it to original slot
 				print("❌ Only EQUIP powers (stone_skin, moon_jump, flame_aura) can go in accessory slot!")
+				if _dragged_slot >= 0 and _dragged_slot < _slots.size():
+					# Return item to original slot
+					_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
 				_dragged_item_view.stop()
 				_dragged_slot = -1
 		else:
@@ -1246,7 +1251,8 @@ func serialize_inventory() -> Dictionary:
 	var data = {
 		"slots": [],
 		"player_weapon": null,
-		"companion_weapon": null
+		"companion_weapon": null,
+		"companion_accessory": null
 	}
 
 	# Serialize inventory slots
@@ -1280,6 +1286,16 @@ func serialize_inventory() -> Dictionary:
 			"skyshard_count": _companion_weapon_slot.skyshard_count,
 			"skyshard_power": _companion_weapon_slot.skyshard_power
 		}
+	
+	# Serialize companion accessory
+	if _companion_accessory_slot != null:
+		data["companion_accessory"] = {
+			"type": _companion_accessory_slot.type,
+			"id": _companion_accessory_slot.id,
+			"count": _companion_accessory_slot.count,
+			"skyshard_count": _companion_accessory_slot.skyshard_count,
+			"skyshard_power": _companion_accessory_slot.skyshard_power
+		}
 
 	return data
 
@@ -1309,6 +1325,7 @@ func deserialize_inventory(data: Dictionary) -> void:
 	# Load equipped weapons
 	_player_weapon_slot = null
 	_companion_weapon_slot = null
+	_companion_accessory_slot = null
 
 	if data.has("player_weapon") and data["player_weapon"] != null:
 		var weapon_data = data["player_weapon"]
@@ -1329,6 +1346,16 @@ func deserialize_inventory(data: Dictionary) -> void:
 		weapon.skyshard_count = weapon_data.get("skyshard_count", 0)
 		weapon.skyshard_power = weapon_data.get("skyshard_power", "")
 		_companion_weapon_slot = weapon
+	
+	if data.has("companion_accessory") and data["companion_accessory"] != null:
+		var accessory_data = data["companion_accessory"]
+		var accessory = InventoryItem.new()
+		accessory.type = accessory_data["type"]
+		accessory.id = accessory_data["id"]
+		accessory.count = accessory_data.get("count", 1)
+		accessory.skyshard_count = accessory_data.get("skyshard_count", 0)
+		accessory.skyshard_power = accessory_data.get("skyshard_power", "")
+		_companion_accessory_slot = accessory
 
 	# Update views
 	_update_views()
@@ -1338,8 +1365,13 @@ func deserialize_inventory(data: Dictionary) -> void:
 		_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
 	if _companion_weapon_slot_view:
 		_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+	if _companion_accessory_slot_view:
+		_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
 
 	# Refresh hotbar display to show loaded items
 	_refresh_hotbar_display()
+	
+	# Update companion's equipment
+	_update_companion_accessory()
 
 	print("Inventory loaded from save data")

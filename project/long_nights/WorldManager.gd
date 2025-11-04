@@ -167,6 +167,8 @@ func save_world() -> bool:
 	if inventory and inventory.has_method("serialize_inventory"):
 		_world_data["inventory"] = inventory.serialize_inventory()
 		print("WorldManager: Saved inventory data")
+	
+	# Companion data is now saved in CompanionManager.save_to_file()
 
 	# Save ruin registry data
 	if RuinRegistry.has_method("serialize_registry"):

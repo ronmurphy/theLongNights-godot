@@ -550,6 +550,9 @@ func update_companion_behavior(mode: String) -> void:
 		"defensive":
 			behavior_label.text = "🛡️ Defensive"
 			behavior_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+		"guard":
+			behavior_label.text = "🏰 Guard"
+			behavior_label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.3))
 		"normal":
 			behavior_label.text = "⚖️ Normal"
 			behavior_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
