@@ -484,7 +484,7 @@ func _create_equipment_panels():
 	# Create horizontal container to hold: [Player Equipment] [Inventory] [Companion Equipment]
 	var hbox = HBoxContainer.new()
 	hbox.name = "MainHBox"
-	hbox.add_theme_constant_override("separation", 16)
+	hbox.add_theme_constant_override("separation", 20)  # Increased spacing for breathing room
 	parent.add_child(hbox)
 
 	# Create player equipment panel (left side)
@@ -506,18 +506,18 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 	var panel = VBoxContainer.new()
 	panel.name = character_name + "Equipment"
 	panel.add_theme_constant_override("separation", 8)
-	panel.custom_minimum_size = Vector2(140, 200)
+	panel.custom_minimum_size = Vector2(180, 250)  # Increased size for better visibility
 
 	# Title label
 	var title = Label.new()
 	title.text = character_name
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_font_size_override("font_size", 16)  # Slightly larger font
 	panel.add_child(title)
 
 	# Avatar (reuse party UI avatar)
 	var avatar_bg = Panel.new()
-	avatar_bg.custom_minimum_size = Vector2(96, 96)
+	avatar_bg.custom_minimum_size = Vector2(128, 128)  # Bigger avatar, less squished
 
 	var avatar_style = StyleBoxFlat.new()
 	avatar_style.bg_color = Color(0.2, 0.2, 0.2, 0.8)
@@ -527,7 +527,7 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 
 	var avatar_texture = TextureRect.new()
 	avatar_texture.name = "AvatarTexture"
-	avatar_texture.custom_minimum_size = Vector2(92, 92)
+	avatar_texture.custom_minimum_size = Vector2(124, 124)  # Match larger avatar size
 	avatar_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	avatar_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	avatar_texture.position = Vector2(2, 2)
