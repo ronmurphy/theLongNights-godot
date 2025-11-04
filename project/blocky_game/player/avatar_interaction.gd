@@ -293,7 +293,12 @@ func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool, tool_id: 
 		print("Broke block %d at %s (creative mode - not added)" % [block_id, pos])
 	# Add to inventory if using proper mining tool and not in creative mode
 	elif add_to_inventory:
-		_add_block_to_inventory(block_id)
+		# Check for special harvestable blocks (pumpkin=12 only)
+		if block_id == 12:  # pumpkin
+			_handle_pumpkin_drop(pos)
+		else:
+			# Normal block - add to inventory
+			_add_block_to_inventory(block_id)
 		print("Broke block %d at %s (added to inventory)" % [block_id, pos])
 
 		# Check adjacent faces for thrown torches and remove them
@@ -341,6 +346,68 @@ func _spawn_mining_particles(pos: Vector3):
 	# Auto-delete using timer instead of await
 	var timer = get_tree().create_timer(0.5)
 	timer.timeout.connect(func(): particles.queue_free())
+
+
+func _add_item_to_inventory(item_id: int, count: int = 1) -> void:
+	"""Add item(s) to player's inventory (prioritizes hotbar in survival mode)"""
+	if _creative_mode:
+		return  # Don't add items in creative mode
+
+	var slots = _inventory._slots
+	var BAG_WIDTH = _inventory.BAG_WIDTH
+	var BAG_HEIGHT = _inventory.BAG_HEIGHT
+	var hotbar_begin_index = BAG_WIDTH * BAG_HEIGHT
+	var hotbar_end_index = hotbar_begin_index + BAG_WIDTH
+
+	# Find existing stack of this item type
+	var existing_stack_slot = -1
+	for i in range(slots.size()):
+		if slots[i] != null and slots[i].type == InventoryItem.TYPE_ITEM and slots[i].id == item_id:
+			existing_stack_slot = i
+			break
+
+	# If item type already exists, add to that stack
+	if existing_stack_slot != -1:
+		slots[existing_stack_slot].count += count
+		_inventory.emit_signal("changed")
+		var item_name = _item_db.get_item(item_id).base_info.name
+		print("Added %dx %s to existing stack (count: %d)" % [count, item_name, slots[existing_stack_slot].count])
+		return
+
+	# Item doesn't exist - prioritize hotbar for new items
+	var empty_hotbar_slot = -1
+	var empty_bag_slot = -1
+
+	# Search hotbar first for empty slots
+	for i in range(hotbar_begin_index, hotbar_end_index):
+		if slots[i] == null:
+			empty_hotbar_slot = i
+			break
+
+	# If hotbar is full, search bag for empty slots
+	if empty_hotbar_slot == -1:
+		for i in range(hotbar_begin_index):
+			if slots[i] == null:
+				empty_bag_slot = i
+				break
+
+	# Add to hotbar if available, otherwise bag, otherwise drop
+	var new_item = InventoryItem.new()
+	new_item.id = item_id
+	new_item.type = InventoryItem.TYPE_ITEM
+	new_item.count = count
+
+	var item_name = _item_db.get_item(item_id).base_info.name
+	if empty_hotbar_slot != -1:
+		slots[empty_hotbar_slot] = new_item
+		_inventory.emit_signal("changed")
+		print("Added %dx %s to hotbar slot %d" % [count, item_name, empty_hotbar_slot - hotbar_begin_index])
+	elif empty_bag_slot != -1:
+		slots[empty_bag_slot] = new_item
+		_inventory.emit_signal("changed")
+		print("Added %dx %s to bag slot %d (hotbar full)" % [count, item_name, empty_bag_slot])
+	else:
+		print("Inventory full! %dx %s dropped" % [count, item_name])
 
 
 func _add_block_to_inventory(block_id: int):
@@ -403,6 +470,40 @@ func _add_block_to_inventory(block_id: int):
 		print("Added NEW block %d to bag slot %d (hotbar full)" % [block_id, empty_bag_slot])
 	else:
 		print("Inventory full! Block %d dropped" % block_id)
+
+
+func _handle_tall_grass_drop(pos: Vector3) -> void:
+	"""Handle tall grass drops: 30% chance for wheat_seeds (22) or berries (15)"""
+	if randf() > 0.30:
+		print("Tall grass at %s - no drop (70%% chance)" % pos)
+		return
+
+	# 50/50 split between wheat_seeds and berries
+	var drop_item_id = 22 if randf() < 0.5 else 15  # wheat_seeds (22) or berries (15)
+	_add_item_to_inventory(drop_item_id, 1)
+
+
+func _handle_dead_shrub_drop(pos: Vector3) -> void:
+	"""Handle dead shrub drops: 30% chance for egg (13), mushroom (25), or honey (16)"""
+	if randf() > 0.30:
+		print("Dead shrub at %s - no drop (70%% chance)" % pos)
+		return
+
+	# 33/33/33 split between egg, mushroom, and honey
+	var roll = randf()
+	var drop_item_id = 13  # egg (13)
+	if roll > 0.66:
+		drop_item_id = 16  # honey (16)
+	elif roll > 0.33:
+		drop_item_id = 25  # mushroom (25)
+
+	_add_item_to_inventory(drop_item_id, 1)
+
+
+func _handle_pumpkin_drop(pos: Vector3) -> void:
+	"""Handle pumpkin drops: 50% pumpkin (24) or 50% pumpkin_seeds (23)"""
+	var drop_item_id = 24 if randf() < 0.5 else 23  # pumpkin (24) or pumpkin_seeds (23)
+	_add_item_to_inventory(drop_item_id, 1)
 
 
 func _add_block_to_inventory_standard(block_id: int):

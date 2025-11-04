@@ -233,6 +233,7 @@ func _register_commands() -> void:
 	commands["creative"] = _cmd_creative
 	commands["season"] = _cmd_season
 	commands["perfmon"] = _cmd_perfmon
+	commands["cooking"] = _cmd_cooking
 
 ## Commands Implementation
 
@@ -305,6 +306,9 @@ func _cmd_help(_args: Array) -> void:
 	add_output("[color=cyan]Performance Monitoring:[/color]")
 	add_output("  [color=yellow]perfmon start[/color] - Start FPS/frame time monitoring")
 	add_output("  [color=yellow]perfmon stop[/color] - Stop monitoring and show report")
+	add_output("")
+	add_output("[color=cyan]Cooking System:[/color]")
+	add_output("  [color=yellow]cooking[/color] - Open cooking interface (test)")
 
 func _cmd_clear(_args: Array) -> void:
 	output_label.clear()
@@ -914,3 +918,26 @@ func _cmd_perfmon(args: Array) -> void:
 			add_output(report)
 	else:
 		add_output("[color=red]Invalid command. Use 'perfmon start' or 'perfmon stop'[/color]")
+
+
+func _cmd_cooking(_args: Array) -> void:
+	"""Open the cooking modal (test)"""
+	add_output("[color=lime]Opening cooking interface...[/color]")
+	
+	# Load and create cooking modal
+	var CookingModal = load("res://blocky_game/gui/CookingModal.gd")
+	var modal = CookingModal.new()
+	
+	# Disable player input while modal is open
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("set_input_enabled"):
+		player.set_input_enabled(false)
+	
+	# Connect modal_closed signal to re-enable input
+	modal.modal_closed.connect(func():
+		if player and player.has_method("set_input_enabled"):
+			player.set_input_enabled(true)
+	)
+	
+	# Add to scene tree
+	get_tree().root.add_child(modal)

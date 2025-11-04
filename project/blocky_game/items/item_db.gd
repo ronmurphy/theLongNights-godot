@@ -100,6 +100,27 @@ func _init():
 		"name": "skyshard",
 		"behavior": "skyshard.gd"
 	})
+	# Food items from farming/harvesting (Phase 1A)
+	_create_item({
+		"name": "wheat_seeds",
+		"behavior": "wheat_seeds.gd"
+	})
+	_create_item({
+		"name": "pumpkin_seeds",
+		"behavior": "pumpkin_seeds.gd"
+	})
+	_create_item({
+		"name": "pumpkin",
+		"behavior": "pumpkin.gd"
+	})
+	_create_item({
+		"name": "mushroom",
+		"behavior": "mushroom.gd"
+	})
+	_create_item({
+		"name": "fish",
+		"behavior": "fish.gd"
+	})
 
 
 func get_item(id: int) -> Item:

@@ -187,7 +187,7 @@ func _on_hit(hit_pos: Vector3):
 					var offset = Vector3(x, y, z)
 					if offset.length() <= explosion_radius:
 						var block_pos = hit_pos + offset
-						# Destroy blocks in small explosion
+						# Turn blocks in to a small ice radius
 						vt.set_voxel(block_pos, 47)
 
 	queue_free()

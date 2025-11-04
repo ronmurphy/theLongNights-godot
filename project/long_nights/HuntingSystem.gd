@@ -20,11 +20,18 @@ var hunt_loot: Array = []  # Items found during hunt
 var hunted_companion: Node = null  # Reference to companion who is hunting
 
 # Item definitions
+# Expanded to include more food variety and goblin materials
 const ITEM_TYPES = {
-	"egg": {"type": "food", "race_weight": {"human": 1.0, "elf": 0.5, "dwarf": 2.0, "goblin": 0.3}},
-	"rabbit": {"type": "food", "race_weight": {"human": 1.0, "elf": 1.0, "dwarf": 2.0, "goblin": 0.5}},
-	"berries": {"type": "food", "race_weight": {"human": 1.0, "elf": 3.0, "dwarf": 0.5, "goblin": 0.2}},
-	"honey": {"type": "food", "race_weight": {"human": 1.0, "elf": 2.0, "dwarf": 0.5, "goblin": 0.1}},
+	# Food items from hunting/gathering
+	"egg": {"type": "food", "race_weight": {"human": 1.0, "elf": 0.5, "dwarf": 2.0, "goblin": 0.8}},
+	"rabbit": {"type": "food", "race_weight": {"human": 1.5, "elf": 1.0, "dwarf": 2.0, "goblin": 1.0}},
+	"berries": {"type": "food", "race_weight": {"human": 1.2, "elf": 3.0, "dwarf": 0.5, "goblin": 0.8}},
+	"honey": {"type": "food", "race_weight": {"human": 0.8, "elf": 2.0, "dwarf": 0.5, "goblin": 0.5}},
+	"mushroom": {"type": "food", "race_weight": {"human": 1.0, "elf": 1.5, "dwarf": 1.0, "goblin": 1.2}},
+	"wheat_seeds": {"type": "food", "race_weight": {"human": 1.5, "elf": 1.0, "dwarf": 0.8, "goblin": 0.5}},
+	"pumpkin": {"type": "food", "race_weight": {"human": 1.0, "elf": 0.8, "dwarf": 1.5, "goblin": 0.6}},
+	"fish": {"type": "food", "race_weight": {"human": 1.2, "elf": 0.8, "dwarf": 1.0, "goblin": 0.9}},
+	# Materials from goblin hunting
 	"stone_ore": {"type": "material", "race_weight": {"human": 0.0, "elf": 0.0, "dwarf": 0.0, "goblin": 2.0}},
 	"coal": {"type": "material", "race_weight": {"human": 0.0, "elf": 0.0, "dwarf": 0.0, "goblin": 1.5}},
 	"iron_ore": {"type": "material", "race_weight": {"human": 0.0, "elf": 0.0, "dwarf": 0.0, "goblin": 1.0}},
@@ -32,17 +39,23 @@ const ITEM_TYPES = {
 }
 
 # Item ID mapping (corresponds to item_db.gd registration order)
-# IDs 0-9: Weapons
-# IDs 10+: Food/Materials from hunting
+# IDs 0-12: Weapons/Tools
+# IDs 13-20: Food/Materials from hunting
+# IDs 21: Skyshard
+# IDs 22-25: Harvestable foods
 const ITEM_ID_MAP = {
-	"egg": 10,
-	"rabbit": 11,
-	"berries": 12,
-	"honey": 13,
-	"stone_ore": 14,
-	"coal": 15,
-	"iron_ore": 16,
-	"gold_ore": 17,
+	"egg": 13,
+	"rabbit": 14,
+	"berries": 15,
+	"honey": 16,
+	"stone_ore": 17,
+	"coal": 18,
+	"iron_ore": 19,
+	"gold_ore": 20,
+	"wheat_seeds": 22,
+	"pumpkin": 24,
+	"mushroom": 25,
+	"fish": 26,
 }
 
 func _ready():
@@ -191,7 +204,7 @@ func _discover_items() -> Array:
 	var rng = RandomNumberGenerator.new()
 	
 	# Base discovery chance (per hour)
-	var discovery_chance = 0.6  # 60% chance per hour
+	var discovery_chance = 0.8  # 80% chance per hour
 	
 	if rng.randf() > discovery_chance:
 		return items  # No discovery this hour
@@ -258,10 +271,15 @@ func add_loot_to_inventory(loot: Array) -> Dictionary:
 	
 	print("HuntingSystem: add_loot_to_inventory called with %d items" % loot.size())
 	
-	# Get inventory
-	var inventory = get_node_or_null("/root/Main/Game/CharacterAvatar/Inventory")
+	# Get inventory using player group (more reliable)
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		push_error("HuntingSystem: Could not find player")
+		return {}
+	
+	var inventory = player.get_node_or_null("Inventory")
 	if not inventory:
-		push_error("HuntingSystem: Could not find inventory at /root/Main/Game/CharacterAvatar/Inventory")
+		push_error("HuntingSystem: Could not find inventory on player")
 		return {}
 	
 	print("HuntingSystem: Found inventory: %s" % inventory.name)
@@ -274,6 +292,7 @@ func add_loot_to_inventory(loot: Array) -> Dictionary:
 	print("HuntingSystem: Item summary: %s" % item_summary)
 	
 	# Add items to inventory
+	var slots = inventory._slots
 	for item_name in item_summary.keys():
 		if not ITEM_ID_MAP.has(item_name):
 			push_warning("HuntingSystem: Unknown item: %s" % item_name)
@@ -284,19 +303,37 @@ func add_loot_to_inventory(loot: Array) -> Dictionary:
 		
 		print("HuntingSystem: Adding %d x %s (ID %d)" % [count, item_name, item_id])
 		
-		# Try to add to existing stacks first via inventory method
-		if inventory.has_method("add_item_by_id"):
-			inventory.add_item_by_id(InventoryItem.TYPE_ITEM, item_id, count)
+		# Try to find existing stack of this item first
+		var existing_slot = -1
+		for i in range(slots.size()):
+			if slots[i] != null and slots[i].type == InventoryItem.TYPE_ITEM and slots[i].id == item_id:
+				existing_slot = i
+				break
+		
+		if existing_slot != -1:
+			# Add to existing stack
+			slots[existing_slot].count += count
+			print("HuntingSystem: Added to existing stack (new count: %d)" % slots[existing_slot].count)
 		else:
-			# Fallback: create InventoryItem and add manually
-			var inv_item = InventoryItem.new()
-			inv_item.type = InventoryItem.TYPE_ITEM
-			inv_item.id = item_id
-			inv_item.count = count
+			# Create new item in first empty slot
+			var empty_slot = -1
+			for i in range(slots.size()):
+				if slots[i] == null:
+					empty_slot = i
+					break
 			
-			# Find first empty slot and add
-			if inventory.has_method("add_item"):
-				inventory.add_item(inv_item)
+			if empty_slot != -1:
+				var inv_item = InventoryItem.new()
+				inv_item.type = InventoryItem.TYPE_ITEM
+				inv_item.id = item_id
+				inv_item.count = count
+				slots[empty_slot] = inv_item
+				print("HuntingSystem: Added to empty slot %d" % empty_slot)
+			else:
+				push_warning("HuntingSystem: Inventory full, could not add %s" % item_name)
+	
+	# Update inventory views
+	inventory._update_views()
 	
 	print("HuntingSystem: Added to inventory: %s" % item_summary)
 	return item_summary
