@@ -10,6 +10,7 @@ var circles_before_impact := 3  # Number of full circles before hitting
 var lifetime := 10.0
 var base_damage := 12
 var stack_bonus := 0
+var direct_shot := false  # If true, goes straight to target (for power volley)
 
 var _angle := 0.0  # Current angle around target
 var _circles_completed := 0.0
@@ -58,15 +59,34 @@ func _ready():
 	mesh_node.add_child(aura)
 
 
-func initialize(start_pos: Vector3, target_pos: Vector3, stack_count: int = 1, owner_node: Node = null, inv_item = null):
+func initialize(start_pos: Vector3, target_pos: Vector3, stack_count: int = 1, owner_node: Node = null, inv_item = null, is_direct_shot: bool = false):
 	global_position = start_pos
 	target_position = target_pos
 	stack_bonus = stack_count
 	_owner_node = owner_node
 	_inv_item = inv_item
+	direct_shot = is_direct_shot
 
-	# Start at a random angle
+	# Start at a random angle (only used for spiral mode)
 	_angle = randf() * TAU
+	
+	# Direct shot mode: faster and shorter lifetime
+	if direct_shot:
+		speed = 25.0  # Faster than spiral, but not TOO fast (was 35)
+		lifetime = 3.0  # Shorter lifetime
+		circles_before_impact = 0  # No circling
+		
+		# Enhance visual for direct shot - brighter glow
+		if _mesh:
+			var mat = _mesh.material_override as StandardMaterial3D
+			if mat:
+				mat.emission_energy_multiplier = 5.0  # Brighter (was 2.0)
+			# Make aura brighter too
+			for child in _mesh.get_children():
+				if child is MeshInstance3D:
+					var aura_mat = child.material_override as StandardMaterial3D
+					if aura_mat:
+						aura_mat.emission_energy_multiplier = 6.0  # Brighter purple trail
 
 
 func _physics_process(delta: float):
@@ -82,6 +102,29 @@ func _physics_process(delta: float):
 		_spawn_magic_trail()
 		_trail_timer = 0.0
 
+	# Direct shot mode: fly straight to target
+	if direct_shot:
+		var direction = (target_position - global_position).normalized()
+		var motion = direction * speed * delta
+		
+		# Point knife forward
+		if direction.length() > 0.1:
+			look_at(global_position + direction, Vector3.UP)
+			_mesh.rotate_z(delta * 30.0)  # Fast spin
+		
+		# Check for entity collision
+		_check_entity_collision()
+		
+		# Move toward target
+		global_position += motion
+		
+		# If we reached target, explode
+		if global_position.distance_to(target_position) < 1.0:
+			queue_free()
+		
+		return  # Skip spiral behavior
+	
+	# === SPIRAL MODE (original throwing knife behavior) ===
 	# Calculate how many radians to move this frame
 	# We want to complete circles_before_impact circles total
 	var radians_per_second = (TAU * speed) / (circle_radius * TAU)  # Angular speed
