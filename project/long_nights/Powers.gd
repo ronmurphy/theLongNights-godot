@@ -111,7 +111,9 @@ func _power_lightning_chain(ctx: Dictionary) -> void:
 	print("⚡ Lightning Chain - origin:", origin, " damage:", chain_damage, " primary:", primary_target.entity_name)
 	
 	var entities = get_tree().get_nodes_in_group("entities")
-	print("DEBUG: Found", entities.size(), "entities in scene")
+	
+	var chained_targets = []
+	var last_position = origin  # Track position for chaining visuals
 	
 	var chained_count = 0
 	for entity in entities:
@@ -129,15 +131,27 @@ func _power_lightning_chain(ctx: Dictionary) -> void:
 		if entity.team != EntityBase.Team.ENEMY:
 			continue
 		
-		# Check distance
-		var distance = origin.distance_to(entity.global_position)
+		# Check distance from LAST position (creates chain effect)
+		var distance = last_position.distance_to(entity.global_position)
 		if distance <= CHAIN_RADIUS:
 			# Chain lightning to this enemy
 			var attacker = ctx.get("attacker", null)
 			entity.take_damage(chain_damage + stack_count, attacker)
+			
+			# Store for visual chaining
+			chained_targets.append({
+				"from": last_position,
+				"to": entity.global_position,
+				"entity_name": entity.entity_name
+			})
+			
+			last_position = entity.global_position  # Next chain starts from this enemy
 			print("⚡ Lightning chained to %s for %d damage (distance: %.1f)!" % [entity.entity_name, chain_damage + stack_count, distance])
 			chained_count += 1
-
+	
+	# Spawn lightning bolt visuals between all chained targets
+	if chained_targets.size() > 0:
+		_spawn_chain_lightning_visuals(chained_targets)
 
 func _power_life_steal(ctx: Dictionary) -> void:
 	"""Heals attacker for 25% of damage dealt"""
@@ -538,6 +552,133 @@ func _spawn_mini_meteor_explosion(meteor: Node3D, pos: Vector3) -> void:
 	
 	var light_tween = get_tree().create_tween()
 	light_tween.tween_property(light, "light_energy", 0.0, 0.4)
+
+
+func _spawn_chain_lightning_visuals(chain_data: Array) -> void:
+	"""Spawn lightning bolt visuals between chained enemies"""
+	const LightningBolt = preload("res://blocky_game/effects/lightning_bolt.gd")
+	
+	var game_node = get_node_or_null("/root/Main/Game")
+	if not game_node:
+		print("WARNING: Could not find Game node for lightning visuals")
+		return
+	
+	# Spawn a lightning bolt for each chain link with slight delay
+	var delay = 0.0
+	for link in chain_data:
+		get_tree().create_timer(delay).timeout.connect(
+			func(): _spawn_single_lightning_arc(game_node, link["from"], link["to"])
+		)
+		delay += 0.05  # Stagger each arc slightly
+	
+	print("⚡ Lightning Chain! Spawned %d electric arcs" % chain_data.size())
+
+
+func _spawn_single_lightning_arc(game_node: Node, start: Vector3, end: Vector3) -> void:
+	"""Spawn a single lightning arc between two points"""
+	const LightningBolt = preload("res://blocky_game/effects/lightning_bolt.gd")
+	
+	# Create lightning bolt node
+	var bolt = Node3D.new()
+	bolt.set_script(LightningBolt)
+	
+	# Make it horizontal (from one enemy to another)
+	# We'll create our own simpler arc since the existing one expects sky/caster
+	game_node.add_child(bolt)
+	bolt.global_position = start
+	
+	# Create the visual arc
+	_create_chain_arc(bolt, start, end)
+
+
+func _create_chain_arc(parent: Node3D, start: Vector3, end: Vector3) -> void:
+	"""Create a jagged lightning arc between two points"""
+	var distance = start.distance_to(end)
+	
+	# Main bolt beam
+	var bolt = MeshInstance3D.new()
+	var cylinder = CylinderMesh.new()
+	cylinder.height = distance
+	cylinder.top_radius = 0.06
+	cylinder.bottom_radius = 0.06
+	bolt.mesh = cylinder
+	
+	# Electric blue glowing material
+	var material = StandardMaterial3D.new()
+	material.albedo_color = Color(0.5, 0.8, 1.0)  # Light blue
+	material.emission_enabled = true
+	material.emission = Color(0.7, 0.9, 1.0)
+	material.emission_energy_multiplier = 12.0
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bolt.material_override = material
+	
+	parent.add_child(bolt)
+	
+	# Position bolt between start and end
+	bolt.global_position = (start + end) / 2.0
+	bolt.look_at(end, Vector3.UP)
+	bolt.rotate_object_local(Vector3.RIGHT, PI / 2)
+	
+	# Add outer glow
+	var glow = MeshInstance3D.new()
+	var glow_cyl = CylinderMesh.new()
+	glow_cyl.height = distance
+	glow_cyl.top_radius = 0.12
+	glow_cyl.bottom_radius = 0.12
+	glow.mesh = glow_cyl
+	
+	var glow_mat = StandardMaterial3D.new()
+	glow_mat.albedo_color = Color(0.6, 0.9, 1.0, 0.6)
+	glow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow_mat.emission_enabled = true
+	glow_mat.emission = Color(0.8, 0.95, 1.0)
+	glow_mat.emission_energy_multiplier = 10.0
+	glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.material_override = glow_mat
+	
+	bolt.add_child(glow)
+	
+	# Animate bolt flickering
+	var tween = get_tree().create_tween()
+	tween.set_loops(3)
+	tween.tween_property(material, "emission_energy_multiplier", 18.0, 0.04)
+	tween.tween_property(material, "emission_energy_multiplier", 6.0, 0.04)
+	
+	# Add electric sparks at impact point
+	for i in range(6):
+		var spark = MeshInstance3D.new()
+		var box = BoxMesh.new()
+		box.size = Vector3(0.08, 0.2, 0.08)
+		spark.mesh = box
+		
+		var spark_mat = StandardMaterial3D.new()
+		spark_mat.albedo_color = Color(0.7, 0.95, 1.0)
+		spark_mat.emission_enabled = true
+		spark_mat.emission = Color(0.9, 1.0, 1.0)
+		spark_mat.emission_energy_multiplier = 15.0
+		spark_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		spark.material_override = spark_mat
+		
+		parent.add_child(spark)
+		spark.global_position = end
+		
+		# Random spark direction
+		var direction = Vector3(
+			randf_range(-1, 1),
+			randf_range(-0.5, 1),
+			randf_range(-1, 1)
+		).normalized()
+		
+		# Animate spark
+		var spark_tween = get_tree().create_tween()
+		spark_tween.set_parallel(true)
+		spark_tween.tween_property(spark, "global_position", end + direction * 1.5, 0.25)
+		spark_tween.tween_property(spark, "scale", Vector3.ZERO, 0.25)
+	
+	# Auto-cleanup
+	await get_tree().create_timer(0.4).timeout
+	if is_instance_valid(parent):
+		parent.queue_free()
 
 
 func _find_entities_in_radius(center: Vector3, radius: float) -> Array:
