@@ -405,6 +405,14 @@ func _spawn_companion() -> void:
 		# Set behavior mode (this will apply modifiers and update UI)
 		companion.set_behavior_mode(saved_behavior)
 		print("blocky_game: Restored companion behavior: %s" % saved_behavior)
+	
+	# Restore companion title if they had one
+	if CompanionManager.saved_title != "":
+		await get_tree().process_frame
+		companion.active_title = CompanionManager.saved_title
+		companion.title_emoji = CompanionManager.saved_title_emoji
+		companion._update_party_ui_title()
+		print("blocky_game: Restored companion title: %s %s" % [companion.title_emoji, companion.active_title])
 
 	# Trigger companion introduction dialogue
 	await get_tree().create_timer(1.0).timeout  # Brief delay before dialogue

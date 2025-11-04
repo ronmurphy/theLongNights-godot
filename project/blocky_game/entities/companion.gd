@@ -39,6 +39,11 @@ var support_mode := "normal"  # "normal", "aggressive", "defensive", "guard"
 var _guard_position: Vector3 = Vector3.ZERO  # Position to guard when in guard mode
 var _is_guarding: bool = false  # Whether actively guarding a position
 
+## Companion Title System - Synergies based on role + equipment + behavior
+var active_title: String = ""  # Current title name (e.g., "Paladin", "Berserker")
+var title_emoji: String = ""  # Emoji badge for the title (e.g., "🛡️", "🔥")
+var title_benefit: Dictionary = {}  # Benefits granted by the title
+
 ## Weapon reference (loaded from CompanionManager)
 var weapon_path: String = ""
 var weapon_name: String = ""
@@ -102,6 +107,9 @@ func _ready():
 	# Load saved accessory if available
 	if CompanionManager.saved_accessory_id >= 0:
 		_load_accessory(CompanionManager.saved_accessory_id)
+	
+	# Check for title synergies after equipment is loaded
+	call_deferred("_check_for_synergy_titles")
 	
 	# Connect to inventory equipment changes
 	call_deferred("_connect_to_inventory")
@@ -265,6 +273,9 @@ func set_accessory(inv_item):
 	_equipped_accessory_item = inv_item
 	if inv_item != null and inv_item.skyshard_power != "":
 		print("  ✨ Companion accessory has power: %s" % inv_item.skyshard_power)
+	
+	# Check for title synergies when equipment changes
+	_check_for_synergy_titles()
 
 
 func get_all_equipped_powers() -> Array:
@@ -301,6 +312,9 @@ func set_behavior_mode(mode: String):
 		party_ui.update_companion_behavior(mode)
 	
 	print("🎯 %s switched to %s mode" % [entity_name, mode.capitalize()])
+	
+	# Check for title synergies when behavior changes
+	_check_for_synergy_titles()
 
 
 func _apply_behavior_modifiers():
@@ -333,6 +347,171 @@ func _apply_behavior_modifiers():
 			FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE
 			_is_guarding = false
 			print("  ⚖️ Normal: Balanced behavior")
+
+
+## ============================================================================
+## COMPANION TITLE SYNERGY SYSTEM
+## ============================================================================
+
+func _check_for_synergy_titles():
+	"""Check for synergies between role, equipment, behavior, and award titles"""
+	# Collect equipped powers
+	var equipped_powers = []
+	if _equipped_inv_item and _equipped_inv_item.skyshard_power != "":
+		equipped_powers.append(_equipped_inv_item.skyshard_power)
+	if _equipped_accessory_item and _equipped_accessory_item.skyshard_power != "":
+		equipped_powers.append(_equipped_accessory_item.skyshard_power)
+	
+	var role = CompanionManager.companion_role
+	var race = CompanionManager.companion_race
+	var behavior = support_mode
+	var weapon = weapon_name
+	
+	var new_title = ""
+	var new_emoji = ""
+	var new_benefits = {}
+	
+	# ===== HEALER TITLES =====
+	if role == "healer":
+		# Paladin: stone_skin + life_stealer
+		if "stone_skin" in equipped_powers and "life_stealer" in equipped_powers:
+			new_title = "Paladin"
+			new_emoji = "🛡️"
+			new_benefits = {"heal_bonus": 0.15}  # +15% healing
+		
+		# Battle Cleric: flame_aura + aggressive
+		elif "flame_aura" in equipped_powers and behavior == "aggressive":
+			new_title = "Battle Cleric"
+			new_emoji = "⚡"
+			new_benefits = {"damage_on_heal": 0.3}  # Deal 30% of heal as AoE damage
+		
+		# Moon Priestess: moon_jump + defensive
+		elif "moon_jump" in equipped_powers and behavior == "defensive":
+			new_title = "Moon Priestess"
+			new_emoji = "🌙"
+			new_benefits = {"leap_range": 1.5}  # Can leap to player from 1.5x distance
+		
+		# Warden: stone_skin + defensive
+		elif "stone_skin" in equipped_powers and behavior == "defensive":
+			new_title = "Warden"
+			new_emoji = "🧱"
+			new_benefits = {"tank_bonus": 0.2}  # +20% defense
+	
+	# ===== WARRIOR/TANK TITLES =====
+	elif role == "tank":
+		# Berserker: flame_aura + aggressive
+		if "flame_aura" in equipped_powers and behavior == "aggressive":
+			new_title = "Berserker"
+			new_emoji = "🔥"
+			new_benefits = {"rage_damage": 0.25}  # +25% damage below 50% HP
+		
+		# Mountain: stone_skin + guard
+		elif "stone_skin" in equipped_powers and behavior == "guard":
+			new_title = "Mountain"
+			new_emoji = "🏔️"
+			new_benefits = {"knockback": 1.5}  # Enemies bounce back harder
+		
+		# Duelist: moon_jump + normal
+		elif "moon_jump" in equipped_powers and behavior == "normal":
+			new_title = "Duelist"
+			new_emoji = "⚔️"
+			new_benefits = {"dodge_chance": 0.15}  # 15% dodge chance
+		
+		# Juggernaut: stone_skin + aggressive
+		elif "stone_skin" in equipped_powers and behavior == "aggressive":
+			new_title = "Juggernaut"
+			new_emoji = "🛡️"
+			new_benefits = {"unstoppable": true}  # Less knockback taken
+	
+	# ===== ROGUE TITLES =====
+	elif role == "rogue":
+		# Assassin: aggressive + ranged weapon
+		if behavior == "aggressive" and is_ranged_weapon:
+			new_title = "Assassin"
+			new_emoji = "🗡️"
+			new_benefits = {"first_strike": 0.5}  # +50% damage on first hit
+		
+		# Shadow Dancer: moon_jump + defensive
+		elif "moon_jump" in equipped_powers and behavior == "defensive":
+			new_title = "Shadow Dancer"
+			new_emoji = "👻"
+			new_benefits = {"evasion": 0.2}  # 20% harder to hit near player
+		
+		# Reaper: life_stealer + aggressive
+		elif "life_stealer" in equipped_powers and behavior == "aggressive":
+			new_title = "Reaper"
+			new_emoji = "💀"
+			new_benefits = {"kill_heal": 0.3}  # Restore 30% HP on kill
+		
+		# Sniper: guard + ranged weapon
+		elif behavior == "guard" and is_ranged_weapon:
+			new_title = "Sniper"
+			new_emoji = "🎯"
+			new_benefits = {"stationary_bonus": 0.3}  # +30% damage when guarding
+	
+	# ===== WIZARD TITLES =====
+	elif role == "wizard":
+		# Archmage: 2+ different powers
+		if len(equipped_powers) >= 2:
+			new_title = "Archmage"
+			new_emoji = "🧙"
+			new_benefits = {"power_efficiency": 0.15}  # Powers recharge 15% faster
+		
+		# Elementalist: flame_aura + ice weapon
+		elif "flame_aura" in equipped_powers and ("ice" in weapon or "frost" in weapon):
+			new_title = "Elementalist"
+			new_emoji = "🔮"
+			new_benefits = {"dual_element": true}  # Chance to apply both effects
+		
+		# Astral Knight: moon_jump + defensive + magic weapon
+		elif "moon_jump" in equipped_powers and behavior == "defensive":
+			new_title = "Astral Knight"
+			new_emoji = "🌌"
+			new_benefits = {"teleport_intercept": true}  # Can teleport to block attacks
+	
+	# Apply title if found, or clear if none matches
+	if new_title != "":
+		_set_title(new_title, new_emoji, new_benefits)
+	else:
+		_clear_title()
+
+
+func _set_title(title: String, emoji: String, benefits: Dictionary):
+	"""Set companion's title and benefits"""
+	# Only announce if this is a new title
+	var is_new_title = (active_title != title)
+	
+	active_title = title
+	title_emoji = emoji
+	title_benefit = benefits
+	
+	if is_new_title:
+		print("✨ %s has become a %s %s!" % [entity_name, emoji, title])
+		# Update PartyUI to show the new title
+		_update_party_ui_title()
+
+
+func _clear_title():
+	"""Clear companion's title"""
+	if active_title != "":
+		active_title = ""
+		title_emoji = ""
+		title_benefit = {}
+		_update_party_ui_title()
+
+
+func _update_party_ui_title():
+	"""Update PartyUI to display companion's title"""
+	var party_ui = null
+	var game_node = get_tree().root.get_node_or_null("Main/Game")
+	if game_node:
+		for child in game_node.get_children():
+			if child.has_method("update_companion_title"):
+				party_ui = child
+				break
+	
+	if party_ui:
+		party_ui.update_companion_title(title_emoji, active_title)
 
 
 func _initialize_behavior_mode():
@@ -518,6 +697,23 @@ func _attack_target():
 	# Make the transform look in the direction of the target
 	attack_transform = attack_transform.looking_at(global_position + aim_direction, Vector3.UP)
 
+	# === TITLE BENEFIT: Berserker - Rage Damage (+25% damage below 50% HP) ===
+	if title_benefit.has("rage_damage"):
+		var hp_percent = float(current_hp) / float(max_hp)
+		if hp_percent < 0.5:
+			# Apply rage bonus to weapon damage (if weapon has damage property)
+			if _weapon_item.has("base_damage"):
+				var original_damage = _weapon_item.base_damage
+				_weapon_item.base_damage = int(original_damage * (1.0 + title_benefit.rage_damage))
+				print("🔥 Berserker RAGE! (+%d%% damage)" % int(title_benefit.rage_damage * 100))
+
+	# === TITLE BENEFIT: Sniper - Stationary Bonus (+30% damage when guarding) ===
+	if title_benefit.has("stationary_bonus") and _is_guarding:
+		if _weapon_item.has("base_damage"):
+			var original_damage = _weapon_item.base_damage
+			_weapon_item.base_damage = int(original_damage * (1.0 + title_benefit.stationary_bonus))
+			print("🎯 Sniper precision! (+%d%% damage)" % int(title_benefit.stationary_bonus * 100))
+
 	# Use the weapon's use() method (just like player does)
 	# Pass inventory item so powers can trigger!
 	if _equipped_inv_item != null:
@@ -526,6 +722,9 @@ func _attack_target():
 		_weapon_item.use(attack_transform)
 
 	print("%s uses %s against %s!" % [entity_name, weapon_name, _current_target.entity_name])
+	
+	# === TITLE BENEFIT: Assassin - First Strike (+50% damage on first hit) ===
+	# Note: This needs tracking if target was already hit, implement later if needed
 
 
 func _look_for_threats():
@@ -565,11 +764,32 @@ func _on_death():
 
 ## Take damage and emit signal for UI update
 func take_damage(amount: int, from: Node = null) -> void:
+	# === TITLE BENEFIT: Duelist - Dodge Chance (15% dodge) ===
+	if title_benefit.has("dodge_chance"):
+		if randf() < title_benefit.dodge_chance:
+			print("⚔️ %s DODGED the attack!" % entity_name)
+			_spawn_dodge_effect()
+			return  # Dodged! No damage
+	
+	# === TITLE BENEFIT: Shadow Dancer - Evasion (20% harder to hit near player) ===
+	if title_benefit.has("evasion") and _player:
+		var distance_to_player = global_position.distance_to(_player.global_position)
+		if distance_to_player < FOLLOW_DISTANCE * 1.5:  # Within 1.5x follow distance
+			if randf() < title_benefit.evasion:
+				print("👻 %s faded into shadows and evaded!" % entity_name)
+				_spawn_dodge_effect()
+				return  # Evaded!
+	
 	# Check for stone_skin power from weapon OR accessory (50% damage reduction)
 	var powers = get_all_equipped_powers()
 	if "stone_skin" in powers:
 		amount = int(amount * 0.5)
 		print("🛡️ %s's Stone Skin! Reduced damage to %d" % [entity_name, amount])
+	
+	# === TITLE BENEFIT: Warden - Tank Bonus (+20% defense = -16.7% damage taken) ===
+	if title_benefit.has("tank_bonus"):
+		amount = int(amount * (1.0 - (title_benefit.tank_bonus * 0.8)))  # ~80% effectiveness
+		print("🧱 Warden's defense! Reduced to %d damage" % amount)
 	
 	super.take_damage(amount, from)
 
@@ -623,6 +843,12 @@ func _try_self_heal() -> bool:
 		# TODO: Use healing item from inventory when inventory system exists
 		# For now, just heal directly
 		var heal_amount = int(max_hp * 0.3)  # Heal 30% of max HP
+		
+		# === TITLE BENEFIT: Paladin - Heal Bonus (+15% healing) ===
+		if title_benefit.has("heal_bonus"):
+			heal_amount = int(heal_amount * (1.0 + title_benefit.heal_bonus))
+			print("🛡️ Paladin's holy healing! (+%d%% healing)" % int(title_benefit.heal_bonus * 100))
+		
 		heal(heal_amount)
 		print("%s used healing! (+%d HP)" % [entity_name, heal_amount])
 		return true
@@ -698,6 +924,12 @@ func _role_healer() -> bool:
 	if player_hp_percent < 0.5:
 		# Heal the player
 		var heal_amount = int(_player.max_hp * 0.2)  # Heal 20% of player's max HP
+		
+		# === TITLE BENEFIT: Paladin - Heal Bonus (+15% healing) ===
+		if title_benefit.has("heal_bonus"):
+			heal_amount = int(heal_amount * (1.0 + title_benefit.heal_bonus))
+			print("🛡️ Paladin blessed healing! (+%d%% healing)" % int(title_benefit.heal_bonus * 100))
+		
 		_player.current_hp = min(_player.max_hp, _player.current_hp + heal_amount)
 
 		# Emit player HP changed signal
@@ -708,6 +940,11 @@ func _role_healer() -> bool:
 
 		# Spawn healing effect
 		_spawn_heal_effect(_player.global_position)
+		
+		# === TITLE BENEFIT: Battle Cleric - Damage on Heal (30% of heal as AoE damage) ===
+		if title_benefit.has("damage_on_heal"):
+			var aoe_damage = int(heal_amount * title_benefit.damage_on_heal)
+			_battle_cleric_aoe_damage(aoe_damage)
 
 		return true
 
@@ -749,6 +986,126 @@ func _spawn_heal_effect(pos: Vector3):
 	get_node("/root/Main/Game").add_child(particles)
 
 	# Auto-delete after lifetime
+	await get_tree().create_timer(1.5).timeout
+	particles.queue_free()
+
+
+func _spawn_dodge_effect():
+	"""Create white flash particle effect when dodging"""
+	var particles = GPUParticles3D.new()
+	particles.position = global_position + Vector3(0, 1.0, 0)
+	particles.emitting = true
+	particles.one_shot = true
+	particles.amount = 20
+	particles.lifetime = 0.5
+	particles.explosiveness = 1.0
+
+	var material = ParticleProcessMaterial.new()
+	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	material.emission_sphere_radius = 0.8
+	material.direction = Vector3(0, 0, 0)
+	material.spread = 180.0
+	material.initial_velocity_min = 2.0
+	material.initial_velocity_max = 4.0
+	material.gravity = Vector3(0, 0, 0)
+	material.scale_min = 0.2
+	material.scale_max = 0.5
+	material.color = Color(1.0, 1.0, 1.0, 0.8)  # White flash
+
+	particles.process_material = material
+	get_node("/root/Main/Game").add_child(particles)
+
+	await get_tree().create_timer(1.0).timeout
+	particles.queue_free()
+
+
+func _battle_cleric_aoe_damage(damage: int):
+	"""Battle Cleric: Deal AoE damage when healing (30% of heal amount)"""
+	print("⚡ Battle Cleric's holy wrath! %d AoE damage!" % damage)
+	
+	# Find all enemies within range
+	var enemies = get_tree().get_nodes_in_group("enemy_entities")
+	var hit_count = 0
+	
+	for enemy in enemies:
+		if not enemy.is_alive:
+			continue
+		
+		var distance = global_position.distance_to(enemy.global_position)
+		if distance < 5.0:  # 5 block radius
+			if enemy.has_method("take_damage"):
+				enemy.take_damage(damage, self)
+				hit_count += 1
+	
+	if hit_count > 0:
+		_spawn_battle_cleric_effect()
+		print("  ⚡ Hit %d enemies!" % hit_count)
+
+
+func _spawn_battle_cleric_effect():
+	"""Create yellow/gold radiant burst effect"""
+	var particles = GPUParticles3D.new()
+	particles.position = global_position + Vector3(0, 1.0, 0)
+	particles.emitting = true
+	particles.one_shot = true
+	particles.amount = 30
+	particles.lifetime = 0.8
+	particles.explosiveness = 0.9
+
+	var material = ParticleProcessMaterial.new()
+	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	material.emission_sphere_radius = 5.0  # Match AoE range
+	material.direction = Vector3(0, 1, 0)
+	material.spread = 45.0
+	material.initial_velocity_min = 3.0
+	material.initial_velocity_max = 6.0
+	material.gravity = Vector3(0, 1.0, 0)
+	material.scale_min = 0.15
+	material.scale_max = 0.4
+	material.color = Color(1.0, 0.9, 0.3, 0.9)  # Golden radiance
+
+	particles.process_material = material
+	get_node("/root/Main/Game").add_child(particles)
+
+	await get_tree().create_timer(1.2).timeout
+	particles.queue_free()
+
+
+func on_enemy_killed(enemy: Node):
+	"""Called when companion kills an enemy - used for title benefits"""
+	# === TITLE BENEFIT: Reaper - Kill Heal (restore 30% HP on kill) ===
+	if title_benefit.has("kill_heal"):
+		var heal_amount = int(max_hp * title_benefit.kill_heal)
+		heal(heal_amount)
+		print("💀 Reaper's life drain! Restored %d HP" % heal_amount)
+		_spawn_reaper_effect()
+
+
+func _spawn_reaper_effect():
+	"""Create dark purple/red life drain effect"""
+	var particles = GPUParticles3D.new()
+	particles.position = global_position + Vector3(0, 1.0, 0)
+	particles.emitting = true
+	particles.one_shot = true
+	particles.amount = 15
+	particles.lifetime = 1.0
+	particles.explosiveness = 0.7
+
+	var material = ParticleProcessMaterial.new()
+	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	material.emission_sphere_radius = 0.5
+	material.direction = Vector3(0, -1, 0)  # Flow toward companion
+	material.spread = 30.0
+	material.initial_velocity_min = 2.0
+	material.initial_velocity_max = 4.0
+	material.gravity = Vector3(0, -5.0, 0)  # Pull toward companion
+	material.scale_min = 0.1
+	material.scale_max = 0.3
+	material.color = Color(0.7, 0.1, 0.3)  # Dark red/purple
+
+	particles.process_material = material
+	get_node("/root/Main/Game").add_child(particles)
+
 	await get_tree().create_timer(1.5).timeout
 	particles.queue_free()
 

@@ -23,6 +23,8 @@ var saved_behavior_mode: String = "normal"
 var saved_position: Variant = null  # Array [x,y,z] or null
 var saved_guard_position: Variant = null  # Array [x,y,z] or null
 var saved_accessory_id: int = -1
+var saved_title: String = ""
+var saved_title_emoji: String = ""
 
 
 ## Determine companion based on player choices
@@ -135,7 +137,9 @@ func save_to_file() -> void:
 		"behavior_mode": "normal",
 		"position": null,
 		"guard_position": null,
-		"equipped_accessory_id": -1
+		"equipped_accessory_id": -1,
+		"active_title": "",
+		"title_emoji": ""
 	}
 	
 	# Get live companion data if it exists
@@ -158,6 +162,10 @@ func save_to_file() -> void:
 		# Get equipped accessory from companion if available
 		if companion._equipped_accessory_item != null:
 			save_data["equipped_accessory_id"] = companion._equipped_accessory_item.id
+		
+		# Save companion title
+		save_data["active_title"] = companion.active_title
+		save_data["title_emoji"] = companion.title_emoji
 
 	var file = FileAccess.open("user://companion.save", FileAccess.WRITE)
 	if file:
@@ -198,6 +206,10 @@ func load_from_file() -> bool:
 	saved_position = save_data.get("position", null)
 	saved_guard_position = save_data.get("guard_position", null)
 	saved_accessory_id = save_data.get("equipped_accessory_id", -1)
+	
+	# Load companion title
+	saved_title = save_data.get("active_title", "")
+	saved_title_emoji = save_data.get("title_emoji", "")
 
 	# If no name was saved, generate one
 	if companion_name == "":

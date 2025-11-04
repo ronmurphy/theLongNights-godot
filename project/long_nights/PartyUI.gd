@@ -125,6 +125,17 @@ func _create_party_member_ui(is_companion: bool = false) -> Control:
 	name_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	name_label.add_theme_constant_override("outline_size", 2)
 	info_vbox.add_child(name_label)
+	
+	# Title label (for companion synergy titles)
+	var title_label = Label.new()
+	title_label.name = "TitleLabel"
+	title_label.text = ""  # Hidden by default
+	title_label.add_theme_font_size_override("font_size", 11)
+	title_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))  # Gold color
+	title_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	title_label.add_theme_constant_override("outline_size", 1)
+	title_label.visible = false
+	info_vbox.add_child(title_label)
 
 	# Role label
 	var role_label = Label.new()
@@ -608,3 +619,22 @@ func _flash_avatar_red(member_ui: Control) -> void:
 	# Tween back to original color
 	var tween = create_tween()
 	tween.tween_property(avatar_texture, "modulate", original_color, 0.3)
+
+
+func update_companion_title(emoji: String, title: String):
+	"""Update companion's earned title display"""
+	if not companion_ui:
+		return
+	
+	var title_label = companion_ui.get_node_or_null("InfoVBox/TitleLabel")
+	if not title_label:
+		return
+	
+	if title != "":
+		title_label.text = "%s %s" % [emoji, title]
+		title_label.visible = true
+		title_label.tooltip_text = "Synergy Title: %s" % title
+	else:
+		title_label.text = ""
+		title_label.visible = false
+		title_label.tooltip_text = ""
