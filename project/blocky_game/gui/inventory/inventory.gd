@@ -24,8 +24,10 @@ var _dragged_slot := -1
 # Equipment slots (separate from inventory)
 var _player_weapon_slot: InventoryItem = null
 var _companion_weapon_slot: InventoryItem = null
+var _companion_accessory_slot: InventoryItem = null  # Second equip slot for companion
 var _player_weapon_slot_view = null
 var _companion_weapon_slot_view = null
+var _companion_accessory_slot_view = null  # UI view for accessory slot
 var _player_equipment_panel = null
 var _companion_equipment_panel = null
 
@@ -515,6 +517,52 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 	title.add_theme_font_size_override("font_size", 16)  # Slightly larger font
 	panel.add_child(title)
 
+	# For companion: Create horizontal layout with behavior buttons on left
+	var content_container: Control
+	var behavior_buttons_vbox: VBoxContainer = null
+	
+	if not is_player:
+		# Companion: Use HBoxContainer for [Buttons] [Avatar+Equipment]
+		var hbox = HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 4)
+		
+		# Left side: Behavior buttons (vertical stack)
+		behavior_buttons_vbox = VBoxContainer.new()
+		behavior_buttons_vbox.add_theme_constant_override("separation", 4)
+		
+		# Create 3 behavior buttons with emojis
+		var behaviors = ["normal", "aggressive", "defensive"]
+		var emojis = ["⚖️", "⚔️", "🛡️"]
+		var colors = [
+			Color(0.7, 0.7, 0.7),   # Normal - gray
+			Color(1.0, 0.3, 0.3),   # Aggressive - red
+			Color(0.3, 0.5, 1.0)    # Defensive - blue
+		]
+		var tooltips = ["Normal: Balanced behavior", "Aggressive: Attack more enemies from farther away", "Defensive: Stay close and protect"]
+		
+		for i in range(3):
+			var btn = Button.new()
+			btn.name = behaviors[i].capitalize() + "Button"
+			btn.text = emojis[i]
+			btn.custom_minimum_size = Vector2(32, 32)
+			btn.add_theme_font_size_override("font_size", 18)
+			btn.modulate = colors[i]
+			btn.tooltip_text = tooltips[i]
+			btn.pressed.connect(_on_behavior_button_pressed.bind(behaviors[i]))
+			behavior_buttons_vbox.add_child(btn)
+		
+		hbox.add_child(behavior_buttons_vbox)
+		
+		# Right side: Avatar and equipment (in a VBoxContainer)
+		content_container = VBoxContainer.new()
+		content_container.add_theme_constant_override("separation", 8)
+		hbox.add_child(content_container)
+		
+		panel.add_child(hbox)
+	else:
+		# Player: Just use the panel directly (no behavior buttons)
+		content_container = panel
+
 	# Avatar (reuse party UI avatar)
 	var avatar_bg = Panel.new()
 	avatar_bg.custom_minimum_size = Vector2(128, 128)  # Bigger avatar, less squished
@@ -539,37 +587,85 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 	# Center avatar in panel
 	var avatar_center = CenterContainer.new()
 	avatar_center.add_child(avatar_bg)
-	panel.add_child(avatar_center)
+	content_container.add_child(avatar_center)
 
-	# Weapon slot label
-	var weapon_label = Label.new()
-	weapon_label.text = "Weapon"
-	weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	weapon_label.add_theme_font_size_override("font_size", 12)
-	panel.add_child(weapon_label)
-
-	# Weapon equipment slot
-	const InventorySlot = preload("res://blocky_game/gui/inventory/inventory_slot.tscn")
-	var weapon_slot = InventorySlot.instantiate()
-	weapon_slot.custom_minimum_size = Vector2(64, 64)
-	weapon_slot.pressed.connect(_on_equipment_slot_pressed.bind(is_player))
-
-	# Store reference to slot view
+	# Equipment section - different layout for player vs companion
 	if is_player:
+		# Player: Single weapon slot (vertical layout)
+		var weapon_label = Label.new()
+		weapon_label.text = "Weapon"
+		weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		weapon_label.add_theme_font_size_override("font_size", 12)
+		content_container.add_child(weapon_label)
+		
+		const InventorySlot = preload("res://blocky_game/gui/inventory/inventory_slot.tscn")
+		var weapon_slot = InventorySlot.instantiate()
+		weapon_slot.custom_minimum_size = Vector2(64, 64)
+		weapon_slot.pressed.connect(_on_equipment_slot_pressed.bind(is_player))
 		_player_weapon_slot_view = weapon_slot
+		
+		var weapon_center = CenterContainer.new()
+		weapon_center.add_child(weapon_slot)
+		content_container.add_child(weapon_center)
 	else:
+		# Companion: Weapon + Accessory side-by-side (horizontal layout)
+		var equip_label = Label.new()
+		equip_label.text = "Equipment"
+		equip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		equip_label.add_theme_font_size_override("font_size", 12)
+		content_container.add_child(equip_label)
+		
+		# Container for both slots (horizontal)
+		var slots_hbox = HBoxContainer.new()
+		slots_hbox.add_theme_constant_override("separation", 8)
+		
+		# Left side: Weapon slot with label
+		var weapon_vbox = VBoxContainer.new()
+		weapon_vbox.add_theme_constant_override("separation", 2)
+		
+		var weapon_label = Label.new()
+		weapon_label.text = "Weapon"
+		weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		weapon_label.add_theme_font_size_override("font_size", 10)
+		weapon_vbox.add_child(weapon_label)
+		
+		const InventorySlot = preload("res://blocky_game/gui/inventory/inventory_slot.tscn")
+		var weapon_slot = InventorySlot.instantiate()
+		weapon_slot.custom_minimum_size = Vector2(64, 64)
+		weapon_slot.pressed.connect(_on_equipment_slot_pressed.bind(is_player))
 		_companion_weapon_slot_view = weapon_slot
-
-	# Center weapon slot
-	var weapon_center = CenterContainer.new()
-	weapon_center.add_child(weapon_slot)
-	panel.add_child(weapon_center)
+		weapon_vbox.add_child(weapon_slot)
+		
+		slots_hbox.add_child(weapon_vbox)
+		
+		# Right side: Accessory slot with label
+		var accessory_vbox = VBoxContainer.new()
+		accessory_vbox.add_theme_constant_override("separation", 2)
+		
+		var accessory_label = Label.new()
+		accessory_label.text = "Accessory"
+		accessory_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		accessory_label.add_theme_font_size_override("font_size", 10)
+		accessory_vbox.add_child(accessory_label)
+		
+		var accessory_slot = InventorySlot.instantiate()
+		accessory_slot.custom_minimum_size = Vector2(64, 64)
+		accessory_slot.pressed.connect(_on_accessory_slot_pressed)
+		_companion_accessory_slot_view = accessory_slot
+		accessory_vbox.add_child(accessory_slot)
+		
+		slots_hbox.add_child(accessory_vbox)
+		
+		# Center the horizontal container
+		var slots_center = CenterContainer.new()
+		slots_center.add_child(slots_hbox)
+		content_container.add_child(slots_center)
 
 	# Add Hunt button for companion (only show for companion)
 	if not is_player:
 		var spacer = Control.new()
 		spacer.custom_minimum_size = Vector2(0, 10)
-		panel.add_child(spacer)
+		content_container.add_child(spacer)
 		
 		var hunt_button = Button.new()
 		hunt_button.name = "HuntButton"
@@ -581,9 +677,17 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 		
 		var hunt_center = CenterContainer.new()
 		hunt_center.add_child(hunt_button)
-		panel.add_child(hunt_center)
+		content_container.add_child(hunt_center)
 
 	return panel
+
+
+func _on_behavior_button_pressed(mode: String):
+	"""Change companion behavior mode"""
+	var companion = get_tree().get_first_node_in_group("companions")
+	if companion and companion.has_method("set_behavior_mode"):
+		companion.set_behavior_mode(mode)
+		print("🎯 Companion behavior set to: %s" % mode.capitalize())
 
 
 func _load_avatar_for_panel(avatar_texture: TextureRect, is_player: bool):
@@ -671,6 +775,70 @@ func _on_equipment_slot_pressed(is_player_slot: bool):
 				_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
 			_dragged_item_view.stop()
 			_dragged_slot = -1
+
+
+## ============================================================================
+## ACCESSORY SLOT FUNCTIONS (Companion Only)
+## ============================================================================
+
+func _on_accessory_slot_pressed():
+	"""Handle clicking companion accessory slot"""
+	if _dragged_slot != -1:
+		# Try to equip dragged item
+		var dragged_item = _slots[_dragged_slot] if _dragged_slot >= 0 else null
+		
+		if dragged_item != null:
+			# Check if it's a valid accessory (must have an EQUIP power)
+			if dragged_item.skyshard_power != "" and _is_equip_power(dragged_item.skyshard_power):
+				# Swap items
+				var old_accessory = _companion_accessory_slot
+				_companion_accessory_slot = dragged_item
+				_slots[_dragged_slot] = old_accessory
+				
+				# Update views
+				_update_accessory_slot_view()
+				_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+				
+				# End drag
+				_dragged_item_view.stop()
+				_dragged_slot = -1
+				
+				# Notify companion
+				_update_companion_accessory()
+				
+				equipment_changed.emit()
+				print("✨ Equipped accessory with power: %s" % dragged_item.skyshard_power)
+			else:
+				print("❌ Only EQUIP powers (stone_skin, moon_jump, flame_aura) can go in accessory slot!")
+				_dragged_item_view.stop()
+				_dragged_slot = -1
+		else:
+			_dragged_item_view.stop()
+			_dragged_slot = -1
+	else:
+		# Start dragging accessory if there is one
+		if _companion_accessory_slot != null:
+			_dragged_slot = -997  # Special ID for accessory slot
+			_dragged_item_view.get_display().set_item(_companion_accessory_slot)
+			_dragged_item_view.start()
+
+
+func _is_equip_power(power_name: String) -> bool:
+	"""Check if power is an EQUIP type (passive powers)"""
+	return power_name in ["stone_skin", "moon_jump", "flame_aura"]
+
+
+func _update_accessory_slot_view():
+	"""Update companion accessory slot display"""
+	if _companion_accessory_slot_view:
+		_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+
+
+func _update_companion_accessory():
+	"""Notify companion of accessory change"""
+	var companion = get_tree().get_first_node_in_group("companions")
+	if companion and companion.has_method("set_accessory"):
+		companion.set_accessory(_companion_accessory_slot)
 
 
 ## ============================================================================

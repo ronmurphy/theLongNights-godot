@@ -19,15 +19,23 @@ var _player: Node3D = null
 var _current_target: Node = null
 var _attack_cooldown: float = 0.0
 var _weapon_item: Node = null  # Reference to weapon item for attacking
-var _equipped_inv_item = null  # Inventory item with skyshard powers
+var _equipped_inv_item = null  # Inventory item with skyshard powers (weapon)
+var _equipped_accessory_item = null  # Accessory inventory item (second equip slot)
 
-## AI parameters
-const FOLLOW_DISTANCE = 5.0  # Stay within this distance of player
+## AI parameters - Base values (modified by behavior mode)
+const BASE_FOLLOW_DISTANCE = 5.0  # Base follow distance
+const BASE_ATTACK_RANGE = 40.0  # Base attack range
 const TELEPORT_DISTANCE = 30.0  # Teleport to player if beyond this distance
-const ATTACK_RANGE = 40.0  # Attack enemies within this range (long for ranged weapons)
 const MELEE_RANGE = 4.0  # Melee attack range
 const ATTACK_COOLDOWN = 1.5  # Seconds between attacks
 const MOVE_SPEED_MULTIPLIER = 1.0  # Matches movement_speed from base class
+
+# Active AI parameters (modified by behavior mode)
+var FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE
+var ATTACK_RANGE = BASE_ATTACK_RANGE
+
+## Behavior mode
+var support_mode := "normal"  # "normal", "aggressive", "defensive"
 
 ## Weapon reference (loaded from CompanionManager)
 var weapon_path: String = ""
@@ -56,6 +64,9 @@ func _ready():
 	entity_name = CompanionManager.get_companion_name()
 
 	super._ready()
+	
+	# Add to companions group so inventory buttons can find us
+	add_to_group("companions")
 
 	# Apply stats from CompanionManager
 	max_hp = CompanionManager.get_companion_max_hp()
@@ -95,6 +106,9 @@ func _ready():
 	# Connect to player's attack signal if available
 	if _player and _player.has_signal("attacked_entity"):
 		_player.attacked_entity.connect(_on_player_attacked)
+	
+	# Initialize behavior mode (shows in PartyUI)
+	call_deferred("_initialize_behavior_mode")
 
 	print("Companion spawned: %s %s (HP: %d, Def: %d%%, Atk: +%d)" % [
 		CompanionManager.companion_race,
@@ -211,6 +225,75 @@ func _on_equipment_changed():
 			if child.has_method("_update_companion_weapon"):
 				child._update_companion_weapon()
 				break
+
+
+func set_accessory(inv_item):
+	"""Set companion's accessory item (for EQUIP powers)"""
+	_equipped_accessory_item = inv_item
+	if inv_item != null and inv_item.skyshard_power != "":
+		print("  ✨ Companion accessory has power: %s" % inv_item.skyshard_power)
+
+
+func get_all_equipped_powers() -> Array:
+	"""Get all active EQUIP powers from weapon + accessory"""
+	var powers = []
+	
+	# Check weapon power
+	if _equipped_inv_item != null and _equipped_inv_item.skyshard_power != "":
+		powers.append(_equipped_inv_item.skyshard_power)
+	
+	# Check accessory power
+	if _equipped_accessory_item != null and _equipped_accessory_item.skyshard_power != "":
+		powers.append(_equipped_accessory_item.skyshard_power)
+	
+	return powers
+
+
+func set_behavior_mode(mode: String):
+	"""Change companion's behavior mode"""
+	support_mode = mode
+	_apply_behavior_modifiers()
+	
+	# Update PartyUI to show behavior mode
+	var party_ui = get_node_or_null("/root/Main/Game/PartyUI")
+	if party_ui and party_ui.has_method("update_companion_behavior"):
+		party_ui.update_companion_behavior(mode)
+	
+	print("🎯 %s switched to %s mode" % [entity_name, mode.capitalize()])
+
+
+func _apply_behavior_modifiers():
+	"""Apply stat changes based on behavior mode"""
+	match support_mode:
+		"aggressive":
+			# Double attack range, stay closer to player for support
+			ATTACK_RANGE = BASE_ATTACK_RANGE * 2.0
+			FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE * 0.7
+			print("  ⚔️ Aggressive: Attack range x2 (%.1f blocks)" % ATTACK_RANGE)
+		
+		"defensive":
+			# Shorter attack range, stay very close to player
+			ATTACK_RANGE = BASE_ATTACK_RANGE * 0.6
+			FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE * 0.5
+			print("  🛡️ Defensive: Close range (%.1f blocks), protective stance" % ATTACK_RANGE)
+		
+		"normal":
+			# Reset to defaults
+			ATTACK_RANGE = BASE_ATTACK_RANGE
+			FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE
+			print("  ⚖️ Normal: Balanced behavior")
+
+
+func _initialize_behavior_mode():
+	"""Initialize behavior mode display in PartyUI on spawn"""
+	# Wait for PartyUI to be ready
+	await get_tree().create_timer(0.5).timeout
+	
+	var party_ui = get_node_or_null("/root/Main/Game/PartyUI")
+	if party_ui and party_ui.has_method("update_companion_behavior"):
+		party_ui.update_companion_behavior(support_mode)
+		print("  ⚖️ Companion behavior initialized: %s" % support_mode.capitalize())
+
 
 
 func _process(delta: float):
@@ -394,8 +477,9 @@ func _on_death():
 
 ## Take damage and emit signal for UI update
 func take_damage(amount: int, from: Node = null) -> void:
-	# Check for stone_skin power (50% damage reduction)
-	if _equipped_inv_item != null and _equipped_inv_item.skyshard_power == "stone_skin":
+	# Check for stone_skin power from weapon OR accessory (50% damage reduction)
+	var powers = get_all_equipped_powers()
+	if "stone_skin" in powers:
 		amount = int(amount * 0.5)
 		print("🛡️ %s's Stone Skin! Reduced damage to %d" % [entity_name, amount])
 	
@@ -734,29 +818,49 @@ func _apply_stencil_shader(texture_path: String) -> void:
 
 
 func _apply_equip_powers(delta: float) -> void:
-	"""Apply passive EQUIP powers from companion's weapon"""
-	if _equipped_inv_item == null or _equipped_inv_item.skyshard_power == "":
+	"""Apply passive EQUIP powers from companion's weapon AND accessory"""
+	var powers = get_all_equipped_powers()
+	
+	if powers.is_empty():
 		return
 	
-	var power = _equipped_inv_item.skyshard_power
+	# Apply all active EQUIP powers
+	for power in powers:
+		match power:
+			"stone_skin":
+				# Defense bonus is handled in take_damage()
+				pass
+			
+			"moon_jump":
+				# Jump boost - companions don't really jump, but could apply to movement
+				pass
+			
+			"flame_aura":
+				# Burn nearby enemies periodically
+				_apply_companion_flame_aura(delta)
 	
-	# Only apply EQUIP slot powers (passive effects)
-	match power:
-		"stone_skin":
-			# Defense bonus is handled in take_damage, but we could add visual feedback here
-			pass
-		
-		"moon_jump":
-			# Jump boost - companions don't really jump, but could apply to movement
-			pass
-		
-		"flame_aura":
-			# Burn nearby enemies periodically
-			_apply_companion_flame_aura(delta)
+	# Defensive mode: Auto-heal when low HP
+	if support_mode == "defensive":
+		_apply_defensive_heal(delta)
 
 
 # Timer for flame aura
 var _companion_flame_aura_timer := 0.0
+# Timer for defensive heal
+var _defensive_heal_timer := 0.0
+
+func _apply_defensive_heal(delta: float) -> void:
+	"""Defensive mode: Auto-heal when below 50% HP"""
+	_defensive_heal_timer += delta
+	
+	if _defensive_heal_timer >= 3.0:  # Check every 3 seconds
+		_defensive_heal_timer = 0.0
+		
+		if current_hp < max_hp * 0.5:  # Below 50% HP
+			var heal_amount = int(max_hp * 0.1)  # Heal 10% of max HP
+			current_hp = min(current_hp + heal_amount, max_hp)
+			print("💚 %s (Defensive) auto-heals! (+%d HP)" % [entity_name, heal_amount])
+			_update_party_ui()
 
 func _apply_companion_flame_aura(delta: float) -> void:
 	"""Companion's flame aura - burns nearby enemies"""

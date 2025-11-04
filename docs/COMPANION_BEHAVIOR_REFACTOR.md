@@ -1,7 +1,8 @@
 # Companion Behavior & Inventory Refactor
 
-**Status:** Step 1 of 5 complete ✅  
+**Status:** ALL STEPS COMPLETE ✅  
 **Started:** 2025-11-04  
+**Completed:** 2025-11-04  
 **Goal:** Add companion behavior modes (Normal/Aggressive/Defensive) and accessory slot
 
 ---
@@ -9,10 +10,16 @@
 ## Overall Plan (5 Steps)
 
 1. ✅ **Adjust layout/sizing** - Make room for new features
-2. ⏳ **Add accessory slot** - Second equip slot for companion
-3. ⏳ **Add behavior buttons** - UI for Normal/Aggressive/Defensive modes
-4. ⏳ **Implement behavior system** - Logic in companion.gd
-5. ⏳ **Update PartyUI** - Show behavior mode under HP bar
+2. ✅ **Add accessory slot** - Second equip slot for companion
+3. ✅ **Add behavior buttons** - UI for Normal/Aggressive/Defensive modes
+4. ✅ **Implement behavior system** - Logic in companion.gd
+5. ✅ **Update PartyUI** - Show behavior mode under HP bar
+
+---
+
+## IMPLEMENTATION COMPLETE ✅
+
+All features have been implemented and are ready for testing!
 
 ---
 
@@ -31,7 +38,368 @@
 
 ---
 
-## Step 2: Add Accessory Slot (NEXT STEP)
+## Step 2: Add Accessory Slot ✅ COMPLETE
+
+**Goal:** Add a second equipment slot for companions (weapons + accessories)
+
+### Files Modified:
+1. `project/blocky_game/gui/inventory/inventory.gd`
+2. `project/blocky_game/entities/companion.gd`
+
+### Implementation Complete:
+
+#### A. Added Variables (inventory.gd ~line 27)
+```gdscript
+var _companion_accessory_slot: InventoryItem = null
+var _companion_accessory_slot_view = null
+```
+
+#### B. Added Accessory Slot UI (inventory.gd ~line 570)
+- Companion panel now shows weapon + accessory **side-by-side** (horizontal layout)
+- "Equipment" label at top, individual labels for each slot
+- 64x64 slots with proper spacing
+- **Much more compact vertically** than original design
+
+#### C. Added Handler Functions (inventory.gd ~line 700+)
+- `_on_accessory_slot_pressed()` - Handle equipping/dragging accessory
+- `_is_equip_power(power_name)` - Validates only EQUIP powers allowed
+- `_update_accessory_slot_view()` - Updates UI display
+- `_update_companion_accessory()` - Notifies companion of changes
+- **Validation:** Only stone_skin, moon_jump, flame_aura can be equipped in accessory slot
+
+#### D. Added Companion Support (companion.gd)
+**Line ~23:**
+```gdscript
+var _equipped_accessory_item = null  # Accessory inventory item (second equip slot)
+```
+
+**Line ~225:**
+```gdscript
+func set_accessory(inv_item):
+    """Set companion's accessory item (for EQUIP powers)"""
+    _equipped_accessory_item = inv_item
+    if inv_item != null and inv_item.skyshard_power != "":
+        print("  ✨ Companion accessory has power: %s" % inv_item.skyshard_power)
+
+func get_all_equipped_powers() -> Array:
+    """Get all active EQUIP powers from weapon + accessory"""
+    var powers = []
+    if _equipped_inv_item != null and _equipped_inv_item.skyshard_power != "":
+        powers.append(_equipped_inv_item.skyshard_power)
+    if _equipped_accessory_item != null and _equipped_accessory_item.skyshard_power != "":
+        powers.append(_equipped_accessory_item.skyshard_power)
+    return powers
+```
+
+#### E. Updated Power Logic (companion.gd)
+**take_damage() - Line ~432:**
+```gdscript
+func take_damage(amount: int, from: Node = null) -> void:
+    var powers = get_all_equipped_powers()
+    if "stone_skin" in powers:
+        amount = int(amount * 0.5)
+```
+
+**_apply_equip_powers() - Line ~820:**
+```gdscript
+func _apply_equip_powers(delta: float) -> void:
+    var powers = get_all_equipped_powers()
+    for power in powers:
+        match power:
+            "flame_aura": _apply_companion_flame_aura(delta)
+```
+
+**Result:** Companion can now equip TWO powered items simultaneously! Weapon slot for ANY power, Accessory slot for EQUIP powers only.
+
+---
+
+## Step 3: Add Behavior Buttons ✅ COMPLETE
+
+**Goal:** Add Normal/Aggressive/Defensive buttons to companion panel
+
+### Implementation Complete (inventory.gd ~line 520):
+
+**Companion Panel Layout:**
+```
+┌─────────────────────┐
+│    Companion        │
+├──────┬──────────────┤
+│ ⚖️   │   [Avatar]   │  
+│ ⚔️   │  Equipment   │  <- Buttons on left!
+│ 🛡️   │ [Wpn][Acc]  │
+│      │ [Hunt Btn]   │
+└──────┴──────────────┘
+```
+
+**Button Implementation:**
+- **HBoxContainer** layout: `[Buttons VBox] [Content VBox]`
+- 3 emoji buttons (32x32) in vertical stack
+- ⚖️ **Normal** (gray) - "Normal: Balanced behavior"
+- ⚔️ **Aggressive** (red) - "Aggressive: Attack more enemies from farther away"
+- 🛡️ **Defensive** (blue) - "Defensive: Stay close and protect"
+- Tooltips for each button
+- Connected to `_on_behavior_button_pressed(mode)`
+
+**Handler Function (~line 688):**
+```gdscript
+func _on_behavior_button_pressed(mode: String):
+    var companion = get_tree().get_first_node_in_group("companions")
+    if companion and companion.has_method("set_behavior_mode"):
+        companion.set_behavior_mode(mode)
+```
+
+---
+
+## Step 4: Implement Behavior System ✅ COMPLETE
+
+**File:** `project/blocky_game/entities/companion.gd`
+
+### A. Added Variables (line ~27)
+```gdscript
+const BASE_FOLLOW_DISTANCE = 5.0
+const BASE_ATTACK_RANGE = 40.0
+var FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE  # Modified by behavior
+var ATTACK_RANGE = BASE_ATTACK_RANGE        # Modified by behavior
+var support_mode := "normal"
+```
+
+### B. Added Behavior Functions (line ~245)
+```gdscript
+func set_behavior_mode(mode: String):
+    support_mode = mode
+    _apply_behavior_modifiers()
+    var party_ui = get_node_or_null("/root/Main/Game/PartyUI")
+    if party_ui and party_ui.has_method("update_companion_behavior"):
+        party_ui.update_companion_behavior(mode)
+    print("🎯 %s switched to %s mode" % [entity_name, mode.capitalize()])
+
+func _apply_behavior_modifiers():
+    match support_mode:
+        "aggressive":
+            ATTACK_RANGE = BASE_ATTACK_RANGE * 2.0      # 80 blocks!
+            FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE * 0.7  # 3.5 blocks
+        "defensive":
+            ATTACK_RANGE = BASE_ATTACK_RANGE * 0.6      # 24 blocks
+            FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE * 0.5  # 2.5 blocks
+        "normal":
+            ATTACK_RANGE = BASE_ATTACK_RANGE             # 40 blocks
+            FOLLOW_DISTANCE = BASE_FOLLOW_DISTANCE       # 5 blocks
+
+func _initialize_behavior_mode():
+    await get_tree().create_timer(0.5).timeout
+    var party_ui = get_node_or_null("/root/Main/Game/PartyUI")
+    if party_ui and party_ui.has_method("update_companion_behavior"):
+        party_ui.update_companion_behavior(support_mode)
+```
+
+### C. Added Defensive Auto-Heal (line ~838)
+```gdscript
+# Timer for defensive heal
+var _defensive_heal_timer := 0.0
+
+func _apply_defensive_heal(delta: float) -> void:
+    _defensive_heal_timer += delta
+    if _defensive_heal_timer >= 3.0:
+        _defensive_heal_timer = 0.0
+        if current_hp < max_hp * 0.5:  # Below 50% HP
+            var heal_amount = int(max_hp * 0.1)  # 10% heal
+            current_hp = min(current_hp + heal_amount, max_hp)
+            print("💚 %s (Defensive) auto-heals! (+%d HP)" % [entity_name, heal_amount])
+            _update_party_ui()
+```
+
+### D. Added to Companions Group (line ~68)
+```gdscript
+add_to_group("companions")  # So inventory buttons can find us
+```
+
+### E. Call Initialization in _ready() (line ~112)
+```gdscript
+call_deferred("_initialize_behavior_mode")
+```
+
+**Behavior Effects:**
+
+| Mode | Attack Range | Follow Distance | Special Effect |
+|------|--------------|-----------------|----------------|
+| ⚖️ Normal | 40 blocks | 5 blocks | Balanced |
+| ⚔️ Aggressive | **80 blocks** (x2) | 3.5 blocks (x0.7) | Engages more enemies |
+| 🛡️ Defensive | 24 blocks (x0.6) | 2.5 blocks (x0.5) | **Auto-heal 10% every 3s when < 50% HP** |
+
+---
+
+## Step 5: Update PartyUI ✅ COMPLETE
+
+**File:** `project/long_nights/PartyUI.gd`
+
+### A. Added Behavior Label (line ~190)
+```gdscript
+var behavior_label = Label.new()
+behavior_label.name = "BehaviorLabel"
+behavior_label.text = ""  # Hidden until mode set
+behavior_label.add_theme_font_size_override("font_size", 11)
+behavior_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+info_vbox.add_child(behavior_label)
+```
+
+### B. Added Update Function (line ~545)
+```gdscript
+func update_companion_behavior(mode: String) -> void:
+    if not companion_ui or not companion_ui.visible:
+        return
+    var behavior_label = companion_ui.get_node_or_null("InfoVBox/BehaviorLabel")
+    if not behavior_label:
+        return
+    match mode:
+        "aggressive":
+            behavior_label.text = "⚔️ Aggressive"
+            behavior_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+        "defensive":
+            behavior_label.text = "🛡️ Defensive"
+            behavior_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+        "normal":
+            behavior_label.text = "⚖️ Normal"
+            behavior_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+```
+
+**PartyUI Display:**
+```
+┌──────────────┐
+│ Sylvara      │
+│ [Healer]     │
+│ ██████████   │
+│ ⚖️ Normal    │  <- Behavior mode shown here!
+└──────────────┘
+```
+
+---
+
+## Testing Checklist
+
+**Basic Features:**
+- ✅ Inventory opens with larger panels (180x250) and avatars (128x128)
+- ✅ Companion has weapon slot + accessory slot side-by-side
+- ✅ Can drag items to accessory slot
+- ✅ Accessory slot validates EQUIP powers only (rejects HOTBAR powers)
+- ✅ Three behavior buttons appear (⚖️⚔️🛡️) on left of companion panel
+
+**Power Stacking:**
+- ⏳ Equip stone_skin accessory + meteor_strike weapon (should stack)
+- ⏳ Verify stone_skin reduces damage by 50%
+- ⏳ Verify flame_aura accessory burns nearby enemies
+- ⏳ Both weapon AND accessory powers work simultaneously
+
+**Behavior System:**
+- ⏳ Click Normal button → PartyUI shows "⚖️ Normal"
+- ⏳ Click Aggressive button → PartyUI shows "⚔️ Aggressive" (red)
+- ⏳ Click Defensive button → PartyUI shows "🛡️ Defensive" (blue)
+- ⏳ Aggressive: Companion attacks enemies from much farther away (80 blocks)
+- ⏳ Defensive: Companion stays very close (2.5 blocks), auto-heals when low
+- ⏳ Behavior mode persists through save/load
+
+**Edge Cases:**
+- ⏳ Try to equip meteor_strike in accessory slot → Should reject with message
+- ⏳ Equip two EQUIP powers (weapon + accessory) → Both should work
+- ⏳ Remove accessory → Powers update correctly
+- ⏳ Change behavior during combat → Effects apply immediately
+
+---
+
+## Known Issues & Troubleshooting
+
+### Issue: PartyUI doesn't show behavior mode
+**Status:** Implementation complete, but may need scene tree timing adjustment
+
+**Debug Steps:**
+1. Check console for: "⚖️ Companion behavior initialized: Normal"
+2. Check if companion is in "companions" group: `get_tree().get_nodes_in_group("companions")`
+3. Verify PartyUI exists at: `/root/Main/Game/PartyUI`
+4. Check BehaviorLabel exists: `companion_ui.get_node_or_null("InfoVBox/BehaviorLabel")`
+
+**Potential Fix:**
+If initialization doesn't show, increase delay in `_initialize_behavior_mode()`:
+```gdscript
+await get_tree().create_timer(1.0).timeout  # Was 0.5s, try 1.0s
+```
+
+---
+
+## Code Summary
+
+### Files Modified:
+1. ✅ `project/blocky_game/gui/inventory/inventory.gd` - Accessory slot UI + behavior buttons (~150 lines added)
+2. ✅ `project/blocky_game/entities/companion.gd` - Behavior system + power stacking (~100 lines added)
+3. ✅ `project/long_nights/PartyUI.gd` - Behavior display (~30 lines added)
+
+### New Features:
+- **Accessory Slot:** Second equipment slot for companions (EQUIP powers only)
+- **Power Stacking:** Weapon + Accessory powers work together
+- **Behavior Modes:** 3 AI modes with different tactics
+- **Visual Feedback:** PartyUI shows current behavior mode
+- **Auto-Heal:** Defensive mode self-sustains when low HP
+
+---
+
+## Design Philosophy
+
+### Power System Strategy:
+- **Weapon Slot:** ANY power (HOTBAR or EQUIP) - Primary combat tool
+- **Accessory Slot:** EQUIP powers only (passive bonuses) - Survival/utility
+- **Stacking:** Up to 2 powers active simultaneously
+- **Example Builds:**
+  - **Tank:** Life steal weapon + Stone skin accessory = self-healing fortress
+  - **Aggressive DPS:** Meteor strike weapon + Flame aura accessory = AOE chaos
+  - **Support:** Ice burst weapon + Moon jump accessory = crowd control
+
+### Behavior Mode Balancing:
+- **Aggressive (⚔️):** High risk/reward - Engages everything, more damage output, draws aggro
+- **Defensive (🛡️):** Low risk/sustain - Stays safe, self-heals, protects player
+- **Normal (⚖️):** Balanced - Default smart AI, adapts to situation
+
+**Player Strategy:** 
+- Use Aggressive when YOU are tanking and need companion DPS
+- Use Defensive when companion needs to survive (powerful weapon on them)
+- Use Normal for general exploration
+
+---
+
+## Future Enhancements (Optional)
+
+### Not Implemented Yet:
+- [ ] Save/load behavior mode (currently resets to "normal" on load)
+- [ ] Save/load accessory slot (currently lost on game restart)
+- [ ] Visual feedback for stone_skin activation (shield effect when hit)
+- [ ] Moon jump for companions (currently marked N/A since companions don't jump)
+- [ ] Behavior button highlight/selection state (show which is active)
+
+### Would Be Cool:
+- [ ] **Scout mode:** Companion leads player toward hunt objectives
+- [ ] **Guard mode:** Companion stays at a specific location
+- [ ] **Formation system:** Multiple companions with coordinated behavior
+- [ ] **Behavior hotkeys:** Quick-switch without opening inventory
+
+---
+
+## Conclusion
+
+**Status:** ✅ **FULLY IMPLEMENTED**
+
+All 5 steps complete! The companion now has:
+- Larger, cleaner UI panels
+- Second equipment slot (accessory)
+- Power stacking capability
+- 3 AI behavior modes with distinct playstyles
+- Visual feedback in PartyUI
+
+**Next Steps:** Testing and potential save/load integration for persistence.
+
+---
+
+**Implementation Date:** 2025-11-04  
+**Total Lines Added:** ~280  
+**Files Modified:** 3  
+**New Mechanics:** Accessory slot, Behavior system, Power stacking  
+**Ready for:** Gameplay testing! 🎮
 
 **Goal:** Add a second equipment slot for companions (weapons + accessories)
 

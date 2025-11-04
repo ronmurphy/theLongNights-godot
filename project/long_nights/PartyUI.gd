@@ -178,6 +178,17 @@ func _create_party_member_ui(is_companion: bool = false) -> Control:
 	hunt_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	info_vbox.add_child(hunt_timer_label)
 
+	# Behavior mode label (only for companions, shows current AI behavior)
+	var behavior_label = Label.new()
+	behavior_label.name = "BehaviorLabel"
+	behavior_label.text = ""  # Hidden by default until mode is set
+	behavior_label.add_theme_font_size_override("font_size", 11)
+	behavior_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	behavior_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	behavior_label.add_theme_constant_override("outline_size", 1)
+	behavior_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info_vbox.add_child(behavior_label)
+
 	# Weapon icon container (added to HBoxContainer to position properly)
 	var weapon_container = Control.new()
 	weapon_container.name = "WeaponContainer"
@@ -520,6 +531,30 @@ func _get_companion_default_weapon_id() -> int:
 		"human":
 			return 8  # machete
 	return -1
+
+
+func update_companion_behavior(mode: String) -> void:
+	"""Update companion behavior mode display in PartyUI"""
+	if not companion_ui or not companion_ui.visible:
+		return
+	
+	var behavior_label = companion_ui.get_node_or_null("InfoVBox/BehaviorLabel")
+	if not behavior_label:
+		return
+	
+	# Update text and color based on mode
+	match mode:
+		"aggressive":
+			behavior_label.text = "⚔️ Aggressive"
+			behavior_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+		"defensive":
+			behavior_label.text = "🛡️ Defensive"
+			behavior_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+		"normal":
+			behavior_label.text = "⚖️ Normal"
+			behavior_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+		_:
+			behavior_label.text = ""
 
 
 func _update_hunt_timer() -> void:
