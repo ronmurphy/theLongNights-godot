@@ -115,6 +115,9 @@ func die() -> void:
 
 	print("%s died!" % entity_name)
 
+	# Check for blood moon sky ruin drops
+	_check_bloodmoon_sky_drops()
+
 	# Hide health bar immediately
 	if _health_bar:
 		_health_bar.visible = false
@@ -250,6 +253,93 @@ func _create_blood_fade_gradient() -> GradientTexture1D:
 
 
 ## Flash the sprite red when taking damage
+func _check_bloodmoon_sky_drops() -> void:
+	"""Drop special loot if killed during blood moon in a sky ruin"""
+	# Only drop from enemies
+	if team != Team.ENEMY:
+		return
+
+	# Check if this was a blood moon spawn
+	if not has_meta("is_bloodmoon_spawn"):
+		return
+
+	# Check if killed in a sky ruin (Y > 3000)
+	var spawn_y = get_meta("spawn_y_position", 0.0)
+	if spawn_y < 3000.0:
+		return
+
+	# This enemy was killed in a sky ruin during a blood moon!
+	print("💎 Blood Moon Sky Ruin Kill! Dropping special loot...")
+
+	# Get player to give items to
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		return
+
+	# Get inventory
+	var inventory = player.get_node_or_null("Inventory")
+	if not inventory:
+		return
+
+	# Get Items database
+	var items = get_node_or_null("/root/Main/Game/Items")
+	if not items:
+		return
+
+	# Always drop 1 skyshard
+	var skyshard_item = _find_item_by_name(items, "skyshard")
+	if skyshard_item:
+		_add_item_to_inventory(inventory, skyshard_item.base_info.id, 1)
+		print("  + 1 Skyshard")
+
+	# 25% chance to drop a portal compass
+	if randf() < 0.25:
+		var compass_item = _find_item_by_name(items, "portal_compass")
+		if compass_item:
+			_add_item_to_inventory(inventory, compass_item.base_info.id, 1)
+			print("  + 1 Portal Compass (bonus!)")
+
+
+func _find_item_by_name(items_node, item_name: String):
+	"""Helper to find an item by name in the Items database"""
+	for i in range(100):  # Assume max 100 items
+		var item = items_node.get_item(i)
+		if item and item.base_info.name == item_name:
+			return item
+	return null
+
+
+func _add_item_to_inventory(inventory, item_id: int, count: int = 1):
+	"""Add an item to the inventory by finding first empty slot or stacking"""
+	const InventoryItem = preload("res://blocky_game/player/inventory_item.gd")
+
+	# Try to find existing stack first
+	for i in range(inventory._slots.size()):
+		var slot = inventory._slots[i]
+		if slot != null and slot.type == InventoryItem.TYPE_ITEM and slot.id == item_id:
+			# Found existing stack, add to it
+			slot.count += count
+			inventory._slot_views[i].get_display().set_item(slot)
+			inventory.changed.emit()
+			return
+
+	# No existing stack, find first empty slot
+	for i in range(inventory._slots.size()):
+		if inventory._slots[i] == null:
+			# Found empty slot
+			var new_item = InventoryItem.new()
+			new_item.type = InventoryItem.TYPE_ITEM
+			new_item.id = item_id
+			new_item.count = count
+			inventory._slots[i] = new_item
+			inventory._slot_views[i].get_display().set_item(new_item)
+			inventory.changed.emit()
+			return
+
+	# No empty slots found
+	push_warning("Inventory full! Could not add item ID %d" % item_id)
+
+
 func _flash_red() -> void:
 	if not _sprite:
 		return

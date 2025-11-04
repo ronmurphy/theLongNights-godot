@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://sky_golem_entity_001"]
+
+[ext_resource type="Script" path="res://blocky_game/entities/sky_golem.gd" id="1"]
+
+[node name="SkyGolem" type="Node3D"]
+script = ExtResource("1")
+chase_distance = 15.0
+attack_range = 2.0
+attack_cooldown = 2.0

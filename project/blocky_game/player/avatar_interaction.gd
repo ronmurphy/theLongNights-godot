@@ -181,8 +181,12 @@ func _physics_process(_delta):
 		var item = _item_db.get_item(inv_item.id)
 		var mining_power = item.get_mining_power()
 
-		# Check if this is a mining tool being held on a block
-		if mining_power > 0 and hit != null and _action_use_held:
+		# Check if aiming at an entity (prioritize combat over mining)
+		var target_entity = _find_nearest_entity_in_crosshair()
+		var aiming_at_entity = target_entity != null
+
+		# Check if this is a mining tool being held on a block (but NOT aiming at entity)
+		if mining_power > 0 and hit != null and _action_use_held and not aiming_at_entity:
 			# This is a mining tool being used on a block
 			var hit_raw_id := _terrain_tool.get_voxel(hit.position)
 			var has_cube := hit_raw_id != 0
@@ -199,9 +203,11 @@ func _physics_process(_delta):
 				_reset_breaking_progress()
 		elif _action_use:
 			# Single click with non-mining tool or mining tool in air - use item normally
-			if mining_power == 0 or hit == null or not _action_use_held:
+			# OR if aiming at entity (prioritize combat!)
+			if mining_power == 0 or hit == null or not _action_use_held or aiming_at_entity:
 				if inv_item.count > 0:
-					item.use(_head.global_transform, inv_item.count)
+					# Pass full inv_item so weapons can access skyshard_power
+					item.use(_head.global_transform, inv_item)
 					# Only decrement consumables (torches = item ID 6)
 					# Weapons and tools have infinite uses
 					if inv_item.id == 6:  # torch
@@ -1279,3 +1285,38 @@ func _spawn_combat_enemies_if_needed(ruin_data: RuinRegistry.RuinData) -> void:
 	# Spawn enemies scaled to ruin size (EnemySpawner is an autoload singleton)
 	print("⚔️ Combat ruin detected! Spawning size-scaled enemies...")
 	EnemySpawner.spawn_enemies_at_combat_ruin(ruin_data.position, ruin_data.ruin_size)
+
+
+func _find_nearest_entity_in_crosshair() -> Node:
+	"""Find closest entity in player's crosshair (for combat prioritization)"""
+	const MAX_ENTITY_DISTANCE = 5.0  # Max distance to detect entities
+	const CROSSHAIR_CONE_ANGLE = 30.0  # Degrees (30 deg = 60 deg cone total)
+
+	var origin = _head.global_position
+	var direction = -_head.global_transform.basis.z.normalized()
+
+	var entities = get_tree().get_nodes_in_group("entities")
+	var closest_entity = null
+	var closest_distance = MAX_ENTITY_DISTANCE
+
+	for entity in entities:
+		if not entity.get("is_alive") or not entity.is_alive:
+			continue
+
+		# Check distance
+		var to_entity = entity.global_position - origin
+		var distance = to_entity.length()
+		if distance > MAX_ENTITY_DISTANCE:
+			continue
+
+		# Check if in crosshair cone
+		var angle = rad_to_deg(direction.angle_to(to_entity.normalized()))
+		if angle > CROSSHAIR_CONE_ANGLE:
+			continue
+
+		# Closer entity found
+		if distance < closest_distance:
+			closest_distance = distance
+			closest_entity = entity
+
+	return closest_entity

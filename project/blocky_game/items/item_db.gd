@@ -95,6 +95,11 @@ func _init():
 		"name": "gold_ore",
 		"behavior": "gold_ore.gd"
 	})
+	# Rare blood moon material
+	_create_item({
+		"name": "skyshard",
+		"behavior": "skyshard.gd"
+	})
 
 
 func get_item(id: int) -> Item:

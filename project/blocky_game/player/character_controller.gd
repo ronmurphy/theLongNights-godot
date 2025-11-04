@@ -296,6 +296,19 @@ func enable_gravity() -> void:
 
 ## Player HP and Combat Functions
 
+## Get currently equipped weapon from inventory
+func _get_equipped_weapon():
+	"""Get the player's equipped weapon item data"""
+	var inventory = get_node_or_null("Inventory")
+	if not inventory:
+		return null
+
+	if inventory.has_method("get_player_equipped_weapon"):
+		return inventory.get_player_equipped_weapon()
+
+	return null
+
+
 ## d20-style roll to hit
 static func roll_to_hit() -> bool:
 	# Roll a d20, if 10 or higher the attack hits
@@ -313,8 +326,17 @@ func take_damage(amount: int, from: Node = null) -> void:
 		print("Player dodged attack! (Roll failed)")
 		return
 
+	# Calculate effective defense (base defense + Stone Skin bonus if equipped)
+	var effective_defense = defense
+
+	# ⚡ SKYSHARD POWER: Stone Skin (+50% defense when equipped)
+	var equipped_weapon = _get_equipped_weapon()
+	if equipped_weapon and equipped_weapon.skyshard_power == "stone_skin":
+		effective_defense = int(defense * 1.5)  # +50% defense
+		print("🛡️ Stone Skin active! Defense boosted: %d → %d" % [defense, effective_defense])
+
 	# Apply defense (same formula as entities)
-	var actual_damage = max(1, amount - int(amount * (defense / 100.0)))
+	var actual_damage = max(1, amount - int(amount * (effective_defense / 100.0)))
 
 	current_hp -= actual_damage
 	current_hp = max(0, current_hp)
@@ -362,5 +384,3 @@ func set_input_enabled(enabled: bool) -> void:
 		print("[CharacterController] Input enabled")
 	else:
 		print("[CharacterController] Input disabled")
-
-

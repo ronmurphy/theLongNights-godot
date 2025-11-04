@@ -11,7 +11,8 @@ extends "../item.gd"
 # This script just defines the item properties
 # The item is marked as consumable in item_db.gd
 
-func use(trans: Transform3D, stack_count: int = 1):
+func use(trans: Transform3D, inv_item_or_count = 1):
+	var stack_count = inv_item_or_count.count if typeof(inv_item_or_count) == TYPE_OBJECT else inv_item_or_count
 	# Portal Compass usage is handled by avatar_interaction.gd
 	# when clicking on teleport stones, not through normal item use
 	pass

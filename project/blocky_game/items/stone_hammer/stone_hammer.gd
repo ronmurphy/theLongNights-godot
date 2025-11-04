@@ -4,6 +4,7 @@ extends "../item.gd"
 ## Deals damage in 3-block radius and knocks enemies back
 
 const SERVER_PEER_ID = 1
+const Meteor = preload("../../projectiles/meteor.gd")
 
 @onready var _terrain : VoxelTerrain = get_node("/root/Main/Game/VoxelTerrain")
 
@@ -17,15 +18,17 @@ func get_mining_power() -> int:
 	return DAMAGE  # Good for mining stone/ore
 
 
-func use(trans: Transform3D, stack_count: int = 1):
+func use(trans: Transform3D, inv_item_or_count = 1):
+	var stack_count = inv_item_or_count.count if typeof(inv_item_or_count) == TYPE_OBJECT else inv_item_or_count
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		_use(trans, stack_count)
+		_use(trans, inv_item_or_count)
 
 
-func _use(trans: Transform3D, stack_count: int = 1):
+func _use(trans: Transform3D, inv_item_or_count):
+	var stack_count = inv_item_or_count.count if typeof(inv_item_or_count) == TYPE_OBJECT else inv_item_or_count
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
@@ -48,7 +51,7 @@ func _use(trans: Transform3D, stack_count: int = 1):
 
 	# Damage and knockback entities in AOE with stack bonus
 	var total_damage = DAMAGE + stack_count
-	_damage_nearby_entities(impact_pos, AOE_RADIUS, total_damage, KNOCKBACK_FORCE)
+	_damage_nearby_entities(impact_pos, AOE_RADIUS, total_damage, KNOCKBACK_FORCE, inv_item_or_count)
 
 	print("Stone Hammer impact at: ", impact_pos, " | Stack bonus: +", stack_count, " damage")
 
@@ -130,8 +133,9 @@ func _spawn_impact_shockwave(pos: Vector3):
 	mesh_inst.queue_free()
 
 
-func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockback: float):
+func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockback: float, inv_item_or_count = null):
 	var entities = get_tree().get_nodes_in_group("entities")
+	var total_heal = 0  # Track total healing for Life Steal
 
 	for entity in entities:
 		if not entity.is_alive:
@@ -158,6 +162,33 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 			entity._velocity += knockback_dir * knockback
 
 		print("Stone Hammer hit %s (distance: %.1f)" % [entity.entity_name, distance])
+
+		# ⚡ SKYSHARD POWER: Life Steal (accumulate healing)
+		if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "life_steal":
+			total_heal += int(damage * 0.25)  # 25% per enemy hit
+
+		# ⚡ SKYSHARD POWER: Meteor Strike (spawn meteor on each enemy)
+		if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "meteor_strike":
+			var target_pos = entity.global_position
+			var sky_pos = Vector3(target_pos.x, target_pos.y + 50.0, target_pos.z)
+			_spawn_meteor(sky_pos, target_pos, damage)
+			print("☄️ Meteor Strike (AOE)! Meteor targeting %s" % entity.entity_name)
+
+	# Apply total healing (after all damage dealt)
+	if total_heal > 0:
+		var player = get_tree().get_first_node_in_group("player")
+		if player and player.has_method("heal"):
+			player.heal(total_heal)
+			print("💚 Life Steal (AOE)! Healed %d HP from multiple enemies" % total_heal)
+
+
+func _spawn_meteor(sky_pos: Vector3, target_pos: Vector3, damage: int):
+	"""Spawn a meteor for Meteor Strike power"""
+	var meteor = Node3D.new()
+	meteor.set_script(Meteor)
+	var game_node = get_node("/root/Main/Game")
+	game_node.add_child(meteor)
+	meteor.initialize(sky_pos, target_pos, damage)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)

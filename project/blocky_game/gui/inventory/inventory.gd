@@ -13,6 +13,7 @@ const InventoryItem = preload("../../player/inventory_item.gd")
 @onready var _hotbar_container = $CC/PC/VB/Hotbar
 @onready var _dragged_item_view = $DraggedItem
 @onready var _panel_container = $CC/PC
+@onready var _item_db = get_node("/root/Main/Game/Items")
 
 # TODO Is it worth having the hotbar in the first indexes instead of the last ones?
 var _slots := []
@@ -393,9 +394,55 @@ func _on_slot_pressed(idx: int):
 			# Occupied slot - check if we can stack or swap
 			if _dragged_slot >= 0 and _dragged_slot != idx:
 				var target_item = _slots[idx]
-				
+
+				# Check if dragging skyshard onto weapon/tool for enhancement
+				const SKYSHARD_ITEM_ID = 21  # skyshard ID from item_db
+				if (dragged_item.type == InventoryItem.TYPE_ITEM and
+					dragged_item.id == SKYSHARD_ITEM_ID and
+					target_item.type == InventoryItem.TYPE_ITEM and
+					target_item.id != SKYSHARD_ITEM_ID):
+
+					# IMPORTANT: One power per weapon limit!
+					# Once a weapon has a power, it cannot be enhanced further
+					if target_item.skyshard_power != "":
+						print("⚠️ This weapon already has a power! (%s is locked in)" % target_item.skyshard_power)
+						print("   Choose a different weapon if you want another enhancement.")
+						# Cancel drag - return item to original slot
+						_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+						_dragged_item_view.stop()
+						_dragged_slot = -1
+					else:
+						# Calculate how many skyshards we can/need to add (max 5 total)
+						var current_count = target_item.skyshard_count
+						var skyshards_needed = 5 - current_count
+						var skyshards_to_add = min(dragged_item.count, skyshards_needed)
+
+						# Infuse skyshards into weapon/tool
+						target_item.skyshard_count += skyshards_to_add
+						print("💎 Infused %d skyshard(s)! %s now has %d/5 skyshards" %
+							[skyshards_to_add, _item_db.get_item(target_item.id).base_info.name, target_item.skyshard_count])
+
+						# Decrement skyshard count
+						dragged_item.count -= skyshards_to_add
+						if dragged_item.count <= 0:
+							_slots[_dragged_slot] = null
+							_slot_views[_dragged_slot].get_display().set_item(null)
+						else:
+							_slot_views[_dragged_slot].get_display().set_item(dragged_item)
+
+						# Update target display to show skyshard counter
+						_slot_views[idx].get_display().set_item(target_item)
+						_dragged_item_view.stop()
+						_dragged_slot = -1
+						emit_signal("changed")
+
+						# Check if we reached 5 skyshards - show power selection modal
+						if target_item.skyshard_count == 5:
+							print("✨ 5 Skyshards reached! Opening power selection modal...")
+							_show_power_selection_modal(idx)
+
 				# Check if items are the same type and id (stackable)
-				if target_item.type == dragged_item.type and target_item.id == dragged_item.id:
+				elif target_item.type == dragged_item.type and target_item.id == dragged_item.id:
 					# Combine stacks
 					target_item.count += dragged_item.count
 					_slots[_dragged_slot] = null
@@ -887,6 +934,142 @@ func _on_hunt_return_close(modal_bg: ColorRect, modal_dialog: Control) -> void:
 
 
 # ============================================================================
+# SKYSHARD ENHANCEMENT SYSTEM
+# ============================================================================
+
+func _show_power_selection_modal(weapon_slot_idx: int) -> void:
+	"""Show modal to choose a permanent power for a weapon that has 5 skyshards"""
+	# Create modal background
+	var modal_bg = ColorRect.new()
+	modal_bg.name = "PowerSelectionBG"
+	modal_bg.color = Color(0, 0, 0, 0.8)
+	modal_bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(modal_bg)
+
+	# Create modal dialog
+	var modal_dialog = Control.new()
+	modal_dialog.name = "PowerSelectionModal"
+	modal_dialog.custom_minimum_size = Vector2(600, 500)
+	add_child(modal_dialog)
+
+	# Center on screen
+	var screen_size = get_viewport_rect().size
+	modal_dialog.position = (screen_size - modal_dialog.custom_minimum_size) / 2
+
+	# Modal background panel
+	var panel = Panel.new()
+	panel.custom_minimum_size = modal_dialog.custom_minimum_size
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.1, 0.1, 0.15, 0.98)
+	panel_style.border_color = Color(0.4, 0.7, 1.0)  # Light blue (skyshard color)
+	panel_style.set_border_width_all(4)
+	panel.add_theme_stylebox_override("panel", panel_style)
+	modal_dialog.add_child(panel)
+
+	# Modal content container
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 15)
+	content.position = Vector2(20, 20)
+	content.size = modal_dialog.custom_minimum_size - Vector2(40, 40)
+	modal_dialog.add_child(content)
+
+	# Get weapon info
+	var weapon = _slots[weapon_slot_idx]
+	var weapon_name = _item_db.get_item(weapon.id).base_info.name.capitalize()
+
+	# Title
+	var title = Label.new()
+	title.text = "✨ Skyshard Power Selection ✨"
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(0.4, 0.7, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(title)
+
+	# Subtitle
+	var subtitle = Label.new()
+	subtitle.text = "Choose a permanent power for: %s\n(This choice cannot be changed!)" % weapon_name
+	subtitle.add_theme_font_size_override("font_size", 13)
+	subtitle.add_theme_color_override("font_color", Color(0.9, 0.8, 0.6))
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(subtitle)
+
+	# Spacer
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(0, 10)
+	content.add_child(spacer)
+
+	# Power options
+	# Active powers = work from hotbar when attacking
+	# Passive powers = work from equipment slot (always active)
+	var powers = [
+		{"name": "life_steal", "display": "Life Steal", "desc": "Heals 25% of damage dealt", "slot": "HOTBAR"},
+		{"name": "meteor_strike", "display": "Meteor Strike", "desc": "Summons a meteor on hit", "slot": "HOTBAR"},
+		{"name": "ice_burst", "display": "Ice Burst", "desc": "Freezes enemies in radius on hit", "slot": "HOTBAR"},
+		{"name": "lightning_chain", "display": "Lightning Chain", "desc": "Damage jumps to nearby enemies", "slot": "HOTBAR"},
+		{"name": "poison_cloud", "display": "Poison Cloud", "desc": "Leaves poison AoE on impact", "slot": "HOTBAR"},
+		{"name": "knife_volley", "display": "Knife Volley", "desc": "Launches 3 knives on attack", "slot": "HOTBAR"},
+		{"name": "wind_dash", "display": "Wind Dash", "desc": "Speed boost for 3s after hit", "slot": "HOTBAR"},
+		{"name": "stone_skin", "display": "Stone Skin", "desc": "+50% defense while equipped", "slot": "EQUIP"},
+		{"name": "moon_jump", "display": "Moon Jump", "desc": "Triple jump height while equipped", "slot": "EQUIP"},
+		{"name": "flame_aura", "display": "Flame Aura", "desc": "Burns nearby enemies constantly", "slot": "EQUIP"}
+	]
+
+	# Scroll container for powers
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(560, 320)
+	content.add_child(scroll)
+
+	var power_list = VBoxContainer.new()
+	power_list.add_theme_constant_override("separation", 8)
+	scroll.add_child(power_list)
+
+	# Create button for each power
+	for power_data in powers:
+		var power_btn = Button.new()
+		power_btn.custom_minimum_size = Vector2(540, 50)
+		power_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+
+		# Determine slot icon and color
+		var slot_icon = "⚔️" if power_data["slot"] == "HOTBAR" else "🛡️"
+		var slot_text = "[Hotbar]" if power_data["slot"] == "HOTBAR" else "[Equip]"
+
+		# Button text: [Slot] Icon Power name - description
+		power_btn.text = "  %s %s %s - %s" % [slot_text, slot_icon, power_data["display"], power_data["desc"]]
+		power_btn.add_theme_font_size_override("font_size", 12)
+
+		# Connect to selection handler
+		power_btn.pressed.connect(_on_power_selected.bind(weapon_slot_idx, power_data["name"], modal_bg, modal_dialog))
+
+		power_list.add_child(power_btn)
+
+
+func _on_power_selected(weapon_slot_idx: int, power_name: String, modal_bg: ColorRect, modal_dialog: Control) -> void:
+	"""Called when a power is selected"""
+	var weapon = _slots[weapon_slot_idx]
+
+	# Set the power (permanent, cannot be changed!)
+	weapon.skyshard_power = power_name
+
+	# Keep skyshard_count at 5 to show weapon is "maxed out"
+	# (System prevents adding more skyshards once a power is chosen)
+	weapon.skyshard_count = 5
+
+	# Update display
+	_slot_views[weapon_slot_idx].get_display().set_item(weapon)
+
+	# Close modal
+	modal_bg.queue_free()
+	modal_dialog.queue_free()
+
+	# Show confirmation
+	var weapon_name = _item_db.get_item(weapon.id).base_info.name.capitalize()
+	print("⚡ Power Unlocked! %s now has '%s' power (PERMANENT)" % [weapon_name, power_name])
+	print("   This weapon cannot be enhanced further. Choose wisely for your next weapon!")
+
+	emit_signal("changed")
+
+
+# ============================================================================
 # SAVE/LOAD SYSTEM
 # ============================================================================
 
@@ -906,7 +1089,9 @@ func serialize_inventory() -> Dictionary:
 			data["slots"].append({
 				"type": item.type,
 				"id": item.id,
-				"count": item.count
+				"count": item.count,
+				"skyshard_count": item.skyshard_count,
+				"skyshard_power": item.skyshard_power
 			})
 
 	# Serialize equipped weapons
@@ -914,14 +1099,18 @@ func serialize_inventory() -> Dictionary:
 		data["player_weapon"] = {
 			"type": _player_weapon_slot.type,
 			"id": _player_weapon_slot.id,
-			"count": _player_weapon_slot.count
+			"count": _player_weapon_slot.count,
+			"skyshard_count": _player_weapon_slot.skyshard_count,
+			"skyshard_power": _player_weapon_slot.skyshard_power
 		}
 
 	if _companion_weapon_slot != null:
 		data["companion_weapon"] = {
 			"type": _companion_weapon_slot.type,
 			"id": _companion_weapon_slot.id,
-			"count": _companion_weapon_slot.count
+			"count": _companion_weapon_slot.count,
+			"skyshard_count": _companion_weapon_slot.skyshard_count,
+			"skyshard_power": _companion_weapon_slot.skyshard_power
 		}
 
 	return data
@@ -945,6 +1134,8 @@ func deserialize_inventory(data: Dictionary) -> void:
 			item.type = slot_data["type"]
 			item.id = slot_data["id"]
 			item.count = slot_data.get("count", 1)
+			item.skyshard_count = slot_data.get("skyshard_count", 0)
+			item.skyshard_power = slot_data.get("skyshard_power", "")
 			_slots[i] = item
 
 	# Load equipped weapons
@@ -957,6 +1148,8 @@ func deserialize_inventory(data: Dictionary) -> void:
 		weapon.type = weapon_data["type"]
 		weapon.id = weapon_data["id"]
 		weapon.count = weapon_data.get("count", 1)
+		weapon.skyshard_count = weapon_data.get("skyshard_count", 0)
+		weapon.skyshard_power = weapon_data.get("skyshard_power", "")
 		_player_weapon_slot = weapon
 
 	if data.has("companion_weapon") and data["companion_weapon"] != null:
@@ -965,6 +1158,8 @@ func deserialize_inventory(data: Dictionary) -> void:
 		weapon.type = weapon_data["type"]
 		weapon.id = weapon_data["id"]
 		weapon.count = weapon_data.get("count", 1)
+		weapon.skyshard_count = weapon_data.get("skyshard_count", 0)
+		weapon.skyshard_power = weapon_data.get("skyshard_power", "")
 		_companion_weapon_slot = weapon
 
 	# Update views

@@ -10,7 +10,10 @@ class BaseInfo:
 var base_info := BaseInfo.new()
 
 
-func use(_trans: Transform3D, _stack_count: int = 1):
+func use(_trans: Transform3D, _inv_item_or_count = 1):
+	# _inv_item_or_count can be either:
+	# - InventoryItem object (for skyshard power support)
+	# - int (backward compatibility for old weapons)
 	pass
 
 

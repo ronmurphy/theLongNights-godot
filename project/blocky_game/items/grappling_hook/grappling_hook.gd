@@ -11,7 +11,8 @@ const PULL_SPEED = 20.0
 const ROPE_COLOR = Color(0.6, 0.4, 0.2)  # Brown rope
 
 
-func use(trans: Transform3D, stack_count: int = 1):
+func use(trans: Transform3D, inv_item_or_count = 1):
+	var stack_count = inv_item_or_count.count if typeof(inv_item_or_count) == TYPE_OBJECT else inv_item_or_count
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)

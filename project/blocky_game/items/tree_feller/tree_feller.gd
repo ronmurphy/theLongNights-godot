@@ -4,6 +4,7 @@ extends "../item.gd"
 ## Can hit multiple targets in arc
 
 const SERVER_PEER_ID = 1
+const Meteor = preload("../../projectiles/meteor.gd")
 
 @onready var _terrain : VoxelTerrain = get_node("/root/Main/Game/VoxelTerrain")
 
@@ -17,15 +18,17 @@ func get_mining_power() -> int:
 	return DAMAGE  # Best for mining (especially wood)
 
 
-func use(trans: Transform3D, stack_count: int = 1):
+func use(trans: Transform3D, inv_item_or_count = 1):
+	var stack_count = inv_item_or_count.count if typeof(inv_item_or_count) == TYPE_OBJECT else inv_item_or_count
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		_use(trans, stack_count)
+		_use(trans, inv_item_or_count)
 
 
-func _use(trans: Transform3D, stack_count: int = 1):
+func _use(trans: Transform3D, inv_item_or_count):
+	var stack_count = inv_item_or_count.count if typeof(inv_item_or_count) == TYPE_OBJECT else inv_item_or_count
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
@@ -35,7 +38,7 @@ func _use(trans: Transform3D, stack_count: int = 1):
 	if target_entities.size() > 0:
 		# Hit all entities in arc
 		for entity in target_entities:
-			_cleave_attack(entity, origin, stack_count)
+			_cleave_attack(entity, origin, inv_item_or_count)
 	else:
 		# Slash at air (show slash effect)
 		var slash_pos = origin + direction * 2.0
@@ -71,7 +74,9 @@ func _find_targets_in_arc(origin: Vector3, direction: Vector3) -> Array:
 	return targets
 
 
-func _cleave_attack(entity: Node, attacker_pos: Vector3, stack_count: int = 1):
+func _cleave_attack(entity: Node, attacker_pos: Vector3, inv_item_or_count):
+	var stack_count = inv_item_or_count.count if typeof(inv_item_or_count) == TYPE_OBJECT else inv_item_or_count
+
 	# Deal damage with stack bonus
 	var total_damage = DAMAGE + stack_count
 	entity.take_damage(total_damage, self)
@@ -80,6 +85,21 @@ func _cleave_attack(entity: Node, attacker_pos: Vector3, stack_count: int = 1):
 	_spawn_slash_effect(entity.global_position, (entity.global_position - attacker_pos).normalized())
 
 	print("Tree Feller hit %s for %d damage! (base: %d + stack: %d)" % [entity.entity_name, total_damage, DAMAGE, stack_count])
+
+	# ⚡ SKYSHARD POWER: Life Steal
+	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "life_steal":
+		var heal_amount = int(total_damage * 0.25)  # 25% of damage dealt
+		var player = get_tree().get_first_node_in_group("player")
+		if player and player.has_method("heal"):
+			player.heal(heal_amount)
+			print("💚 Life Steal! Healed %d HP" % heal_amount)
+
+	# ⚡ SKYSHARD POWER: Meteor Strike
+	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "meteor_strike":
+		var target_pos = entity.global_position
+		var sky_pos = Vector3(target_pos.x, target_pos.y + 50.0, target_pos.z)
+		_spawn_meteor(sky_pos, target_pos, stack_count)
+		print("☄️ Meteor Strike! Calling down meteor on %s" % entity.entity_name)
 
 
 func _spawn_slash_effect(pos: Vector3, direction: Vector3):
@@ -133,6 +153,15 @@ func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 	# Auto-delete after animation
 	await get_tree().create_timer(0.33).timeout  # Longest animation (heavy weapon)
 	mesh_inst.queue_free()
+
+
+func _spawn_meteor(sky_pos: Vector3, target_pos: Vector3, stack_count: int):
+	"""Spawn a meteor for Meteor Strike power"""
+	var meteor = Node3D.new()
+	meteor.set_script(Meteor)
+	var game_node = get_node("/root/Main/Game")
+	game_node.add_child(meteor)
+	meteor.initialize(sky_pos, target_pos, stack_count)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)

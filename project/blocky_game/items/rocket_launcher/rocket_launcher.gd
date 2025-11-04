@@ -10,7 +10,8 @@ const SERVER_PEER_ID = 1
 var _next_rocket_id := 1
 
 
-func use(trans: Transform3D, stack_count: int = 1):
+func use(trans: Transform3D, inv_item_or_count = 1):
+	var stack_count = inv_item_or_count.count if typeof(inv_item_or_count) == TYPE_OBJECT else inv_item_or_count
 	# Check altitude - can't fire rockets below y=-200 (air too thin!)
 	if trans.origin.y < -200:
 		print("Cannot fire rocket below y=-200 - air too thin!")

@@ -179,7 +179,7 @@ func _on_hit(hit_pos: Vector3):
 		vt.channel = VoxelBuffer.CHANNEL_TYPE
 
 		# Small explosion radius
-		var explosion_radius = 2.0
+		var explosion_radius = 1.5
 		var radius_int = int(explosion_radius)
 		for x in range(-radius_int, radius_int + 1):
 			for y in range(-radius_int, radius_int + 1):
@@ -188,7 +188,7 @@ func _on_hit(hit_pos: Vector3):
 					if offset.length() <= explosion_radius:
 						var block_pos = hit_pos + offset
 						# Destroy blocks in small explosion
-						vt.set_voxel(block_pos, 0)
+						vt.set_voxel(block_pos, 47)
 
 	queue_free()
 

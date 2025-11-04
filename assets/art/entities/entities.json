@@ -312,6 +312,24 @@
       "craftable": false,
       "drops": ["spectral_essence", "soul_fragment"]
     },
+    "sky_golem": {
+      "name": "Sky Golem",
+      "type": "enemy",
+      "tier": 3,
+      "hp": 38,
+      "attack": 8,
+      "defense": 17,
+      "speed": 3.5,
+      "flying": true,
+      "sky_ruin_only": true,
+      "abilities": ["Flying Construct", "Relentless Pursuit", "Heavy Armor"],
+      "sprite_ready": "sky_golem_ready_pose_enhanced.png",
+      "sprite_attack": "sky_golem_attack_pose_enhanced.png",
+      "sprite_portrait": "sky_golem.png",
+      "description": "FLYING construct guardian found ONLY in sky ruins. Won't fall off edges!",
+      "craftable": false,
+      "drops": ["golem_core", "sky_metal", "ancient_gears"]
+    },
     "corrupted_citizen": {
       "name": "Corrupted Citizen",
       "type": "enemy",

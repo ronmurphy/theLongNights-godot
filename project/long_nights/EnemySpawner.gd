@@ -225,6 +225,10 @@ func _spawn_enemy(enemy_key: String, spawn_pos: Vector3):
 		# Flying entities spawn in air
 		entity.global_position = spawn_pos
 
+	# Apply blood moon stat buffs if active
+	if is_bloodmoon:
+		_apply_bloodmoon_buffs(entity, enemy_key)
+
 	var time_desc = "day"
 	if is_bloodmoon:
 		time_desc = "BLOOD MOON (Tier %d)" % max_unlocked_tier
@@ -339,8 +343,18 @@ func spawn_enemies_at_combat_ruin(ruin_position: Vector3, ruin_size: Vector3i):
 		tier1_count += tier2_count
 		tier2_count = 0
 
-	print("⚔️ Combat Ruin! Size: %dx%d (%d sq blocks) - Spawning %d enemies (T3:%d, T2:%d, T1:%d)" %
-		[ruin_size.x, ruin_size.z, area, total_count, tier3_count, tier2_count, tier1_count])
+	# Check if this is a sky ruin (Y > 3000 = sky level)
+	var is_sky_ruin = ruin_position.y > 3000.0
+	var sky_golem_count = 0
+
+	# If sky ruin, replace tier 3 enemies with sky golems
+	if is_sky_ruin and tier3_count > 0 and max_unlocked_tier >= 3:
+		sky_golem_count = tier3_count
+		tier3_count = 0  # Replace all tier 3 with sky golems
+		print("☁️ SKY RUIN detected at Y=%.0f! Spawning %d Sky Golems (FLYING)!" % [ruin_position.y, sky_golem_count])
+
+	print("⚔️ Combat Ruin! Size: %dx%d (%d sq blocks) - Spawning %d enemies (SkyGolems:%d, T3:%d, T2:%d, T1:%d)" %
+		[ruin_size.x, ruin_size.z, area, total_count, sky_golem_count, tier3_count, tier2_count, tier1_count])
 
 	# Calculate ruin center for positioning
 	var ruin_center = ruin_position + Vector3(ruin_size) / 2.0
@@ -348,7 +362,15 @@ func spawn_enemies_at_combat_ruin(ruin_position: Vector3, ruin_size: Vector3i):
 
 	var spawn_index = 0
 
-	# Spawn Tier 3 enemies (center/tower - innermost positions)
+	# Spawn Sky Golems first (if sky ruin) - they patrol the center
+	if sky_golem_count > 0:
+		for i in range(sky_golem_count):
+			var spawn_pos = _get_tiered_spawn_position(ruin_center, horizontal_radius, spawn_index, total_count, 0.3)
+			spawn_pos.y += 5.0  # Start flying above the ruin
+			_spawn_sky_golem(spawn_pos)
+			spawn_index += 1
+
+	# Spawn Tier 3 enemies (center/tower - innermost positions) - if not sky ruin
 	for i in range(tier3_count):
 		var spawn_pos = _get_tiered_spawn_position(ruin_center, horizontal_radius, spawn_index, total_count, 0.3)
 		var enemy_key = _pick_enemy_by_tier(3)
@@ -389,7 +411,7 @@ func _get_tiered_spawn_position(ruin_center: Vector3, ruin_radius: float, index:
 
 
 func _pick_enemy_by_tier(desired_tier: int) -> String:
-	"""Pick a random enemy from a specific tier"""
+	"""Pick a random enemy from a specific tier (excludes sky_golem - that's special!)"""
 	# Cap by unlocked tiers
 	var tier = min(desired_tier, max_unlocked_tier)
 
@@ -402,4 +424,88 @@ func _pick_enemy_by_tier(desired_tier: int) -> String:
 		return _pick_enemy_by_tier(1)
 
 	var tier_enemies = enemies_by_tier[tier]
-	return tier_enemies[randi() % tier_enemies.size()]
+
+	# Filter out sky_golem (it only spawns via special logic in sky ruins)
+	var available_enemies = []
+	for enemy_key in tier_enemies:
+		if enemy_key != "sky_golem":
+			available_enemies.append(enemy_key)
+
+	# If no enemies after filtering, fall back
+	if available_enemies.is_empty():
+		if tier == 1:
+			push_warning("EnemySpawner: No tier 1 enemies available after filtering!")
+			return ""
+		return _pick_enemy_by_tier(1)
+
+	return available_enemies[randi() % available_enemies.size()]
+
+
+func _spawn_sky_golem(spawn_pos: Vector3):
+	"""Spawn a sky golem (flying enemy, sky-ruin exclusive)"""
+	var scene_path = "res://blocky_game/entities/sky_golem.tscn"
+
+	if not ResourceLoader.exists(scene_path):
+		push_warning("EnemySpawner: Sky Golem scene not found at %s" % scene_path)
+		return
+
+	var entity_scene = load(scene_path)
+	if not entity_scene:
+		push_error("EnemySpawner: Failed to load Sky Golem scene")
+		return
+
+	var entity = entity_scene.instantiate()
+
+	# Add to game world
+	var game = get_node_or_null("/root/Main/Game")
+	if not game:
+		push_error("EnemySpawner: Could not find game node")
+		entity.queue_free()
+		return
+
+	game.add_child(entity)
+	entity.global_position = spawn_pos  # Flying enemy, no ground finding needed!
+
+	# Apply blood moon buffs if active
+	if is_bloodmoon:
+		_apply_bloodmoon_buffs(entity, "sky_golem")
+
+	print("☁️ Spawned Sky Golem (FLYING) at %s" % spawn_pos)
+
+
+func _apply_bloodmoon_buffs(entity, enemy_key: String):
+	"""Apply stat buffs to enemies during blood moon based on their tier
+	Tier 1: +10% HP/Attack/Defense
+	Tier 2: +20% HP/Attack/Defense
+	Tier 3: +30% HP/Attack/Defense
+	Tier 4: +40% HP/Attack/Defense
+	Tier 5: +50% HP/Attack/Defense
+	"""
+	# Determine enemy tier
+	var tier = _get_enemy_tier(enemy_key)
+	if tier == 0:
+		return  # Unknown enemy, no buff
+
+	# Calculate buff percentage (10% per tier)
+	var buff_percent = tier * 0.10
+
+	# Apply buffs
+	entity.max_hp = int(entity.max_hp * (1.0 + buff_percent))
+	entity.current_hp = entity.max_hp  # Start at full HP
+	entity.attack_damage = int(entity.attack_damage * (1.0 + buff_percent))
+	entity.defense = int(entity.defense * (1.0 + buff_percent))
+
+	# Mark entity as blood moon spawn for loot drops
+	entity.set_meta("is_bloodmoon_spawn", true)
+	entity.set_meta("spawn_y_position", entity.global_position.y)
+
+	print("🩸 Blood Moon Buff Applied! Tier %d: +%d%% stats (%s HP:%d Atk:%d Def:%d)" %
+		[tier, int(buff_percent * 100), enemy_key, entity.max_hp, entity.attack_damage, entity.defense])
+
+
+func _get_enemy_tier(enemy_key: String) -> int:
+	"""Get the tier of an enemy by searching through enemies_by_tier"""
+	for tier in range(1, 6):
+		if enemy_key in enemies_by_tier[tier]:
+			return tier
+	return 0  # Unknown
