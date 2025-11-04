@@ -19,6 +19,7 @@ var _player: Node3D = null
 var _current_target: Node = null
 var _attack_cooldown: float = 0.0
 var _weapon_item: Node = null  # Reference to weapon item for attacking
+var _equipped_inv_item = null  # Inventory item with skyshard powers
 
 ## AI parameters
 const FOLLOW_DISTANCE = 5.0  # Stay within this distance of player
@@ -125,6 +126,9 @@ func _load_weapon():
 	if inventory:
 		var equipped_weapon_item = inventory.get_companion_equipped_weapon()
 		if equipped_weapon_item != null:
+			# Store inventory item for power access
+			_equipped_inv_item = equipped_weapon_item
+			
 			# Use equipped weapon from inventory
 			_weapon_item = item_db.get_item(equipped_weapon_item.id)
 			if _weapon_item:
@@ -132,6 +136,11 @@ func _load_weapon():
 				# Determine if ranged based on weapon
 				is_ranged_weapon = weapon_name in ["crossbow", "ice_bow", "fire_staff", "rocket_launcher", "throwing_knives"]
 				print("Companion using equipped weapon: %s (ID: %d)" % [weapon_name, equipped_weapon_item.id])
+				
+				# Check for skyshard powers
+				if equipped_weapon_item.skyshard_power != "":
+					print("  ✨ Companion weapon has power: %s" % equipped_weapon_item.skyshard_power)
+				
 				return
 
 	# Fallback to default weapon based on race
@@ -207,6 +216,9 @@ func _on_equipment_changed():
 func _process(delta: float):
 	if not is_alive:
 		return
+
+	# Apply EQUIP powers (passive effects)
+	_apply_equip_powers(delta)
 
 	# Update attack cooldown
 	if _attack_cooldown > 0:
@@ -336,7 +348,11 @@ func _attack_target():
 	attack_transform = attack_transform.looking_at(global_position + aim_direction, Vector3.UP)
 
 	# Use the weapon's use() method (just like player does)
-	_weapon_item.use(attack_transform)
+	# Pass inventory item so powers can trigger!
+	if _equipped_inv_item != null:
+		_weapon_item.use(attack_transform, _equipped_inv_item)
+	else:
+		_weapon_item.use(attack_transform)
 
 	print("%s uses %s against %s!" % [entity_name, weapon_name, _current_target.entity_name])
 
@@ -378,6 +394,11 @@ func _on_death():
 
 ## Take damage and emit signal for UI update
 func take_damage(amount: int, from: Node = null) -> void:
+	# Check for stone_skin power (50% damage reduction)
+	if _equipped_inv_item != null and _equipped_inv_item.skyshard_power == "stone_skin":
+		amount = int(amount * 0.5)
+		print("🛡️ %s's Stone Skin! Reduced damage to %d" % [entity_name, amount])
+	
 	super.take_damage(amount, from)
 
 	# Emit signal for PartyUI to update
@@ -710,3 +731,59 @@ func _apply_stencil_shader(texture_path: String) -> void:
 	stencil_material.next_pass = silhouette_material
 
 	print("Companion: Applied stencil silhouette shader")
+
+
+func _apply_equip_powers(delta: float) -> void:
+	"""Apply passive EQUIP powers from companion's weapon"""
+	if _equipped_inv_item == null or _equipped_inv_item.skyshard_power == "":
+		return
+	
+	var power = _equipped_inv_item.skyshard_power
+	
+	# Only apply EQUIP slot powers (passive effects)
+	match power:
+		"stone_skin":
+			# Defense bonus is handled in take_damage, but we could add visual feedback here
+			pass
+		
+		"moon_jump":
+			# Jump boost - companions don't really jump, but could apply to movement
+			pass
+		
+		"flame_aura":
+			# Burn nearby enemies periodically
+			_apply_companion_flame_aura(delta)
+
+
+# Timer for flame aura
+var _companion_flame_aura_timer := 0.0
+
+func _apply_companion_flame_aura(delta: float) -> void:
+	"""Companion's flame aura - burns nearby enemies"""
+	_companion_flame_aura_timer += delta
+	
+	if _companion_flame_aura_timer >= 1.0:  # Every 1 second
+		_companion_flame_aura_timer = 0.0
+		
+		const FLAME_RADIUS = 4.0
+		const FLAME_DAMAGE = 3  # Companions do less flame damage than player
+		
+		var entities = get_tree().get_nodes_in_group("entities")
+		var burned_count = 0
+		
+		for entity in entities:
+			if not is_instance_valid(entity) or not entity.is_alive:
+				continue
+			
+			# Only burn enemies
+			if entity.team != Team.ENEMY:
+				continue
+			
+			# Check if within flame aura radius
+			var distance = global_position.distance_to(entity.global_position)
+			if distance <= FLAME_RADIUS:
+				entity.take_damage(FLAME_DAMAGE, self)
+				burned_count += 1
+		
+		if burned_count > 0:
+			print("🔥 %s's Flame Aura! Burned %d nearby enemies for %d damage each" % [entity_name, burned_count, FLAME_DAMAGE])
