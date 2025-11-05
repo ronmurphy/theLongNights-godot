@@ -85,12 +85,12 @@ func _create_party_member_ui(is_companion: bool = false) -> Control:
 	# Container for one party member
 	var member_container = HBoxContainer.new()
 	member_container.add_theme_constant_override("separation", 8)
-	member_container.custom_minimum_size = Vector2(250, 80)
+	member_container.custom_minimum_size = Vector2(280, 90)  # Adjusted for larger avatar
 
 	# Avatar sprite (left side)
 	var avatar_bg = Panel.new()
 	avatar_bg.name = "AvatarBG"
-	avatar_bg.custom_minimum_size = Vector2(64, 64)
+	avatar_bg.custom_minimum_size = Vector2(90, 90)  # Larger for better visibility
 
 	# Style avatar background
 	var avatar_style = StyleBoxFlat.new()
@@ -101,10 +101,15 @@ func _create_party_member_ui(is_companion: bool = false) -> Control:
 
 	var avatar_texture = TextureRect.new()
 	avatar_texture.name = "AvatarTexture"
-	avatar_texture.custom_minimum_size = Vector2(60, 60)
 	avatar_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	avatar_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	avatar_texture.position = Vector2(2, 2)
+	# Center the texture within the panel
+	avatar_texture.anchor_left = 0.0
+	avatar_texture.anchor_top = 0.0
+	avatar_texture.anchor_right = 1.0
+	avatar_texture.anchor_bottom = 1.0
+	avatar_texture.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	avatar_texture.grow_vertical = Control.GROW_DIRECTION_BOTH
 	avatar_bg.add_child(avatar_texture)
 
 	member_container.add_child(avatar_bg)
@@ -203,7 +208,7 @@ func _create_party_member_ui(is_companion: bool = false) -> Control:
 	# Weapon icon container (added to HBoxContainer to position properly)
 	var weapon_container = Control.new()
 	weapon_container.name = "WeaponContainer"
-	weapon_container.custom_minimum_size = Vector2(40, 64)  # Match avatar height
+	weapon_container.custom_minimum_size = Vector2(40, 80)  # Match avatar height
 	
 	# Add a background panel for visibility
 	var weapon_bg = Panel.new()
