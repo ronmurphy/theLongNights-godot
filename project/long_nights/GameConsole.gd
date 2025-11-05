@@ -1032,7 +1032,12 @@ func _cmd_npc(args: Array) -> void:
 
 
 func _parse_color(color_name: String) -> Color:
-	"""Parse color from name"""
+	"""Parse color from name or hex code (#RRGGBB)"""
+	# Check if it's a hex code
+	if color_name.begins_with("#"):
+		return Color(color_name)
+	
+	# Otherwise match named colors
 	match color_name:
 		"red": return Color.RED
 		"green": return Color.GREEN
@@ -1046,6 +1051,12 @@ func _parse_color(color_name: String) -> Color:
 		"gray", "grey": return Color.GRAY
 		"brown": return Color(0.6, 0.4, 0.2)
 		"cyan": return Color.CYAN
+		"magenta": return Color.MAGENTA
+		"lime": return Color(0.5, 1.0, 0.0)
+		"navy": return Color(0.0, 0.0, 0.5)
+		"maroon": return Color(0.5, 0.0, 0.0)
+		"olive": return Color(0.5, 0.5, 0.0)
+		"teal": return Color(0.0, 0.5, 0.5)
 		_: return Color.WHITE  # Default to white
 
 

@@ -32,6 +32,10 @@ func _ready():
 	# Set team to neutral
 	team = Team.NEUTRAL
 	
+	# Add to neutral group so companions won't attack
+	add_to_group("neutral_entities")
+	add_to_group("npcs")
+	
 	# Randomize first wander direction
 	_pick_new_wander_direction()
 	
@@ -116,10 +120,15 @@ func _apply_race_height_scaling(race: String):
 	# Apply scaling to sprite if it exists
 	if _sprite:
 		_sprite.scale = Vector3(height_scale, height_scale, height_scale)
+		
+		# Adjust sprite vertical position based on height
+		# Taller races need to be higher, shorter races need to be lower
+		# Base position is 1.0, scale it by the height multiplier
+		_sprite.position.y = 1.0 * height_scale
 	
 	# Adjust health bar position based on height
 	if _health_bar:
-		_health_bar.position.y = 1.2 * height_scale
+		_health_bar.position.y = 2.2 * height_scale
 
 
 func _create_sprite(_texture_path: String = "", pixel_size: float = 0.004) -> Sprite3D:
@@ -130,6 +139,10 @@ func _create_sprite(_texture_path: String = "", pixel_size: float = 0.004) -> Sp
 	_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	_sprite.shaded = true
 	_sprite.pixel_size = pixel_size  # 0.004 matches companion size
+	
+	# Position the sprite node upward so the character's feet are at entity origin
+	# Match companion positioning - sprite is centered by default, so raise it up
+	_sprite.position = Vector3(0, 1.0, 0)  # Raise sprite to show full character
 	
 	# Build sprite paths - try npc_sprites folder first, fallback to player_avatars
 	var npc_front = "res://assets/art/npc_sprites/%s_%s.png" % [npc_race, npc_gender]
@@ -146,13 +159,33 @@ func _create_sprite(_texture_path: String = "", pixel_size: float = 0.004) -> Sp
 		_back_sprite_path = fallback_back
 	
 	# Load front sprite
+	var front_texture = null
 	if ResourceLoader.exists(_front_sprite_path):
-		_sprite.texture = load(_front_sprite_path)
+		front_texture = load(_front_sprite_path)
+		_sprite.texture = front_texture
 	else:
 		push_warning("TestNPC: Could not find sprite at %s" % _front_sprite_path)
 	
-	# Apply color tint
-	_sprite.modulate = npc_color
+	# Apply color shader (only colors white/gray clothes, not skin/hair)
+	if front_texture:
+		var shader_material = ShaderMaterial.new()
+		shader_material.shader = load("res://blocky_game/shaders/npc_colorize_3d.gdshader")
+		shader_material.set_shader_parameter("texture_albedo", front_texture)
+		shader_material.set_shader_parameter("target_color", npc_color)
+		shader_material.set_shader_parameter("color_tolerance", 0.15)  # More forgiving for PNG compression
+		
+		# CRITICAL: Set render priority to ensure proper rendering
+		shader_material.render_priority = 0
+		
+		_sprite.material_override = shader_material
+		
+		# Ensure transparency settings are correct after shader is applied
+		_sprite.no_depth_test = false
+		_sprite.fixed_size = false
+		_sprite.double_sided = false
+	
+	# Apply initial scale (will be set properly in _apply_race_height_scaling)
+	_sprite.scale = Vector3(1.0, 1.0, 1.0)
 	
 	add_child(_sprite)
 	return _sprite
@@ -161,7 +194,7 @@ func _create_sprite(_texture_path: String = "", pixel_size: float = 0.004) -> Sp
 func _create_health_bar():
 	"""Create simple health bar above NPC"""
 	_health_bar = Node3D.new()
-	_health_bar.position = Vector3(0, 1.2, 0)  # Above head
+	_health_bar.position = Vector3(0, 2.2, 0)  # Above head (will be scaled by race height)
 	add_child(_health_bar)
 	
 	# Background bar (red)
@@ -290,15 +323,23 @@ func _update_sprite_direction() -> void:
 			if back_texture:
 				_sprite.texture = back_texture
 				_current_sprite_is_front = false
-				# Preserve scale and color when swapping
+				
+				# Update shader texture parameter (more efficient than recreating material)
+				if _sprite.material_override:
+					_sprite.material_override.set_shader_parameter("texture_albedo", back_texture)
+				
+				# Preserve scale when swapping
 				_sprite.scale = Vector3(_sprite_height_scale, _sprite_height_scale, _sprite_height_scale)
-				_sprite.modulate = npc_color
 		elif should_show_front and _front_sprite_path != "":
 			# Switch to front sprite
 			var front_texture = load(_front_sprite_path)
 			if front_texture:
 				_sprite.texture = front_texture
 				_current_sprite_is_front = true
-				# Preserve scale and color when swapping
+				
+				# Update shader texture parameter (more efficient than recreating material)
+				if _sprite.material_override:
+					_sprite.material_override.set_shader_parameter("texture_albedo", front_texture)
+				
+				# Preserve scale when swapping
 				_sprite.scale = Vector3(_sprite_height_scale, _sprite_height_scale, _sprite_height_scale)
-				_sprite.modulate = npc_color
