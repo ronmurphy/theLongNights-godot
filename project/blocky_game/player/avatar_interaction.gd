@@ -55,6 +55,22 @@ var _is_breaking := false
 # Creative mode toggle
 var _creative_mode := false
 
+# Food system
+const FOOD_HEALING = {
+	# Raw food (lower healing)
+	13: 1,  # egg
+	14: 2,  # rabbit
+	15: 1,  # berries
+	16: 2,  # honey
+	22: 1,  # wheat_seeds
+	24: 2,  # pumpkin
+	25: 1,  # mushroom
+	26: 1,  # fish
+	# Cooked food (higher healing)
+	27: 4,  # grilled_fish
+	28: 3,  # berry_honey_snack
+}
+
 
 func _ready():
 	var mesh := Util.create_wirecube_mesh(Color(0,0,0))
@@ -293,9 +309,11 @@ func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool, tool_id: 
 		print("Broke block %d at %s (creative mode - not added)" % [block_id, pos])
 	# Add to inventory if using proper mining tool and not in creative mode
 	elif add_to_inventory:
-		# Check for special harvestable blocks (pumpkin=12 only)
+		# Check for special harvestable blocks
 		if block_id == 12:  # pumpkin
 			_handle_pumpkin_drop(pos)
+		elif block_id == 2:  # grass
+			_handle_grass_block_drop(pos)
 		else:
 			# Normal block - add to inventory
 			_add_block_to_inventory(block_id)
@@ -504,6 +522,40 @@ func _handle_pumpkin_drop(pos: Vector3) -> void:
 	"""Handle pumpkin drops: 50% pumpkin (24) or 50% pumpkin_seeds (23)"""
 	var drop_item_id = 24 if randf() < 0.5 else 23  # pumpkin (24) or pumpkin_seeds (23)
 	_add_item_to_inventory(drop_item_id, 1)
+
+
+func _handle_grass_block_drop(pos: Vector3) -> void:
+	"""Handle grass block drops: 85% normal, 15% special food drops"""
+	# 85% chance to get normal grass block
+	if randf() > 0.15:
+		_add_block_to_inventory(2)  # grass block
+		return
+	
+	# 15% chance for special drop - roll on loot table
+	var special_roll = randf()
+	
+	if special_roll < 0.50:  # 50% of 15% = 7.5% overall
+		# Wheat seeds (common rare): 1-4
+		var count = randi_range(1, 4)
+		_add_item_to_inventory(22, count)  # wheat_seeds
+		print("Grass special drop: %d wheat seeds!" % count)
+	
+	elif special_roll < 0.80:  # 30% of 15% = 4.5% overall
+		# Berries (uncommon): 1-3
+		var count = randi_range(1, 3)
+		_add_item_to_inventory(15, count)  # berries
+		print("Grass special drop: %d berries!" % count)
+	
+	elif special_roll < 0.95:  # 15% of 15% = 2.25% overall
+		# Eggs (rare): 1-3
+		var count = randi_range(1, 3)
+		_add_item_to_inventory(13, count)  # eggs
+		print("Grass special drop: %d eggs!" % count)
+	
+	else:  # 5% of 15% = 0.75% overall
+		# Rabbit (very rare jackpot!): 1
+		_add_item_to_inventory(14, 1)  # rabbit
+		print("Grass special drop: RABBIT! (jackpot!)")
 
 
 func _add_block_to_inventory_standard(block_id: int):
@@ -772,6 +824,9 @@ func _unhandled_input(event: InputEvent):
 			# Check for C key - Emergency Teleport with Portal Compass
 			if event.keycode == KEY_C:
 				_try_emergency_teleport()
+			# Check for E key - Consume food
+			elif event.keycode == KEY_E:
+				_try_consume_food()
 			elif _hotbar_keys.has(event.keycode):
 				var slot_index = _hotbar_keys[event.keycode]
 				_hotbar.select_slot(slot_index)
@@ -822,6 +877,47 @@ func _place_single_block(pos: Vector3, block_id: int):
 func receive_place_single_block(_pos: Vector3, _look_dir: Vector3, _block_id: int):
 	# The server has a different script for remote players
 	push_error("Didn't expect this method to be called")
+
+
+func _try_consume_food() -> void:
+	"""Try to consume food from hotbar slot"""
+	var inv_item = _hotbar.get_selected_item()
+	
+	# Check if holding food
+	if inv_item == null or inv_item.type != InventoryItem.TYPE_ITEM:
+		return
+	
+	if not FOOD_HEALING.has(inv_item.id):
+		print("Not a food item")
+		return
+	
+	# Check if at full HP
+	var player = get_parent()
+	if player.current_hp >= player.max_hp:
+		print("Already at full HP!")
+		return
+	
+	# Get healing amount
+	var heal_amount = FOOD_HEALING[inv_item.id]
+	
+	# Apply healing
+	var old_hp = player.current_hp
+	player.current_hp = min(player.current_hp + heal_amount, player.max_hp)
+	var actual_heal = player.current_hp - old_hp
+	
+	# Emit HP changed signal
+	if player.has_signal("hp_changed"):
+		player.hp_changed.emit(player.current_hp, player.max_hp)
+	
+	# Get food name
+	var item = _item_db.get_item(inv_item.id)
+	var food_name = item.base_info.name.replace("_", " ").capitalize()
+	
+	# Show message
+	print("Ate %s! +%d HP (now %d/%d)" % [food_name, actual_heal, player.current_hp, player.max_hp])
+	
+	# Consume 1 food
+	_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
 
 
 func _try_emergency_teleport() -> void:
