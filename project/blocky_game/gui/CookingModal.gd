@@ -12,11 +12,18 @@ signal modal_closed
 @onready var _food_inventory_container: VBoxContainer
 @onready var _ingredient_slots: Array[Button] = []
 @onready var _cook_button: Button
+@onready var _result_label: Label
 
 # Cooking state
 var _selected_ingredients: Array = []  # [{id: int, count: int}]
 const MAX_INGREDIENT_SLOTS = 3
 const MAX_INGREDIENT_COUNT = 5
+
+# Sprite name mapping for items with different art file names
+const SPRITE_NAME_MAP = {
+	"rabbit": "rabbit_hunted",  # rabbit item uses rabbit_hunted.png from animals folder
+	"berries": "berry",  # berries item uses berry.png
+}
 
 
 func _ready():
@@ -165,6 +172,10 @@ func _build_ui():
 	slots_spacer2.custom_minimum_size = Vector2(0, 30)
 	right_panel.add_child(slots_spacer2)
 	
+	# Cook button container (center it)
+	var cook_btn_container = CenterContainer.new()
+	right_panel.add_child(cook_btn_container)
+	
 	# Cook button
 	_cook_button = Button.new()
 	_cook_button.text = "🔥 Cook!"
@@ -172,23 +183,18 @@ func _build_ui():
 	_cook_button.add_theme_font_size_override("font_size", 20)
 	_cook_button.disabled = true
 	_cook_button.pressed.connect(_on_cook_pressed)
-	right_panel.add_child(_cook_button)
-	
-	# Center cook button
-	var cook_btn_container = CenterContainer.new()
 	cook_btn_container.add_child(_cook_button)
-	right_panel.add_child(cook_btn_container)
 	
 	var result_spacer = Control.new()
 	result_spacer.custom_minimum_size = Vector2(0, 20)
 	right_panel.add_child(result_spacer)
 	
 	# Result label
-	var result_label = Label.new()
-	result_label.text = "Add ingredients to begin"
-	result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	result_label.add_theme_font_size_override("font_size", 14)
-	right_panel.add_child(result_label)
+	_result_label = Label.new()
+	_result_label.text = "Add ingredients to begin"
+	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_result_label.add_theme_font_size_override("font_size", 14)
+	right_panel.add_child(_result_label)
 	
 	# Center the panel
 	panel.position = (get_viewport_rect().size - panel.custom_minimum_size) / 2
@@ -256,15 +262,54 @@ func _populate_food_inventory():
 			found_food[slot.id] += slot.count
 	
 	# Create buttons for each food type found
+	var item_db = get_node_or_null("/root/Main/Game/Items")
 	for food_id in found_food.keys():
 		var count = found_food[food_id]
 		var name = food_names.get(food_id, "Unknown")
 		
+		# Create HBox to hold icon + text
 		var btn = Button.new()
-		btn.text = "%s (x%d)" % [name, count]
-		btn.custom_minimum_size = Vector2(0, 40)
-		btn.add_theme_font_size_override("font_size", 14)
+		btn.custom_minimum_size = Vector2(0, 50)
 		btn.pressed.connect(_on_food_item_clicked.bind(food_id))
+		
+		var hbox = HBoxContainer.new()
+		hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		btn.add_child(hbox)
+		
+		# Add icon
+		var icon = TextureRect.new()
+		icon.custom_minimum_size = Vector2(32, 32)
+		icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Try to load sprite
+		if item_db and food_id < item_db._items.size():
+			var item = item_db.get_item(food_id)
+			if item:
+				var item_name = item.base_info.name
+				# Use mapped name if available
+				var sprite_name = SPRITE_NAME_MAP.get(item_name, item_name)
+				# Try multiple folders
+				var sprite_folders = ["res://assets/art/food/", "res://assets/art/animals/"]
+				for folder in sprite_folders:
+					var sprite_path = folder + sprite_name + ".png"
+					if ResourceLoader.exists(sprite_path):
+						icon.texture = load(sprite_path)
+						break
+		hbox.add_child(icon)
+		
+		var spacer = Control.new()
+		spacer.custom_minimum_size = Vector2(10, 0)
+		spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hbox.add_child(spacer)
+		
+		# Add label
+		var label = Label.new()
+		label.text = "%s (x%d)" % [name, count]
+		label.add_theme_font_size_override("font_size", 14)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hbox.add_child(label)
+		
 		_food_inventory_container.add_child(btn)
 	
 	if found_food.is_empty():
@@ -318,12 +363,55 @@ func _update_ingredient_slots():
 		26: "Fish"
 	}
 	
+	var item_db = get_node_or_null("/root/Main/Game/Items")
+	
 	# Update each slot
 	for i in range(MAX_INGREDIENT_SLOTS):
+		# Clear existing children (icons)
+		for child in _ingredient_slots[i].get_children():
+			child.queue_free()
+		
 		if i < _selected_ingredients.size():
 			var ingredient = _selected_ingredients[i]
 			var name = food_names.get(ingredient.id, "Unknown")
-			_ingredient_slots[i].text = "%s\nx%d" % [name, ingredient.count]
+			
+			# Create VBox for icon + text
+			var vbox = VBoxContainer.new()
+			vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+			vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_ingredient_slots[i].add_child(vbox)
+			
+			# Add sprite icon
+			var icon = TextureRect.new()
+			icon.custom_minimum_size = Vector2(48, 48)
+			icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			# Try to load sprite
+			if item_db and ingredient.id < item_db._items.size():
+				var item = item_db.get_item(ingredient.id)
+				if item:
+					var item_name = item.base_info.name
+					# Use mapped name if available
+					var sprite_name = SPRITE_NAME_MAP.get(item_name, item_name)
+					# Try multiple folders
+					var sprite_folders = ["res://assets/art/food/", "res://assets/art/animals/"]
+					for folder in sprite_folders:
+						var sprite_path = folder + sprite_name + ".png"
+						if ResourceLoader.exists(sprite_path):
+							icon.texture = load(sprite_path)
+							break
+			vbox.add_child(icon)
+			
+			# Add text label
+			var label = Label.new()
+			label.text = "x%d" % ingredient.count
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			label.add_theme_font_size_override("font_size", 16)
+			label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			vbox.add_child(label)
+			
+			_ingredient_slots[i].text = ""
 		else:
 			_ingredient_slots[i].text = "Empty"
 	
@@ -350,7 +438,177 @@ func _get_food_count_in_inventory(food_id: int) -> int:
 	return total
 
 
+func _consume_ingredients(ingredients: Array, inventory) -> bool:
+	"""Remove ingredients from inventory"""
+	const InventoryItem = preload("res://blocky_game/player/inventory_item.gd")
+	var slots = inventory._slots
+	
+	# For each ingredient, remove the required count
+	for ingredient in ingredients:
+		var needed = ingredient.count
+		
+		# Find and remove from slots
+		for i in range(slots.size()):
+			if slots[i] != null and slots[i].type == InventoryItem.TYPE_ITEM and slots[i].id == ingredient.id:
+				if slots[i].count >= needed:
+					# Remove needed amount from this slot
+					slots[i].count -= needed
+					if slots[i].count <= 0:
+						slots[i] = null
+					needed = 0
+					break
+				else:
+					# Take all from this slot and continue
+					needed -= slots[i].count
+					slots[i] = null
+		
+		if needed > 0:
+			print("Error: Not enough of ingredient ID ", ingredient.id)
+			return false
+	
+	inventory._update_views()
+	return true
+
+
+func _add_cooked_food(food_id: int, count: int, inventory) -> bool:
+	"""Add cooked food to inventory"""
+	const InventoryItem = preload("res://blocky_game/player/inventory_item.gd")
+	var slots = inventory._slots
+	
+	# Try to stack with existing food first
+	for i in range(slots.size()):
+		if slots[i] != null and slots[i].type == InventoryItem.TYPE_ITEM and slots[i].id == food_id:
+			slots[i].count += count
+			inventory._update_views()
+			return true
+	
+	# Find empty slot
+	for i in range(slots.size()):
+		if slots[i] == null:
+			var item = InventoryItem.new()
+			item.id = food_id
+			item.type = InventoryItem.TYPE_ITEM
+			item.count = count
+			slots[i] = item
+			inventory._update_views()
+			return true
+	
+	return false
+
+
+func _refresh_food_inventory():
+	"""Refresh the food inventory display after cooking"""
+	# Clear existing buttons
+	for child in _food_inventory_container.get_children():
+		child.queue_free()
+	
+	# Repopulate
+	_populate_food_inventory()
+
+
+func _play_cooking_animation():
+	"""Bouncing fire emoji animation inside cook button"""
+	# Hide button text
+	var original_text = _cook_button.text
+	_cook_button.text = ""
+	
+	# Create fire emojis inside button
+	var fire_emojis = []
+	var button_center_x = _cook_button.size.x / 2
+	for i in range(5):
+		var fire_label = Label.new()
+		fire_label.text = "🔥"
+		fire_label.add_theme_font_size_override("font_size", 28)
+		fire_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Position horizontally spread inside button
+		fire_label.position = Vector2(button_center_x + (i - 2) * 35 - 14, 10)
+		_cook_button.add_child(fire_label)
+		fire_emojis.append(fire_label)
+	
+	# Animate them bouncing
+	var duration = 1.5
+	var elapsed = 0.0
+	var base_y = 10.0
+	while elapsed < duration:
+		for i in range(fire_emojis.size()):
+			var offset = sin((elapsed + i * 0.3) * 8.0) * 8.0
+			fire_emojis[i].position.y = base_y + offset
+		await get_tree().process_frame
+		elapsed += get_process_delta_time()
+	
+	# Clean up
+	for emoji in fire_emojis:
+		emoji.queue_free()
+	
+	# Restore button text
+	_cook_button.text = original_text
+
+
 func _on_cook_pressed():
 	"""Handle cook button press"""
-	# TODO: Add recipe checking and cooked item creation
-	print("CookingModal: Cook button pressed - recipe checking not yet implemented")
+	# Load recipe database
+	var Recipes = preload("res://blocky_game/cooking/recipes.gd")
+	var recipes = Recipes.new()
+	
+	# Check if ingredients match a recipe
+	var result = recipes.find_recipe(_selected_ingredients)
+	
+	if not result.found:
+		print("No recipe found for these ingredients")
+		# TODO: Show error message in UI
+		return
+	
+	print("Recipe found! Result ID: ", result.result_id)
+	
+	# Get player inventory
+	var player = get_tree().get_first_node_in_group("player")
+	if player == null:
+		print("Error: Player not found")
+		return
+	
+	var inventory = player.get_node_or_null("Inventory")
+	if inventory == null:
+		print("Error: Inventory not found")
+		return
+	
+	# Consume ingredients from inventory
+	if not _consume_ingredients(_selected_ingredients, inventory):
+		print("Error: Could not consume ingredients")
+		return
+	
+	# Add cooked food to inventory
+	if not _add_cooked_food(result.result_id, result.result_count, inventory):
+		print("Error: Could not add cooked food (inventory full?)")
+		_result_label.text = "❌ Inventory full!"
+		_result_label.add_theme_color_override("font_color", Color.RED)
+		return
+	
+	# Get cooked food name
+	var item_db = get_node_or_null("/root/Main/Game/Items")
+	var cooked_name = "food"
+	if item_db and result.result_id < item_db._items.size():
+		var item = item_db.get_item(result.result_id)
+		if item:
+			cooked_name = item.base_info.name.replace("_", " ").capitalize()
+	
+	print("Cooking successful! Created: ", cooked_name)
+	
+	# Show success message
+	_result_label.text = "✅ Cooked %s!" % cooked_name
+	_result_label.add_theme_color_override("font_color", Color.GREEN)
+	
+	# Play cooking animation (flash cook button)
+	_play_cooking_animation()
+	
+	# Clear ingredient slots after animation
+	await get_tree().create_timer(0.5).timeout
+	_selected_ingredients.clear()
+	_update_ingredient_slots()
+	
+	# Refresh food inventory display
+	_refresh_food_inventory()
+	
+	# Reset message after delay
+	await get_tree().create_timer(2.0).timeout
+	_result_label.text = "Add ingredients to begin"
+	_result_label.remove_theme_color_override("font_color")

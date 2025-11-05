@@ -121,6 +121,15 @@ func _init():
 		"name": "fish",
 		"behavior": "fish.gd"
 	})
+	# Cooked food items (Phase 2 - Cooking System)
+	_create_item({
+		"name": "grilled_fish",
+		"behavior": "grilled_fish.gd"
+	})
+	_create_item({
+		"name": "berry_honey_snack",
+		"behavior": "berry_honey_snack.gd"
+	})
 
 
 func get_item(id: int) -> Item:
