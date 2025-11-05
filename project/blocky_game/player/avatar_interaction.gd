@@ -221,7 +221,11 @@ func _physics_process(_delta):
 			# Single click with non-mining tool or mining tool in air - use item normally
 			# OR if aiming at entity (prioritize combat!)
 			if mining_power == 0 or hit == null or not _action_use_held or aiming_at_entity:
-				if inv_item.count > 0:
+				# Check if this is food - consume it instead of "using" it
+				if FOOD_HEALING.has(inv_item.id):
+					_try_consume_food()
+					_reset_breaking_progress()
+				elif inv_item.count > 0:
 					# Pass full inv_item so weapons can access skyshard_power
 					item.use(_head.global_transform, inv_item)
 					# Only decrement consumables (torches = item ID 6)
@@ -824,9 +828,6 @@ func _unhandled_input(event: InputEvent):
 			# Check for C key - Emergency Teleport with Portal Compass
 			if event.keycode == KEY_C:
 				_try_emergency_teleport()
-			# Check for E key - Consume food
-			elif event.keycode == KEY_E:
-				_try_consume_food()
 			elif _hotbar_keys.has(event.keycode):
 				var slot_index = _hotbar_keys[event.keycode]
 				_hotbar.select_slot(slot_index)
