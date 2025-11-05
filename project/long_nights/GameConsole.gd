@@ -234,6 +234,7 @@ func _register_commands() -> void:
 	commands["season"] = _cmd_season
 	commands["perfmon"] = _cmd_perfmon
 	commands["cooking"] = _cmd_cooking
+	commands["npc"] = _cmd_npc
 
 ## Commands Implementation
 
@@ -308,7 +309,15 @@ func _cmd_help(_args: Array) -> void:
 	add_output("  [color=yellow]perfmon stop[/color] - Stop monitoring and show report")
 	add_output("")
 	add_output("[color=cyan]Cooking System:[/color]")
-	add_output("  [color=yellow]cooking[/color] - Open cooking interface (test)")
+	add_output("  [color=yellow]cooking[/color] - Open cooking interface")
+	add_output("  [color=yellow]give food[/color] - Give 3x of each raw food item")
+	add_output("")
+	add_output("[color=cyan]NPC System:[/color]")
+	add_output("  [color=yellow]npc <race> <gender> <color> <name>[/color] - Spawn a wandering NPC")
+	add_output("    Races: human, elf, dwarf, goblin")
+	add_output("    Gender: male, female")
+	add_output("    Color: red, green, blue, yellow, etc. (tints clothing)")
+	add_output("    Example: npc human female green Angelica")
 
 func _cmd_clear(_args: Array) -> void:
 	output_label.clear()
@@ -957,6 +966,87 @@ func _cmd_cooking(_args: Array) -> void:
 	
 	# Add to scene tree
 	get_tree().root.add_child(modal)
+
+
+func _cmd_npc(args: Array) -> void:
+	"""Spawn a test NPC: npc <race> <gender> <color> <name>"""
+	if args.size() < 4:
+		add_output("[color=red]Usage: npc <race> <gender> <color> <name>[/color]")
+		add_output("[color=yellow]Races: human, elf, dwarf, goblin[/color]")
+		add_output("[color=yellow]Gender: male, female[/color]")
+		add_output("[color=yellow]Color: red, green, blue, yellow, etc.[/color]")
+		add_output("[color=yellow]Example: npc human female green Angelica[/color]")
+		return
+	
+	var race = args[0].to_lower()
+	var gender = args[1].to_lower()
+	var color_name = args[2].to_lower()
+	var npc_name = args[3]
+	
+	# Validate race
+	if not race in ["human", "elf", "dwarf", "goblin"]:
+		add_output("[color=red]Invalid race! Use: human, elf, dwarf, or goblin[/color]")
+		return
+	
+	# Validate gender
+	if not gender in ["male", "female"]:
+		add_output("[color=red]Invalid gender! Use: male or female[/color]")
+		return
+	
+	# Parse color
+	var npc_color = _parse_color(color_name)
+	
+	# Get player position
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+	
+	# Spawn NPC in front of player
+	var TestNPC = load("res://blocky_game/entities/test_npc.gd")
+	var npc = Node3D.new()
+	npc.set_script(TestNPC)
+	
+	# Add to game world
+	var game = get_node_or_null("/root/Main/Game")
+	if not game:
+		add_output("[color=red]Error: Game node not found[/color]")
+		return
+	
+	game.add_child(npc)
+	
+	# Position 5 units in front of player
+	var spawn_pos = player.global_position + player.transform.basis.z * -5.0
+	spawn_pos.y += 5.0  # Start above ground
+	
+	# Find ground position
+	if npc.has_method("find_ground_position"):
+		npc.global_position = npc.find_ground_position(spawn_pos, 15.0)
+	else:
+		npc.global_position = spawn_pos
+	
+	# Initialize NPC with data
+	npc.initialize(race, gender, npc_color, npc_name)
+	
+	add_output("[color=lime]Spawned NPC: %s (%s %s)[/color]" % [npc_name, race, gender])
+
+
+func _parse_color(color_name: String) -> Color:
+	"""Parse color from name"""
+	match color_name:
+		"red": return Color.RED
+		"green": return Color.GREEN
+		"blue": return Color.BLUE
+		"yellow": return Color.YELLOW
+		"orange": return Color.ORANGE
+		"purple": return Color.PURPLE
+		"pink": return Color.PINK
+		"white": return Color.WHITE
+		"black": return Color.BLACK
+		"gray", "grey": return Color.GRAY
+		"brown": return Color(0.6, 0.4, 0.2)
+		"cyan": return Color.CYAN
+		_: return Color.WHITE  # Default to white
 
 
 func _give_all_food_items() -> void:
