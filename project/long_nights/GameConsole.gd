@@ -458,6 +458,12 @@ func _cmd_give(args: Array) -> void:
 		return
 
 	var item_name = args[0].to_lower()
+	
+	# Special keyword: 'food' gives all raw food items
+	if item_name == "food":
+		_give_all_food_items()
+		return
+	
 	var amount = 1
 	if args.size() > 1:
 		amount = args[1].to_int()
@@ -951,3 +957,75 @@ func _cmd_cooking(_args: Array) -> void:
 	
 	# Add to scene tree
 	get_tree().root.add_child(modal)
+
+
+func _give_all_food_items() -> void:
+	"""Give 3 of each raw food item for cooking tests"""
+	const InventoryItem = preload("res://blocky_game/player/inventory_item.gd")
+	
+	# Get player and inventory
+	var player = get_tree().get_first_node_in_group("player")
+	if player == null:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+	
+	var inventory = player.get_node_or_null("Inventory")
+	if inventory == null:
+		add_output("[color=red]Error: Inventory not found[/color]")
+		return
+	
+	# Raw food item IDs: egg=13, rabbit=14, berries=15, honey=16, wheat_seeds=22, pumpkin=24, mushroom=25, fish=26
+	var food_data = [
+		{"id": 13, "name": "egg"},
+		{"id": 14, "name": "rabbit"},
+		{"id": 15, "name": "berries"},
+		{"id": 16, "name": "honey"},
+		{"id": 22, "name": "wheat_seeds"},
+		{"id": 24, "name": "pumpkin"},
+		{"id": 25, "name": "mushroom"},
+		{"id": 26, "name": "fish"}
+	]
+	
+	var slots = inventory._slots
+	var items_given = 0
+	
+	# Add each food item
+	for food in food_data:
+		var food_id = food.id
+		
+		# Try to find existing stack first
+		var existing_slot = -1
+		for i in range(slots.size()):
+			if slots[i] != null and slots[i].type == InventoryItem.TYPE_ITEM and slots[i].id == food_id:
+				existing_slot = i
+				break
+		
+		if existing_slot != -1:
+			# Add to existing stack
+			slots[existing_slot].count += 3
+			items_given += 1
+		else:
+			# Find empty slot
+			var empty_slot = -1
+			for i in range(slots.size()):
+				if slots[i] == null:
+					empty_slot = i
+					break
+			
+			if empty_slot != -1:
+				# Create new stack
+				var item = InventoryItem.new()
+				item.id = food_id
+				item.type = InventoryItem.TYPE_ITEM
+				item.count = 3
+				slots[empty_slot] = item
+				items_given += 1
+			else:
+				add_output("[color=yellow]Inventory full, skipped: " + food.name + "[/color]")
+	
+	inventory._update_views()
+	
+	if items_given > 0:
+		add_output("[color=lime]Gave 3x of %d food types[/color]" % items_given)
+	else:
+		add_output("[color=red]Could not add any food items (inventory full?)[/color]")
