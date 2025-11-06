@@ -120,6 +120,11 @@ func load_world() -> bool:
 			# Immediately deserialize into RuinRegistry
 			if RuinRegistry.has_method("deserialize_registry"):
 				RuinRegistry.deserialize_registry(data["ruin_registry"])
+		
+		# Load home base data
+		if "home_base" in data:
+			_world_data["home_base"] = data["home_base"]
+			HomeBaseManager.load_from_dict(data["home_base"])
 
 		print("WorldManager: World loaded - Seed: ", _world_data["seed"])
 		if _world_data["is_halloween"]:
@@ -173,6 +178,9 @@ func save_world() -> bool:
 	# Save ruin registry data
 	if RuinRegistry.has_method("serialize_registry"):
 		_world_data["ruin_registry"] = RuinRegistry.serialize_registry()
+	
+	# Save home base data
+	_world_data["home_base"] = HomeBaseManager.save_to_dict()
 
 	# Convert Vector3 to array for JSON
 	var save_data = _world_data.duplicate()

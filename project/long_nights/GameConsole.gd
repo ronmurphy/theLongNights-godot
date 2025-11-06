@@ -235,6 +235,10 @@ func _register_commands() -> void:
 	commands["perfmon"] = _cmd_perfmon
 	commands["cooking"] = _cmd_cooking
 	commands["npc"] = _cmd_npc
+	commands["homebase"] = _cmd_homebase
+	commands["home"] = _cmd_homebase  # Alias
+	commands["roster"] = _cmd_roster
+	commands["drain"] = _cmd_drain
 
 ## Commands Implementation
 
@@ -318,6 +322,21 @@ func _cmd_help(_args: Array) -> void:
 	add_output("    Gender: male, female")
 	add_output("    Color: red, green, blue, yellow, etc. (tints clothing)")
 	add_output("    Example: npc human female green Angelica")
+	add_output("")
+	add_output("[color=cyan]Home Base:[/color]")
+	add_output("  [color=yellow]homebase set[/color] - Set home base at current location")
+	add_output("  [color=yellow]homebase clear[/color] - Remove home base (tip: mine for full materials!)")
+	add_output("  [color=yellow]homebase clear recycle[/color] - Remove and get 50% blocks back")
+	add_output("  [color=yellow]homebase status[/color] - Show home base info")
+	add_output("")
+	add_output("[color=cyan]Companion Roster:[/color]")
+	add_output("  [color=yellow]roster[/color] - Show all companions in roster")
+	add_output("  [color=yellow]roster add <race> <gender> <role> <name>[/color] - Add companion to roster")
+	add_output("    Example: roster add dwarf male tank Thorin")
+	add_output("")
+	add_output("[color=cyan]World Modification:[/color]")
+	add_output("  [color=yellow]drain [radius][/color] - Remove water in area (default 30 blocks)")
+	add_output("    Example: drain 50 - Removes water in 50 block radius from player")
 
 func _cmd_clear(_args: Array) -> void:
 	output_label.clear()
@@ -1130,3 +1149,255 @@ func _give_all_food_items() -> void:
 		add_output("[color=lime]Gave 3x of %d food types[/color]" % items_given)
 	else:
 		add_output("[color=red]Could not add any food items (inventory full?)[/color]")
+
+
+func _cmd_homebase(args: Array) -> void:
+	"""Home base management commands"""
+	if args.is_empty():
+		add_output("[color=red]Usage: homebase <set|clear|status>[/color]")
+		return
+	
+	var player = get_tree().get_first_node_in_group("player")
+	var subcmd = args[0].to_lower()
+	
+	match subcmd:
+		"set":
+			if not player:
+				add_output("[color=red]Player not found![/color]")
+				return
+			
+			var player_pos = player.global_position
+			HomeBaseManager.set_home_base(player_pos)
+			add_output("[color=lime]🏠 Home Base set at: %s[/color]" % player_pos)
+			add_output("[color=yellow]Your benched companions will now live here![/color]")
+		
+		"clear":
+			if not HomeBaseManager.has_home_base:
+				add_output("[color=yellow]No home base to clear[/color]")
+				return
+			
+			# Check if they want to recycle
+			var recycle = false
+			if args.size() > 1 and args[1].to_lower() == "recycle":
+				recycle = true
+			
+			var tier = HomeBaseManager.home_structure_tier
+			var tier_name = HomeBaseManager.TIER_NAMES[tier]
+			
+			if recycle:
+				var blocks_returned = HomeBaseManager.TIER_RECYCLE_BLOCKS[tier]
+				add_output("[color=yellow]♻️ Recycling %s...[/color]" % tier_name)
+				HomeBaseManager.clear_home_base(true)
+				
+				# Add blocks to inventory
+				if player:
+					var inventory = player.get_node_or_null("Inventory")
+					if inventory and inventory.has_method("add_item"):
+						# Give back mixed blocks (dirt for simplicity)
+						inventory.add_item(1, blocks_returned)  # 1 = dirt block ID
+						add_output("[color=lime]✓ Received %d blocks from recycling![/color]" % blocks_returned)
+					else:
+						add_output("[color=lime]✓ Would receive %d blocks (inventory not accessible)[/color]" % blocks_returned)
+			else:
+				HomeBaseManager.clear_home_base(false)
+				var blocks_recyclable = HomeBaseManager.TIER_RECYCLE_BLOCKS[tier]
+				add_output("[color=lime]🏠 Home Base cleared[/color]")
+				add_output("[color=yellow]💡 Tip: Use 'homebase clear recycle' to get ~%d blocks back[/color]" % blocks_recyclable)
+				add_output("[color=cyan]   Or mine it yourself for 100%% of materials![/color]")
+		
+		"status":
+			if HomeBaseManager.has_home_base:
+				add_output("[color=lime]🏠 Home Base Status:[/color]")
+				add_output("  Location: %s" % HomeBaseManager.home_base_position)
+				
+				# Show structure tier
+				var tier = HomeBaseManager.home_structure_tier
+				var tier_name = HomeBaseManager.TIER_NAMES[tier]
+				add_output("  Structure: %s (Tier %d)" % [tier_name, tier])
+				
+				if HomeBaseManager.home_base_ruin_id != "":
+					add_output("  At Ruin: %s" % HomeBaseManager.home_base_ruin_id)
+				
+				# Check distance if player exists
+				if player:
+					var distance = player.global_position.distance_to(HomeBaseManager.home_base_position)
+					add_output("  Distance: %.1f blocks" % distance)
+					if HomeBaseManager.is_player_at_home():
+						add_output("  [color=lime]✓ You are at home![/color]")
+			else:
+				add_output("[color=yellow]No home base set[/color]")
+				add_output("Use [color=cyan]homebase set[/color] to establish one")
+		
+		_:
+			add_output("[color=red]Unknown subcommand: %s[/color]" % subcmd)
+			add_output("[color=yellow]Use: homebase <set|clear|status>[/color]")
+
+
+func _cmd_roster(args: Array) -> void:
+	"""Companion roster management"""
+	# Initialize roster from legacy if needed
+	if not CompanionManager.using_roster_system:
+		CompanionManager.initialize_roster_from_legacy()
+	
+	if args.is_empty():
+		# Show roster
+		var count = CompanionManager.get_companion_count()
+		if count == 0:
+			add_output("[color=yellow]No companions in roster yet[/color]")
+			return
+		
+		add_output("[color=lime]🎭 Companion Roster (%d total):[/color]" % count)
+		add_output("")
+		
+		for i in range(count):
+			var comp = CompanionManager.companion_roster[i]
+			var status = "[✓ ACTIVE]" if i == CompanionManager.active_companion_index else "[ ] BENCHED"
+			var status_color = "lime" if i == CompanionManager.active_companion_index else "gray"
+			
+			add_output("[color=%s]%s %s[/color]" % [status_color, status, comp.companion_name])
+			add_output("  %s %s (Level %d)" % [comp.race.capitalize(), comp.role.capitalize(), comp.level])
+			if comp.active_title != "":
+				add_output("  %s %s" % [comp.title_emoji, comp.active_title])
+			add_output("")
+		
+		return
+	
+	var subcmd = args[0].to_lower()
+	
+	match subcmd:
+		"add":
+			if args.size() < 5:
+				add_output("[color=red]Usage: roster add <race> <gender> <role> <name>[/color]")
+				add_output("  Races: human, elf, dwarf, goblin")
+				add_output("  Gender: male, female")
+				add_output("  Roles: healer, tank, rogue, wizard")
+				return
+			
+			var race = args[1].to_lower()
+			var gender = args[2].to_lower()
+			var role = args[3].to_lower()
+			var name = args[4]
+			
+			# Validate race
+			if not race in ["human", "elf", "dwarf", "goblin"]:
+				add_output("[color=red]Invalid race: %s[/color]" % race)
+				return
+			
+			# Validate gender
+			if not gender in ["male", "female"]:
+				add_output("[color=red]Invalid gender: %s[/color]" % gender)
+				return
+			
+			# Validate role
+			if not role in ["healer", "tank", "rogue", "wizard"]:
+				add_output("[color=red]Invalid role: %s[/color]" % role)
+				return
+			
+			# Create new companion
+			var comp = CompanionManager.CompanionData.new()
+			comp.companion_name = name
+			comp.race = race
+			comp.gender = gender
+			comp.role = role
+			comp.is_active = false  # Will be benched
+			
+			CompanionManager.add_companion_to_roster(comp)
+			add_output("[color=lime]✓ Added %s to roster![/color]" % name)
+			add_output("  %s %s %s will be waiting at your home base" % [gender.capitalize(), race.capitalize(), role.capitalize()])
+			
+			# Spawn as NPC at home base if home base is set
+			if HomeBaseManager.has_home_base:
+				HomeBaseManager.add_benched_companion_npc(comp)
+				add_output("  [color=lime]🏕️ %s has appeared at your home base![/color]" % name)
+			else:
+				add_output("  [color=yellow]💡 They'll appear when you set a home base with: homebase set[/color]")
+		
+		_:
+			add_output("[color=red]Unknown subcommand: %s[/color]" % subcmd)
+			add_output("[color=yellow]Use: roster [add][/color]")
+
+
+func _cmd_drain(args: Array) -> void:
+	"""Remove water in an area around the player"""
+	var radius = 30  # Default radius
+	
+	if args.size() > 0:
+		if args[0].is_valid_int():
+			radius = int(args[0])
+			if radius < 1 or radius > 100:
+				add_output("[color=red]Radius must be between 1 and 100 blocks[/color]")
+				return
+		else:
+			add_output("[color=red]Usage: drain [radius][/color]")
+			add_output("[color=yellow]Example: drain 50[/color]")
+			return
+	
+	# Get player position
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+	
+	# Get terrain and voxel tool
+	var game = get_node_or_null("/root/Main/Game")
+	if not game:
+		add_output("[color=red]Error: Game node not found[/color]")
+		return
+	
+	var terrain = game.get_node_or_null("VoxelTerrain")
+	if not terrain:
+		add_output("[color=red]Error: VoxelTerrain not found[/color]")
+		return
+	
+	var voxel_tool = terrain.get_voxel_tool()
+	voxel_tool.set_channel(VoxelBuffer.CHANNEL_TYPE)
+	
+	# Get water block IDs
+	var blocks = game.get_node_or_null("Blocks")
+	if not blocks:
+		add_output("[color=red]Error: Blocks node not found[/color]")
+		return
+	
+	var water_block = blocks.get_block_by_name("water")
+	if not water_block:
+		add_output("[color=red]Error: Water block not found[/color]")
+		return
+	
+	var water_full = water_block.base_info.voxels[0]
+	var water_top = water_block.base_info.voxels[1]
+	
+	# Get player position in block coordinates
+	var player_pos = player.global_position
+	var center = Vector3i(
+		int(floor(player_pos.x)),
+		int(floor(player_pos.y)),
+		int(floor(player_pos.z))
+	)
+	
+	add_output("[color=yellow]🌊 Draining water in %d block radius...[/color]" % radius)
+	
+	var water_removed = 0
+	var radius_squared = radius * radius
+	var vertical_range = 10  # Only scan ±10 blocks vertically from player Y
+	
+	# Scan area around player
+	for x in range(-radius, radius + 1):
+		for z in range(-radius, radius + 1):
+			# Check if within circular radius (not square)
+			if (x * x + z * z) > radius_squared:
+				continue
+			
+			# Scan vertically within limited range (±10 blocks from player Y, not ±radius!)
+			for y in range(-vertical_range, vertical_range + 1):
+				var check_pos = center + Vector3i(x, y, z)
+				var voxel_id = voxel_tool.get_voxel(check_pos)
+				
+				# If it's water (full or top), replace with air
+				if voxel_id == water_full or voxel_id == water_top:
+					voxel_tool.set_voxel(check_pos, 0)  # 0 = air
+					water_removed += 1
+	
+	if water_removed > 0:
+		add_output("[color=lime]✓ Removed %d water blocks[/color]" % water_removed)
+	else:
+		add_output("[color=yellow]No water found in area[/color]")

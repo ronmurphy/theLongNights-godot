@@ -1235,6 +1235,25 @@ func level_up():
 - **Companion Gifts:** Give items to increase friendship
 - **Photo Mode:** Take pictures of companions at home
 - **Seasonal Decorations:** Home changes for holidays
+- **💧 Water Crystal (Aqua Orb):** Terraforming tool for base building
+  - Throwable item that absorbs water in radius when placed in lake/river
+  - Stores captured water blocks (displays count: "Contains 973 water")
+  - Can be placed elsewhere to release water over time
+  - Creates lakes, moats, waterfalls, fountains at home base
+  - Perfect for sky ruin bases - bring water up for decoration/farming
+  - Could have variants: Blue (water), White (ice/snow), Red (lava?)
+  - Mid-tier magic item, craftable or found in dungeons
+  - Makes base building more creative and Minecraft-like
+
+### Building & Farming Features (Core Survival Loop):
+- **Farm Plots:** Plant crops near home base (wheat, carrots, pumpkins)
+- **Water Irrigation:** Use water crystals or natural water for crops
+- **Animal Pens:** Tame and breed animals for food/resources  
+- **Storage Chests:** Keep items at home without carrying everything
+- **Crafting Stations:** Enhanced workbenches, furnaces, cooking stations
+- **Defensive Walls:** Build perimeter protection (especially for sky ruins!)
+- **Lighting System:** Torches, lanterns to keep home safe at night
+- **Tent → House Progression:** Start with tent, upgrade to cabin, then lodge
 
 ### Technical Optimizations:
 - Despawn home structure when far away (save performance)

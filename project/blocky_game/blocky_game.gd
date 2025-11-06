@@ -69,6 +69,9 @@ func _ready():
 
 	# Load dialogue files
 	DialogueManager.load_dialogue_file("res://assets/data/dialogues/companion_intro.json")
+	
+	# Connect HomeBaseManager to game
+	HomeBaseManager.set_game_reference(self)
 
 	if _network_mode == NETWORK_MODE_HOST:
 		_logger.prefix = "Server: "
@@ -291,6 +294,9 @@ func _spawn_character(peer_id: int, pos: Vector3) -> Node3D:
 	character.terrain = get_terrain().get_path()
 	character.add_to_group("player")  # Add to group for easy finding
 	_characters_container.add_child(character)
+	
+	# Connect player to HomeBaseManager
+	HomeBaseManager.set_player_reference(character)
 	
 	if safe_pos != pos:
 		print("Player spawn adjusted from y=", pos.y, " to safe position y=", safe_pos.y)
