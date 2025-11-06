@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c2l21area8kc0"
-path="res://.godot/imported/baked_potato'.png-2dfabe3988a6f2afbb7ce4b36684ea59.ctex"
+uid="uid://bqhhuq63cxjaa"
+path="res://.godot/imported/super_stew_sprite.png-e6df7e1155f7a6d2dd91c84aba7a68e8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/food/baked_potato'.png"
-dest_files=["res://.godot/imported/baked_potato'.png-2dfabe3988a6f2afbb7ce4b36684ea59.ctex"]
+source_file="res://blocky_game/items/super_stew/super_stew_sprite.png"
+dest_files=["res://.godot/imported/super_stew_sprite.png-e6df7e1155f7a6d2dd91c84aba7a68e8.ctex"]
 
 [params]
 

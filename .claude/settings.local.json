@@ -25,7 +25,19 @@
       "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --headless --check-only --script \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\long_nights\\EnemySpawner.gd\")",
       "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --headless --check-only --script \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\gui\\inventory\\inventory.gd\")",
       "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --headless --check-only --script \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\items\\item.gd\")",
-      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --headless --check-only --script \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\items\\sword\\sword.gd\")"
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --headless --check-only --script \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\items\\sword\\sword.gd\")",
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --headless --check-only --script \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\gui\\CookingModal.gd\")",
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --path \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\" --headless --check-only --script \"res://blocky_game/gui/CookingModal.gd\")",
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --path \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\" --headless --check-only --script \"res://blocky_game/cooking/recipes.gd\")",
+      "Bash(nul)",
+      "Bash(for dir in cooked_egg roasted_rabbit pumpkin_soup mushroom_bites honey_bread pumpkin_pie fish_mushroom_stew berry_honey_bread egg_mushroom_omelette hunters_feast super_stew)",
+      "Bash(do echo 'extends \"\"res://blocky_game/items/item.gd\"\"\n\n# Consumable cooked food item')",
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\items\\$dir\\$dir.gd\")",
+      "Bash(copy \"assets\\art\\food\\cooked_egg.png\" \"blocky_game\\items\\cooked_egg\\cooked_egg_sprite.png\")",
+      "Bash(copy:*)",
+      "Bash(copy \"assets\\art\\food\\mushroom_soup.png\" \"blocky_game\\items\\pumpkin_soup\\pumpkin_soup_sprite.png\")",
+      "Bash(copy \"assets\\art\\food\\mushroom_bites.png\" \"blocky_game\\items\\mushroom_bites\\mushroom_bites_sprite.png\")",
+      "Bash(copy \"assets\\art\\food\\pumpkin_pie.png\" \"blocky_game\\items\\pumpkin_pie\\pumpkin_pie_sprite.png\")"
     ],
     "deny": [],
     "ask": []

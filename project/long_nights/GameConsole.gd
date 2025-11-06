@@ -967,22 +967,30 @@ func _cmd_perfmon(args: Array) -> void:
 func _cmd_cooking(_args: Array) -> void:
 	"""Open the cooking modal (test)"""
 	add_output("[color=lime]Opening cooking interface...[/color]")
-	
+
 	# Load and create cooking modal
 	var CookingModal = load("res://blocky_game/gui/CookingModal.gd")
 	var modal = CookingModal.new()
-	
+
 	# Disable player input while modal is open
 	var player = get_tree().get_first_node_in_group("player")
 	if player and player.has_method("set_input_enabled"):
 		player.set_input_enabled(false)
-	
+
+	# Get avatar interaction to disable hotbar scroll wheel
+	var avatar_interaction = player.get_node_or_null("Head/Interaction")
+	if avatar_interaction and avatar_interaction.has_method("set_cooking_modal_open"):
+		avatar_interaction.set_cooking_modal_open(true)
+
 	# Connect modal_closed signal to re-enable input
 	modal.modal_closed.connect(func():
 		if player and player.has_method("set_input_enabled"):
 			player.set_input_enabled(true)
+		# Re-enable hotbar scroll wheel
+		if avatar_interaction and avatar_interaction.has_method("set_cooking_modal_open"):
+			avatar_interaction.set_cooking_modal_open(false)
 	)
-	
+
 	# Add to scene tree
 	get_tree().root.add_child(modal)
 

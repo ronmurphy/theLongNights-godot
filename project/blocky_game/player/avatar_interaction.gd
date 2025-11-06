@@ -44,6 +44,7 @@ var _action_pick := false
 var _torch_light : OmniLight3D = null
 var _current_held_item_id := -1
 var _portal_compass_modal_open := false  # Track if Portal Compass modal is open
+var _cooking_modal_open := false  # Track if Cooking modal is open
 
 # Block breaking system
 const BASE_BLOCK_HARDNESS = 100.0  # Base time to break a block
@@ -797,7 +798,7 @@ func _unhandled_input(event: InputEvent):
 	var terrain_mapper = get_node_or_null("/root/Main/Game/TerrainMapper")
 	var terrain_mapper_open = terrain_mapper != null and terrain_mapper.is_visible
 
-	var ui_open = console_open or terrain_mapper_open or _portal_compass_modal_open
+	var ui_open = console_open or terrain_mapper_open or _portal_compass_modal_open or _cooking_modal_open
 
 	if event is InputEventMouseButton:
 		match event.button_index:
@@ -953,6 +954,11 @@ func _handle_teleport_stone_interaction(teleport_stone_pos: Vector3) -> void:
 
 	# Normal teleport behavior (show confirmation dialog)
 	_show_teleport_confirmation_dialog()
+
+
+func set_cooking_modal_open(is_open: bool) -> void:
+	"""Set cooking modal open state (called by GameConsole)"""
+	_cooking_modal_open = is_open
 
 
 func _show_portal_compass_modal(teleport_stone_pos: Vector3, is_emergency: bool = false) -> void:
