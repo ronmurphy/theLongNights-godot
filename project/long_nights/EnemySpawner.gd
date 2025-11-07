@@ -28,6 +28,9 @@ const NIGHT_SPAWN_MAX = 60.0  # Max 60 seconds
 const BLOODMOON_SPAWN_MIN = 10.0  # Min 10 seconds
 const BLOODMOON_SPAWN_MAX = 20.0  # Max 20 seconds
 
+const CAVE_SPAWN_MIN = 45.0  # Min 45 seconds in caves
+const CAVE_SPAWN_MAX = 90.0  # Max 90 seconds in caves
+
 const SPAWN_DISTANCE_MIN = 20.0  # Don't spawn too close
 const SPAWN_DISTANCE_MAX = 40.0  # Don't spawn too far
 
@@ -42,6 +45,20 @@ var enemies_by_tier := {
 	4: [],
 	5: []
 }
+
+## Depth-based cave biome definitions
+## Matches the biome layers from generator.gd
+const BIOME_GOBLIN_TUNNELS_MIN = -150  # Y=-10 to -150
+const BIOME_UNDEAD_CRYPTS_MIN = -300   # Y=-150 to -300
+const BIOME_MECHANICAL_MIN = -400       # Y=-300 to -400
+const BIOME_ABYSS_MIN = -512           # Y=-400 to -512
+
+## Preferred enemies for each depth biome (by enemy key)
+## These are suggestions - if scene doesn't exist, falls back to tier-based
+var goblin_biome_enemies := ["goblin_grunt", "goblin_bomb_bard", "goblin_shaman", "troglodyte"]
+var undead_biome_enemies := ["zombie_crawler", "zombie_brute", "skeleton_archer", "skeleton_mage", "wraith"]
+var mechanical_biome_enemies := ["mechanical_spider", "hunting_construct", "iron_golem"]
+var abyss_biome_enemies := ["water_elemental", "kraken_spawn", "bubble_fish", "alien_hunter"]
 
 ## State
 var spawn_timer: float = 0.0
@@ -123,15 +140,28 @@ func _process(delta: float):
 
 func _try_spawn_enemy():
 	"""Attempt to spawn an enemy based on current conditions"""
+	# Find player first to check if in caves
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		return
+
+	# Check if player is in a cave (underground, Y < -10)
+	var player_y = player.global_position.y
+	var is_in_cave = player_y < -10.0
+
+	# Cave spawning overrides time-of-day spawning
+	# Caves spawn less frequently than surface (every 45-90 seconds)
+	if is_in_cave:
+		_try_spawn_cave_enemy(player, player_y)
+		# Reset timer with cave interval for next spawn
+		current_spawn_interval = randf_range(CAVE_SPAWN_MIN, CAVE_SPAWN_MAX)
+		return
+
+	# Surface spawning (original logic)
 	# Day spawning has a chance check
 	if not is_night and not is_bloodmoon:
 		if randf() > DAY_SPAWN_CHANCE:
 			return  # 85% of the time, don't spawn during day
-
-	# Find player
-	var player = get_tree().get_first_node_in_group("player")
-	if not player:
-		return
 
 	# Pick random spawn position around player
 	var spawn_pos = _get_random_spawn_position(player.global_position)
@@ -239,7 +269,9 @@ func _spawn_enemy(enemy_key: String, spawn_pos: Vector3):
 
 
 func _update_spawn_interval():
-	"""Update spawn interval based on time of day"""
+	"""Update spawn interval based on time of day
+	Note: Cave spawning uses its own interval (CAVE_SPAWN_MIN/MAX)
+	which is applied dynamically in _try_spawn_enemy()"""
 	if is_bloodmoon:
 		current_spawn_interval = randf_range(BLOODMOON_SPAWN_MIN, BLOODMOON_SPAWN_MAX)
 	elif is_night:
@@ -472,6 +504,108 @@ func _spawn_sky_golem(spawn_pos: Vector3):
 
 	print("☁️ Spawned Sky Golem (FLYING) at %s" % spawn_pos)
 
+
+## ============================================================================
+## CAVE/DEPTH-BASED SPAWNING
+## ============================================================================
+
+func _try_spawn_cave_enemy(player: Node3D, player_y: float):
+	"""Spawn enemies in caves based on depth biome"""
+	# Determine which depth biome the player is in
+	var biome_name = _get_depth_biome_name(player_y)
+	var max_tier_for_depth = _get_max_tier_for_depth(player_y)
+
+	# Cap by unlocked tiers
+	max_tier_for_depth = min(max_tier_for_depth, max_unlocked_tier)
+
+	# Pick an enemy appropriate for this biome
+	var enemy_key = _pick_enemy_for_depth_biome(player_y, max_tier_for_depth)
+	if enemy_key == "":
+		return  # No suitable enemy found
+
+	# Get spawn position (caves can be anywhere around player)
+	var spawn_pos = _get_random_spawn_position(player.global_position)
+	# Keep spawn at similar depth to player (within 10 blocks vertically)
+	spawn_pos.y = player_y + randf_range(-10.0, 10.0)
+
+	# Spawn the enemy
+	_spawn_enemy(enemy_key, spawn_pos)
+
+	print("🕳️ Cave spawn in %s biome (Y=%.0f, Tier≤%d): %s" % [biome_name, player_y, max_tier_for_depth, enemy_key])
+
+
+func _get_depth_biome_name(y: float) -> String:
+	"""Get the name of the biome based on Y depth"""
+	if y > BIOME_GOBLIN_TUNNELS_MIN:
+		return "Goblin Tunnels"
+	elif y > BIOME_UNDEAD_CRYPTS_MIN:
+		return "Undead Crypts"
+	elif y > BIOME_MECHANICAL_MIN:
+		return "Mechanical Warrens"
+	else:
+		return "The Abyss"
+
+
+func _get_max_tier_for_depth(y: float) -> int:
+	"""Determine max enemy tier based on depth"""
+	if y > BIOME_GOBLIN_TUNNELS_MIN:
+		return 2  # Goblin Tunnels: Tiers 1-2
+	elif y > BIOME_UNDEAD_CRYPTS_MIN:
+		return 3  # Undead Crypts: Tiers 1-3
+	elif y > BIOME_MECHANICAL_MIN:
+		return 4  # Mechanical Warrens: Tiers 1-4
+	else:
+		return 5  # The Abyss: All tiers
+
+
+func _pick_enemy_for_depth_biome(y: float, max_tier: int) -> String:
+	"""Pick an enemy appropriate for the depth biome"""
+	var preferred_enemies := []
+
+	# Get biome-specific enemy list
+	if y > BIOME_GOBLIN_TUNNELS_MIN:
+		preferred_enemies = goblin_biome_enemies
+	elif y > BIOME_UNDEAD_CRYPTS_MIN:
+		preferred_enemies = undead_biome_enemies
+	elif y > BIOME_MECHANICAL_MIN:
+		preferred_enemies = mechanical_biome_enemies
+	else:
+		preferred_enemies = abyss_biome_enemies
+
+	# Try to pick a themed enemy that exists and is within tier limits
+	var available_themed := []
+	for enemy_key in preferred_enemies:
+		# Check if scene exists
+		var scene_path = "res://blocky_game/entities/%s.tscn" % enemy_key
+		if ResourceLoader.exists(scene_path):
+			# Check if within tier limit
+			var tier = _get_enemy_tier(enemy_key)
+			if tier > 0 and tier <= max_tier:
+				available_themed.append(enemy_key)
+
+	# If we have themed enemies available, use them (70% chance)
+	if not available_themed.is_empty() and randf() < 0.7:
+		return available_themed[randi() % available_themed.size()]
+
+	# Otherwise, fall back to any enemy within tier range (30% chance for variety)
+	var fallback_enemies := []
+	for tier in range(1, max_tier + 1):
+		if tier in enemies_by_tier:
+			for enemy_key in enemies_by_tier[tier]:
+				var scene_path = "res://blocky_game/entities/%s.tscn" % enemy_key
+				if ResourceLoader.exists(scene_path):
+					fallback_enemies.append(enemy_key)
+
+	if fallback_enemies.is_empty():
+		push_warning("EnemySpawner: No enemies available for depth Y=%.0f, tier≤%d" % [y, max_tier])
+		return ""
+
+	return fallback_enemies[randi() % fallback_enemies.size()]
+
+
+## ============================================================================
+## BLOOD MOON BUFFS
+## ============================================================================
 
 func _apply_bloodmoon_buffs(entity, enemy_key: String):
 	"""Apply stat buffs to enemies during blood moon based on their tier
