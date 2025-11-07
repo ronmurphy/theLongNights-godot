@@ -31,6 +31,7 @@ DialogueManager="*res://long_nights/DialogueManager.gd"
 PerformanceMonitor="*res://long_nights/PerformanceMonitor.gd"
 WinterIceSystem="*res://long_nights/WinterIceSystem.gd"
 EnemySpawner="*res://long_nights/EnemySpawner.gd"
+CaveTorchSpawner="*res://long_nights/CaveTorchSpawner.gd"
 RuinRegistry="*res://blocky_game/ruins/RuinRegistry.gd"
 Powers="*res://long_nights/Powers.gd"
 
