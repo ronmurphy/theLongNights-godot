@@ -257,14 +257,19 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _lod: int)
 					
 					# Within heightmap range, use normal terrain generation
 					elif y < relative_height:
-						# Fill with dirt below the surface
-						if y < relative_height - 1:
-							buffer.set_voxel(DIRT, x, y, z, _CHANNEL)
-						# Top block of terrain (surface)
-						elif y == relative_height - 1 and height >= 0:
-							buffer.set_voxel(GRASS, x, y, z, _CHANNEL)
+						# Check if this position should be carved as a cave entrance
+						if world_y < MIN_CAVE_HEIGHT and _is_cave(gx, world_y, gz):
+							# Carve cave entrance - leave as air
+							buffer.set_voxel(AIR, x, y, z, _CHANNEL)
 						else:
-							buffer.set_voxel(DIRT, x, y, z, _CHANNEL)
+							# Fill with dirt below the surface
+							if y < relative_height - 1:
+								buffer.set_voxel(DIRT, x, y, z, _CHANNEL)
+							# Top block of terrain (surface)
+							elif y == relative_height - 1 and height >= 0:
+								buffer.set_voxel(GRASS, x, y, z, _CHANNEL)
+							else:
+								buffer.set_voxel(DIRT, x, y, z, _CHANNEL)
 					# Place foliage on top of grass
 					elif y == relative_height and height >= 0 and y > 0:
 						var below_block = buffer.get_voxel(x, y - 1, z, _CHANNEL)
