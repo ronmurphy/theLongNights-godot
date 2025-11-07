@@ -22,6 +22,10 @@ var light_colors = {
 }
 
 var is_bloodmoon: bool = false
+var _is_underground: bool = false
+var _player: Node = null
+const UNDERGROUND_Y_THRESHOLD = -10.0  # Below this Y = underground
+const UNDERGROUND_TIME_HOUR = 20  # Lock to 8pm (dark) when underground
 
 func _ready() -> void:
 	if not sun_light:
@@ -43,11 +47,41 @@ func _ready() -> void:
 
 	print("DayNightCycle: Ready")
 
+
+func _process(_delta: float) -> void:
+	"""Check if player is underground and override time visuals"""
+	# Find player if we don't have them
+	if _player == null:
+		_player = get_tree().get_first_node_in_group("player")
+		if _player == null:
+			return
+
+	# Check if player crossed underground threshold
+	var was_underground = _is_underground
+	_is_underground = _player.global_position.y < UNDERGROUND_Y_THRESHOLD
+
+	# If underground status changed, update visuals immediately
+	if _is_underground != was_underground:
+		var display_hour = UNDERGROUND_TIME_HOUR if _is_underground else TimeManager.current_hour
+		_update_sun_position(display_hour)
+		if not is_bloodmoon:
+			_update_lighting(display_hour)
+		_update_fog(display_hour)
+
+		if _is_underground:
+			print("DayNightCycle: Player entered underground - locking to night visuals")
+		else:
+			print("DayNightCycle: Player exited underground - returning to actual time")
+
+
 func _on_hour_changed(hour: int) -> void:
-	_update_sun_position(hour)
+	# If underground, use locked time instead of actual time
+	var display_hour = UNDERGROUND_TIME_HOUR if _is_underground else hour
+
+	_update_sun_position(display_hour)
 	if not is_bloodmoon:
-		_update_lighting(hour)
-	_update_fog(hour)
+		_update_lighting(display_hour)
+	_update_fog(display_hour)
 
 func _update_sun_position(hour: int) -> void:
 	# Sun rotates 360 degrees over 24 hours
@@ -102,7 +136,7 @@ func _update_lighting(hour: int) -> void:
 		# Note: Godot 4 sky system is different, would need proper sky shader
 		# For now just update ambient light
 		environment.environment.ambient_light_color = target_sky
-		environment.environment.ambient_light_energy = 0.3
+		environment.environment.ambient_light_energy = 0.05  # Much lower for dark caves
 
 func _on_bloodmoon_started() -> void:
 	is_bloodmoon = true
@@ -114,7 +148,7 @@ func _on_bloodmoon_started() -> void:
 
 	if environment and environment.environment:
 		environment.environment.ambient_light_color = sky_colors["bloodmoon"]
-		environment.environment.ambient_light_energy = 0.2
+		environment.environment.ambient_light_energy = 0.03  # Even darker for bloodmoon caves
 
 	# Update fog for bloodmoon
 	_update_fog_bloodmoon()

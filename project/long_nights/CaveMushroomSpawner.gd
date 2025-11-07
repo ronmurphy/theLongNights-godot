@@ -131,20 +131,26 @@ func _place_mushroom(position: Vector3):
 	# Create billboard sprite
 	var mushroom = Sprite3D.new()
 	mushroom.texture = load("res://assets/art/food/mushroom.png")
-	mushroom.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	mushroom.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y  # Fixed to Y-axis like companions
 	mushroom.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	mushroom.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	mushroom.pixel_size = 0.01  # Size of the billboard
-	mushroom.modulate = Color(0.8, 1.0, 0.9, 1.0)  # Slight greenish glow tint
 
-	# Add glow light (if graphics settings allow)
-	if GraphicsSettings.should_create_torch_light():
-		var light = OmniLight3D.new()
-		light.light_color = Color(0.4, 0.8, 0.5)  # Greenish glow
-		light.light_energy = 1.5
-		light.omni_range = 4.0  # Smaller range than torches
-		light.omni_attenuation = 0.8
-		mushroom.add_child(light)
+	# Add green glow tint and bloom only if underground (Y < 0)
+	if position.y < 0:
+		mushroom.modulate = Color(0.8, 1.0, 0.9, 1.0)  # Greenish glow tint
+
+		# Add glow light (if graphics settings allow)
+		if GraphicsSettings.should_create_torch_light():
+			var light = OmniLight3D.new()
+			light.light_color = Color(0.4, 0.8, 0.5)  # Greenish glow
+			light.light_energy = 1.5
+			light.omni_range = 4.0  # Smaller range than torches
+			light.omni_attenuation = 0.8
+			mushroom.add_child(light)
+	else:
+		# Normal mushroom above ground (no glow)
+		mushroom.modulate = Color(1.0, 1.0, 1.0, 1.0)
 
 	# Add to game scene
 	var game = get_node_or_null("/root/Main/Game")

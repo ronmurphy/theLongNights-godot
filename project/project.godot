@@ -34,6 +34,7 @@ WinterIceSystem="*res://long_nights/WinterIceSystem.gd"
 EnemySpawner="*res://long_nights/EnemySpawner.gd"
 CaveTorchSpawner="*res://long_nights/CaveTorchSpawner.gd"
 CaveMushroomSpawner="*res://long_nights/CaveMushroomSpawner.gd"
+CaveEntranceDecorator="*res://long_nights/CaveEntranceDecorator.gd"
 RuinRegistry="*res://blocky_game/ruins/RuinRegistry.gd"
 Powers="*res://long_nights/Powers.gd"
 

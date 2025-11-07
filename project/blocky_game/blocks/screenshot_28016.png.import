@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cfadoxpi3wxtv"
-path="res://.godot/imported/rust_cube_sprite.png-120ccd3ebb40cbdab48d23746e735e43.ctex"
+uid="uid://dmi0km5etmvi1"
+path="res://.godot/imported/screenshot_28016.png-fc76b0e9578abf6f96479d696cccbc1a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/blocks/rust_cube/rust_cube_sprite.png"
-dest_files=["res://.godot/imported/rust_cube_sprite.png-120ccd3ebb40cbdab48d23746e735e43.ctex"]
+source_file="res://blocky_game/blocks/screenshot_28016.png"
+dest_files=["res://.godot/imported/screenshot_28016.png-fc76b0e9578abf6f96479d696cccbc1a.ctex"]
 
 [params]
 

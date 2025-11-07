@@ -1,4 +1,4 @@
-[gd_resource type="VoxelBlockyLibrary" load_steps=89 format=3 uid="uid://ctn2wqssoxvj5"]
+[gd_resource type="VoxelBlockyLibrary" load_steps=88 format=3 uid="uid://ctn2wqssoxvj5"]
 
 [ext_resource type="ArrayMesh" uid="uid://rq0nk6t5jqyc" path="res://blocky_game/blocks/grass/grass.obj" id="1"]
 [ext_resource type="ArrayMesh" uid="uid://dmi1fa4udxhx3" path="res://blocky_game/blocks/dirt/dirt.obj" id="2"]
@@ -34,9 +34,6 @@
 [ext_resource type="ArrayMesh" uid="uid://8jmqjy4wc4ca" path="res://blocky_game/blocks/birch_log/birch_log_x.obj" id="28"]
 [ext_resource type="ArrayMesh" uid="uid://biqs6t0hsxu4i" path="res://blocky_game/blocks/birch_log/birch_log_z.obj" id="29"]
 [ext_resource type="ArrayMesh" uid="uid://bi2ba32upomeq" path="res://blocky_game/blocks/ice/ice.obj" id="34_8mrmn"]
-[ext_resource type="ArrayMesh" uid="uid://c7dcdrh5hy5en" path="res://blocky_game/blocks/rust_block/rust_block.obj" id="35_i18ja"]
-[ext_resource type="ArrayMesh" uid="uid://bd7bj11212auj" path="res://blocky_game/blocks/rust_pipe/rust_pipe.obj" id="36_5dbwy"]
-[ext_resource type="ArrayMesh" uid="uid://2k8i2j4q5r4d" path="res://blocky_game/blocks/rust_cube/rust_cube.obj" id="37_rust_cube"]
 
 [sub_resource type="VoxelBlockyModelEmpty" id="VoxelBlockyModelEmpty_mk2sr"]
 resource_name = "air"
@@ -464,26 +461,35 @@ tile_top = Vector2i(15, 14)
 tile_back = Vector2i(15, 14)
 tile_front = Vector2i(15, 14)
 
-[sub_resource type="VoxelBlockyModelMesh" id="VoxelBlockyModelMesh_fsqnb"]
+[sub_resource type="VoxelBlockyModelCube" id="VoxelBlockyModelCube_rust_block"]
 resource_name = "rust_block"
-collision_aabbs = Array[AABB]([AABB(0, 0, 0, 1, 1, 1)])
 material_override_0 = ExtResource("2_r7axq")
-collision_enabled_0 = true
-mesh = ExtResource("35_i18ja")
+tile_left = Vector2i(13, 15)
+tile_right = Vector2i(13, 15)
+tile_bottom = Vector2i(13, 15)
+tile_top = Vector2i(13, 15)
+tile_back = Vector2i(13, 15)
+tile_front = Vector2i(13, 15)
 
-[sub_resource type="VoxelBlockyModelMesh" id="VoxelBlockyModelMesh_vwih2"]
+[sub_resource type="VoxelBlockyModelCube" id="VoxelBlockyModelCube_rust_pipe"]
 resource_name = "rust_pipe"
-collision_aabbs = Array[AABB]([AABB(0, 0, 0, 1, 1, 1)])
 material_override_0 = ExtResource("2_r7axq")
-collision_enabled_0 = true
-mesh = ExtResource("36_5dbwy")
+tile_left = Vector2i(14, 14)
+tile_right = Vector2i(14, 14)
+tile_bottom = Vector2i(14, 14)
+tile_top = Vector2i(14, 14)
+tile_back = Vector2i(14, 14)
+tile_front = Vector2i(14, 14)
 
-[sub_resource type="VoxelBlockyModelMesh" id="VoxelBlockyModelMesh_rust_cube"]
+[sub_resource type="VoxelBlockyModelCube" id="VoxelBlockyModelCube_rust_cube"]
 resource_name = "rust_cube"
-collision_aabbs = Array[AABB]([AABB(0, 0, 0, 1, 1, 1)])
 material_override_0 = ExtResource("2_r7axq")
-collision_enabled_0 = true
-mesh = ExtResource("37_rust_cube")
+tile_left = Vector2i(13, 15)
+tile_right = Vector2i(13, 15)
+tile_bottom = Vector2i(13, 15)
+tile_top = Vector2i(13, 15)
+tile_back = Vector2i(13, 15)
+tile_front = Vector2i(13, 15)
 
 [sub_resource type="VoxelBlockyModelCube" id="VoxelBlockyModelCube_8x7un"]
 resource_name = "rust_floor"
@@ -496,4 +502,4 @@ tile_back = Vector2i(14, 15)
 tile_front = Vector2i(14, 15)
 
 [resource]
-models = Array[VoxelBlockyModel]([SubResource("VoxelBlockyModelEmpty_mk2sr"), SubResource("VoxelBlockyModelMesh_7h3nj"), SubResource("VoxelBlockyModelMesh_7ws3s"), SubResource("VoxelBlockyModelMesh_dgg18"), SubResource("VoxelBlockyModelMesh_82a53"), SubResource("VoxelBlockyModelMesh_rid6c"), SubResource("VoxelBlockyModelMesh_w6frs"), SubResource("VoxelBlockyModelMesh_b3d46"), SubResource("VoxelBlockyModelMesh_ilklx"), SubResource("VoxelBlockyModelMesh_8o2q5"), SubResource("VoxelBlockyModelMesh_dos6x"), SubResource("VoxelBlockyModelMesh_ldqsp"), SubResource("VoxelBlockyModelMesh_rqv2x"), SubResource("VoxelBlockyModelMesh_lt74g"), SubResource("VoxelBlockyModelMesh_rydis"), SubResource("VoxelBlockyModelMesh_k70eq"), SubResource("VoxelBlockyModelMesh_7pgsh"), SubResource("VoxelBlockyModelMesh_qbgg8"), SubResource("VoxelBlockyModelMesh_iqgm8"), SubResource("VoxelBlockyModelMesh_1mglx"), SubResource("VoxelBlockyModelMesh_udleu"), SubResource("VoxelBlockyModelMesh_p61kv"), SubResource("VoxelBlockyModelMesh_txenr"), SubResource("VoxelBlockyModelMesh_ruhud"), SubResource("VoxelBlockyModelMesh_5qhvr"), SubResource("VoxelBlockyModelMesh_g6mep"), SubResource("VoxelBlockyModelMesh_kcviq"), SubResource("VoxelBlockyModelCube_4h7qi"), SubResource("VoxelBlockyModelCube_xlq4u"), SubResource("VoxelBlockyModelCube_stone"), SubResource("VoxelBlockyModelCube_gold_ore"), SubResource("VoxelBlockyModelCube_iron_ore"), SubResource("VoxelBlockyModelCube_tilled_dirt"), SubResource("VoxelBlockyModelCube_ruin_stone"), SubResource("VoxelBlockyModelCube_ruin_floor"), SubResource("VoxelBlockyModelCube_teleport_stone"), SubResource("VoxelBlockyModelMesh_birch_log_y"), SubResource("VoxelBlockyModelMesh_birch_log_x"), SubResource("VoxelBlockyModelMesh_birch_log_z"), SubResource("VoxelBlockyModelCube_6fvos"), SubResource("VoxelBlockyModelCube_lade4"), SubResource("VoxelBlockyModelCube_8mrmn"), SubResource("VoxelBlockyModelCube_nicr2"), SubResource("VoxelBlockyModelCube_i18ja"), SubResource("VoxelBlockyModelCube_5dbwy"), SubResource("VoxelBlockyModelCube_u5hj0"), SubResource("VoxelBlockyModelCube_2vsq0"), SubResource("VoxelBlockyModelMesh_nicr2"), SubResource("VoxelBlockyModelCube_upf65"), SubResource("VoxelBlockyModelMesh_fsqnb"), SubResource("VoxelBlockyModelMesh_vwih2"), SubResource("VoxelBlockyModelMesh_rust_cube"), SubResource("VoxelBlockyModelCube_8x7un")])
+models = Array[VoxelBlockyModel]([SubResource("VoxelBlockyModelEmpty_mk2sr"), SubResource("VoxelBlockyModelMesh_7h3nj"), SubResource("VoxelBlockyModelMesh_7ws3s"), SubResource("VoxelBlockyModelMesh_dgg18"), SubResource("VoxelBlockyModelMesh_82a53"), SubResource("VoxelBlockyModelMesh_rid6c"), SubResource("VoxelBlockyModelMesh_w6frs"), SubResource("VoxelBlockyModelMesh_b3d46"), SubResource("VoxelBlockyModelMesh_ilklx"), SubResource("VoxelBlockyModelMesh_8o2q5"), SubResource("VoxelBlockyModelMesh_dos6x"), SubResource("VoxelBlockyModelMesh_ldqsp"), SubResource("VoxelBlockyModelMesh_rqv2x"), SubResource("VoxelBlockyModelMesh_lt74g"), SubResource("VoxelBlockyModelMesh_rydis"), SubResource("VoxelBlockyModelMesh_k70eq"), SubResource("VoxelBlockyModelMesh_7pgsh"), SubResource("VoxelBlockyModelMesh_qbgg8"), SubResource("VoxelBlockyModelMesh_iqgm8"), SubResource("VoxelBlockyModelMesh_1mglx"), SubResource("VoxelBlockyModelMesh_udleu"), SubResource("VoxelBlockyModelMesh_p61kv"), SubResource("VoxelBlockyModelMesh_txenr"), SubResource("VoxelBlockyModelMesh_ruhud"), SubResource("VoxelBlockyModelMesh_5qhvr"), SubResource("VoxelBlockyModelMesh_g6mep"), SubResource("VoxelBlockyModelMesh_kcviq"), SubResource("VoxelBlockyModelCube_4h7qi"), SubResource("VoxelBlockyModelCube_xlq4u"), SubResource("VoxelBlockyModelCube_stone"), SubResource("VoxelBlockyModelCube_gold_ore"), SubResource("VoxelBlockyModelCube_iron_ore"), SubResource("VoxelBlockyModelCube_tilled_dirt"), SubResource("VoxelBlockyModelCube_ruin_stone"), SubResource("VoxelBlockyModelCube_ruin_floor"), SubResource("VoxelBlockyModelCube_teleport_stone"), SubResource("VoxelBlockyModelMesh_birch_log_y"), SubResource("VoxelBlockyModelMesh_birch_log_x"), SubResource("VoxelBlockyModelMesh_birch_log_z"), SubResource("VoxelBlockyModelCube_6fvos"), SubResource("VoxelBlockyModelCube_lade4"), SubResource("VoxelBlockyModelCube_8mrmn"), SubResource("VoxelBlockyModelCube_nicr2"), SubResource("VoxelBlockyModelCube_i18ja"), SubResource("VoxelBlockyModelCube_5dbwy"), SubResource("VoxelBlockyModelCube_u5hj0"), SubResource("VoxelBlockyModelCube_2vsq0"), SubResource("VoxelBlockyModelMesh_nicr2"), SubResource("VoxelBlockyModelCube_upf65"), SubResource("VoxelBlockyModelCube_rust_block"), SubResource("VoxelBlockyModelCube_rust_pipe"), SubResource("VoxelBlockyModelCube_rust_cube"), SubResource("VoxelBlockyModelCube_8x7un")])

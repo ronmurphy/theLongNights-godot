@@ -265,21 +265,21 @@ func _init():
 	})
 	_create_block({
 		"name": "rust_block",
-		"gui_model": "rust_block.obj",
+		"gui_model": "",  # Uses texture atlas
 		"rotation_type": ROTATION_TYPE_NONE,
 		"voxels": ["rust_block"],
 		"transparent": false
 	})
 	_create_block({
 		"name": "rust_pipe",
-		"gui_model": "rust_pipe.obj",
+		"gui_model": "",  # Uses texture atlas
 		"rotation_type": ROTATION_TYPE_NONE,
 		"voxels": ["rust_pipe"],
 		"transparent": false
 	})
 	_create_block({
 		"name": "rust_cube",
-		"gui_model": "rust_cube.obj",
+		"gui_model": "",  # Uses texture atlas
 		"rotation_type": ROTATION_TYPE_NONE,
 		"voxels": ["rust_cube"],
 		"transparent": false
