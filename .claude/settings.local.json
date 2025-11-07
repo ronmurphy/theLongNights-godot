@@ -37,7 +37,11 @@
       "Bash(copy:*)",
       "Bash(copy \"assets\\art\\food\\mushroom_soup.png\" \"blocky_game\\items\\pumpkin_soup\\pumpkin_soup_sprite.png\")",
       "Bash(copy \"assets\\art\\food\\mushroom_bites.png\" \"blocky_game\\items\\mushroom_bites\\mushroom_bites_sprite.png\")",
-      "Bash(copy \"assets\\art\\food\\pumpkin_pie.png\" \"blocky_game\\items\\pumpkin_pie\\pumpkin_pie_sprite.png\")"
+      "Bash(copy \"assets\\art\\food\\pumpkin_pie.png\" \"blocky_game\\items\\pumpkin_pie\\pumpkin_pie_sprite.png\")",
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --path \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\" --headless --check-only --script \"res://blocky_game/entities/swallow.gd\")",
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --path \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\" --headless --check-only --script \"res://blocky_game/entities/bluejay.gd\")",
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --path \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\" --headless --check-only --script \"res://blocky_game/AnimalSpawner.gd\")",
+      "Bash(\"C:\\Users\\Brad\\Documents\\Godot\\godot.windows.editor.x86_64.exe\" --path \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\" --headless --check-only --script \"res://blocky_game/entities/fish.gd\")"
     ],
     "deny": [],
     "ask": []

@@ -6,11 +6,13 @@ signal equipment_changed
 const BAG_WIDTH = 9
 const BAG_HEIGHT = 3
 const HOTBAR_HEIGHT = 1
+const BENTO_SLOTS = 6
 
 const InventoryItem = preload("../../player/inventory_item.gd")
 
 @onready var _bag_container = $CC/PC/VB/Bag
 @onready var _hotbar_container = $CC/PC/VB/Hotbar
+@onready var _bento_container = $CC/PC/VB/BentoBox
 @onready var _dragged_item_view = $DraggedItem
 @onready var _panel_container = $CC/PC
 @onready var _item_db = get_node("/root/Main/Game/Items")
@@ -18,6 +20,8 @@ const InventoryItem = preload("../../player/inventory_item.gd")
 # TODO Is it worth having the hotbar in the first indexes instead of the last ones?
 var _slots := []
 var _slot_views := []
+var _bento_slots := []  # Array of 6 food items for bento box
+var _bento_slot_views := []
 var _previous_mouse_mode := 0
 var _dragged_slot := -1
 
@@ -65,7 +69,16 @@ func _ready():
 			slot.pressed.connect(_on_slot_pressed.bind(slot_idx))
 			_slot_views[slot_idx] = slot
 			slot_idx += 1
-	
+
+	# Init bento box slots
+	_bento_slots.resize(BENTO_SLOTS)
+	_bento_slot_views.resize(BENTO_SLOTS)
+	for i in _bento_container.get_child_count():
+		var slot = _bento_container.get_child(i)
+		slot.get_display().set_item(_bento_slots[i])
+		slot.pressed.connect(_on_bento_slot_pressed.bind(i))
+		_bento_slot_views[i] = slot
+
 	# Initialize companion weapon slot with their default weapon
 	call_deferred("_initialize_companion_default_weapon")
 
@@ -472,6 +485,141 @@ func _on_slot_pressed(idx: int):
 				_dragged_slot = -1
 				_dragged_item_view.stop()
 
+
+func _on_bento_slot_pressed(bento_idx: int):
+	"""Handle clicking on bento box slots (food only)"""
+	if _dragged_slot == -1:
+		# Not dragging - try to pick up food from bento
+		if _bento_slots[bento_idx] != null:
+			# Special ID for bento slots: -100 to -105
+			_dragged_slot = -100 - bento_idx
+			_bento_slot_views[bento_idx].get_display().set_item(null)
+			_dragged_item_view.start(_bento_slots[bento_idx])
+	else:
+		# Dragging something - try to place in bento
+		var dragged_item = null
+
+		# Get the dragged item
+		if _dragged_slot >= 0:
+			# From regular inventory
+			dragged_item = _slots[_dragged_slot]
+		elif _dragged_slot <= -100:
+			# From another bento slot
+			var source_bento_idx = -100 - _dragged_slot
+			dragged_item = _bento_slots[source_bento_idx]
+		else:
+			# From equipment slot - cancel (can't put equipment in bento)
+			print("Cannot place equipment in bento box!")
+			if _dragged_slot == -999:
+				_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
+			elif _dragged_slot == -998:
+				_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+			elif _dragged_slot == -997:
+				_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+			_dragged_item_view.stop()
+			_dragged_slot = -1
+			return
+
+		# Check if it's a food item
+		if dragged_item != null and _is_food_item(dragged_item):
+			# Valid food item - place in bento
+			var old_bento_item = _bento_slots[bento_idx]
+			_bento_slots[bento_idx] = dragged_item
+
+			# Clear source
+			if _dragged_slot >= 0:
+				_slots[_dragged_slot] = old_bento_item  # Swap
+				_slot_views[_dragged_slot].get_display().set_item(old_bento_item)
+			elif _dragged_slot <= -100:
+				var source_bento_idx = -100 - _dragged_slot
+				_bento_slots[source_bento_idx] = old_bento_item  # Swap
+				_bento_slot_views[source_bento_idx].get_display().set_item(old_bento_item)
+
+			# Update bento view
+			_bento_slot_views[bento_idx].get_display().set_item(_bento_slots[bento_idx])
+			_dragged_item_view.stop()
+			_dragged_slot = -1
+			emit_signal("changed")
+		else:
+			# Not a food item
+			print("Only cooked food can go in the bento box!")
+			# Return item to source
+			if _dragged_slot >= 0:
+				_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+			elif _dragged_slot <= -100:
+				var source_bento_idx = -100 - _dragged_slot
+				_bento_slot_views[source_bento_idx].get_display().set_item(_bento_slots[source_bento_idx])
+			_dragged_item_view.stop()
+			_dragged_slot = -1
+
+
+func _is_food_item(item: InventoryItem) -> bool:
+	"""Check if an item is a cooked food item (for bento box)"""
+	if item == null or item.type != InventoryItem.TYPE_ITEM:
+		return false
+	# Cooked food item IDs: 27-39 (from item_db.gd)
+	return item.id >= 27 and item.id <= 39
+
+
+# ============================================================================
+# BENTO BOX ACCESSORS
+# ============================================================================
+
+func get_bento_slot_data(slot_idx: int) -> InventoryItem:
+	"""Get food item in bento slot (0-5)"""
+	if slot_idx < 0 or slot_idx >= BENTO_SLOTS:
+		return null
+	return _bento_slots[slot_idx]
+
+
+func consume_bento_food(slot_idx: int) -> InventoryItem:
+	"""Consume food from bento slot and return it (removes from bento)"""
+	if slot_idx < 0 or slot_idx >= BENTO_SLOTS:
+		return null
+
+	var food = _bento_slots[slot_idx]
+	if food == null:
+		return null
+
+	# Decrement count
+	food.count -= 1
+
+	# If count reaches 0, remove from bento
+	if food.count <= 0:
+		_bento_slots[slot_idx] = null
+		_bento_slot_views[slot_idx].get_display().set_item(null)
+	else:
+		# Update view to show new count
+		_bento_slot_views[slot_idx].get_display().set_item(food)
+
+	emit_signal("changed")
+	return food
+
+
+func consume_bento_food_smart() -> InventoryItem:
+	"""Consume weakest food from bento (smart priority)"""
+	# Food healing values (from recipes_database.json)
+	var food_healing = {
+		27: 15, 28: 10, 29: 10, 30: 20, 31: 15, 32: 10,
+		33: 25, 34: 20, 35: 20, 36: 25, 37: 20, 38: 28, 39: 30
+	}
+
+	# Find weakest food in bento
+	var weakest_idx = -1
+	var weakest_healing = 9999
+
+	for i in range(BENTO_SLOTS):
+		if _bento_slots[i] != null:
+			var healing = food_healing.get(_bento_slots[i].id, 10)
+			if healing < weakest_healing:
+				weakest_healing = healing
+				weakest_idx = i
+
+	# Consume weakest food
+	if weakest_idx >= 0:
+		return consume_bento_food(weakest_idx)
+
+	return null
 
 
 func _create_equipment_panels():
@@ -1252,7 +1400,8 @@ func serialize_inventory() -> Dictionary:
 		"slots": [],
 		"player_weapon": null,
 		"companion_weapon": null,
-		"companion_accessory": null
+		"companion_accessory": null,
+		"bento_slots": []
 	}
 
 	# Serialize inventory slots
@@ -1296,6 +1445,19 @@ func serialize_inventory() -> Dictionary:
 			"skyshard_count": _companion_accessory_slot.skyshard_count,
 			"skyshard_power": _companion_accessory_slot.skyshard_power
 		}
+
+	# Serialize bento box slots
+	for item in _bento_slots:
+		if item == null:
+			data["bento_slots"].append(null)
+		else:
+			data["bento_slots"].append({
+				"type": item.type,
+				"id": item.id,
+				"count": item.count,
+				"skyshard_count": item.skyshard_count,
+				"skyshard_power": item.skyshard_power
+			})
 
 	return data
 
@@ -1357,6 +1519,19 @@ func deserialize_inventory(data: Dictionary) -> void:
 		accessory.skyshard_power = accessory_data.get("skyshard_power", "")
 		_companion_accessory_slot = accessory
 
+	# Load bento box slots
+	if data.has("bento_slots") and data["bento_slots"] != null:
+		for i in range(min(data["bento_slots"].size(), BENTO_SLOTS)):
+			var slot_data = data["bento_slots"][i]
+			if slot_data != null:
+				var item = InventoryItem.new()
+				item.type = slot_data["type"]
+				item.id = slot_data["id"]
+				item.count = slot_data.get("count", 1)
+				item.skyshard_count = slot_data.get("skyshard_count", 0)
+				item.skyshard_power = slot_data.get("skyshard_power", "")
+				_bento_slots[i] = item
+
 	# Update views
 	_update_views()
 
@@ -1368,9 +1543,14 @@ func deserialize_inventory(data: Dictionary) -> void:
 	if _companion_accessory_slot_view:
 		_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
 
+	# Update bento box views
+	for i in range(BENTO_SLOTS):
+		if _bento_slot_views[i]:
+			_bento_slot_views[i].get_display().set_item(_bento_slots[i])
+
 	# Refresh hotbar display to show loaded items
 	_refresh_hotbar_display()
-	
+
 	# Update companion's equipment
 	_update_companion_accessory()
 

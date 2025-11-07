@@ -16,6 +16,7 @@ const GameConsole = preload("res://long_nights/GameConsole.gd")
 const GameOverScreen = preload("res://long_nights/GameOverScreen.gd")
 const PartyUI = preload("res://long_nights/PartyUI.gd")
 const EnemySpawner = preload("res://long_nights/EnemySpawner.gd")
+const AnimalSpawner = preload("res://blocky_game/AnimalSpawner.gd")
 const SeasonalTextureSystem = preload("res://long_nights/SeasonalTextureSystem.gd")
 
 @onready var _light : DirectionalLight3D = $DirectionalLight3D
@@ -177,6 +178,11 @@ func _ready():
 		var spawner = EnemySpawner.new()
 		add_child(spawner)
 		print("The Long Nights: Enemy spawner initialized")
+
+		# Add animal spawner system (rabbits)
+		var animal_spawner = AnimalSpawner.new()
+		add_child(animal_spawner)
+		print("The Long Nights: Animal spawner initialized")
 
 		# Spawn player at saved position (or default)
 		var spawn_pos = WorldManager.get_player_position()

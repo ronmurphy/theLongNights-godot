@@ -9,11 +9,15 @@ const InventoryItem = preload("../../player/inventory_item.gd")
 
 var _hotbar_index := 0
 var _mining_progress_bar : ProgressBar = null
+var _bento_slot_views := []  # 6 bento slot displays for HUD
+var _bento_left_panel : Panel = null  # Left 3 slots panel
+var _bento_right_panel : Panel = null  # Right 3 slots panel
 
 
 func _ready():
 	call_deferred("_update_views")
 	_create_mining_progress_bar()
+	_create_bento_hud()
 
 
 func _create_mining_progress_bar():
@@ -56,6 +60,120 @@ func _create_mining_progress_bar():
 
 	# Add VBox to CenterContainer
 	add_child(vbox)
+
+
+func _create_bento_hud():
+	"""Create split bento box HUD above hotbar (3 left + 3 right)"""
+	const InventoryItemDisplay = preload("../inventory_item_display.gd")
+
+	# Get the VBox that contains mining progress bar and hotbar
+	var vbox = get_node("ProgressContainer")
+
+	# Create horizontal container for [BentoLeft] [MiningBar] [BentoRight]
+	var bento_row = HBoxContainer.new()
+	bento_row.name = "BentoRow"
+	bento_row.add_theme_constant_override("separation", 4)
+	bento_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	# LEFT BENTO PANEL (3 slots)
+	_bento_left_panel = Panel.new()
+	_bento_left_panel.custom_minimum_size = Vector2(144, 44)  # 3 slots @ 40x40 + padding
+	var left_style = StyleBoxFlat.new()
+	left_style.bg_color = Color(0.25, 0.2, 0.15, 0.9)  # Dark brown
+	left_style.border_color = Color(0.8, 0.6, 0.3)  # Golden border
+	left_style.set_border_width_all(2)
+	_bento_left_panel.add_theme_stylebox_override("panel", left_style)
+
+	var left_hbox = HBoxContainer.new()
+	left_hbox.add_theme_constant_override("separation", 4)
+	left_hbox.position = Vector2(2, 2)
+	_bento_left_panel.add_child(left_hbox)
+
+	# Create 3 left bento slots
+	for i in range(3):
+		var slot_bg = Panel.new()
+		slot_bg.custom_minimum_size = Vector2(40, 40)
+		var slot_style = StyleBoxFlat.new()
+		slot_style.bg_color = Color(0.15, 0.12, 0.1, 0.8)
+		slot_style.border_color = Color(0.4, 0.35, 0.3)
+		slot_style.set_border_width_all(1)
+		slot_bg.add_theme_stylebox_override("panel", slot_style)
+
+		var item_display = TextureRect.new()
+		item_display.custom_minimum_size = Vector2(40, 40)
+		item_display.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		item_display.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		item_display.set_script(InventoryItemDisplay)
+		slot_bg.add_child(item_display)
+
+		left_hbox.add_child(slot_bg)
+		_bento_slot_views.append(item_display)
+
+	bento_row.add_child(_bento_left_panel)
+
+	# CENTER SPACER (mining bar will overlap this area)
+	var center_spacer = Control.new()
+	center_spacer.custom_minimum_size = Vector2(200, 44)  # Space for mining bar
+	center_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bento_row.add_child(center_spacer)
+
+	# RIGHT BENTO PANEL (3 slots)
+	_bento_right_panel = Panel.new()
+	_bento_right_panel.custom_minimum_size = Vector2(144, 44)
+	var right_style = StyleBoxFlat.new()
+	right_style.bg_color = Color(0.25, 0.2, 0.15, 0.9)
+	right_style.border_color = Color(0.8, 0.6, 0.3)
+	right_style.set_border_width_all(2)
+	_bento_right_panel.add_theme_stylebox_override("panel", right_style)
+
+	var right_hbox = HBoxContainer.new()
+	right_hbox.add_theme_constant_override("separation", 4)
+	right_hbox.position = Vector2(2, 2)
+	_bento_right_panel.add_child(right_hbox)
+
+	# Create 3 right bento slots (indices 3-5)
+	for i in range(3):
+		var slot_bg = Panel.new()
+		slot_bg.custom_minimum_size = Vector2(40, 40)
+		var slot_style = StyleBoxFlat.new()
+		slot_style.bg_color = Color(0.15, 0.12, 0.1, 0.8)
+		slot_style.border_color = Color(0.4, 0.35, 0.3)
+		slot_style.set_border_width_all(1)
+		slot_bg.add_theme_stylebox_override("panel", slot_style)
+
+		var item_display = TextureRect.new()
+		item_display.custom_minimum_size = Vector2(40, 40)
+		item_display.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		item_display.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		item_display.set_script(InventoryItemDisplay)
+		slot_bg.add_child(item_display)
+
+		right_hbox.add_child(slot_bg)
+		_bento_slot_views.append(item_display)
+
+	bento_row.add_child(_bento_right_panel)
+
+	# Insert bento row at the top of the VBox (above mining bar)
+	vbox.add_child(bento_row)
+	vbox.move_child(bento_row, 0)
+
+	# Connect to inventory changes
+	if _inventory:
+		_inventory.changed.connect(_update_bento_views)
+
+	# Initial update
+	call_deferred("_update_bento_views")
+
+
+func _update_bento_views():
+	"""Update bento slot displays from inventory"""
+	if not _inventory:
+		return
+
+	for i in range(6):
+		if i < _bento_slot_views.size():
+			var bento_item = _inventory.get_bento_slot_data(i)
+			_bento_slot_views[i].set_item(bento_item)
 
 
 func set_mining_progress(progress_percent: float):

@@ -63,6 +63,12 @@ var _back_sprite_path: String = ""
 var _current_sprite_is_front: bool = true  # Track which sprite we're currently showing
 const MIN_SPEED_FOR_DIRECTION = 0.5  # Minimum speed to consider direction
 
+## Bento auto-eat system (shares player's bento box)
+var _recently_ate := false  # Prevent eating entire bento instantly
+const AUTO_EAT_HP_THRESHOLD = 0.25  # Auto-eat at 25% HP
+var _inventory = null  # Reference to player's inventory
+var _item_db = null  # Reference to item database
+
 
 func _ready():
 	# Set up as friendly entity BEFORE calling super._ready()
@@ -536,6 +542,9 @@ func _initialize_behavior_mode():
 func _process(delta: float):
 	if not is_alive:
 		return
+
+	# Auto-eat from bento box if HP is low
+	_try_auto_eat_from_bento()
 
 	# Apply EQUIP powers (passive effects)
 	_apply_equip_powers(delta)
@@ -1260,6 +1269,55 @@ func _apply_stencil_shader(texture_path: String) -> void:
 	stencil_material.next_pass = silhouette_material
 
 	print("Companion: Applied stencil silhouette shader")
+
+
+func _try_auto_eat_from_bento() -> void:
+	"""Auto-eat from player's bento box when HP is low (25% threshold)"""
+	if _recently_ate:
+		return
+
+	# Get inventory and item_db references if we don't have them
+	if _inventory == null:
+		_inventory = _get_inventory()
+	if _item_db == null:
+		_item_db = get_node_or_null("/root/Main/Game/Items")
+
+	if not _inventory or not _item_db:
+		return
+
+	# Check if HP is below threshold (25%)
+	var hp_percent = float(current_hp) / float(max_hp)
+	if hp_percent <= AUTO_EAT_HP_THRESHOLD:
+		# Try to auto-eat weakest food from bento (shares player's bento)
+		var food = _inventory.consume_bento_food_smart()
+		if food != null:
+			# Food healing values for cooked food (matching recipes_database.json)
+			const BENTO_FOOD_HEALING = {
+				27: 15, 28: 10, 29: 10, 30: 20, 31: 15, 32: 10,
+				33: 25, 34: 20, 35: 20, 36: 25, 37: 20, 38: 28, 39: 30
+			}
+
+			var heal_amount = BENTO_FOOD_HEALING.get(food.id, 10)
+
+			# Apply healing
+			var old_hp = current_hp
+			current_hp = min(current_hp + heal_amount, max_hp)
+			var actual_heal = current_hp - old_hp
+
+			# Emit healed signal (entity_base signal)
+			healed.emit(actual_heal)
+
+			# Get food name
+			var item = _item_db.get_item(food.id)
+			var food_name = item.base_info.name.replace("_", " ").capitalize()
+
+			# Show message
+			print("🍱 %s AUTO-ATE %s from bento! +%d HP (now %d/%d)" % [entity_name, food_name, actual_heal, current_hp, max_hp])
+
+			# Set cooldown to prevent eating entire bento instantly
+			_recently_ate = true
+			await get_tree().create_timer(2.0).timeout
+			_recently_ate = false
 
 
 func _apply_equip_powers(delta: float) -> void:

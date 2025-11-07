@@ -318,6 +318,71 @@ offset_left = 544.0
 offset_right = 608.0
 offset_bottom = 64.0
 
+[node name="HSeparator3" type="HSeparator" parent="CC/PC/VB"]
+offset_top = 318.0
+offset_right = 608.0
+offset_bottom = 322.0
+
+[node name="BentoLabel" type="Label" parent="CC/PC/VB"]
+offset_top = 326.0
+offset_right = 608.0
+offset_bottom = 349.0
+text = "🍱 Bento Box (Food Only)"
+horizontal_alignment = 1
+
+[node name="BentoBox" type="HBoxContainer" parent="CC/PC/VB"]
+offset_top = 353.0
+offset_right = 608.0
+offset_bottom = 401.0
+alignment = 1
+
+[node name="InventorySlot" parent="CC/PC/VB/BentoBox" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_right = 48.0
+offset_bottom = 48.0
+custom_minimum_size = Vector2(48, 48)
+
+[node name="InventorySlot2" parent="CC/PC/VB/BentoBox" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 52.0
+offset_right = 100.0
+offset_bottom = 48.0
+custom_minimum_size = Vector2(48, 48)
+
+[node name="InventorySlot3" parent="CC/PC/VB/BentoBox" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 104.0
+offset_right = 152.0
+offset_bottom = 48.0
+custom_minimum_size = Vector2(48, 48)
+
+[node name="InventorySlot4" parent="CC/PC/VB/BentoBox" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 156.0
+offset_right = 204.0
+offset_bottom = 48.0
+custom_minimum_size = Vector2(48, 48)
+
+[node name="InventorySlot5" parent="CC/PC/VB/BentoBox" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 208.0
+offset_right = 256.0
+offset_bottom = 48.0
+custom_minimum_size = Vector2(48, 48)
+
+[node name="InventorySlot6" parent="CC/PC/VB/BentoBox" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 260.0
+offset_right = 308.0
+offset_bottom = 48.0
+custom_minimum_size = Vector2(48, 48)
+
 [node name="DraggedItem" type="Control" parent="."]
 visible = false
 custom_minimum_size = Vector2(64, 64)

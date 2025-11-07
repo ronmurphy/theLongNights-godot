@@ -325,6 +325,7 @@ func _cmd_help(_args: Array) -> void:
 	add_output("")
 	add_output("[color=cyan]Home Base:[/color]")
 	add_output("  [color=yellow]homebase set[/color] - Set home base at current location")
+	add_output("  [color=yellow]homebase go[/color] - Teleport to your home base")
 	add_output("  [color=yellow]homebase clear[/color] - Remove home base (tip: mine for full materials!)")
 	add_output("  [color=yellow]homebase clear recycle[/color] - Remove and get 50% blocks back")
 	add_output("  [color=yellow]homebase status[/color] - Show home base info")
@@ -1162,13 +1163,31 @@ func _give_all_food_items() -> void:
 func _cmd_homebase(args: Array) -> void:
 	"""Home base management commands"""
 	if args.is_empty():
-		add_output("[color=red]Usage: homebase <set|clear|status>[/color]")
+		add_output("[color=red]Usage: homebase <set|go|clear|status>[/color]")
 		return
-	
+
 	var player = get_tree().get_first_node_in_group("player")
 	var subcmd = args[0].to_lower()
-	
+
 	match subcmd:
+		"go":
+			if not player:
+				add_output("[color=red]Player not found![/color]")
+				return
+
+			if not HomeBaseManager.has_home_base:
+				add_output("[color=yellow]No home base set![/color]")
+				add_output("Use [color=cyan]homebase set[/color] to establish one first")
+				return
+
+			# Teleport player to home base
+			var teleport_pos = HomeBaseManager.home_base_position + Vector3(0, 2, 0)  # Spawn slightly above ground
+			player.global_position = teleport_pos
+
+			var tier_name = HomeBaseManager.TIER_NAMES[HomeBaseManager.home_structure_tier]
+			add_output("[color=lime]🏠 Teleported to home base (%s)[/color]" % tier_name)
+			add_output("[color=cyan]Welcome home![/color]")
+
 		"set":
 			if not player:
 				add_output("[color=red]Player not found![/color]")
@@ -1238,7 +1257,7 @@ func _cmd_homebase(args: Array) -> void:
 		
 		_:
 			add_output("[color=red]Unknown subcommand: %s[/color]" % subcmd)
-			add_output("[color=yellow]Use: homebase <set|clear|status>[/color]")
+			add_output("[color=yellow]Use: homebase <set|go|clear|status>[/color]")
 
 
 func _cmd_roster(args: Array) -> void:

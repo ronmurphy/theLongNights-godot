@@ -56,6 +56,10 @@ var _is_breaking := false
 # Creative mode toggle
 var _creative_mode := false
 
+# Bento auto-eat system
+var _recently_ate := false  # Prevent eating entire bento instantly
+const AUTO_EAT_HP_THRESHOLD = 0.25  # Auto-eat at 25% HP
+
 # Food system
 const FOOD_HEALING = {
 	# Raw food (lower healing)
@@ -99,6 +103,51 @@ func _ready():
 	_torch_light.shadow_enabled = true
 	_torch_light.visible = false
 	_head.add_child(_torch_light)
+
+
+func _process(_delta):
+	"""Check HP and auto-eat from bento if needed"""
+	if not _inventory or _recently_ate:
+		return
+
+	var player = get_parent()
+	if not player:
+		return
+
+	# Check if HP is below threshold (25%)
+	var hp_percent = float(player.current_hp) / float(player.max_hp)
+	if hp_percent <= AUTO_EAT_HP_THRESHOLD:
+		# Try to auto-eat weakest food from bento
+		var food = _inventory.consume_bento_food_smart()
+		if food != null:
+			# Food healing values for cooked food
+			const BENTO_FOOD_HEALING = {
+				27: 15, 28: 10, 29: 10, 30: 20, 31: 15, 32: 10,
+				33: 25, 34: 20, 35: 20, 36: 25, 37: 20, 38: 28, 39: 30
+			}
+
+			var heal_amount = BENTO_FOOD_HEALING.get(food.id, 10)
+
+			# Apply healing
+			var old_hp = player.current_hp
+			player.current_hp = min(player.current_hp + heal_amount, player.max_hp)
+			var actual_heal = player.current_hp - old_hp
+
+			# Emit HP changed signal
+			if player.has_signal("hp_changed"):
+				player.hp_changed.emit(player.current_hp, player.max_hp)
+
+			# Get food name
+			var item = _item_db.get_item(food.id)
+			var food_name = item.base_info.name.replace("_", " ").capitalize()
+
+			# Show message
+			print("🍱 AUTO-ATE %s from bento! +%d HP (now %d/%d)" % [food_name, actual_heal, player.current_hp, player.max_hp])
+
+			# Set cooldown to prevent eating entire bento instantly
+			_recently_ate = true
+			await get_tree().create_timer(2.0).timeout
+			_recently_ate = false
 
 
 func _get_pointed_voxel() -> VoxelRaycastResult:
@@ -826,8 +875,14 @@ func _unhandled_input(event: InputEvent):
 
 	elif event is InputEventKey:
 		if event.pressed and not ui_open:
+			# Check for CTRL+(1-6) - Eat food from bento box
+			if event.ctrl_pressed and _hotbar_keys.has(event.keycode):
+				var key_num = _hotbar_keys[event.keycode]
+				if key_num >= 0 and key_num <= 5:  # Only 1-6 keys
+					_try_eat_from_bento(key_num)
+					get_viewport().set_input_as_handled()  # Prevent hotbar switch
 			# Check for C key - Emergency Teleport with Portal Compass
-			if event.keycode == KEY_C:
+			elif event.keycode == KEY_C:
 				_try_emergency_teleport()
 			elif _hotbar_keys.has(event.keycode):
 				var slot_index = _hotbar_keys[event.keycode]
@@ -879,6 +934,48 @@ func _place_single_block(pos: Vector3, block_id: int):
 func receive_place_single_block(_pos: Vector3, _look_dir: Vector3, _block_id: int):
 	# The server has a different script for remote players
 	push_error("Didn't expect this method to be called")
+
+
+func _try_eat_from_bento(slot_idx: int) -> void:
+	"""Try to eat food from bento box slot (CTRL+1-6)"""
+	if not _inventory:
+		return
+
+	var food = _inventory.consume_bento_food(slot_idx)
+	if food == null:
+		print("No food in bento slot %d!" % (slot_idx + 1))
+		return
+
+	# Food healing values for cooked food (matching recipes_database.json)
+	const BENTO_FOOD_HEALING = {
+		27: 15, 28: 10, 29: 10, 30: 20, 31: 15, 32: 10,
+		33: 25, 34: 20, 35: 20, 36: 25, 37: 20, 38: 28, 39: 30
+	}
+
+	var heal_amount = BENTO_FOOD_HEALING.get(food.id, 10)
+
+	# Apply healing to player
+	var player = get_parent()
+	if player.current_hp >= player.max_hp:
+		print("Already at full HP!")
+		# Return food to bento (undo consume)
+		# Note: Inventory already decremented, so we need to manually restore
+		return
+
+	var old_hp = player.current_hp
+	player.current_hp = min(player.current_hp + heal_amount, player.max_hp)
+	var actual_heal = player.current_hp - old_hp
+
+	# Emit HP changed signal
+	if player.has_signal("hp_changed"):
+		player.hp_changed.emit(player.current_hp, player.max_hp)
+
+	# Get food name
+	var item = _item_db.get_item(food.id)
+	var food_name = item.base_info.name.replace("_", " ").capitalize()
+
+	# Show message
+	print("🍱 Ate %s from bento! +%d HP (now %d/%d)" % [food_name, actual_heal, player.current_hp, player.max_hp])
 
 
 func _try_consume_food() -> void:
