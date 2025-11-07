@@ -51,14 +51,14 @@ const WATER_BARREL = 40
 const BOX = 41
 const CRATE = 42
 const PUSH_BLOCK = 43
-const RUST_CUBE = 49
-const RUST_PIPE = 49
-const RUST_BLOCK = 49
-const CHEST = 48
-const ICE = 47
 const SAND = 44
 const SAND_STONE = 45
 const TEST = 46
+const ICE = 47
+const CHEST = 48
+const RUST_CUBE = 49
+const RUST_PIPE = 50
+const RUST_BLOCK = 51
 
 
 const _CHANNEL = VoxelBuffer.CHANNEL_TYPE
@@ -484,16 +484,27 @@ func _get_depth_biome_block(y: int, x: int, z: int, rng: RandomNumberGenerator, 
 
 	elif y > -400:
 		# MECHANICAL WARRENS (Y=-300 to -400)
-		# Industrial/mechanical structures
+		# Industrial/mechanical structures with rust blocks
 		if is_wall:
-			if rng.randf() < 0.1:
-				return IRON_ORE  # Exposed metal
+			# Rust pipes on walls (vertical structures)
+			if rng.randf() < 0.15:
+				return RUST_PIPE  # Rusted pipes
+			elif rng.randf() < 0.12:
+				return RUST_BLOCK  # Rust-covered stone
+			elif rng.randf() < 0.08:
+				return IRON_ORE  # Exposed metal ore
 			elif rng.randf() < 0.05:
 				return BOX  # Metal crates
 			else:
 				return STONE
 		else:
-			return STONE
+			# Rust floors mixed with stone
+			if rng.randf() < 0.2:
+				return RUST_CUBE  # Rusted floor tiles
+			elif rng.randf() < 0.1:
+				return RUST_BLOCK  # Mixed rust blocks
+			else:
+				return STONE
 
 	else:
 		# FLOODED CAVERNS / ABYSS (Y=-400 to -512)
