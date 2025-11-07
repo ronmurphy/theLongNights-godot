@@ -78,8 +78,15 @@ var _heightmap_min_y := int(HeightmapCurve.min_value)
 var _heightmap_max_y := int(HeightmapCurve.max_value)
 var _heightmap_range := 0
 var _heightmap_noise := FastNoiseLite.new()
+var _cave_noise := FastNoiseLite.new()
+var _biome_noise := FastNoiseLite.new()
 var _trees_min_y := 0
 var _trees_max_y := 0
+
+# Cave and depth constants
+const BEDROCK_LEVEL = -512
+const CAVE_THRESHOLD = 0.35  # Higher = bigger caves
+const MIN_CAVE_HEIGHT = -10  # Caves start just below surface
 
 
 func _init():
@@ -125,6 +132,17 @@ func _init():
 	_heightmap_noise.seed = world_seed
 	_heightmap_noise.frequency = 1.0 / 128.0
 	_heightmap_noise.fractal_octaves = 4
+
+	# Initialize 3D cave noise for cave carving
+	_cave_noise.seed = world_seed + 1000  # Different seed for caves
+	_cave_noise.frequency = 1.0 / 32.0  # Smaller = larger cave systems
+	_cave_noise.fractal_octaves = 3
+	_cave_noise.noise_type = FastNoiseLite.TYPE_PERLIN
+
+	# Initialize biome noise for depth-based biome variation
+	_biome_noise.seed = world_seed + 2000
+	_biome_noise.frequency = 1.0 / 64.0
+	_biome_noise.fractal_octaves = 2
 
 	# IMPORTANT
 	# If we don't do this `Curve` could bake itself when interpolated,
@@ -180,39 +198,59 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _lod: int)
 				for y in block_size:
 					var world_y = oy + y
 					
-					# Below heightmap minimum (-32), use deep underground generation
+					# Below heightmap minimum, use deep underground generation with caves
 					if world_y < _heightmap_min_y:
-						if world_y == -256:
+						# Bedrock layer at the bottom
+						if world_y == BEDROCK_LEVEL:
 							buffer.set_voxel(BEDROCK, x, y, z, _CHANNEL)
-						elif world_y > -256:
-							# Generate stone with ores
-							var block_type = STONE
-							
-							# Depth-based dirt pockets
-							if world_y > -64 and rng.randf() < 0.1:
-								block_type = DIRT
-							elif world_y > -128 and world_y <= -64 and rng.randf() < 0.05:
-								block_type = DIRT
-							elif world_y > -200 and world_y <= -128 and rng.randf() < 0.02:
-								block_type = DIRT
-							
-							buffer.set_voxel(block_type, x, y, z, _CHANNEL)
-							
-							# Add ores to stone
-							if block_type == STONE:
-								var iron_chance = 0.04 if world_y > -64 else (0.06 if world_y > -128 else (0.08 if world_y > -200 else 0.10))
-								if rng.randf() < iron_chance:
-									buffer.set_voxel(IRON_ORE, x, y, z, _CHANNEL)
-								else:
-									var gold_chance = 0.0
-									if world_y <= -64 and world_y > -128:
-										gold_chance = 0.03
-									elif world_y <= -128 and world_y > -200:
-										gold_chance = 0.06
-									elif world_y <= -200:
-										gold_chance = 0.08
-									if gold_chance > 0 and rng.randf() < gold_chance:
-										buffer.set_voxel(GOLD_ORE, x, y, z, _CHANNEL)
+						elif world_y > BEDROCK_LEVEL:
+							# Check if this position should be a cave
+							var global_x = gx
+							var global_z = gz
+
+							if _is_cave(global_x, world_y, global_z):
+								# Carve out cave (air)
+								buffer.set_voxel(AIR, x, y, z, _CHANNEL)
+							else:
+								# Solid underground - use depth biome blocks
+								var is_wall = false
+								# Check if adjacent to cave (wall detection)
+								if _is_cave(global_x + 1, world_y, global_z) or \
+								   _is_cave(global_x - 1, world_y, global_z) or \
+								   _is_cave(global_x, world_y + 1, global_z) or \
+								   _is_cave(global_x, world_y - 1, global_z) or \
+								   _is_cave(global_x, world_y, global_z + 1) or \
+								   _is_cave(global_x, world_y, global_z - 1):
+									is_wall = true
+
+								var block_type = _get_depth_biome_block(world_y, global_x, global_z, rng, is_wall)
+
+								# Override with ores if stone
+								if block_type == STONE:
+									# Depth-based dirt pockets
+									if world_y > -64 and rng.randf() < 0.08:
+										block_type = DIRT
+									elif world_y > -128 and world_y <= -64 and rng.randf() < 0.04:
+										block_type = DIRT
+									elif world_y > -200 and world_y <= -128 and rng.randf() < 0.02:
+										block_type = DIRT
+
+									# Add ores to stone
+									var iron_chance = 0.04 if world_y > -64 else (0.06 if world_y > -128 else (0.08 if world_y > -200 else 0.10))
+									if rng.randf() < iron_chance:
+										block_type = IRON_ORE
+									else:
+										var gold_chance = 0.0
+										if world_y <= -64 and world_y > -128:
+											gold_chance = 0.03
+										elif world_y <= -128 and world_y > -200:
+											gold_chance = 0.06
+										elif world_y <= -200:
+											gold_chance = 0.08
+										if gold_chance > 0 and rng.randf() < gold_chance:
+											block_type = GOLD_ORE
+
+								buffer.set_voxel(block_type, x, y, z, _CHANNEL)
 					
 					# Within heightmap range, use normal terrain generation
 					elif y < relative_height:
@@ -301,77 +339,170 @@ static func _get_chunk_seed_2d(cpos: Vector3) -> int:
 	return int(cpos.x) ^ (31 * int(cpos.z))
 
 
-# Fill deep underground (below heightmap min at y=-32 down to bedrock at y=-256)
+# Fill deep underground (below heightmap min down to bedrock)
 func _fill_deep_underground(buffer: VoxelBuffer, chunk_y: int, block_size: int, chunk_pos: Vector3):
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _get_chunk_seed_2d(chunk_pos)
-	
+
+	# Calculate global x/z origin for this chunk
+	var origin_x = int(chunk_pos.x * block_size)
+	var origin_z = int(chunk_pos.z * block_size)
+
 	for y in block_size:
 		var world_y = chunk_y + y
-		
-		# Bedrock layer at y=-256
-		if world_y == -256:
+
+		# Bedrock layer at BEDROCK_LEVEL
+		if world_y == BEDROCK_LEVEL:
 			buffer.fill_area(BEDROCK, Vector3(0, y, 0), Vector3(block_size, y + 1, block_size), _CHANNEL)
 			continue
-		
+
 		# Below bedrock layer, nothing generates
-		if world_y < -256:
+		if world_y < BEDROCK_LEVEL:
 			buffer.fill_area(AIR, Vector3(0, y, 0), Vector3(block_size, y + 1, block_size), _CHANNEL)
 			continue
 		
-		# Above bedrock, generate stone with ores
+		# Above bedrock, generate stone with ores and caves
 		for x in block_size:
 			for z in block_size:
-				var block_type = STONE
-				
-				# Depth-based distribution
-				if world_y > -64:
-					# y=-32 to y=-64: 90% stone, 10% dirt pockets
-					if rng.randf() < 0.1:
-						block_type = DIRT
-				elif world_y > -128:
-					# y=-64 to y=-128: 95% stone, 5% dirt
-					if rng.randf() < 0.05:
-						block_type = DIRT
-				elif world_y > -200:
-					# y=-128 to y=-200: 98% stone, 2% dirt
-					if rng.randf() < 0.02:
-						block_type = DIRT
-				# else: y=-200 to y=-257: 100% stone
-				
-				# Place the base block (stone or dirt)
-				buffer.set_voxel(block_type, x, y, z, _CHANNEL)
-				
-				# Add ores (only in stone blocks)
+				var global_x = origin_x + x
+				var global_z = origin_z + z
+
+				# Check if this position should be a cave
+				if _is_cave(global_x, world_y, global_z):
+					buffer.set_voxel(AIR, x, y, z, _CHANNEL)
+					continue
+
+				# Solid underground - determine if wall
+				var is_wall = false
+				if _is_cave(global_x + 1, world_y, global_z) or \
+				   _is_cave(global_x - 1, world_y, global_z) or \
+				   _is_cave(global_x, world_y + 1, global_z) or \
+				   _is_cave(global_x, world_y - 1, global_z) or \
+				   _is_cave(global_x, world_y, global_z + 1) or \
+				   _is_cave(global_x, world_y, global_z - 1):
+					is_wall = true
+
+				var block_type = _get_depth_biome_block(world_y, global_x, global_z, rng, is_wall)
+
+				# Override with ores/dirt if base stone
 				if block_type == STONE:
-					# Iron ore distribution by depth
-					var iron_chance = 0.0
-					if world_y > -64:
-						iron_chance = 0.04  # 4% at shallow depths
-					elif world_y > -128:
-						iron_chance = 0.06  # 6% at medium depths
-					elif world_y > -200:
-						iron_chance = 0.08  # 8% at deep depths
-					else:
-						iron_chance = 0.10  # 10% very deep
-					
-					if rng.randf() < iron_chance:
-						buffer.set_voxel(IRON_ORE, x, y, z, _CHANNEL)
-						continue  # Don't place gold if we placed iron
-					
-					# Gold ore distribution by depth
-					var gold_chance = 0.0
-					if world_y <= -64 and world_y > -128:
-						gold_chance = 0.03  # 3% starts appearing
-					elif world_y <= -128 and world_y > -200:
-						gold_chance = 0.06  # 6% more common deeper
-					elif world_y <= -200:
-						gold_chance = 0.08  # 8% very deep
-					
-					if gold_chance > 0 and rng.randf() < gold_chance:
-						buffer.set_voxel(GOLD_ORE, x, y, z, _CHANNEL)
+					# Depth-based dirt pockets
+					if world_y > -64 and rng.randf() < 0.08:
+						block_type = DIRT
+					elif world_y > -128 and world_y <= -64 and rng.randf() < 0.04:
+						block_type = DIRT
+					elif world_y > -200 and world_y <= -128 and rng.randf() < 0.02:
+						block_type = DIRT
+
+					# Add ores (only to stone)
+					if block_type == STONE:
+						# Iron ore distribution by depth
+						var iron_chance = 0.04 if world_y > -64 else (0.06 if world_y > -128 else (0.08 if world_y > -200 else 0.10))
+
+						if rng.randf() < iron_chance:
+							block_type = IRON_ORE
+						else:
+							# Gold ore distribution by depth
+							var gold_chance = 0.0
+							if world_y <= -64 and world_y > -128:
+								gold_chance = 0.03
+							elif world_y <= -128 and world_y > -200:
+								gold_chance = 0.06
+							elif world_y <= -200:
+								gold_chance = 0.08
+
+							if gold_chance > 0 and rng.randf() < gold_chance:
+								block_type = GOLD_ORE
+
+				# Place the final block
+				buffer.set_voxel(block_type, x, y, z, _CHANNEL)
 
 
 func _get_height_at(x: int, z: int) -> int:
 	var t = 0.5 + 0.5 * _heightmap_noise.get_noise_2d(x, z)
 	return int(HeightmapCurve.sample_baked(t))
+
+
+# Check if position should be carved as cave using 3D noise
+func _is_cave(x: int, y: int, z: int) -> bool:
+	# Don't carve caves above MIN_CAVE_HEIGHT or at/below bedrock
+	if y > MIN_CAVE_HEIGHT or y <= BEDROCK_LEVEL:
+		return false
+
+	# Use 3D Perlin noise to determine cave structure
+	var noise_value = _cave_noise.get_noise_3d(x, y, z)
+
+	# Apply depth-based cave density (more caves deeper down)
+	var depth_factor = 1.0
+	if y < -200:
+		depth_factor = 1.2  # More caves in the abyss
+	elif y < -100:
+		depth_factor = 1.1  # Slightly more caves at medium depth
+
+	return abs(noise_value * depth_factor) < CAVE_THRESHOLD
+
+
+# Get biome-specific block type based on depth and biome noise
+func _get_depth_biome_block(y: int, x: int, z: int, rng: RandomNumberGenerator, is_wall: bool) -> int:
+	var biome_value = _biome_noise.get_noise_2d(x, z)
+
+	# Depth-based biome layers
+	if y > -150:
+		# GOBLIN TUNNELS (Y=-10 to -150)
+		# Wood-supported tunnels with occasional goblin structures
+		if is_wall:
+			# Mostly stone/dirt with occasional wood supports
+			if rng.randf() < 0.05:
+				return PLANKS  # Wood support beam
+			elif rng.randf() < 0.3:
+				return DIRT
+			else:
+				return STONE
+		else:
+			return STONE  # Floor
+
+	elif y > -300:
+		# UNDEAD CRYPTS (Y=-150 to -300)
+		# Ancient stone tombs and crypts
+		if is_wall:
+			if rng.randf() < 0.15:
+				return RUIN_STONE  # Ancient carved stone
+			elif rng.randf() < 0.1:
+				return RUIN_FLOOR  # Decorative floor tiles
+			else:
+				return STONE
+		else:
+			return RUIN_FLOOR if rng.randf() < 0.3 else STONE
+
+	elif y > -400:
+		# MECHANICAL WARRENS (Y=-300 to -400)
+		# Industrial/mechanical structures
+		if is_wall:
+			if rng.randf() < 0.1:
+				return IRON_ORE  # Exposed metal
+			elif rng.randf() < 0.05:
+				return BOX  # Metal crates
+			else:
+				return STONE
+		else:
+			return STONE
+
+	else:
+		# FLOODED CAVERNS / ABYSS (Y=-400 to -512)
+		# Water-filled dangerous depths
+		# Use special stone variants and water
+		if is_wall:
+			if rng.randf() < 0.2:
+				return SAND_STONE  # Weathered stone
+			elif rng.randf() < 0.1:
+				return GOLD_ORE  # Rare ores more common
+			else:
+				return STONE
+		else:
+			# Floor often has water
+			if rng.randf() < 0.4:
+				return WATER_FULL
+			else:
+				return STONE
+
+	return STONE  # Default
