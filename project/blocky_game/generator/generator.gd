@@ -56,9 +56,9 @@ const SAND_STONE = 45
 const TEST = 46
 const ICE = 47
 const CHEST = 48
-const RUST_CUBE = 49
+const RUST_BLOCK = 49
 const RUST_PIPE = 50
-const RUST_BLOCK = 51
+const RUST_CUBE = 51
 
 
 const _CHANNEL = VoxelBuffer.CHANNEL_TYPE
