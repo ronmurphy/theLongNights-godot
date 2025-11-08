@@ -371,9 +371,9 @@ func _on_slot_pressed(idx: int):
 		_dragged_slot = idx
 		_slot_views[_dragged_slot].get_display().set_item(null)
 		_dragged_item_view.start(_slots[idx])
-	
+
 	else:
-		# Get the dragged item (could be from equipment slot)
+		# Get the dragged item (could be from equipment slot OR bento box)
 		var dragged_item = null
 		if _dragged_slot >= 0:
 			dragged_item = _slots[_dragged_slot]
@@ -381,11 +381,15 @@ func _on_slot_pressed(idx: int):
 			dragged_item = _player_weapon_slot
 		elif _dragged_slot == -998:
 			dragged_item = _companion_weapon_slot
+		elif _dragged_slot <= -100:
+			# From bento box
+			var source_bento_idx = -100 - _dragged_slot
+			dragged_item = _bento_slots[source_bento_idx]
 		
 		if _slots[idx] == null:
 			# Move to empty slot
 			_slots[idx] = dragged_item
-			
+
 			# Clear source
 			if _dragged_slot >= 0:
 				_slots[_dragged_slot] = null
@@ -398,6 +402,11 @@ func _on_slot_pressed(idx: int):
 				# Clear saved weapon
 				CompanionManager.equipped_weapon_id = -1
 				CompanionManager.save_to_file()
+			elif _dragged_slot <= -100:
+				# Clear from bento box
+				var source_bento_idx = -100 - _dragged_slot
+				_bento_slots[source_bento_idx] = null
+				_bento_slot_views[source_bento_idx].get_display().set_item(null)
 			
 			_slot_views[idx].get_display().set_item(_slots[idx])
 			_dragged_item_view.stop()
@@ -551,6 +560,122 @@ func _on_bento_slot_pressed(bento_idx: int):
 				_bento_slot_views[source_bento_idx].get_display().set_item(_bento_slots[source_bento_idx])
 			_dragged_item_view.stop()
 			_dragged_slot = -1
+
+
+func _on_avatar_clicked(is_player: bool):
+	"""Handle clicking on avatar/paper doll - consume food if dragging food item"""
+	if _dragged_slot == -1:
+		return  # Not dragging anything
+
+	# Get the dragged item
+	var dragged_item = null
+	if _dragged_slot >= 0:
+		dragged_item = _slots[_dragged_slot]
+	elif _dragged_slot <= -100:
+		var source_bento_idx = -100 - _dragged_slot
+		dragged_item = _bento_slots[source_bento_idx]
+	else:
+		# Equipment slot - can't consume weapons/accessories
+		print("Cannot consume equipment!")
+		_cancel_drag()
+		return
+
+	# Check if it's a food item
+	if not _is_food_item(dragged_item):
+		print("Only food items can be consumed!")
+		_cancel_drag()
+		return
+
+	# Consume the food for the target character
+	_consume_food_for_character(dragged_item, is_player)
+
+	# Remove one from the stack
+	dragged_item.count -= 1
+
+	# Clear from source if count reaches 0
+	if dragged_item.count <= 0:
+		if _dragged_slot >= 0:
+			_slots[_dragged_slot] = null
+			_slot_views[_dragged_slot].get_display().set_item(null)
+		elif _dragged_slot <= -100:
+			var source_bento_idx = -100 - _dragged_slot
+			_bento_slots[source_bento_idx] = null
+			_bento_slot_views[source_bento_idx].get_display().set_item(null)
+	else:
+		# Update the stack count
+		if _dragged_slot >= 0:
+			_slot_views[_dragged_slot].get_display().set_item(dragged_item)
+		elif _dragged_slot <= -100:
+			var source_bento_idx = -100 - _dragged_slot
+			_bento_slot_views[source_bento_idx].get_display().set_item(dragged_item)
+
+	# Stop dragging
+	_dragged_item_view.stop()
+	_dragged_slot = -1
+	emit_signal("changed")
+
+
+func _cancel_drag():
+	"""Cancel current drag operation and return item to source"""
+	if _dragged_slot >= 0:
+		_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+	elif _dragged_slot == -999:
+		_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
+	elif _dragged_slot == -998:
+		_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+	elif _dragged_slot == -997:
+		_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+	elif _dragged_slot <= -100:
+		var source_bento_idx = -100 - _dragged_slot
+		_bento_slot_views[source_bento_idx].get_display().set_item(_bento_slots[source_bento_idx])
+	_dragged_item_view.stop()
+	_dragged_slot = -1
+
+
+func _consume_food_for_character(food: InventoryItem, is_player: bool):
+	"""Apply food healing/buffs to player or companion"""
+	# Food healing values for cooked food
+	const BENTO_FOOD_HEALING = {
+		27: 15, 28: 10, 29: 10, 30: 20, 31: 15, 32: 10,
+		33: 25, 34: 20, 35: 20, 36: 25, 37: 20, 38: 28, 39: 30,
+		40: 5  # light_orb if it somehow got here (shouldn't happen)
+	}
+
+	var heal_amount = BENTO_FOOD_HEALING.get(food.id, 10)
+
+	# Get target character
+	var target = null
+	var target_name = ""
+
+	if is_player:
+		target = get_tree().get_first_node_in_group("player")
+		target_name = "Player"
+	else:
+		# Get companion
+		var companions = get_tree().get_nodes_in_group("friendly_entities")
+		if companions.size() > 0:
+			target = companions[0]
+			target_name = target.entity_name if target.has_method("get") else "Companion"
+
+	if target == null or not target.has_method("get"):
+		print("Cannot find target to feed!")
+		return
+
+	# Apply healing
+	var old_hp = target.current_hp
+	target.current_hp = min(target.current_hp + heal_amount, target.max_hp)
+	var actual_heal = target.current_hp - old_hp
+
+	# Emit HP changed signal
+	if target.has_signal("hp_changed"):
+		target.hp_changed.emit(target.current_hp, target.max_hp)
+
+	# Get food name
+	var item = _item_db.get_item(food.id)
+	var food_name = item.base_info.name.replace("_", " ").capitalize()
+
+	# Show message
+	print("🍽️ %s consumed %s! +%d HP (now %d/%d)" % [target_name, food_name, actual_heal, target.current_hp, target.max_hp])
 
 
 func _is_food_item(item: InventoryItem) -> bool:
@@ -712,7 +837,7 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 		# Player: Just use the panel directly (no behavior buttons)
 		content_container = panel
 
-	# Avatar (reuse party UI avatar)
+	# Avatar (reuse party UI avatar) - made clickable for food consumption
 	var avatar_bg = Panel.new()
 	avatar_bg.custom_minimum_size = Vector2(128, 128)  # Bigger avatar, less squished
 
@@ -722,12 +847,22 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 	avatar_style.set_border_width_all(2)
 	avatar_bg.add_theme_stylebox_override("panel", avatar_style)
 
+	# Make avatar clickable for drag-to-consume food
+	var avatar_button = Button.new()
+	avatar_button.name = "AvatarButton"
+	avatar_button.custom_minimum_size = Vector2(128, 128)
+	avatar_button.flat = true  # Invisible button
+	avatar_button.mouse_filter = Control.MOUSE_FILTER_PASS
+	avatar_button.pressed.connect(_on_avatar_clicked.bind(is_player))
+	avatar_bg.add_child(avatar_button)
+
 	var avatar_texture = TextureRect.new()
 	avatar_texture.name = "AvatarTexture"
 	avatar_texture.custom_minimum_size = Vector2(124, 124)  # Match larger avatar size
 	avatar_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	avatar_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	avatar_texture.position = Vector2(2, 2)
+	avatar_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Let button handle clicks
 	avatar_bg.add_child(avatar_texture)
 
 	# Load avatar based on player data
