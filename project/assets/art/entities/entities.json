@@ -408,6 +408,22 @@
       "craftable": false,
       "drops": ["iron_ingots", "steam_core", "golem_heart"]
     },
+    "rust_golem": {
+      "name": "Rust Golem",
+      "type": "enemy",
+      "tier": 4,
+      "hp": 60,
+      "attack": 10,
+      "defense": 18,
+      "speed": 2,
+      "abilities": ["Construct", "Corrosion Strike", "Rust Armor"],
+      "sprite_ready": "rust_golem_ready.png",
+      "sprite_attack": "rust_golem_attack.png",
+      "sprite_portrait": "rust_golem.png",
+      "description": "Ancient corroded construct found in the depths, slower than iron golems but still formidable.",
+      "craftable": false,
+      "drops": ["rust_shards", "corroded_metal", "ancient_gears"]
+    },
     "bubble_fish": {
       "name": "Bubble Fish",
       "type": "enemy",

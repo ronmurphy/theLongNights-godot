@@ -174,6 +174,10 @@ func _init():
 		"name": "super_stew",
 		"behavior": "super_stew.gd"
 	})
+	_create_item({
+		"name": "light_orb",
+		"behavior": "light_orb.gd"
+	})
 
 
 func get_item(id: int) -> Item:

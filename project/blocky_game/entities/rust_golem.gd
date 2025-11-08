@@ -138,53 +138,7 @@ func _on_death() -> void:
 	"""Override death to add rust-specific effects"""
 	super._on_death()
 
-	# Drop rust blocks as loot
-	_drop_rust_loot()
+	# No loot drops from enemies currently
+	# (Could spawn rust blocks in world here if desired)
 
 	queue_free()
-
-
-func _drop_rust_loot():
-	"""Drop rust blocks and possibly iron ore"""
-	# Find player
-	var player = get_tree().get_first_node_in_group("player")
-	if not player:
-		return
-
-	var inventory = player.get_node_or_null("Inventory")
-	if not inventory:
-		return
-
-	# Drop 2-4 rust blocks (block ID would need to be added to items)
-	# For now, drop iron ore as loot
-	const IRON_ORE_ID = 17  # Iron ore item
-
-	var drop_amount = randi_range(2, 4)
-
-	# Try to add to inventory
-	for i in range(inventory._slots.size()):
-		if drop_amount <= 0:
-			break
-
-		var slot = inventory._slots[i]
-
-		# Add to existing stack
-		if slot != null and slot.type == 1 and slot.id == IRON_ORE_ID:
-			var space = 99 - slot.quantity
-			var to_add = min(space, drop_amount)
-			slot.quantity += to_add
-			drop_amount -= to_add
-			inventory.inventory_changed.emit()
-
-		# Add to empty slot
-		if slot == null and drop_amount > 0:
-			inventory._slots[i] = {
-				"type": 1,
-				"id": IRON_ORE_ID,
-				"quantity": min(drop_amount, 99)
-			}
-			drop_amount = 0
-			inventory.inventory_changed.emit()
-			break
-
-	print("Rust Golem dropped iron ore loot")

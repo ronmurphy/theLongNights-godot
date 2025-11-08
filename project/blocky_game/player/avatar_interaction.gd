@@ -1427,6 +1427,13 @@ func _handle_chest_interaction(chest_pos: Vector3) -> void:
 		loot_messages.append("Grappling Hook")
 		print("Player found the first chest - giving grappling hook!")
 	else:
+		# 30% chance to find Light Orbs (3-8 orbs) - Sky ruin exclusive!
+		if randf() < 0.30:
+			var orb_count = randi_range(3, 8)
+			loot_items.append({"id": 40, "count": orb_count})  # light_orb (at end of item list)
+			loot_messages.append(str(orb_count) + "x Light Orb")
+			print("Sky ruin treasure: Found ", orb_count, " Light Orbs!")
+
 		# 15% chance to find Portal Compass (2-3 compasses)
 		if randf() < 0.15:
 			var compass_count = randi() % 2 + 2  # 2 or 3
@@ -1442,11 +1449,11 @@ func _handle_chest_interaction(chest_pos: Vector3) -> void:
 			{"id": 4, "name": "Fire Staff"},
 			{"id": 5, "name": "Throwing Knives"},
 			{"id": 6, "name": "Torch"},
-			{"id": 8, "name": "Stone Hammer"},     # ID shifted from 7 to 8
-			{"id": 9, "name": "Machete"},          # ID shifted from 8 to 9
-			{"id": 10, "name": "Crossbow"},        # ID shifted from 9 to 10
-			{"id": 11, "name": "Sword"},           # ID shifted from 10 to 11
-			{"id": 12, "name": "Tree Feller"}      # ID shifted from 11 to 12
+			{"id": 8, "name": "Stone Hammer"},
+			{"id": 9, "name": "Machete"},
+			{"id": 10, "name": "Crossbow"},
+			{"id": 11, "name": "Sword"},
+			{"id": 12, "name": "Tree Feller"}
 		]
 
 		var random_loot = loot_table[randi() % loot_table.size()]
