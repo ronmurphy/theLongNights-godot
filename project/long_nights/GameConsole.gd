@@ -525,7 +525,11 @@ func _cmd_give(args: Array) -> void:
 		"treefeller": 12,
 		"axe": 12,
 		"skyshard": 21,
-		"shard": 21
+		"shard": 21,
+		"light_orb": 40,
+		"lightsphere": 40,
+		"orb": 40,
+		"spear": 41
 	}
 
 	if not item_map.has(item_name):
@@ -565,9 +569,14 @@ func _cmd_give(args: Array) -> void:
 	item.id = item_id
 	item.type = InventoryItem.TYPE_ITEM
 
-	# Items that can stack (consumed on use)
-	if item_name == "torch" or item_name == "skyshard" or item_name == "shard" or item_name == "portal_compass" or item_name == "compass":
+	# Items that can stack with amount multiplier (consumed on use)
+	if item_name == "torch" or item_name == "skyshard" or item_name == "shard" or item_name == "portal_compass" or item_name == "compass" or item_name == "light_orb" or item_name == "lightsphere" or item_name == "orb":
 		item.count = amount
+	# Spear stacks but doesn't use amount multiplier (always gives 1)
+	elif item_name == "spear":
+		item.count = 1
+		if amount > 1:
+			add_output("[color=yellow]Note: spear count is always 1, amount ignored[/color]")
 	else:
 		# Other items have "infinite ammo" - single instance
 		item.count = 1
@@ -579,7 +588,8 @@ func _cmd_give(args: Array) -> void:
 
 	var display_name = "skyshard" if (item_name == "shard") else item_name
 	display_name = "portal_compass" if (item_name == "compass") else display_name
-	var show_amount = (item_name == "torch" or item_name == "skyshard" or item_name == "shard" or item_name == "portal_compass" or item_name == "compass")
+	display_name = "light_orb" if (item_name == "lightsphere" or item_name == "orb") else display_name
+	var show_amount = (item_name == "torch" or item_name == "skyshard" or item_name == "shard" or item_name == "portal_compass" or item_name == "compass" or item_name == "light_orb" or item_name == "lightsphere" or item_name == "orb")
 	add_output("[color=lime]Gave " + (str(amount) + "x " if show_amount else "") + display_name + "[/color]")
 
 func _cmd_list(args: Array) -> void:

@@ -178,6 +178,10 @@ func _init():
 		"name": "light_orb",
 		"behavior": "light_orb.gd"
 	})
+	_create_item({
+		"name": "spear",
+		"behavior": "spear.gd"
+	})
 
 
 func get_item(id: int) -> Item:

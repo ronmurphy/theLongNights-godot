@@ -49,9 +49,22 @@ var _cooking_modal_open := false  # Track if Cooking modal is open
 # Block breaking system
 const BASE_BLOCK_HARDNESS = 100.0  # Base time to break a block
 const BARE_HAND_MINING_POWER = 10   # Mining power when no tool equipped
+const MAX_BLOCK_INTERACTION_RANGE = 5.0  # Maximum distance in blocks for mining/placing
 var _breaking_block_pos : Vector3 = Vector3.ZERO
 var _break_progress : float = 0.0
 var _is_breaking := false
+
+# Ranged items that bypass the distance restriction
+const RANGED_ITEM_IDS = {
+	1: true,   # Rocket Launcher
+	2: true,   # Grappling Hook
+	3: true,   # Fire Staff
+	4: true,   # Ice Bow
+	5: true,   # Throwing Knives
+	7: true,   # Torch
+	11: true,  # Crossbow
+	51: true,  # Light Orb
+}
 
 # Creative mode toggle
 var _creative_mode := false
@@ -211,7 +224,7 @@ func _physics_process(_delta):
 			var has_cube := hit_raw_id != 0
 
 			# Handle block breaking with hold-to-break mechanic
-			if _action_use_held and has_cube:
+			if _action_use_held and has_cube and _is_target_in_range(hit.position, inv_item):
 				var pos = hit.position
 				# Check if block is bedrock (block ID 13)
 				var rm := _block_types.get_raw_mapping(hit_raw_id)
@@ -230,7 +243,7 @@ func _physics_process(_delta):
 				var pos = hit.previous_position
 				if has_cube == false:
 					pos = hit.position
-				if _can_place_voxel_at(pos):
+				if _is_target_in_range(pos, inv_item) and _can_place_voxel_at(pos):
 					if inv_item != null and inv_item.count > 0:
 						_place_single_block(pos, inv_item.id)
 						print("Place voxel at ", pos)
@@ -244,50 +257,85 @@ func _physics_process(_delta):
 
 	# Handle weapon/item usage
 	elif inv_item.type == InventoryItem.TYPE_ITEM:
-		var item = _item_db.get_item(inv_item.id)
-		var mining_power = item.get_mining_power()
+		# First, try to retrieve a projectile if right-clicked (Return power)
+		if _action_place:
+			_try_retrieve_projectile()
+			_action_place = false  # Consume the right-click
 
-		# Check if aiming at an entity (prioritize combat over mining)
-		var target_entity = _find_nearest_entity_in_crosshair()
-		var aiming_at_entity = target_entity != null
-
-		# Check if this is a mining tool being held on a block (but NOT aiming at entity)
-		if mining_power > 0 and hit != null and _action_use_held and not aiming_at_entity:
-			# This is a mining tool being used on a block
-			var hit_raw_id := _terrain_tool.get_voxel(hit.position)
-			var has_cube := hit_raw_id != 0
-			if has_cube:
-				var pos = hit.position
-				var rm := _block_types.get_raw_mapping(hit_raw_id)
-				if rm.block_id != 13:  # Not bedrock
-					_process_block_breaking(pos, rm.block_id, _delta, inv_item)
+		# Special handling for spear - right-click throws (if not retrieving)
+		if inv_item.id == 41 and _action_place:  # Spear
+			# Right-click: throw spear
+			var item = _item_db.get_item(inv_item.id)
+			item.use_throw(_head.global_transform, inv_item)
+			# Decrement spear count (spear is consumable when thrown)
+			if not _creative_mode:
+				_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
+			print("Threw spear!")
+		# Special handling for pumpkin items - allow placement as blocks
+		elif inv_item.id == 24:  # Pumpkin item
+			if _action_place and hit != null:
+				var pos = hit.previous_position
+				var hit_raw_id := _terrain_tool.get_voxel(hit.position)
+				var has_cube := hit_raw_id != 0
+				if has_cube == false:
+					pos = hit.position
+				if _is_target_in_range(pos, inv_item) and _can_place_voxel_at(pos):
+					if inv_item.count > 0:
+						_place_single_block(pos, 12)  # Place pumpkin block (ID 12)
+						print("Place pumpkin block at ", pos)
+						# Decrement pumpkin count in hotbar (but NOT in creative mode)
+						if not _creative_mode:
+							_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
+					else:
+						print("No more pumpkins to place!")
 				else:
-					print("Cannot destroy bedrock!")
+					print("Can't place pumpkin here!")
+		# Handle other items (weapons, tools, etc.)
+		else:
+			var item = _item_db.get_item(inv_item.id)
+			var mining_power = item.get_mining_power()
+
+			# Check if aiming at an entity (prioritize combat over mining)
+			var target_entity = _find_nearest_entity_in_crosshair()
+			var aiming_at_entity = target_entity != null
+
+			# Check if this is a mining tool being held on a block (but NOT aiming at entity)
+			if mining_power > 0 and hit != null and _action_use_held and not aiming_at_entity and _is_target_in_range(hit.position, inv_item):
+				# This is a mining tool being used on a block
+				var hit_raw_id := _terrain_tool.get_voxel(hit.position)
+				var has_cube := hit_raw_id != 0
+				if has_cube:
+					var pos = hit.position
+					var rm := _block_types.get_raw_mapping(hit_raw_id)
+					if rm.block_id != 13:  # Not bedrock
+						_process_block_breaking(pos, rm.block_id, _delta, inv_item)
+					else:
+						print("Cannot destroy bedrock!")
+						_reset_breaking_progress()
+				else:
+					# No block - reset progress
 					_reset_breaking_progress()
-			else:
-				# No block - reset progress
+			elif _action_use:
+				# Single click with non-mining tool or mining tool in air - use item normally
+				# OR if aiming at entity (prioritize combat!)
+				if mining_power == 0 or hit == null or not _action_use_held or aiming_at_entity:
+					# Check if this is food - consume it instead of "using" it
+					if FOOD_HEALING.has(inv_item.id):
+						_try_consume_food()
+						_reset_breaking_progress()
+					elif inv_item.count > 0:
+						# Pass full inv_item so weapons can access skyshard_power
+						item.use(_head.global_transform, inv_item)
+						# Only decrement consumables (torches = item ID 6)
+						# Weapons and tools have infinite uses
+						if inv_item.id == 6:  # torch
+							_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
+						_reset_breaking_progress()
+					else:
+						print("No more items to use!")
+			elif _is_breaking:
+				# Was mining but stopped holding - reset
 				_reset_breaking_progress()
-		elif _action_use:
-			# Single click with non-mining tool or mining tool in air - use item normally
-			# OR if aiming at entity (prioritize combat!)
-			if mining_power == 0 or hit == null or not _action_use_held or aiming_at_entity:
-				# Check if this is food - consume it instead of "using" it
-				if FOOD_HEALING.has(inv_item.id):
-					_try_consume_food()
-					_reset_breaking_progress()
-				elif inv_item.count > 0:
-					# Pass full inv_item so weapons can access skyshard_power
-					item.use(_head.global_transform, inv_item)
-					# Only decrement consumables (torches = item ID 6)
-					# Weapons and tools have infinite uses
-					if inv_item.id == 6:  # torch
-						_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
-					_reset_breaking_progress()
-				else:
-					print("No more items to use!")
-		elif _is_breaking:
-			# Was mining but stopped holding - reset
-			_reset_breaking_progress()
 	
 	if _action_pick and hit != null:
 		var hit_raw_id = _terrain_tool.get_voxel(hit.position)
@@ -373,13 +421,17 @@ func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool, tool_id: 
 			_add_block_to_inventory(block_id)
 		print("Broke block %d at %s (added to inventory)" % [block_id, pos])
 
-		# Check adjacent faces for thrown torches and remove them
-		# Returns the number of torches removed
-		var torches_removed = _remove_adjacent_torches(pos)
+		# Check adjacent faces for thrown projectiles (torches, spears) and remove them
+		# Returns counts of removed projectiles
+		var projectiles_removed = _remove_adjacent_projectiles(pos)
 
-		# Only recover torches if we actually found and removed any
-		if torches_removed > 0:
-			_recover_torches_to_inventory(torches_removed)
+		# Recover torches if we found any
+		if projectiles_removed["torches"] > 0:
+			_recover_projectiles_to_inventory(6, projectiles_removed["torches"])  # 6 = torch
+
+		# Recover spears if we found any
+		if projectiles_removed["spears"] > 0:
+			_recover_projectiles_to_inventory(41, projectiles_removed["spears"])  # 41 = spear
 
 		# Spawn block-specific particles (leaves, etc.)
 		_spawn_block_particles(block_id, pos, tool_id)
@@ -646,15 +698,15 @@ func _add_block_to_inventory_standard(block_id: int):
 		print("Inventory full! Block %d dropped" % block_id)
 
 
-func _remove_adjacent_torches(block_pos: Vector3) -> int:
-	"""Check all 6 adjacent block faces for thrown torches and remove them from the scene.
-	Returns the number of torches removed."""
-	# Get the game node where torches are spawned
+func _remove_adjacent_projectiles(block_pos: Vector3) -> Dictionary:
+	"""Check all 6 adjacent block faces for thrown projectiles (torches, spears) and remove them from the scene.
+	Returns a dictionary with counts of each projectile type removed."""
+	# Get the game node where projectiles are spawned
 	var game_node = get_node_or_null("/root/Main/Game")
 	if game_node == null:
-		return 0
+		return {"torches": 0, "spears": 0}
 
-	var torches_removed = 0
+	var projectiles_removed = {"torches": 0, "spears": 0}
 
 	# Define the 6 adjacent positions (up, down, left, right, forward, back)
 	var adjacent_offsets = [
@@ -670,53 +722,68 @@ func _remove_adjacent_torches(block_pos: Vector3) -> int:
 	for offset in adjacent_offsets:
 		var check_pos = block_pos + offset
 
-		# Look for thrown torches at or near this position
+		# Look for thrown projectiles at or near this position
 		for child in game_node.get_children():
-			# Check if this is a thrown torch (scene name contains "ThrownTorch" or similar)
-			if "thrown_torch" in child.name.to_lower() or child.get_script() != null and "thrown_torch" in child.get_script().resource_path.to_lower():
-				var distance = child.global_position.distance_to(check_pos + Vector3(0.5, 0.5, 0.5))
+			var script_path = ""
+			if child.get_script() != null:
+				script_path = child.get_script().resource_path.to_lower()
+			var child_name = child.name.to_lower()
 
-				# If torch is at this block face (within 1 unit), remove it
+			# Check for thrown torches
+			if "thrown_torch" in child_name or "thrown_torch" in script_path:
+				var distance = child.global_position.distance_to(check_pos + Vector3(0.5, 0.5, 0.5))
 				if distance < 1.0:
 					print("Removed thrown torch at %s" % check_pos)
 					child.queue_free()
-					torches_removed += 1
+					projectiles_removed["torches"] += 1
 
-	return torches_removed
+			# Check for spear projectiles
+			elif "spear" in child_name or "spear_projectile" in script_path:
+				var distance = child.global_position.distance_to(check_pos + Vector3(0.5, 0.5, 0.5))
+				if distance < 1.0:
+					print("Removed spear at %s" % check_pos)
+					child.queue_free()
+					projectiles_removed["spears"] += 1
+
+	return projectiles_removed
 
 
-func _recover_torches_to_inventory(count: int):
-	"""Recover thrown torches and add them back to inventory when mining in survival mode"""
+func _recover_projectiles_to_inventory(item_id: int, count: int):
+	"""Recover thrown projectiles and add them back to inventory when mining in survival mode"""
 	if count <= 0:
 		return
 
-	# Torch item ID is 6
-	const TORCH_ITEM_ID = 6
+	var item_name = "item"
+	match item_id:
+		6:
+			item_name = "torch"
+		41:
+			item_name = "spear"
 
 	var slots = _inventory._slots
 	var BAG_WIDTH = _inventory.BAG_WIDTH
 	var BAG_HEIGHT = _inventory.BAG_HEIGHT
 	var hotbar_begin_index = BAG_WIDTH * BAG_HEIGHT
 
-	# Look for existing torch stack in inventory
-	var existing_torch_slot = -1
+	# Look for existing stack in inventory
+	var existing_slot = -1
 	for i in range(slots.size()):
-		if slots[i] != null and slots[i].type == InventoryItem.TYPE_ITEM and slots[i].id == TORCH_ITEM_ID:
-			existing_torch_slot = i
+		if slots[i] != null and slots[i].type == InventoryItem.TYPE_ITEM and slots[i].id == item_id:
+			existing_slot = i
 			break
 
-	# If torch stack exists, add to it
-	if existing_torch_slot != -1:
-		slots[existing_torch_slot].count += count
+	# If stack exists, add to it
+	if existing_slot != -1:
+		slots[existing_slot].count += count
 		_inventory.emit_signal("changed")
-		print("Recovered %d torch(es) from mining! (total count: %d)" % [count, slots[existing_torch_slot].count])
+		print("Recovered %d %s(s) from mining! (total count: %d)" % [count, item_name, slots[existing_slot].count])
 		return
 
-	# No torch stack exists - need to find a slot for it
-	# Look for empty hotbar slot first (but not slot 8 where we keep torches in survival mode)
+	# No stack exists - need to find a slot for it
+	# Look for empty hotbar slot first
 	var empty_slot = -1
 	for i in range(hotbar_begin_index, hotbar_begin_index + BAG_WIDTH):
-		if i != hotbar_begin_index + 8 and slots[i] == null:  # Skip slot 8 (reserved for torches)
+		if slots[i] == null:
 			empty_slot = i
 			break
 
@@ -727,17 +794,17 @@ func _recover_torches_to_inventory(count: int):
 				empty_slot = i
 				break
 
-	# If we found an empty slot, add the torches there
+	# If we found an empty slot, add the projectiles there
 	if empty_slot != -1:
-		var torch_item = InventoryItem.new()
-		torch_item.id = TORCH_ITEM_ID
-		torch_item.type = InventoryItem.TYPE_ITEM
-		torch_item.count = count
-		slots[empty_slot] = torch_item
+		var item = InventoryItem.new()
+		item.id = item_id
+		item.type = InventoryItem.TYPE_ITEM
+		item.count = count
+		slots[empty_slot] = item
 		_inventory.emit_signal("changed")
-		print("Recovered %d torch(es) from mining and placed in new stack!" % count)
+		print("Recovered %d %s(s) from mining and placed in new stack!" % [count, item_name])
 	else:
-		print("Could not recover %d torch(es) - inventory full!" % count)
+		print("Could not recover %d %s(s) - inventory full!" % [count, item_name])
 
 
 func _spawn_block_particles(block_id: int, block_pos: Vector3, tool_id: int):
@@ -917,6 +984,26 @@ func _can_place_voxel_at(pos: Vector3):
 	params.set_shape(shape)
 	var hits := space_state.intersect_shape(params)
 	return hits.size() == 0
+
+
+func _is_target_in_range(target_pos: Vector3, inv_item) -> bool:
+	"""Check if target position is within the allowed interaction range.
+	Ranged items bypass this check."""
+
+	# Ranged items can ignore distance restrictions
+	if inv_item != null and inv_item.type == InventoryItem.TYPE_ITEM:
+		if RANGED_ITEM_IDS.has(inv_item.id):
+			return true
+
+	# Check distance for regular block placement/mining
+	var player_pos = _head.global_position
+	var distance = player_pos.distance_to(target_pos)
+
+	if distance > MAX_BLOCK_INTERACTION_RANGE:
+		print("Target too far! Distance: %.1f blocks (max: %.1f)" % [distance, MAX_BLOCK_INTERACTION_RANGE])
+		return false
+
+	return true
 
 
 func _place_single_block(pos: Vector3, block_id: int):
@@ -1453,7 +1540,8 @@ func _handle_chest_interaction(chest_pos: Vector3) -> void:
 			{"id": 9, "name": "Machete"},
 			{"id": 10, "name": "Crossbow"},
 			{"id": 11, "name": "Sword"},
-			{"id": 12, "name": "Tree Feller"}
+			{"id": 12, "name": "Tree Feller"},
+			{"id": 41, "name": "Spear"}
 		]
 
 		var random_loot = loot_table[randi() % loot_table.size()]
@@ -1628,3 +1716,180 @@ func _find_nearest_entity_in_crosshair() -> Node:
 			closest_entity = entity
 
 	return closest_entity
+
+
+## ============================================================================
+## PROJECTILE RETRIEVAL SYSTEM
+## ============================================================================
+
+func _can_retrieve_projectiles() -> bool:
+	"""Check if player has Return power equipped"""
+	if not _hotbar:
+		return false
+
+	# Check currently held item for Return power
+	var current_item = _hotbar.get_selected_item()
+	if current_item != null and current_item.skyshard_power == "return":
+		return true
+
+	return false
+
+
+func _find_retrievable_projectiles() -> Array:
+	"""Find all retrievable projectiles in line of sight"""
+	var retrievable = []
+
+	if _terrain == null:
+		return retrievable
+
+	# Get player head position and look direction
+	var origin = _head.get_global_transform().origin
+	var forward = -_head.get_transform().basis.z.normalized()
+
+	# Find all stuck projectiles in the scene
+	var game_node = get_node_or_null("/root/Main/Game")
+	if game_node == null:
+		return retrievable
+
+	# Search for spear projectiles
+	var spear_projectiles = game_node.find_children("*", "Node3D")
+
+	const RETRIEVAL_RAYCAST_DISTANCE = 100.0
+	const RETRIEVAL_DETECTION_RADIUS = 0.5
+
+	for projectile in spear_projectiles:
+		# Check if it's a spear projectile
+		if not projectile.has_script():
+			continue
+
+		var script = projectile.get_script()
+		if script == null:
+			continue
+
+		# Check if it's retrievable and has necessary methods
+		if not projectile.has_method("is_retrievable"):
+			continue
+
+		if not projectile.has_method("get_item_id"):
+			continue
+
+		if not projectile.is_retrievable():
+			continue
+
+		# Check line of sight (raycast to projectile)
+		var to_projectile = projectile.global_position - origin
+		var distance = to_projectile.length()
+
+		if distance > RETRIEVAL_RAYCAST_DISTANCE:
+			continue
+
+		# Simple raycast check - is there a clear line to the projectile?
+		var hit = _terrain_tool.raycast(origin, to_projectile.normalized(), distance + 0.5)
+
+		# If we hit terrain before reaching the projectile, it's blocked
+		if hit != null and (origin + to_projectile.normalized() * (hit.distance - 0.1)).distance_to(projectile.global_position) > RETRIEVAL_DETECTION_RADIUS:
+			continue
+
+		# This projectile is retrievable
+		retrievable.append({
+			"projectile": projectile,
+			"distance": distance,
+			"item_id": projectile.get_item_id()
+		})
+
+	# Sort by distance (closest first)
+	retrievable.sort_custom(func(a, b): return a.distance < b.distance)
+
+	return retrievable
+
+
+func _retrieve_projectile(projectile: Node, item_id: int) -> void:
+	"""Retrieve a projectile and add it to inventory"""
+	if not _inventory or projectile == null:
+		return
+
+	print("✨ Retrieved projectile (item_id: %d)!" % item_id)
+
+	# Spawn retrieval effect at projectile position
+	_spawn_retrieval_effect(projectile.global_position)
+
+	# Try to add to inventory - use the existing _recover_projectiles_to_inventory method
+	_recover_projectiles_to_inventory(item_id, 1)
+
+	print("Projectile added to inventory!")
+
+	# Remove projectile from scene
+	projectile.queue_free()
+
+
+func _try_retrieve_projectile() -> void:
+	"""Attempt to retrieve a projectile if conditions are met"""
+	# Check if player has Return power
+	if not _can_retrieve_projectiles():
+		return
+
+	# Find retrievable projectiles
+	var retrievable = _find_retrievable_projectiles()
+	if retrievable.size() == 0:
+		return
+
+	# Get closest projectile
+	var closest = retrievable[0]
+	_retrieve_projectile(closest.projectile, closest.item_id)
+
+
+func _spawn_retrieval_effect(pos: Vector3) -> void:
+	"""Create visual effect for projectile retrieval"""
+	var game_node = get_node_or_null("/root/Main/Game")
+	if game_node == null:
+		return
+
+	# Particle burst effect (20-30 particles, white/cyan color)
+	const PARTICLE_COUNT = 25
+	const PARTICLE_LIFETIME = 0.5
+	const LIGHT_FLASH_DURATION = 0.3
+	const LIGHT_BRIGHTNESS = 2.0
+
+	# Create particles
+	for i in range(PARTICLE_COUNT):
+		var particle = MeshInstance3D.new()
+		var particle_mesh = SphereMesh.new()
+		particle_mesh.radius = 0.05
+		particle_mesh.height = 0.1
+		particle.mesh = particle_mesh
+
+		var material = StandardMaterial3D.new()
+		material.albedo_color = Color(0.8, 1.0, 1.0, 1.0)  # Cyan-white
+		material.emission_enabled = true
+		material.emission = Color(0.9, 1.0, 1.0)
+		material.emission_energy_multiplier = 8.0
+		particle.material_override = material
+
+		game_node.add_child(particle)
+		particle.global_position = pos
+
+		# Random direction
+		var direction = Vector3(
+			randf_range(-1, 1),
+			randf_range(0, 1),
+			randf_range(-1, 1)
+		).normalized()
+
+		# Animate particle flying outward and fading
+		var tween = get_tree().create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(particle, "global_position", pos + direction * 2.0, PARTICLE_LIFETIME)
+		tween.tween_property(particle, "scale", Vector3.ZERO, PARTICLE_LIFETIME)
+		tween.tween_callback(particle.queue_free)
+
+	# Light flash
+	var light = OmniLight3D.new()
+	light.light_color = Color(0.9, 1.0, 1.0)
+	light.light_energy = LIGHT_BRIGHTNESS
+	light.omni_range = 3.0
+	game_node.add_child(light)
+	light.global_position = pos
+
+	var light_tween = get_tree().create_tween()
+	light_tween.tween_property(light, "light_energy", 0.0, LIGHT_FLASH_DURATION)
+	light_tween.tween_callback(light.queue_free)

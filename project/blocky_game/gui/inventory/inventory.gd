@@ -1465,6 +1465,7 @@ func _show_power_selection_modal(weapon_slot_idx: int) -> void:
 		{"name": "poison_cloud", "display": "Poison Cloud", "desc": "Leaves poison AoE on impact", "slot": "HOTBAR"},
 		{"name": "knife_volley", "display": "Knife Volley", "desc": "Launches 3 knives on attack", "slot": "HOTBAR"},
 		{"name": "wind_dash", "display": "Wind Dash", "desc": "Speed boost for 3s after hit", "slot": "HOTBAR"},
+		{"name": "return", "display": "Return", "desc": "Retrieve thrown projectiles with right-click", "slot": "HOTBAR"},
 		{"name": "stone_skin", "display": "Stone Skin", "desc": "+50% defense while equipped", "slot": "EQUIP"},
 		{"name": "moon_jump", "display": "Moon Jump", "desc": "Triple jump height while equipped", "slot": "EQUIP"},
 		{"name": "flame_aura", "display": "Flame Aura", "desc": "Burns nearby enemies constantly", "slot": "EQUIP"}
