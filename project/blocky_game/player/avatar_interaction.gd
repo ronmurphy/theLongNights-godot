@@ -63,6 +63,7 @@ const RANGED_ITEM_IDS = {
 	5: true,   # Throwing Knives
 	7: true,   # Torch
 	11: true,  # Crossbow
+	41: true,  # Spear (when thrown)
 	51: true,  # Light Orb
 }
 
@@ -217,6 +218,12 @@ func _physics_process(_delta):
 				_action_use_held = false  # Prevent mining the block
 				return  # Don't process other interactions
 
+	# Check for projectile retrieval FIRST if right-click with empty hotbar slot
+	if _action_place and inv_item == null:
+		if _can_retrieve_projectiles():
+			_try_retrieve_projectile()
+			_action_place = false  # Consume the right-click
+
 	# Block placement and breaking
 	if inv_item == null or inv_item.type == InventoryItem.TYPE_BLOCK:
 		if hit != null:
@@ -257,12 +264,7 @@ func _physics_process(_delta):
 
 	# Handle weapon/item usage
 	elif inv_item.type == InventoryItem.TYPE_ITEM:
-		# First, try to retrieve a projectile if right-clicked (Return power)
-		if _action_place:
-			_try_retrieve_projectile()
-			_action_place = false  # Consume the right-click
-
-		# Special handling for spear - right-click throws (if not retrieving)
+		# Special handling for spear - right-click throws (MUST be before projectile retrieval)
 		if inv_item.id == 41 and _action_place:  # Spear
 			# Right-click: throw spear
 			var item = _item_db.get_item(inv_item.id)
@@ -270,7 +272,12 @@ func _physics_process(_delta):
 			# Decrement spear count (spear is consumable when thrown)
 			if not _creative_mode:
 				_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
+			_action_place = false  # Consume the right-click
 			print("Threw spear!")
+		# Try to retrieve a projectile if right-clicked (Return power)
+		elif _action_place:
+			_try_retrieve_projectile()
+			_action_place = false  # Consume the right-click
 		# Special handling for pumpkin items - allow placement as blocks
 		elif inv_item.id == 24:  # Pumpkin item
 			if _action_place and hit != null:
@@ -432,6 +439,10 @@ func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool, tool_id: 
 		# Recover spears if we found any
 		if projectiles_removed["spears"] > 0:
 			_recover_projectiles_to_inventory(41, projectiles_removed["spears"])  # 41 = spear
+
+		# Recover light orbs if we found any
+		if projectiles_removed["light_orbs"] > 0:
+			_recover_projectiles_to_inventory(40, projectiles_removed["light_orbs"])  # 40 = light orb
 
 		# Spawn block-specific particles (leaves, etc.)
 		_spawn_block_particles(block_id, pos, tool_id)
@@ -699,14 +710,14 @@ func _add_block_to_inventory_standard(block_id: int):
 
 
 func _remove_adjacent_projectiles(block_pos: Vector3) -> Dictionary:
-	"""Check all 6 adjacent block faces for thrown projectiles (torches, spears) and remove them from the scene.
+	"""Check all 6 adjacent block faces for thrown projectiles (torches, spears, light orbs) and remove them from the scene.
 	Returns a dictionary with counts of each projectile type removed."""
 	# Get the game node where projectiles are spawned
 	var game_node = get_node_or_null("/root/Main/Game")
 	if game_node == null:
-		return {"torches": 0, "spears": 0}
+		return {"torches": 0, "spears": 0, "light_orbs": 0}
 
-	var projectiles_removed = {"torches": 0, "spears": 0}
+	var projectiles_removed = {"torches": 0, "spears": 0, "light_orbs": 0}
 
 	# Define the 6 adjacent positions (up, down, left, right, forward, back)
 	var adjacent_offsets = [
@@ -745,11 +756,20 @@ func _remove_adjacent_projectiles(block_pos: Vector3) -> Dictionary:
 					child.queue_free()
 					projectiles_removed["spears"] += 1
 
+			# Check for light orbs
+			elif "light_orb" in child_name or "placed_light_orb" in script_path:
+				var distance = child.global_position.distance_to(check_pos + Vector3(0.5, 0.5, 0.5))
+				if distance < 1.0:
+					print("Removed light orb at %s" % check_pos)
+					child.queue_free()
+					projectiles_removed["light_orbs"] += 1
+
 	return projectiles_removed
 
 
-func _recover_projectiles_to_inventory(item_id: int, count: int):
-	"""Recover thrown projectiles and add them back to inventory when mining in survival mode"""
+func _recover_projectiles_to_inventory(item_id: int, count: int, skyshard_power: String = "", skyshard_count: int = 0):
+	"""Recover thrown projectiles and add them back to inventory
+	Smart stacking: only stacks items with matching powers and skyshard counts"""
 	if count <= 0:
 		return
 
@@ -757,6 +777,8 @@ func _recover_projectiles_to_inventory(item_id: int, count: int):
 	match item_id:
 		6:
 			item_name = "torch"
+		40:
+			item_name = "light orb"
 		41:
 			item_name = "spear"
 
@@ -765,18 +787,24 @@ func _recover_projectiles_to_inventory(item_id: int, count: int):
 	var BAG_HEIGHT = _inventory.BAG_HEIGHT
 	var hotbar_begin_index = BAG_WIDTH * BAG_HEIGHT
 
-	# Look for existing stack in inventory
+	# Look for existing stack in inventory that MATCHES power and skyshard count
 	var existing_slot = -1
 	for i in range(slots.size()):
 		if slots[i] != null and slots[i].type == InventoryItem.TYPE_ITEM and slots[i].id == item_id:
-			existing_slot = i
-			break
+			# Check if powers match (both empty or same power)
+			var slot_power = slots[i].skyshard_power if slots[i].skyshard_power != null else ""
+			var slot_count = slots[i].skyshard_count if slots[i].skyshard_count != null else 0
 
-	# If stack exists, add to it
+			if slot_power == skyshard_power and slot_count == skyshard_count:
+				existing_slot = i
+				break
+
+	# If matching stack exists, add to it
 	if existing_slot != -1:
 		slots[existing_slot].count += count
 		_inventory.emit_signal("changed")
-		print("Recovered %d %s(s) from mining! (total count: %d)" % [count, item_name, slots[existing_slot].count])
+		var power_suffix = (" with " + skyshard_power + " power") if skyshard_power != "" else ""
+		print("Recovered %d %s(s)%s! (total count: %d)" % [count, item_name, power_suffix, slots[existing_slot].count])
 		return
 
 	# No stack exists - need to find a slot for it
@@ -1722,120 +1750,126 @@ func _find_nearest_entity_in_crosshair() -> Node:
 ## PROJECTILE RETRIEVAL SYSTEM
 ## ============================================================================
 
+func _find_adjacent_projectiles_for_retrieval(block_pos: Vector3) -> Array:
+	"""Find projectiles on adjacent block faces for Return power retrieval.
+	Returns array of dictionaries with projectile info."""
+	var game_node = get_node_or_null("/root/Main/Game")
+	if game_node == null:
+		return []
+
+	var projectiles_found = []
+
+	# Define the 6 adjacent positions (up, down, left, right, forward, back)
+	var adjacent_offsets = [
+		Vector3(0, 1, 0),   # Up
+		Vector3(0, -1, 0),  # Down
+		Vector3(1, 0, 0),   # Right
+		Vector3(-1, 0, 0),  # Left
+		Vector3(0, 0, 1),   # Back
+		Vector3(0, 0, -1)   # Forward
+	]
+
+	# Check each adjacent position
+	for offset in adjacent_offsets:
+		var check_pos = block_pos + offset
+
+		# Look for thrown projectiles at or near this position
+		for child in game_node.get_children():
+			var script_path = ""
+			if child.get_script() != null:
+				script_path = child.get_script().resource_path.to_lower()
+			var child_name = child.name.to_lower()
+
+			var projectile_type = ""
+			var item_id = 0
+			var item_name = ""
+
+			# Check for thrown torches
+			if "thrown_torch" in child_name or "thrown_torch" in script_path:
+				projectile_type = "torch"
+				item_id = 6
+				item_name = "torch"
+			# Check for spear projectiles
+			elif "spear" in child_name or "spear_projectile" in script_path:
+				projectile_type = "spear"
+				item_id = 41
+				item_name = "spear"
+			# Check for light orbs
+			elif "light_orb" in child_name or "placed_light_orb" in script_path:
+				projectile_type = "light_orb"
+				item_id = 40
+				item_name = "light orb"
+			else:
+				continue
+
+			# Check distance
+			var distance = child.global_position.distance_to(check_pos + Vector3(0.5, 0.5, 0.5))
+			if distance < 1.0:
+				# Extract skyshard power if it has the methods
+				var power = ""
+				var power_count = 0
+				if child.has_method("get_skyshard_power"):
+					power = child.get_skyshard_power()
+				if child.has_method("get_skyshard_count"):
+					power_count = child.get_skyshard_count()
+
+				projectiles_found.append({
+					"node": child,
+					"position": child.global_position,
+					"item_id": item_id,
+					"name": item_name,
+					"power": power,
+					"power_count": power_count
+				})
+
+	return projectiles_found
+
+
 func _can_retrieve_projectiles() -> bool:
-	"""Check if player has Return power equipped"""
-	if not _hotbar:
+	"""Check if player has Return power equipped in accessory slot and empty hotbar slot"""
+	if not _hotbar or not _inventory:
 		return false
 
-	# Check currently held item for Return power
+	# Check if current hotbar slot is EMPTY (required for retrieval)
 	var current_item = _hotbar.get_selected_item()
-	if current_item != null and current_item.skyshard_power == "return":
-		return true
+	if current_item != null:
+		return false
+
+	# Check player's ACCESSORY slot for Return power
+	var player_accessory = _inventory.get_player_equipped_weapon()
+	if player_accessory != null:
+		var power = player_accessory.skyshard_power if player_accessory.skyshard_power != null else ""
+		if power == "return":
+			return true
 
 	return false
 
 
-func _find_retrievable_projectiles() -> Array:
-	"""Find all retrievable projectiles in line of sight"""
-	var retrievable = []
-
-	if _terrain == null:
-		return retrievable
-
-	# Get player head position and look direction
-	var origin = _head.get_global_transform().origin
-	var forward = -_head.get_transform().basis.z.normalized()
-
-	# Find all stuck projectiles in the scene
-	var game_node = get_node_or_null("/root/Main/Game")
-	if game_node == null:
-		return retrievable
-
-	# Search for spear projectiles
-	var spear_projectiles = game_node.find_children("*", "Node3D")
-
-	const RETRIEVAL_RAYCAST_DISTANCE = 100.0
-	const RETRIEVAL_DETECTION_RADIUS = 0.5
-
-	for projectile in spear_projectiles:
-		# Check if it's a spear projectile
-		if not projectile.has_script():
-			continue
-
-		var script = projectile.get_script()
-		if script == null:
-			continue
-
-		# Check if it's retrievable and has necessary methods
-		if not projectile.has_method("is_retrievable"):
-			continue
-
-		if not projectile.has_method("get_item_id"):
-			continue
-
-		if not projectile.is_retrievable():
-			continue
-
-		# Check line of sight (raycast to projectile)
-		var to_projectile = projectile.global_position - origin
-		var distance = to_projectile.length()
-
-		if distance > RETRIEVAL_RAYCAST_DISTANCE:
-			continue
-
-		# Simple raycast check - is there a clear line to the projectile?
-		var hit = _terrain_tool.raycast(origin, to_projectile.normalized(), distance + 0.5)
-
-		# If we hit terrain before reaching the projectile, it's blocked
-		if hit != null and (origin + to_projectile.normalized() * (hit.distance - 0.1)).distance_to(projectile.global_position) > RETRIEVAL_DETECTION_RADIUS:
-			continue
-
-		# This projectile is retrievable
-		retrievable.append({
-			"projectile": projectile,
-			"distance": distance,
-			"item_id": projectile.get_item_id()
-		})
-
-	# Sort by distance (closest first)
-	retrievable.sort_custom(func(a, b): return a.distance < b.distance)
-
-	return retrievable
-
-
-func _retrieve_projectile(projectile: Node, item_id: int) -> void:
-	"""Retrieve a projectile and add it to inventory"""
-	if not _inventory or projectile == null:
-		return
-
-	print("✨ Retrieved projectile (item_id: %d)!" % item_id)
-
-	# Spawn retrieval effect at projectile position
-	_spawn_retrieval_effect(projectile.global_position)
-
-	# Try to add to inventory - use the existing _recover_projectiles_to_inventory method
-	_recover_projectiles_to_inventory(item_id, 1)
-
-	print("Projectile added to inventory!")
-
-	# Remove projectile from scene
-	projectile.queue_free()
-
-
 func _try_retrieve_projectile() -> void:
-	"""Attempt to retrieve a projectile if conditions are met"""
+	"""Attempt to retrieve projectiles on adjacent faces of the block player is looking at"""
 	# Check if player has Return power
 	if not _can_retrieve_projectiles():
 		return
 
-	# Find retrievable projectiles
-	var retrievable = _find_retrievable_projectiles()
-	if retrievable.size() == 0:
+	# Raycast to find the block the player is looking at
+	var hit = _get_pointed_voxel()
+	if hit == null:
 		return
 
-	# Get closest projectile
-	var closest = retrievable[0]
-	_retrieve_projectile(closest.projectile, closest.item_id)
+	var block_pos = hit.position
+
+	# Check adjacent faces for projectiles (torches, spears, light orbs)
+	var projectiles_found = _find_adjacent_projectiles_for_retrieval(block_pos)
+
+	if projectiles_found.is_empty():
+		return
+
+	# Retrieve each projectile with animation
+	for projectile_info in projectiles_found:
+		_spawn_retrieval_effect(projectile_info.position)
+		_recover_projectiles_to_inventory(projectile_info.item_id, 1, projectile_info.power, projectile_info.power_count)
+		projectile_info.node.queue_free()
+		print("✨ Retrieved %s!" % projectile_info.name)
 
 
 func _spawn_retrieval_effect(pos: Vector3) -> void:

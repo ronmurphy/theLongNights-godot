@@ -171,9 +171,27 @@ func _land_torch():
 	# Keep the light but remove physics
 	set_physics_process(false)
 
-	# TODO: Make torch pickupable again
-	# For now, torch just stays as a light source
-
+	# Torch is now retrievable with Return power
 	# Auto-cleanup after 5 minutes
 	await get_tree().create_timer(300.0).timeout
 	queue_free()
+
+
+func is_retrievable() -> bool:
+	"""Check if torch can be retrieved (after landing)"""
+	return _velocity == Vector3.ZERO  # Can retrieve when stationary
+
+
+func get_item_id() -> int:
+	"""Get the item ID of this torch for inventory recovery"""
+	return 6  # Torch item ID
+
+
+func get_skyshard_power() -> String:
+	"""Get the skyshard power of this torch (for smart stacking on retrieval)"""
+	return ""  # Torches don't have skyshard powers
+
+
+func get_skyshard_count() -> int:
+	"""Get the skyshard count of this torch (for smart stacking on retrieval)"""
+	return 0  # Torches don't have skyshard counts

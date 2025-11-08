@@ -90,8 +90,8 @@ func _place_light_orb():
 	# Spawn the actual light orb
 	var orb = Node3D.new()
 	orb.set_script(PlacedLightOrb)
-	orb.global_position = target_position
-	_world_container.add_child(orb)
+	_world_container.add_child(orb)  # Add to tree FIRST
+	orb.global_position = target_position  # THEN set position
 
 	print("Light Orb placed at: ", target_position)
 

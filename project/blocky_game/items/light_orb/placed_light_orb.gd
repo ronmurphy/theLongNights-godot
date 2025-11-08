@@ -119,3 +119,23 @@ func set_light_range(range_value: float):
 	"""Allow customization of light range if needed"""
 	if _light:
 		_light.omni_range = range_value
+
+
+func is_retrievable() -> bool:
+	"""Check if light orb can be retrieved"""
+	return true  # Light orbs can always be retrieved
+
+
+func get_item_id() -> int:
+	"""Get the item ID of this light orb for inventory recovery"""
+	return 40  # Light Orb item ID
+
+
+func get_skyshard_power() -> String:
+	"""Get the skyshard power of this light orb (for smart stacking on retrieval)"""
+	return ""  # Light orbs don't have skyshard powers
+
+
+func get_skyshard_count() -> int:
+	"""Get the skyshard count of this light orb (for smart stacking on retrieval)"""
+	return 0  # Light orbs don't have skyshard counts

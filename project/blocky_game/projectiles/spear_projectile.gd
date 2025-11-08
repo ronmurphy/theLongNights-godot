@@ -239,3 +239,17 @@ func is_retrievable() -> bool:
 func get_item_id() -> int:
 	"""Get the item ID of this spear for inventory recovery"""
 	return 41  # Spear item ID
+
+
+func get_skyshard_power() -> String:
+	"""Get the skyshard power of this spear (for smart stacking on retrieval)"""
+	if typeof(_inv_item_or_count) == TYPE_OBJECT and _inv_item_or_count.skyshard_power != null:
+		return _inv_item_or_count.skyshard_power
+	return ""
+
+
+func get_skyshard_count() -> int:
+	"""Get the skyshard count of this spear (for smart stacking on retrieval)"""
+	if typeof(_inv_item_or_count) == TYPE_OBJECT and _inv_item_or_count.skyshard_count != null:
+		return _inv_item_or_count.skyshard_count
+	return 0
