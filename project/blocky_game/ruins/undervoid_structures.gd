@@ -490,3 +490,26 @@ func _create_void_fortress() -> UndervoidStructure:
 		-500,  # Min depth (deepest)
 		-450   # Max depth
 	)
+
+
+func get_all_structures() -> Array[UndervoidStructure]:
+	"""Return all available Undervoid structures (for city building reuse)"""
+	return _structures
+
+
+func get_structure_as_city_building(structure: UndervoidStructure) -> Dictionary:
+	"""
+	Convert an UndervoidStructure to city building format
+	This allows reusing existing structures as landmark buildings in the city
+	Ignores the original Y depth settings
+	"""
+	return {
+		"name": structure.name + " (Landmark)",
+		"footprint": Vector2i(structure.size.x, structure.size.z),
+		"height": structure.size.y,
+		"blocks": structure.blocks,
+		"doorways": [],  # Existing structures don't have explicit doorways, will be calculated
+		"has_roof": true,  # Assume existing structures are sealed
+		"chests": structure.chest_positions,
+		"weight": 0.5  # Less frequent than custom city buildings
+	}

@@ -5,7 +5,8 @@
       "Bash(cat:*)",
       "Bash(find:*)",
       "Bash(gdscript /blocky_game/player/avatar_interaction.gd)",
-      "Bash(godot:*)"
+      "Bash(godot:*)",
+      "Bash(python3 -c \"import ast; exec(open(''''/home/brad/Godot/theLongNights-godot/project/blocky_game/ruins/undervoid_city_building.gd'''').read())\")"
     ],
     "deny": [],
     "ask": []

@@ -197,7 +197,7 @@ func _ready():
 
 		# Initialize after in tree
 		await get_tree().process_frame
-		undervoid_spawner.initialize(undervoid_structures, _blocks, _terrain, self, undervoid_registry)
+		undervoid_spawner.initialize(undervoid_structures, _blocks, _terrain, self, undervoid_registry, null)
 		undervoid_detector.initialize(undervoid_registry, undervoid_spawner)
 		entrance_generator.initialize(undervoid_registry, _terrain, self, _blocks)
 		print("🟣 The Long Nights: Undervoid system initialized (Registry, Structures, Entry Detection)")
