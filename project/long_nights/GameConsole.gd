@@ -239,6 +239,7 @@ func _register_commands() -> void:
 	commands["home"] = _cmd_homebase  # Alias
 	commands["roster"] = _cmd_roster
 	commands["drain"] = _cmd_drain
+	commands["undervoid"] = _cmd_undervoid  # Spawn Undervoid structure
 
 ## Commands Implementation
 
@@ -1438,3 +1439,40 @@ func _cmd_drain(args: Array) -> void:
 		add_output("[color=lime]✓ Removed %d water blocks[/color]" % water_removed)
 	else:
 		add_output("[color=yellow]No water found in area[/color]")
+
+
+func _cmd_undervoid(_args: Array) -> void:
+	"""Spawn an Undervoid structure at player's current position"""
+	# Get player position
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+
+	# Get game node and Undervoid spawner
+	var game = get_node_or_null("/root/Main/Game")
+	if not game:
+		add_output("[color=red]Error: Game node not found[/color]")
+		return
+
+	var undervoid_spawner = game.get_node_or_null("UndervoidSpawner")
+	if not undervoid_spawner:
+		add_output("[color=red]Error: UndervoidSpawner not found[/color]")
+		add_output("[color=yellow]Make sure you're in a loaded game world[/color]")
+		return
+
+	# Get player position and depth
+	var spawn_pos = player.global_position
+	var depth = int(spawn_pos.y)
+
+	add_output("[color=yellow]🟣 Spawning Undervoid structure at your position (Y: %d)...[/color]" % depth)
+
+	# Spawn structure
+	var success = await undervoid_spawner.spawn_structure_at(spawn_pos, depth)
+
+	if success:
+		add_output("[color=lime]✓ Undervoid structure spawned with purple beacon![/color]")
+		add_output("[color=cyan]Look for the purple glow above the structure[/color]")
+	else:
+		add_output("[color=red]✗ Failed to spawn structure[/color]")
+		add_output("[color=yellow]Make sure you're on solid ground in the Undervoid (Y -150 to -400)[/color]")

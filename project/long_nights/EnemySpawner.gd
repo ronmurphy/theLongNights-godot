@@ -57,8 +57,8 @@ const BIOME_ABYSS_MIN = -512           # Y=-400 to -512
 ## These are suggestions - if scene doesn't exist, falls back to tier-based
 var goblin_biome_enemies := ["goblin_grunt", "goblin_bomb_bard", "goblin_shaman", "troglodyte"]
 var undead_biome_enemies := ["zombie_crawler", "zombie_brute", "skeleton_archer", "skeleton_mage", "wraith"]
-var mechanical_biome_enemies := ["mechanical_spider", "hunting_construct", "iron_golem"]
-var abyss_biome_enemies := ["water_elemental", "kraken_spawn", "bubble_fish", "alien_hunter"]
+var mechanical_biome_enemies := ["mechanical_spider", "hunting_construct", "iron_golem", "rust_golem"]
+var abyss_biome_enemies := ["abyss_golem", "water_elemental", "kraken_spawn", "bubble_fish", "alien_hunter"]
 
 ## State
 var spawn_timer: float = 0.0

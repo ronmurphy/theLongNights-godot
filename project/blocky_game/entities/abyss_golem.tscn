@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://abyss_golem_scene"]
+
+[ext_resource type="Script" path="res://blocky_game/entities/abyss_golem.gd" id="1"]
+
+[node name="AbyssGolem" type="Node3D"]
+script = ExtResource("1")

@@ -169,6 +169,33 @@ func _ready():
 		ruin_spawner.initialize(ruin_library, _blocks, _terrain)
 		print("The Long Nights: Ruins system initialized")
 
+		# Add Undervoid structures system
+		var UndervoidStructures = preload("res://blocky_game/ruins/undervoid_structures.gd")
+		var undervoid_structures = UndervoidStructures.new()
+		undervoid_structures.name = "UndervoidStructures"
+		add_child(undervoid_structures)
+
+		var UndervoidRegistry = preload("res://blocky_game/ruins/UndervoidRegistry.gd")
+		var undervoid_registry = UndervoidRegistry.new()
+		undervoid_registry.name = "UndervoidRegistry"
+		add_child(undervoid_registry)
+
+		var UndervoidSpawner = preload("res://blocky_game/ruins/UndervoidSpawner.gd")
+		var undervoid_spawner = UndervoidSpawner.new()
+		undervoid_spawner.name = "UndervoidSpawner"
+		add_child(undervoid_spawner)
+
+		var UndervoidEntryDetector = preload("res://blocky_game/ruins/UndervoidEntryDetector.gd")
+		var undervoid_detector = UndervoidEntryDetector.new()
+		undervoid_detector.name = "UndervoidEntryDetector"
+		add_child(undervoid_detector)
+
+		# Initialize after in tree
+		await get_tree().process_frame
+		undervoid_spawner.initialize(undervoid_structures, _blocks, _terrain, self, undervoid_registry)
+		undervoid_detector.initialize(undervoid_registry, undervoid_spawner)
+		print("🟣 The Long Nights: Undervoid system initialized (Registry, Structures, Entry Detection)")
+
 		# Add game over screen
 		var game_over = GameOverScreen.new()
 		add_child(game_over)

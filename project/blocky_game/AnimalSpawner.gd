@@ -60,6 +60,10 @@ func _try_spawn_animal():
 	if not player:
 		return
 
+	# Don't spawn animals if player is underground (Y <= -3)
+	if player.global_position.y <= -3:
+		return
+
 	# Randomly choose which animal to spawn based on weights
 	var roll = randf()
 	var animal_script = null

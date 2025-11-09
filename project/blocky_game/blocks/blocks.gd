@@ -284,6 +284,13 @@ func _init():
 		"voxels": ["rust_cube"],
 		"transparent": false
 	})
+	_create_block({
+		"name": "rust_floor",
+		"gui_model": "",  # Uses texture atlas
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["rust_floor"],
+		"transparent": false
+	})
 
 
 

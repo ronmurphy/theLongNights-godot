@@ -39,6 +39,10 @@ func _try_place_torches():
 	if player.global_position.y >= -10.0:
 		return
 
+	# Don't place torches in Undervoid (Y <= -150) - structures have purple beacons instead
+	if player.global_position.y <= -150.0:
+		return
+
 	# Get terrain reference
 	if _terrain == null:
 		_terrain = get_node_or_null("/root/Main/Game/VoxelTerrain")

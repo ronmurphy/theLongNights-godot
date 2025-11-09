@@ -59,6 +59,7 @@ const CHEST = 48
 const RUST_BLOCK = 49
 const RUST_PIPE = 50
 const RUST_CUBE = 51
+const RUST_FLOOR = 52
 
 
 const _CHANNEL = VoxelBuffer.CHANNEL_TYPE
@@ -83,6 +84,8 @@ var _heightmap_range := 0
 var _heightmap_noise := FastNoiseLite.new()
 var _cave_noise := FastNoiseLite.new()
 var _biome_noise := FastNoiseLite.new()
+var _rust_hills_noise := FastNoiseLite.new()
+var _island_noise := FastNoiseLite.new()
 var _trees_min_y := 0
 var _trees_max_y := 0
 
@@ -147,6 +150,19 @@ func _init():
 	_biome_noise.frequency = 1.0 / 64.0
 	_biome_noise.fractal_octaves = 2
 
+	# Initialize rust hills noise for bedrock floor coating
+	_rust_hills_noise.seed = world_seed + 3000
+	_rust_hills_noise.frequency = 1.0 / 24.0  # Rolling hills
+	_rust_hills_noise.fractal_octaves = 3
+	_rust_hills_noise.noise_type = FastNoiseLite.TYPE_PERLIN
+
+	# Initialize island placement noise for large landmark islands
+	_island_noise.seed = world_seed + 4000
+	_island_noise.frequency = 1.0 / 120.0  # Large scale, sparse islands
+	_island_noise.fractal_octaves = 2
+	_island_noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+	_island_noise.cellular_distance_function = FastNoiseLite.DISTANCE_EUCLIDEAN
+
 	# IMPORTANT
 	# If we don't do this `Curve` could bake itself when interpolated,
 	# and this causes crashes when used in multiple threads
@@ -203,10 +219,63 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _lod: int)
 					
 					# Below heightmap minimum, use deep underground generation with caves
 					if world_y < _heightmap_min_y:
-						# Bedrock layer at the bottom
-						if world_y == BEDROCK_LEVEL:
+						# 2-block thick bedrock layer at the bottom
+						if world_y == BEDROCK_LEVEL or world_y == BEDROCK_LEVEL + 1:
 							buffer.set_voxel(BEDROCK, x, y, z, _CHANNEL)
-						elif world_y > BEDROCK_LEVEL:
+						# Rust hills coating on bedrock (Y -510 upward)
+						elif world_y > BEDROCK_LEVEL + 1 and world_y <= BEDROCK_LEVEL + 12:
+							var global_x = gx
+							var global_z = gz
+							var hill_height = _get_rust_hills_height(global_x, global_z)
+							var hill_top_y = BEDROCK_LEVEL + 2 + hill_height  # +2 for bedrock layers
+
+							if world_y <= hill_top_y:
+								# Rust hills - mix of rust blocks and stone
+								var rust_rng := RandomNumberGenerator.new()
+								rust_rng.seed = global_x ^ (global_z * 31) ^ (world_y * 13)
+
+								if rust_rng.randf() < 0.6:
+									buffer.set_voxel(RUST_BLOCK, x, y, z, _CHANNEL)
+								elif rust_rng.randf() < 0.3:
+									buffer.set_voxel(RUST_CUBE, x, y, z, _CHANNEL)
+								else:
+									buffer.set_voxel(STONE, x, y, z, _CHANNEL)
+							else:
+								# Above rust hills, continue with normal cave generation
+								if _is_cave(global_x, world_y, global_z):
+									buffer.set_voxel(AIR, x, y, z, _CHANNEL)
+								else:
+									var is_wall = false
+									if _is_cave(global_x + 1, world_y, global_z) or \
+									   _is_cave(global_x - 1, world_y, global_z) or \
+									   _is_cave(global_x, world_y + 1, global_z) or \
+									   _is_cave(global_x, world_y - 1, global_z) or \
+									   _is_cave(global_x, world_y, global_z + 1) or \
+									   _is_cave(global_x, world_y, global_z - 1):
+										is_wall = true
+									var block_type = _get_depth_biome_block(world_y, global_x, global_z, rng, is_wall)
+									if block_type == STONE:
+										if world_y > -64 and rng.randf() < 0.08:
+											block_type = DIRT
+										elif world_y > -128 and world_y <= -64 and rng.randf() < 0.04:
+											block_type = DIRT
+										elif world_y > -200 and world_y <= -128 and rng.randf() < 0.02:
+											block_type = DIRT
+										var iron_chance = 0.04 if world_y > -64 else (0.06 if world_y > -128 else (0.08 if world_y > -200 else 0.10))
+										if rng.randf() < iron_chance:
+											block_type = IRON_ORE
+										else:
+											var gold_chance = 0.0
+											if world_y <= -64 and world_y > -128:
+												gold_chance = 0.03
+											elif world_y <= -128 and world_y > -200:
+												gold_chance = 0.06
+											elif world_y <= -200:
+												gold_chance = 0.08
+											if gold_chance > 0 and rng.randf() < gold_chance:
+												block_type = GOLD_ORE
+									buffer.set_voxel(block_type, x, y, z, _CHANNEL)
+						elif world_y > BEDROCK_LEVEL + 12:
 							# Check if this position should be a cave
 							var global_x = gx
 							var global_z = gz
@@ -359,8 +428,8 @@ func _fill_deep_underground(buffer: VoxelBuffer, chunk_y: int, block_size: int, 
 	for y in block_size:
 		var world_y = chunk_y + y
 
-		# Bedrock layer at BEDROCK_LEVEL
-		if world_y == BEDROCK_LEVEL:
+		# 2-block thick bedrock layer at bottom
+		if world_y == BEDROCK_LEVEL or world_y == BEDROCK_LEVEL + 1:
 			buffer.fill_area(BEDROCK, Vector3(0, y, 0), Vector3(block_size, y + 1, block_size), _CHANNEL)
 			continue
 
@@ -368,8 +437,33 @@ func _fill_deep_underground(buffer: VoxelBuffer, chunk_y: int, block_size: int, 
 		if world_y < BEDROCK_LEVEL:
 			buffer.fill_area(AIR, Vector3(0, y, 0), Vector3(block_size, y + 1, block_size), _CHANNEL)
 			continue
-		
-		# Above bedrock, generate stone with ores and caves
+
+		# Rust hills coating on bedrock (Y -510 to ~-500)
+		if world_y > BEDROCK_LEVEL + 1 and world_y <= BEDROCK_LEVEL + 12:
+			for x in block_size:
+				for z in block_size:
+					var global_x = origin_x + x
+					var global_z = origin_z + z
+					var hill_height = _get_rust_hills_height(global_x, global_z)
+					var hill_top_y = BEDROCK_LEVEL + 2 + hill_height  # +2 for bedrock layers
+
+					if world_y <= hill_top_y:
+						# Rust hills - mix of rust blocks and stone
+						var rust_rng := RandomNumberGenerator.new()
+						rust_rng.seed = global_x ^ (global_z * 31) ^ (world_y * 13)
+
+						if rust_rng.randf() < 0.6:
+							buffer.set_voxel(RUST_BLOCK, x, y, z, _CHANNEL)
+						elif rust_rng.randf() < 0.3:
+							buffer.set_voxel(RUST_CUBE, x, y, z, _CHANNEL)
+						else:
+							buffer.set_voxel(STONE, x, y, z, _CHANNEL)
+					else:
+						# Above rust hills - air (will be filled with caves/stone below)
+						buffer.set_voxel(AIR, x, y, z, _CHANNEL)
+			continue
+
+		# Above rust hills, generate stone with ores and caves
 		for x in block_size:
 			for z in block_size:
 				var global_x = origin_x + x
@@ -431,10 +525,49 @@ func _get_height_at(x: int, z: int) -> int:
 	return int(HeightmapCurve.sample_baked(t))
 
 
+func _get_rust_hills_height(x: int, z: int) -> int:
+	"""Get height of rust hills on bedrock floor (0-10 blocks above bedrock)"""
+	var noise_value = _rust_hills_noise.get_noise_2d(x, z)
+	# Map noise from [-1, 1] to [0, 10] for hill height
+	var height = int((noise_value + 1.0) * 5.0)
+	return clamp(height, 0, 10)
+
+
+func _is_in_large_island_zone(x: int, y: int, z: int) -> bool:
+	"""Check if position is within a large landmark island zone"""
+	# Define key depth levels with their island sizes (radius)
+	var island_depths = {
+		-150: 15,  # 30x30 island (radius 15)
+		-250: 20,  # 40x40 island (radius 20)
+		-350: 25   # 50x50 island (radius 25)
+	}
+
+	# Check each depth level
+	for depth in island_depths.keys():
+		var radius = island_depths[depth]
+		var vertical_tolerance = 8  # Island extends ±8 blocks vertically
+
+		# Check if Y is within this island's vertical range
+		if abs(y - depth) <= vertical_tolerance:
+			# Use cellular noise to create sparse island centers
+			var noise_value = _island_noise.get_noise_2d(x, z)
+
+			# Threshold for island center (only create islands where noise is high)
+			# This makes islands sparse - not every location gets one
+			if noise_value > 0.6:  # Only top 40% of noise values = islands
+				return true
+
+	return false
+
+
 # Check if position should be carved as cave using 3D noise
 func _is_cave(x: int, y: int, z: int) -> bool:
 	# Don't carve caves above MIN_CAVE_HEIGHT or at/below bedrock
 	if y > MIN_CAVE_HEIGHT or y <= BEDROCK_LEVEL:
+		return false
+
+	# Protect large landmark islands from being carved
+	if _is_in_large_island_zone(x, y, z):
 		return false
 
 	# Use 3D Perlin noise to determine cave structure
