@@ -208,7 +208,8 @@ func spawn_structure_at(world_position: Vector3, depth: int = -200) -> bool:
 	_terrain.add_child(temp_viewer)
 
 	# Wait longer for deep Undervoid chunks to generate (Y -150 to -500)
-	await get_tree().create_timer(3.0).timeout
+	# Player falls FAST through underground, so chunks may not be ready immediately
+	await get_tree().create_timer(4.0).timeout
 
 	# Get the voxel tool for editing terrain
 	var voxel_tool = _terrain.get_voxel_tool()
@@ -221,14 +222,18 @@ func spawn_structure_at(world_position: Vector3, depth: int = -200) -> bool:
 	var structure_aabb = AABB(Vector3(world_position), Vector3(template.size))
 	if not voxel_tool.is_area_editable(structure_aabb):
 		push_warning("🟣 Structure area not loaded yet at ", world_position, " - waiting longer...")
-		# Wait additional time for deep chunks
-		await get_tree().create_timer(2.0).timeout
+		# Wait additional time for deep chunks (they take longer to generate)
+		await get_tree().create_timer(3.0).timeout
 
 		# Check again
 		if not voxel_tool.is_area_editable(structure_aabb):
-			temp_viewer.queue_free()
-			push_error("🟣 Failed to load chunks for structure at ", world_position)
-			return false
+			push_warning("🟣 Structure area still not editable, waiting even longer...")
+			await get_tree().create_timer(3.0).timeout
+
+			if not voxel_tool.is_area_editable(structure_aabb):
+				temp_viewer.queue_free()
+				push_error("🟣 Failed to load chunks for structure at ", world_position)
+				return false
 
 	# Place each block in the template
 	var blocks_placed = 0
