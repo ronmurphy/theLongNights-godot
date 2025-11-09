@@ -4,6 +4,7 @@ const LIFETIME = 10.0
 
 const DebrisScene = preload("./debris.tscn")
 const ExplosionScene = preload("./rocket_explosion.tscn")
+const InteractionCommon = preload("res://blocky_game/player/interaction_common.gd")
 
 @onready var _terrain : VoxelTerrain = get_node("../VoxelTerrain")
 @onready var _terrain_tool := _terrain.get_voxel_tool()
@@ -61,24 +62,25 @@ func _explode(voxel_hit_pos: Vector3, explosion_pos: Vector3):
 
 
 func _do_sphere_safe(center: Vector3, radius: float):
-	"""Destroy blocks in sphere, but skip bedrock (voxel ID 28)"""
+	"""Destroy blocks in sphere with universal bedrock protection"""
 	var r_int = int(ceil(radius))
-	
+
 	# Iterate through all positions in bounding box
 	for y in range(-r_int, r_int + 1):
 		for z in range(-r_int, r_int + 1):
 			for x in range(-r_int, r_int + 1):
 				var pos = center + Vector3(x, y, z)
 				var dist = pos.distance_to(center)
-				
+
 				# If position is within sphere radius
 				if dist <= radius:
 					# Check what block is there
 					var voxel_id = _terrain_tool.get_voxel(pos)
-					
-					# Only destroy if it's not bedrock (voxel ID 28) and not air (0)
-					if voxel_id != 0 and voxel_id != 28:
-						_terrain_tool.set_voxel(pos, 0)  # 0 = air
+
+					# Only destroy if it's not air
+					if voxel_id != 0:
+						# Use safe_set_voxel - automatically protects bedrock
+						InteractionCommon.safe_set_voxel(_terrain_tool, pos, 0)  # 0 = air
 
 
 @rpc("authority", "call_remote", "reliable", 0)

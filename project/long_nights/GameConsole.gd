@@ -3,6 +3,8 @@ extends Control
 ## Toggle with ~ (tilde) or F1
 ## Type 'help' for commands
 
+const InteractionCommon = preload("res://blocky_game/player/interaction_common.gd")
+
 @onready var console_panel: Panel
 @onready var output_label: RichTextLabel
 @onready var input_field: LineEdit
@@ -1429,11 +1431,12 @@ func _cmd_drain(args: Array) -> void:
 			for y in range(-vertical_range, vertical_range + 1):
 				var check_pos = center + Vector3i(x, y, z)
 				var voxel_id = voxel_tool.get_voxel(check_pos)
-				
+
 				# If it's water (full or top), replace with air
 				if voxel_id == water_full or voxel_id == water_top:
-					voxel_tool.set_voxel(check_pos, 0)  # 0 = air
-					water_removed += 1
+					# Use safe_set_voxel for bedrock protection
+					if InteractionCommon.safe_set_voxel(voxel_tool, check_pos, 0):  # 0 = air
+						water_removed += 1
 	
 	if water_removed > 0:
 		add_output("[color=lime]✓ Removed %d water blocks[/color]" % water_removed)

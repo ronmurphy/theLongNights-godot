@@ -3,6 +3,28 @@ const Blocks = preload("../blocks/blocks.gd")
 const Util = preload("res://common/util.gd")
 const WaterUpdater = preload("./../water.gd")
 
+# Bedrock voxel ID (from generator.gd)
+const BEDROCK_VOXEL_ID = 28
+
+
+static func safe_set_voxel(voxel_tool: VoxelTool, pos: Vector3, voxel_id: int) -> bool:
+	"""
+	Safely set a voxel with bedrock protection.
+	Returns true if voxel was set, false if blocked (bedrock protection).
+
+	Use this instead of voxel_tool.set_voxel() for all destructive operations
+	(mining, explosions, cleararea, etc.)
+	"""
+	# Check if current voxel at this position is bedrock
+	var current_voxel = voxel_tool.get_voxel(pos)
+	if current_voxel == BEDROCK_VOXEL_ID:
+		# Bedrock is indestructible - refuse to change it
+		return false
+
+	# Safe to modify - not bedrock
+	voxel_tool.set_voxel(pos, voxel_id)
+	return true
+
 
 static func place_single_block(terrain_tool: VoxelTool, pos: Vector3, look_dir: Vector3,
 	block_id: int, block_types: Blocks, water_updater: WaterUpdater):
@@ -29,8 +51,8 @@ static func place_single_block(terrain_tool: VoxelTool, pos: Vector3, look_dir: 
 			assert(false)
 	
 	if block.base_info.rotation_type != Blocks.ROTATION_TYPE_CUSTOM_BEHAVIOR:
-		terrain_tool.value = voxel_id
-		terrain_tool.do_point(pos)
-	
+		# Use safe_set_voxel for bedrock protection
+		safe_set_voxel(terrain_tool, pos, voxel_id)
+
 	water_updater.schedule(pos)
 

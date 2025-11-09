@@ -216,7 +216,14 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _lod: int)
 				# For each vertical position, check if we're above or below heightmap
 				for y in block_size:
 					var world_y = oy + y
-					
+
+					# UNIVERSAL BEDROCK BARRIER at Y=-1 (prevents easy rocket access to Undervoid)
+					# This must be checked FIRST, before any heightmap conditions
+					# Entrance holes will pierce through this
+					if world_y == -1:
+						buffer.set_voxel(BEDROCK, x, y, z, _CHANNEL)
+						continue  # Skip all other checks for this block
+
 					# Below heightmap minimum, use deep underground generation with caves
 					if world_y < _heightmap_min_y:
 						# 2-block thick bedrock layer at the bottom

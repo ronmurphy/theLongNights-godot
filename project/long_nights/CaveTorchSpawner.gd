@@ -35,12 +35,14 @@ func _try_place_torches():
 	if not player:
 		return
 
-	# Only place torches if player is underground (in caves)
+	# Only place torches in SHALLOW caves (Y=-10 to Y=-25)
+	# Below Y=-25: Undead Crypts layer has cyan glowing mushrooms instead
 	if player.global_position.y >= -10.0:
-		return
+		return  # Too close to surface
 
-	# Don't place torches in Undervoid (Y <= -150) - structures have purple beacons instead
-	if player.global_position.y <= -150.0:
+	# Don't place torches below Y=-25 (Undead Crypts layer and deeper)
+	# Those areas use glowing mushrooms and purple beacons for lighting
+	if player.global_position.y <= -25.0:
 		return
 
 	# Get terrain reference

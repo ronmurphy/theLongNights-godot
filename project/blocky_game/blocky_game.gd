@@ -190,10 +190,16 @@ func _ready():
 		undervoid_detector.name = "UndervoidEntryDetector"
 		add_child(undervoid_detector)
 
+		var UndervoidEntranceGenerator = preload("res://blocky_game/ruins/UndervoidEntranceGenerator.gd")
+		var entrance_generator = UndervoidEntranceGenerator.new()
+		entrance_generator.name = "UndervoidEntranceGenerator"
+		add_child(entrance_generator)
+
 		# Initialize after in tree
 		await get_tree().process_frame
 		undervoid_spawner.initialize(undervoid_structures, _blocks, _terrain, self, undervoid_registry)
 		undervoid_detector.initialize(undervoid_registry, undervoid_spawner)
+		entrance_generator.initialize(undervoid_registry, _terrain, self, _blocks)
 		print("🟣 The Long Nights: Undervoid system initialized (Registry, Structures, Entry Detection)")
 
 		# Add game over screen

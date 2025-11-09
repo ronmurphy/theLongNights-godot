@@ -31,10 +31,6 @@ func _process(delta: float):
 
 func _check_player_depth():
 	"""Check if player has entered the Undervoid for the first time"""
-	# Skip if structures already generated
-	if _registry and _registry.are_structures_generated():
-		return
-
 	# Find player
 	var player = get_tree().get_first_node_in_group("player")
 	if not player:
@@ -45,7 +41,13 @@ func _check_player_depth():
 		# First time entry!
 		if _registry and not _registry.has_entered_undervoid():
 			_registry.set_entered_undervoid(true)
-			_trigger_structure_generation(player.global_position)
+			print("🟣 ========================================")
+			print("🟣 FIRST UNDERVOID ENTRY DETECTED!")
+			print("🟣 Structures will spawn as you explore...")
+			print("🟣 Follow purple beacons to find them!")
+			print("🟣 ========================================")
+			# NOTE: Structures now spawn via chunk-based system in UndervoidSpawner
+			# No manual spawning needed anymore!
 
 
 func _trigger_structure_generation(player_position: Vector3):
@@ -62,16 +64,23 @@ func _trigger_structure_generation(player_position: Vector3):
 	# Mark as generated to prevent duplicate spawning
 	_registry.set_structures_generated(true)
 
-	# Generate 3-5 structures at various depths
-	var num_structures = randi_range(3, 5)
+	# Generate 8-12 structures at various depths
+	var num_structures = randi_range(8, 12)
 
-	# Define depth zones
+	# Define depth zones (more variety)
 	var depth_zones = [
-		-175,  # Shallow Undervoid
-		-225,  # Mid Undead Crypts
-		-275,  # Deep Undead Crypts
-		-325,  # Mechanical Warrens
-		-475   # Deep near rust hills
+		-160,  # Shallow Undervoid
+		-180,  #
+		-210,  # Mid Undead Crypts
+		-240,  #
+		-270,  # Deep Undead Crypts
+		-300,  # Mechanical Warrens start
+		-330,  #
+		-360,  # Deep Mechanical
+		-400,  # Very deep
+		-450,  # Approaching rust hills
+		-480,  # On rust hills
+		-495   # Deep on rust hills (near bedrock)
 	]
 
 	# Shuffle zones for variety

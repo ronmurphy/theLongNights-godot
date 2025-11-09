@@ -13,9 +13,17 @@ const AbyssGolem = preload("res://blocky_game/entities/abyss_golem.gd")
 @onready var _game = null  # Game node for placing beacons and entities
 @onready var _registry = null  # Will be set to UndervoidRegistry
 
+# Chunk-based spawning system
+const CHUNK_SIZE = 16  # Godot voxel default chunk size
+const STRUCTURE_SPAWN_CHANCE = 0.08  # 8% chance per chunk (roughly 1 in 12-13 chunks)
+var _processed_chunks: Dictionary = {}  # Track which chunks we've checked: Vector2i -> bool
+var _world_seed: int = 131183  # Default seed (matches world gen)
+var _check_timer: float = 0.0
+const CHECK_INTERVAL = 3.0  # Check for new chunks every 3 seconds
+
 
 func _ready():
-	print("🟣 UndervoidSpawner ready")
+	print("🟣 UndervoidSpawner ready - chunk-based spawning enabled")
 
 
 func initialize(undervoid_structures: UndervoidStructures, blocks_node: Node, terrain_node: Node, game_node: Node, registry):
@@ -26,6 +34,93 @@ func initialize(undervoid_structures: UndervoidStructures, blocks_node: Node, te
 	_game = game_node
 	_registry = registry
 	print("🟣 UndervoidSpawner initialized")
+
+
+func _process(delta: float):
+	"""Periodically check for new chunks to spawn structures in"""
+	_check_timer += delta
+
+	if _check_timer >= CHECK_INTERVAL:
+		_check_timer = 0.0
+		_check_nearby_chunks_for_structures()
+
+
+func _check_nearby_chunks_for_structures():
+	"""Check chunks around player and spawn structures if needed"""
+	# Only spawn if player is in Undervoid
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		return
+
+	var player_y = player.global_position.y
+	if player_y > -150:
+		return  # Not in Undervoid yet
+
+	# Get player's chunk coordinates
+	var player_pos = player.global_position
+	var player_chunk_x = int(floor(player_pos.x / CHUNK_SIZE))
+	var player_chunk_z = int(floor(player_pos.z / CHUNK_SIZE))
+
+	# Check chunks in a radius around player (e.g., 8 chunks = 128 blocks)
+	const CHUNK_CHECK_RADIUS = 8
+
+	for cx in range(player_chunk_x - CHUNK_CHECK_RADIUS, player_chunk_x + CHUNK_CHECK_RADIUS + 1):
+		for cz in range(player_chunk_z - CHUNK_CHECK_RADIUS, player_chunk_z + CHUNK_CHECK_RADIUS + 1):
+			var chunk_key = Vector2i(cx, cz)
+
+			# Skip if we've already processed this chunk
+			if _processed_chunks.has(chunk_key):
+				continue
+
+			# Mark as processed (even if we don't spawn anything)
+			_processed_chunks[chunk_key] = true
+
+			# Check if this chunk should have a structure (deterministic based on seed + chunk coords)
+			if _should_chunk_have_structure(cx, cz):
+				# Spawn structure in this chunk
+				_spawn_structure_in_chunk(cx, cz)
+
+
+func _should_chunk_have_structure(chunk_x: int, chunk_z: int) -> bool:
+	"""Deterministically check if a chunk should have an Undervoid structure"""
+	# Create a unique seed for this chunk based on world seed + chunk coords
+	var chunk_seed = _world_seed + (chunk_x * 374761393) + (chunk_z * 668265263)
+
+	# Use hash to get pseudo-random value between 0.0 and 1.0
+	var rng = RandomNumberGenerator.new()
+	rng.seed = chunk_seed
+	var random_value = rng.randf()
+
+	# Check if this chunk should have a structure (8% chance)
+	return random_value < STRUCTURE_SPAWN_CHANCE
+
+
+func _spawn_structure_in_chunk(chunk_x: int, chunk_z: int):
+	"""Spawn an Undervoid structure somewhere in this chunk"""
+	# Create RNG for this chunk
+	var chunk_seed = _world_seed + (chunk_x * 374761393) + (chunk_z * 668265263)
+	var rng = RandomNumberGenerator.new()
+	rng.seed = chunk_seed
+
+	# Pick a random position within the chunk
+	var local_x = rng.randi_range(0, CHUNK_SIZE - 1)
+	var local_z = rng.randi_range(0, CHUNK_SIZE - 1)
+
+	# Convert to world coordinates
+	var world_x = (chunk_x * CHUNK_SIZE) + local_x
+	var world_z = (chunk_z * CHUNK_SIZE) + local_z
+
+	# Pick a random depth within Undervoid range
+	# Different depth zones for variety:
+	var depth_zones = [-160, -180, -210, -240, -270, -300, -330, -360, -400, -450, -480, -495]
+	var depth = depth_zones[rng.randi_range(0, depth_zones.size() - 1)]
+
+	var spawn_pos = Vector3(world_x, depth, world_z)
+
+	print("🟣 Chunk-spawning structure at chunk (%d, %d) -> world pos %s" % [chunk_x, chunk_z, spawn_pos])
+
+	# Spawn the structure (async)
+	spawn_structure_at(spawn_pos, depth)
 
 
 func spawn_structure_at(world_position: Vector3, depth: int = -200) -> bool:
