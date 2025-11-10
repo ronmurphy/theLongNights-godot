@@ -525,9 +525,9 @@ mesh = ExtResource("36_8x7un")
 
 [sub_resource type="VoxelBlockyModelMesh" id="VoxelBlockyModelMesh_5vvq7"]
 resource_name = "void_fog"
-collision_aabbs = Array[AABB]([AABB(0, 0, 0, 1, 1, 1)])
+transparency_index = 1
 material_override_0 = ExtResource("2_r7axq")
-collision_enabled_0 = true
+collision_enabled_0 = false
 mesh = ExtResource("37_p8hie")
 
 [sub_resource type="VoxelBlockyModelMesh" id="VoxelBlockyModelMesh_3dx1y"]

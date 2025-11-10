@@ -8,6 +8,9 @@ var _light : OmniLight3D = null
 
 
 func _ready():
+	# Add to group so light orbs can find and destroy us
+	add_to_group("undervoid_beacons")
+	
 	# Create outer crystal shell (dark purple)
 	var crystal_outer = MeshInstance3D.new()
 	var outer_mesh = SphereMesh.new()

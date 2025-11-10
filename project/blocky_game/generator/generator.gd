@@ -247,8 +247,8 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _lod: int)
 
 							if world_y <= hill_top_y:
 								# Check if this is a valley (low hill_height = 0-2)
-								# Place void_fog as 1-block layer at bottom of valleys
-								if hill_height <= 2 and world_y == BEDROCK_LEVEL + 2:
+								# Fill valleys with void_fog from bedrock up to Y -506
+								if hill_height <= 2 and world_y >= BEDROCK_LEVEL + 2 and world_y <= -506:
 									buffer.set_voxel(VOID_FOG, x, y, z, _CHANNEL)
 								else:
 									# Rust hills - mix of rust blocks and stone
@@ -469,16 +469,21 @@ func _fill_deep_underground(buffer: VoxelBuffer, chunk_y: int, block_size: int, 
 					var hill_top_y = BEDROCK_LEVEL + 2 + hill_height  # +2 for bedrock layers
 
 					if world_y <= hill_top_y:
-						# Rust hills - mix of rust blocks and stone
-						var rust_rng := RandomNumberGenerator.new()
-						rust_rng.seed = global_x ^ (global_z * 31) ^ (world_y * 13)
-
-						if rust_rng.randf() < 0.6:
-							buffer.set_voxel(RUST_BLOCK, x, y, z, _CHANNEL)
-						elif rust_rng.randf() < 0.3:
-							buffer.set_voxel(RUST_CUBE, x, y, z, _CHANNEL)
+						# Check if this is a valley (low hill_height = 0-2)
+						# Fill valleys with void_fog from bedrock up to Y -506
+						if hill_height <= 2 and world_y >= BEDROCK_LEVEL + 2 and world_y <= -506:
+							buffer.set_voxel(VOID_FOG, x, y, z, _CHANNEL)
 						else:
-							buffer.set_voxel(STONE, x, y, z, _CHANNEL)
+							# Rust hills - mix of rust blocks and stone
+							var rust_rng := RandomNumberGenerator.new()
+							rust_rng.seed = global_x ^ (global_z * 31) ^ (world_y * 13)
+
+							if rust_rng.randf() < 0.6:
+								buffer.set_voxel(RUST_BLOCK, x, y, z, _CHANNEL)
+							elif rust_rng.randf() < 0.3:
+								buffer.set_voxel(RUST_CUBE, x, y, z, _CHANNEL)
+							else:
+								buffer.set_voxel(STONE, x, y, z, _CHANNEL)
 					else:
 						# Above rust hills - air (will be filled with caves/stone below)
 						buffer.set_voxel(AIR, x, y, z, _CHANNEL)
@@ -648,7 +653,7 @@ func _get_depth_biome_block(y: int, x: int, z: int, rng: RandomNumberGenerator, 
 			elif rng.randf() < 0.08:
 				return IRON_ORE  # Exposed metal ore
 			elif rng.randf() < 0.05:
-				return BOX  # Metal crates
+				return VOID_STONE  # Void stone instead of metal crates (no BOX in undervoid)
 			else:
 				return STONE
 		else:
@@ -662,8 +667,8 @@ func _get_depth_biome_block(y: int, x: int, z: int, rng: RandomNumberGenerator, 
 
 	else:
 		# FLOODED CAVERNS / ABYSS (Y=-400 to -512)
-		# Water-filled dangerous depths
-		# Use special stone variants and water
+		# Void stone depths (no water in undervoid)
+		# Use special stone variants
 		if is_wall:
 			if rng.randf() < 0.2:
 				return SAND_STONE  # Weathered stone
@@ -672,9 +677,9 @@ func _get_depth_biome_block(y: int, x: int, z: int, rng: RandomNumberGenerator, 
 			else:
 				return STONE
 		else:
-			# Floor often has water
+			# Floor uses void stone instead of water
 			if rng.randf() < 0.4:
-				return WATER_FULL
+				return VOID_STONE  # Void stone instead of water (no WATER_FULL in undervoid)
 			else:
 				return STONE
 

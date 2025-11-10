@@ -4,6 +4,14 @@ extends Node3D
 # Provides large radius illumination for functional area lighting
 
 var _light : OmniLight3D = null
+var _custom_range : float = 30.0  # Default range, can be overridden
+
+
+func set_light_range(range: float):
+	"""Set custom light range (for converted void beacons = half range)"""
+	_custom_range = range
+	if _light:
+		_light.omni_range = range
 
 
 func _ready():
@@ -53,7 +61,7 @@ func _ready():
 	_light = OmniLight3D.new()
 	_light.light_color = Color(0.7, 0.9, 1.0)  # Cool blue-white light
 	_light.light_energy = 4.0  # Brighter than torches
-	_light.omni_range = 30.0  # Much larger radius than torches (8-12)
+	_light.omni_range = _custom_range  # Use custom range (default 30.0, or 15.0 for converted beacons)
 	_light.omni_attenuation = 0.5  # Gentler falloff for wider coverage
 	_light.shadow_enabled = false  # NO SHADOWS = massive performance boost!
 	add_child(_light)
@@ -113,12 +121,6 @@ func _create_sparkle_effect():
 			sin(new_angle * 2) * 0.2,
 			sin(new_angle) * radius
 		), 4.0 + i * 0.5)  # Stagger timing
-
-
-func set_light_range(range_value: float):
-	"""Allow customization of light range if needed"""
-	if _light:
-		_light.omni_range = range_value
 
 
 func is_retrievable() -> bool:

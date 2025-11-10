@@ -277,13 +277,19 @@ func spawn_structure_at(world_position: Vector3, depth: int = -200) -> bool:
 		voxel_tool.set_voxel(world_block_pos, voxel_id)
 		blocks_placed += 1
 
-	# Place the purple beacon on top
+	# Place void_beacon block at beacon position (the physical block the light sits on)
+	const VOID_BEACON = 57  # From generator.gd
+	var beacon_block_pos = Vector3i(world_position + template.beacon_pos - Vector3(0, 0.5, 0))
+	voxel_tool.set_voxel(beacon_block_pos, VOID_BEACON)
+	print("🟣 Placed void_beacon block at ", beacon_block_pos)
+	
+	# Place the purple beacon light on top of the block
 	if _game != null:
 		var beacon = Node3D.new()
 		beacon.set_script(UndervoidBeacon)
 		_game.add_child(beacon)
 		beacon.global_position = world_position + template.beacon_pos
-		print("🟣 Placed purple beacon at ", beacon.global_position)
+		print("🟣 Placed purple beacon light at ", beacon.global_position)
 
 	# Spawn Abyss Golem guardian(s) near the structure
 	var guardian_count = _spawn_structure_guardians(world_position, template)
