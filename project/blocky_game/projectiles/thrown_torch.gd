@@ -91,7 +91,7 @@ func _ready():
 		_light.light_energy = 2.5
 		_light.omni_range = GraphicsSettings.get_torch_light_range()
 		_light.omni_attenuation = 0.6
-		_light.shadow_enabled = true
+		_light.shadow_enabled = GraphicsSettings.should_enable_torch_shadows()  # Only on high quality
 		add_child(_light)
 
 	# Animate flame flickering (both flames)
