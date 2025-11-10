@@ -513,9 +513,9 @@ func start_photo_mode():
 	
 	print("📷 Photo mode enabled!")
 	print("  Arrow Keys: Rotate camera")
-	print("  Q/E: Zoom in/out")
-	print("  F5: Take screenshot")
-	print("  Esc or P: Exit photo mode")
+	print("  Q/R: Zoom in/out")
+	print("  C: Take screenshot")
+	print("  P: Exit photo mode")
 
 
 func stop_photo_mode():
@@ -559,16 +559,16 @@ func _update_photo_mode(delta: float):
 		_photo_camera_pitch += PHOTO_CAMERA_ROTATE_SPEED * delta
 		_photo_camera_pitch = clamp(_photo_camera_pitch, -PI / 2 + 0.1, PI / 2 - 0.1)
 	
-	# Zoom with Q/E
+	# Zoom with Q/R
 	if Input.is_key_pressed(KEY_Q):
 		_photo_camera_distance -= PHOTO_CAMERA_ZOOM_SPEED * delta
 		_photo_camera_distance = max(1.0, _photo_camera_distance)
-	if Input.is_key_pressed(KEY_E):
+	if Input.is_key_pressed(KEY_R):
 		_photo_camera_distance += PHOTO_CAMERA_ZOOM_SPEED * delta
 		_photo_camera_distance = min(10.0, _photo_camera_distance)
 	
-	# Take screenshot with F5
-	if Input.is_key_pressed(KEY_F5):
+	# Take screenshot with C key
+	if Input.is_key_pressed(KEY_C):
 		if not _screenshot_taken:  # Prevent multiple screenshots from one press
 			_take_screenshot()
 			_screenshot_taken = true
@@ -576,7 +576,7 @@ func _update_photo_mode(delta: float):
 		_screenshot_taken = false
 	
 	# Exit photo mode with P or Escape
-	if Input.is_key_pressed(KEY_P) or Input.is_key_pressed(KEY_ESCAPE):
+	if Input.is_key_pressed(KEY_P):
 		stop_photo_mode()
 		return
 	
@@ -613,16 +613,16 @@ func _take_screenshot():
 	
 	# Generate filename with timestamp
 	var datetime = Time.get_datetime_dict_from_system()
-	var filename = "screenshot_%04d%02d%02d_%02d%02d%02d.png" % [
+	var filename = "camera_%04d%02d%02d_%02d%02d%02d.png" % [
 		datetime.year, datetime.month, datetime.day,
 		datetime.hour, datetime.minute, datetime.second
 	]
 	
 	# Save to user directory
-	var path = "user://screenshots/" + filename
+	var path = "user://camera/" + filename
 	
 	# Create screenshots directory if it doesn't exist
-	DirAccess.make_dir_absolute("user://screenshots")
+	DirAccess.make_dir_absolute("user://camera")
 	
 	# Save image
 	img.save_png(path)
