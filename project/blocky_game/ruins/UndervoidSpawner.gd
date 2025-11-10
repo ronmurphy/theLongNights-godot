@@ -27,6 +27,8 @@ var _processed_city_chunks: Dictionary = {}  # Track city chunks separately
 var _world_seed: int = 131183  # Default seed (matches world gen)
 var _check_timer: float = 0.0
 const CHECK_INTERVAL = 3.0  # Check for new chunks every 3 seconds
+const FAST_CHECK_INTERVAL = 0.5  # Check every 0.5s when falling fast
+var _last_player_y: float = 0.0  # Track player Y for velocity detection
 
 
 func _ready():
@@ -53,7 +55,21 @@ func _process(delta: float):
 	"""Periodically check for new chunks to spawn structures in"""
 	_check_timer += delta
 
-	if _check_timer >= CHECK_INTERVAL:
+	# Detect if player is falling fast (more than 20 blocks/second downward)
+	var player = get_tree().get_first_node_in_group("player")
+	if player:
+		var player_y = player.global_position.y
+		var y_velocity = (_last_player_y - player_y) / delta if delta > 0 else 0
+		_last_player_y = player_y
+
+		# If falling fast in Undervoid, check much more frequently
+		var is_falling_fast = y_velocity > 20.0 and player_y < -150
+		var check_interval = FAST_CHECK_INTERVAL if is_falling_fast else CHECK_INTERVAL
+
+		if _check_timer >= check_interval:
+			_check_timer = 0.0
+			_check_nearby_chunks_for_structures()
+	elif _check_timer >= CHECK_INTERVAL:
 		_check_timer = 0.0
 		_check_nearby_chunks_for_structures()
 
@@ -74,8 +90,11 @@ func _check_nearby_chunks_for_structures():
 	var player_chunk_x = int(floor(player_pos.x / CHUNK_SIZE))
 	var player_chunk_z = int(floor(player_pos.z / CHUNK_SIZE))
 
-	# Check chunks in a radius around player (e.g., 8 chunks = 128 blocks)
-	const CHUNK_CHECK_RADIUS = 8
+	# Check chunks in a radius around player
+	# Increase radius when deep in Undervoid (falling fast zone)
+	var CHUNK_CHECK_RADIUS = 8  # Default: 128 blocks
+	if player_y < -300:
+		CHUNK_CHECK_RADIUS = 12  # Deep Undervoid: 192 blocks (more lookahead)
 
 	for cx in range(player_chunk_x - CHUNK_CHECK_RADIUS, player_chunk_x + CHUNK_CHECK_RADIUS + 1):
 		for cz in range(player_chunk_z - CHUNK_CHECK_RADIUS, player_chunk_z + CHUNK_CHECK_RADIUS + 1):

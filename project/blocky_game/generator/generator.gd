@@ -217,10 +217,11 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _lod: int)
 				for y in block_size:
 					var world_y = oy + y
 
-					# UNIVERSAL BEDROCK BARRIER at Y=-1 (prevents easy rocket access to Undervoid)
+					# UNIVERSAL BEDROCK BARRIER at Y=-10 (prevents easy rocket access to Undervoid)
 					# This must be checked FIRST, before any heightmap conditions
 					# Entrance holes will pierce through this
-					if world_y == -1:
+					# Moved from Y=-1 to Y=-10 to allow surface water (Y=-9 to Y=0+) to exist
+					if world_y == -10:
 						buffer.set_voxel(BEDROCK, x, y, z, _CHANNEL)
 						continue  # Skip all other checks for this block
 

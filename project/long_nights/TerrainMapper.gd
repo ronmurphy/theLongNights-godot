@@ -890,15 +890,8 @@ func _save_block_files(block_name: String):
 		else:
 			print("[TerrainMapper] ⚠️ Auto-edit failed - check instructions.txt for manual steps")
 	
-	# Show completion dialog
+	# Show completion dialog (will handle reset/close based on user choice)
 	_show_completion_dialog(block_name, dir_path)
-	
-	# Reset mapper for next block
-	_reset_selection()
-	multi_selection_step = 0
-	_update_mode_status()
-	if grid_canvas:
-		grid_canvas.queue_redraw()
 
 
 func _generate_obj_single(block_name: String, cell: Vector2i) -> String:
@@ -1046,23 +1039,59 @@ func _generate_instructions(block_name: String) -> String:
 
 
 func _show_completion_dialog(block_name: String, dir_path: String):
-	"""Show completion dialog with option to open folder"""
-	var dialog = AcceptDialog.new()
+	"""Show completion dialog with options: open folder, add another block, or close"""
+	var dialog = ConfirmationDialog.new()
 	dialog.title = "Block Saved Successfully!"
-	dialog.dialog_text = "Block '%s' has been saved!\n\nFiles are in:\n%s\n\nOpen folder?" % [block_name, ProjectSettings.globalize_path(dir_path)]
-	dialog.size = Vector2i(500, 200)
+	dialog.dialog_text = "Block '%s' has been saved!\n\nFiles are in:\n%s\n\nAdd another block?" % [block_name, ProjectSettings.globalize_path(dir_path)]
+	dialog.ok_button_text = "Yes - Add Another"
+	dialog.cancel_button_text = "No - Close Mapper"
+	dialog.size = Vector2i(500, 220)
 	add_child(dialog)
-	
+
+	# Add custom "Open Folder" button
+	var open_folder_btn = dialog.add_button("Open Folder", false, "open_folder")
+
+	# Handle custom action
+	dialog.custom_action.connect(func(action):
+		if action == "open_folder":
+			OS.shell_open(ProjectSettings.globalize_path(dir_path))
+			# Don't close dialog yet - let them still choose yes/no
+	)
+
+	# "Yes - Add Another" clicked
 	dialog.confirmed.connect(func():
-		OS.shell_open(ProjectSettings.globalize_path(dir_path))
+		print("[TerrainMapper] User chose to add another block")
 		dialog.queue_free()
+		# Reset for next block but keep mapper open
+		_reset_for_next_block()
 	)
-	
+
+	# "No - Close Mapper" clicked
 	dialog.canceled.connect(func():
+		print("[TerrainMapper] User chose to close mapper")
 		dialog.queue_free()
+		_close_mapper()
 	)
-	
+
 	dialog.popup_centered()
+
+
+func _reset_for_next_block():
+	"""Reset mapper state for adding another block"""
+	# Reset selection
+	_reset_selection()
+	multi_selection_step = 0
+	_update_mode_status()
+
+	# Clear sprite preview
+	if sprite_preview:
+		sprite_preview.texture = null
+
+	# Redraw grid
+	if grid_canvas:
+		grid_canvas.queue_redraw()
+
+	print("[TerrainMapper] Ready for next block - selection cleared")
 
 
 func _auto_edit_project_files(block_name: String) -> bool:
@@ -1086,14 +1115,13 @@ func _auto_edit_project_files(block_name: String) -> bool:
 
 
 func _auto_edit_generator(block_name: String) -> bool:
-	"""Add block constant to generator.gd by reading voxel_library.tres"""
+	"""Add block constant to generator.gd by finding max existing ID + 1"""
 	var generator_path = "res://blocky_game/generator/generator.gd"
-	var voxel_library_path = "res://blocky_game/blocks/voxel_library.tres"
-	
-	# First, count entries in voxel_library.tres to get the correct next ID
-	var next_id = _get_next_block_id_from_library(voxel_library_path)
+
+	# Read generator.gd to find the maximum existing const ID
+	var next_id = _get_next_block_id_from_generator(generator_path)
 	if next_id < 0:
-		print("[TerrainMapper] ERROR: Could not read voxel_library.tres")
+		print("[TerrainMapper] ERROR: Could not read generator.gd to find max ID")
 		return false
 	
 	# Read the generator file
@@ -1107,14 +1135,17 @@ func _auto_edit_generator(block_name: String) -> bool:
 	
 	var const_name = block_name.to_upper()
 	var new_const_line = "const %s = %d" % [const_name, next_id]
-	
-	print("[TerrainMapper] Adding: %s (from voxel_library count)" % new_const_line)
-	
-	# Find where to insert (after the last const or after TEST if it exists)
-	var insert_pattern = "const TEST = \\d+|const PUSH_BLOCK = \\d+"
+
+	print("[TerrainMapper] Adding: %s (from generator.gd max ID + 1)" % new_const_line)
+
+	# Find where to insert - after the LAST const declaration
+	var insert_pattern = "const\\s+[A-Z_]+\\s*=\\s*\\d+"
 	var regex = RegEx.new()
 	regex.compile(insert_pattern)
-	var insert_match = regex.search(content)
+	var all_matches = regex.search_all(content)
+
+	# Get the last match (insert after the last const)
+	var insert_match = all_matches[all_matches.size() - 1] if all_matches.size() > 0 else null
 	
 	if insert_match:
 		var insert_pos = insert_match.get_end()
@@ -1139,26 +1170,33 @@ func _auto_edit_generator(block_name: String) -> bool:
 	return false
 
 
-## Get the next available block ID by counting entries in voxel_library.tres
-func _get_next_block_id_from_library(library_path: String) -> int:
-	"""Count how many blocks are in voxel_library.tres to get next ID"""
-	var file = FileAccess.open(library_path, FileAccess.READ)
+## Get the next available block ID by finding max const in generator.gd
+func _get_next_block_id_from_generator(generator_path: String) -> int:
+	"""Find the maximum const ID in generator.gd and return max + 1"""
+	var file = FileAccess.open(generator_path, FileAccess.READ)
 	if not file:
-		print("[TerrainMapper] ERROR: Could not open voxel_library.tres")
+		print("[TerrainMapper] ERROR: Could not open generator.gd")
 		return -1
-	
+
 	var content = file.get_as_text()
 	file.close()
-	
-	# Count occurrences of "resource_name =" to get block count
+
+	# Find all lines like "const BLOCK_NAME = 42"
 	var regex = RegEx.new()
-	regex.compile("resource_name\\s*=")
+	regex.compile("const\\s+[A-Z_]+\\s*=\\s*(\\d+)")
 	var matches = regex.search_all(content)
-	
-	var block_count = matches.size()
-	print("[TerrainMapper] Found %d blocks in voxel_library.tres, next ID will be %d" % [block_count, block_count])
-	
-	return block_count
+
+	var max_id = -1
+	for match in matches:
+		var id_str = match.get_string(1)  # Get the captured number
+		var id = int(id_str)
+		if id > max_id:
+			max_id = id
+
+	var next_id = max_id + 1
+	print("[TerrainMapper] Found max block ID %d in generator.gd, next ID will be %d" % [max_id, next_id])
+
+	return next_id
 
 
 func _auto_edit_blocks(block_name: String) -> bool:
@@ -1184,16 +1222,19 @@ func _auto_edit_blocks(block_name: String) -> bool:
 	create_block_code += "\t})\n"
 	
 	print("[TerrainMapper] Adding _create_block() for: %s" % block_name)
-	
-	# Find where to insert - after the last _create_block (birch_log) and before the first func
-	# Look for the pattern: "})" followed by blank lines then "func get_block"
+
+	# Find where to insert - after the LAST _create_block call
+	# Look for all occurrences of "})" and insert after the last one
 	var regex = RegEx.new()
-	regex.compile("\\}\\)\\n+func get_block")
-	var insert_match = regex.search(content)
-	
-	if insert_match:
-		var insert_pos = insert_match.get_start() + 2  # After the "})"
-		# Insert before the blank line and func
+	regex.compile("\\t\\}\\)")
+	var all_matches = regex.search_all(content)
+
+	if all_matches.size() > 0:
+		# Get the last "})" - this is the end of the last _create_block call
+		var last_match = all_matches[all_matches.size() - 1]
+		var insert_pos = last_match.get_end()
+
+		# Insert new _create_block right after the last "})"
 		var new_content = content.substr(0, insert_pos) + "\n" + create_block_code + content.substr(insert_pos)
 		
 		# Write back
@@ -1206,6 +1247,6 @@ func _auto_edit_blocks(block_name: String) -> bool:
 		else:
 			print("[TerrainMapper] ERROR: Could not write to blocks.gd")
 			return false
-	
-	print("[TerrainMapper] ERROR: Could not find insertion point in blocks.gd")
-	return false
+	else:
+		print("[TerrainMapper] ERROR: Could not find '})'  pattern in blocks.gd")
+		return false

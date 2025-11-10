@@ -3,9 +3,13 @@ extends Node3D
 const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
 
 @export var speed := 5.0
-@export var gravity := 9.8
+@export var gravity := 9.8  # Base gravity at surface
 @export var jump_force := 5.0
 @export var head : NodePath
+
+# Depth-based gravity system (story: they broke gravity by mining too deep)
+const GRAVITY_REDUCTION_PER_100_BLOCKS := 0.1  # Reduce gravity by this much every 100 blocks down
+const MIN_GRAVITY := 5.0  # Minimum gravity (don't go below this)
 
 @export var terrain : NodePath
 
@@ -177,7 +181,8 @@ func _physics_process(delta: float):
 
 		# Apply gravity (unless climbing or gravity disabled)
 		if not _climbing and not _gravity_disabled:
-			_velocity.y -= gravity * delta
+			var depth_adjusted_gravity = _get_depth_adjusted_gravity()
+			_velocity.y -= depth_adjusted_gravity * delta
 
 		if _grounded and Input.is_key_pressed(KEY_SPACE):
 			# ⚡ SKYSHARD POWER: Moon Jump (triple jump height when equipped)
@@ -337,6 +342,28 @@ func _get_equipped_weapon():
 		return inventory.get_player_equipped_weapon()
 
 	return null
+
+
+func _get_depth_adjusted_gravity() -> float:
+	"""
+	Calculate gravity based on player depth.
+
+	STORY: The Undervoid civilizations dug so deep they damaged gravity itself.
+	The deeper you go, the weaker gravity becomes (opposite of normal physics).
+
+	- Surface (Y=0): Normal gravity (9.8)
+	- Every 100 blocks down: Reduce by 0.1
+	- Y=-500: Gravity = 9.3 (noticeably lighter)
+
+	This explains why Sky Ruins existed: they were gravity generators keeping the planet stable.
+	Now they're failing, and the world is slowly breaking apart.
+	"""
+	var depth = abs(min(global_position.y, 0.0))  # Only count negative Y (underground)
+	var depth_in_hundreds = depth / 100.0
+	var gravity_reduction = depth_in_hundreds * GRAVITY_REDUCTION_PER_100_BLOCKS
+
+	var adjusted_gravity = gravity - gravity_reduction
+	return max(adjusted_gravity, MIN_GRAVITY)  # Don't go below minimum
 
 
 ## d20-style roll to hit

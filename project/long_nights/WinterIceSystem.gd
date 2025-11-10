@@ -145,21 +145,26 @@ func _replace_water_with_ice() -> void:
 	# Check all blocks for water
 	for x in range(min_pos.x, max_pos.x):
 		for y in range(min_pos.y, max_pos.y):
+			# Skip underground/caves (Y < -9) - never freeze water there
+			# Bedrock barrier is at Y=-10, so water below Y=-9 is underground
+			if y < -9:
+				continue
+
 			for z in range(min_pos.z, max_pos.z):
 				var pos = Vector3i(x, y, z)
 				var voxel_id = voxel_tool.get_voxel(pos)
 				blocks_scanned += 1
-				
+
 				# Track what block types we're seeing
 				if voxel_id != 0:  # Not air
 					if not unique_block_ids.has(voxel_id):
 						unique_block_ids[voxel_id] = 0
 					unique_block_ids[voxel_id] += 1
-				
+
 				if voxel_id == WATER_TOP or voxel_id == WATER_FULL:
 					# Replace with ice
 					voxel_tool.set_voxel(pos, ICE)
-					
+
 					# Remember this position for thawing
 					_frozen_water_positions.append({
 						"pos": pos,
@@ -199,21 +204,26 @@ func _replace_ice_with_water() -> void:
 	# Check all blocks for ice
 	for x in range(min_pos.x, max_pos.x):
 		for y in range(min_pos.y, max_pos.y):
+			# Skip underground/caves (Y < -9) - never thaw ice there
+			# Bedrock barrier is at Y=-10, so ice below Y=-9 is underground
+			if y < -9:
+				continue
+
 			for z in range(min_pos.z, max_pos.z):
 				var pos = Vector3i(x, y, z)
 				var voxel_id = voxel_tool.get_voxel(pos)
-				
+
 				if voxel_id == ICE:
 					# Check if there's air above (surface water) or not (full water)
 					var above_pos = Vector3i(x, y + 1, z)
 					var above_id = voxel_tool.get_voxel(above_pos)
-					
+
 					# If air above, make water_top, otherwise water_full
 					if above_id == 0:  # Air
 						voxel_tool.set_voxel(pos, WATER_TOP)
 					else:
 						voxel_tool.set_voxel(pos, WATER_FULL)
-					
+
 					ice_blocks_found += 1
 	
 	print("[WinterIceSystem] Thawed ", ice_blocks_found, " ice blocks back to water")

@@ -1,12 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(copy \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\assets\\art\\tools\\crystal_light_orb.png\" \"C:\\Users\\Brad\\Documents\\Godot\\theLongNights\\project\\blocky_game\\items\\light_orb\\light_orb_sprite.png\")",
-      "Bash(cat:*)",
-      "Bash(find:*)",
-      "Bash(gdscript /blocky_game/player/avatar_interaction.gd)",
-      "Bash(godot:*)",
-      "Bash(python3 -c \"import ast; exec(open(''''/home/brad/Godot/theLongNights-godot/project/blocky_game/ruins/undervoid_city_building.gd'''').read())\")"
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
