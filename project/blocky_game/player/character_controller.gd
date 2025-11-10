@@ -37,6 +37,8 @@ var _gravity_disabled := false  # Temporary gravity suspension (for teleporting)
 var _wind_dash_active := false  # Wind Dash power active
 var _wind_dash_time := 0.0  # Time remaining for Wind Dash
 var _flame_aura_timer := 0.0  # Timer for Flame Aura damage ticks
+var _void_fog_damage_timer := 0.0  # Timer for void_fog damage (5 damage per move)
+var _last_void_fog_position := Vector3i(999999, 999999, 999999)  # Track last fog position
 
 ## Signals
 signal hp_changed(current: int, maximum: int)
@@ -134,6 +136,37 @@ func _physics_process(delta: float):
 		var equipped_weapon = _get_equipped_weapon()
 		if equipped_weapon and equipped_weapon.skyshard_power == "flame_aura":
 			_apply_flame_aura()
+
+	# Handle void_fog damage (5 damage when moving to a new fog block)
+	if has_node(terrain):
+		var terrain_node : VoxelTerrain = get_node(terrain)
+		var vt := terrain_node.get_voxel_tool()
+		vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+		# Check block at player's feet
+		var player_block_pos = Vector3i(floor(position.x), floor(position.y - 0.5), floor(position.z))
+		var block_id = vt.get_voxel(player_block_pos)
+
+		# VOID_FOG = 55 (from generator.gd)
+		const VOID_FOG = 55
+		if block_id == VOID_FOG:
+			# Check if we moved to a new fog block
+			if player_block_pos != _last_void_fog_position:
+				_last_void_fog_position = player_block_pos
+				# Deal 5 damage (bypasses dodge roll for environmental damage)
+				var actual_damage = max(1, 5 - int(5 * defense / 100.0))
+				current_hp -= actual_damage
+				current_hp = max(0, current_hp)
+				hp_changed.emit(current_hp, max_hp)
+				print("💀 Void fog damage! -%d HP (now %d/%d)" % [actual_damage, current_hp, max_hp])
+
+				if current_hp <= 0 and is_alive:
+					is_alive = false
+					player_died.emit()
+					print("☠️ Player died from void fog!")
+		else:
+			# Not in fog anymore, reset position
+			_last_void_fog_position = Vector3i(999999, 999999, 999999)
 
 	# Only process keyboard input if enabled (not using console)
 	if input_enabled:

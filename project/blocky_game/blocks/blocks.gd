@@ -291,6 +291,62 @@ func _init():
 		"voxels": ["rust_floor"],
 		"transparent": false
 	})
+	_create_block({
+		"name": "void_stone",
+		"gui_model": "void_stone.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["void_stone"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "void_stone_active",
+		"gui_model": "void_stone_active.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["void_stone_active"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "void_fog",
+		"gui_model": "void_fog.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["void_fog"],
+		"transparent": true
+	})
+	_create_block({
+		"name": "pipe_block",
+		"gui_model": "pipe_block.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["pipe_block"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "void_beacon",
+		"gui_model": "void_beacon.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["void_beacon"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "ruin_stone_",
+		"gui_model": "ruin_stone_.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["ruin_stone_"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "ruin_void_lamp",
+		"gui_model": "ruin_void_lamp.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["ruin_void_lamp"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "void_gas",
+		"gui_model": "void_gas.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["void_gas"],
+		"transparent": false
+	})
 
 
 

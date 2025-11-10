@@ -60,6 +60,14 @@ const RUST_BLOCK = 49
 const RUST_PIPE = 50
 const RUST_CUBE = 51
 const RUST_FLOOR = 52
+const VOID_STONE = 53
+const VOID_STONE_ACTIVE = 54
+const VOID_FOG = 55
+const PIPE_BLOCK = 56
+const VOID_BEACON = 57
+const RUIN_STONE_ = 58
+const RUIN_VOID_LAMP = 59
+const VOID_GAS = 60
 
 
 const _CHANNEL = VoxelBuffer.CHANNEL_TYPE
@@ -238,16 +246,21 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _lod: int)
 							var hill_top_y = BEDROCK_LEVEL + 2 + hill_height  # +2 for bedrock layers
 
 							if world_y <= hill_top_y:
-								# Rust hills - mix of rust blocks and stone
-								var rust_rng := RandomNumberGenerator.new()
-								rust_rng.seed = global_x ^ (global_z * 31) ^ (world_y * 13)
-
-								if rust_rng.randf() < 0.6:
-									buffer.set_voxel(RUST_BLOCK, x, y, z, _CHANNEL)
-								elif rust_rng.randf() < 0.3:
-									buffer.set_voxel(RUST_CUBE, x, y, z, _CHANNEL)
+								# Check if this is a valley (low hill_height = 0-2)
+								# Place void_fog as 1-block layer at bottom of valleys
+								if hill_height <= 2 and world_y == BEDROCK_LEVEL + 2:
+									buffer.set_voxel(VOID_FOG, x, y, z, _CHANNEL)
 								else:
-									buffer.set_voxel(STONE, x, y, z, _CHANNEL)
+									# Rust hills - mix of rust blocks and stone
+									var rust_rng := RandomNumberGenerator.new()
+									rust_rng.seed = global_x ^ (global_z * 31) ^ (world_y * 13)
+
+									if rust_rng.randf() < 0.6:
+										buffer.set_voxel(RUST_BLOCK, x, y, z, _CHANNEL)
+									elif rust_rng.randf() < 0.3:
+										buffer.set_voxel(RUST_CUBE, x, y, z, _CHANNEL)
+									else:
+										buffer.set_voxel(STONE, x, y, z, _CHANNEL)
 							else:
 								# Above rust hills, continue with normal cave generation
 								if _is_cave(global_x, world_y, global_z):

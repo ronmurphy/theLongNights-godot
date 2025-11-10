@@ -69,6 +69,9 @@ const AUTO_EAT_HP_THRESHOLD = 0.25  # Auto-eat at 25% HP
 var _inventory = null  # Reference to player's inventory
 var _item_db = null  # Reference to item database
 
+## Void fog damage tracking
+var _last_void_fog_position := Vector3i(999999, 999999, 999999)  # Track last fog position
+
 
 func _ready():
 	# Set up as friendly entity BEFORE calling super._ready()
@@ -546,6 +549,9 @@ func _process(delta: float):
 	# Auto-eat from bento box if HP is low
 	_try_auto_eat_from_bento()
 
+	# Handle void_fog damage (5 damage when moving to a new fog block)
+	_check_void_fog_damage()
+
 	# Apply EQUIP powers (passive effects)
 	_apply_equip_powers(delta)
 
@@ -769,6 +775,41 @@ func _on_death():
 	super._on_death()
 
 	# TODO: Emit signal to PartyUI to update companion status
+
+
+## Check for void_fog damage
+func _check_void_fog_damage() -> void:
+	# Find terrain node (should be at /root/Main/Game/VoxelTerrain)
+	var terrain_node = get_node_or_null("/root/Main/Game/VoxelTerrain")
+	if not terrain_node:
+		return
+
+	var vt: VoxelTool = terrain_node.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	# Check block at companion's feet
+	var companion_block_pos = Vector3i(floor(global_position.x), floor(global_position.y - 0.5), floor(global_position.z))
+	var block_id = vt.get_voxel(companion_block_pos)
+
+	# VOID_FOG = 55 (from generator.gd)
+	const VOID_FOG = 55
+	if block_id == VOID_FOG:
+		# Check if we moved to a new fog block
+		if companion_block_pos != _last_void_fog_position:
+			_last_void_fog_position = companion_block_pos
+			# Deal 5 damage (environmental damage, respects defense)
+			var actual_damage = max(1, 5 - int(5 * defense / 100.0))
+			current_hp -= actual_damage
+			current_hp = max(0, current_hp)
+			took_damage.emit(actual_damage, null)
+			print("💀 %s took void fog damage! -%d HP (now %d/%d)" % [entity_name, actual_damage, current_hp, max_hp])
+
+			if current_hp <= 0 and is_alive:
+				is_alive = false
+				_on_death()
+	else:
+		# Not in fog anymore, reset position
+		_last_void_fog_position = Vector3i(999999, 999999, 999999)
 
 
 ## Take damage and emit signal for UI update
