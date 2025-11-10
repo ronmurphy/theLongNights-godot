@@ -1,6 +1,7 @@
 extends Node3D
 
 const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
+const PlayerAvatar = preload("res://blocky_game/player/player_avatar.gd")
 
 @export var speed := 5.0
 @export var gravity := 9.8  # Base gravity at surface
@@ -41,6 +42,18 @@ var _void_fog_damage_timer := 0.0  # Timer for void_fog damage (5 damage per mov
 var _last_void_fog_position := Vector3i(999999, 999999, 999999)  # Track last fog position
 var _flame_aura_visual: MeshInstance3D = null  # Visual effect for flame aura
 
+## Player avatar billboard
+var _player_avatar: PlayerAvatar = null
+var _show_avatar: bool = true # Toggle for testing (set to true to see billboard)
+
+## Camera orbit for character viewing
+var _camera_orbiting: bool = false
+var _orbit_angle: float = 0.0
+var _orbit_distance: float = 3.0
+var _orbit_height: float = 1.0
+var _original_camera_position: Vector3 = Vector3.ZERO
+var _original_camera_rotation: Vector3 = Vector3.ZERO
+
 ## Signals
 signal hp_changed(current: int, maximum: int)
 signal player_died()
@@ -75,6 +88,12 @@ func _ready():
 	print("Player initialized as %s %s [%s]" % [PlayerData.get_race_name(), PlayerData.get_role_name(), PlayerData.gender])
 	print("  HP: %d, Defense: %d%%, Attack: +%d" % [max_hp, defense, attack_bonus])
 	print("  Speed multiplier: %.2fx (Race: %s)" % [speed_multiplier, PlayerData.race])
+
+	# Disable shadow casting on any box mesh (we use billboard shadow instead)
+	_disable_box_shadow()
+	
+	# Create player avatar billboard (hidden by default for testing)
+	_create_player_avatar()
 
 	# Apply graphics settings to voxel viewer and rendering
 	_apply_graphics_settings()
@@ -281,6 +300,33 @@ func _physics_process(delta: float):
 	assert(delta > 0)
 	# Re-inject velocity from resulting motion
 	_velocity = motion / delta
+	
+	# Handle camera orbit mode
+	if _camera_orbiting:
+		_update_camera_orbit(delta)
+	
+	# Update player avatar sprite direction based on movement or camera orbit
+	if _player_avatar and _show_avatar:
+		if _camera_orbiting:
+			# During orbit, switch sprite based on where camera is relative to player's facing
+			var player_forward = -global_transform.basis.z  # Player's forward direction
+			player_forward.y = 0
+			
+			var cam_direction = (_head.global_position - global_position).normalized()
+			cam_direction.y = 0
+			
+			# Calculate dot product: if camera is in front of player, show front sprite
+			# If camera is behind player, show back sprite
+			var dot = player_forward.normalized().dot(cam_direction.normalized())
+			
+			# dot > 0 = camera in front of where player is facing = show back of player
+			# dot < 0 = camera behind where player is facing = show front of player
+			_player_avatar.force_sprite_direction(dot > 0)
+		else:
+			# Normal first-person: avatar is in shadow-only mode (invisible)
+			# Still update sprite direction for when we switch to charview
+			var cam_forward = -_head.global_transform.basis.z
+			_player_avatar.update_sprite_direction(_velocity, cam_forward)
 
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer():
@@ -304,6 +350,117 @@ func start_grapple(pull_velocity: Vector3, duration: float):
 	_grappling = true
 	_grapple_time = duration
 	_grounded = false
+
+
+## Disable shadow on box mesh (use billboard shadow instead)
+func _disable_box_shadow():
+	"""Find and disable shadow casting on any child MeshInstance3D nodes"""
+	for child in get_children():
+		if child is MeshInstance3D:
+			child.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			print("🚫 Disabled shadow on player box mesh")
+
+
+## Hide/show collision box mesh (for character viewing)
+func _hide_collision_box_mesh(hide: bool):
+	"""Hide or show the collision box mesh during camera orbit"""
+	for child in get_children():
+		if child is MeshInstance3D:
+			child.visible = !hide
+
+
+## Create player avatar billboard (Phase 1 - hidden by default for testing)
+func _create_player_avatar():
+	"""Create player billboard avatar"""
+	_player_avatar = PlayerAvatar.new()
+	
+	# Get player's actual race/gender from PlayerData
+	var race = PlayerData.race
+	var gender = PlayerData.gender
+	var color = Color.WHITE  # TODO: Add clothing color system if needed
+	
+	_player_avatar.initialize(race, gender, color, true)  # true = is_local
+	_player_avatar.position = Vector3(0, 0, 0)  # At player's center
+	
+	add_child(_player_avatar)
+	
+	# Enable shadow-only mode for first-person (invisible sprite, visible shadow)
+	_player_avatar.set_shadow_only_mode(true)
+	
+	print("🎭 Player avatar created (%s %s) - shadow-only mode for first-person" % [race, gender])
+
+
+## Start orbiting camera around player for character viewing
+func start_camera_orbit():
+	"""Begin camera orbit - called by console command 'charview'"""
+	if _camera_orbiting:
+		return  # Already orbiting
+	
+	_camera_orbiting = true
+	_orbit_angle = 0.0
+	
+	# Store original camera transform
+	_original_camera_position = _head.position
+	_original_camera_rotation = _head.rotation
+	
+	# Hide collision box mesh during orbit
+	_hide_collision_box_mesh(true)
+	
+	# Make avatar visible during orbit (disable shadow-only mode)
+	if _player_avatar:
+		_player_avatar.set_shadow_only_mode(false)
+	
+	# Disable player input during orbit
+	input_enabled = false
+	
+	print("📷 Camera orbit started - showing character")
+
+
+## Stop camera orbit and return to normal
+func stop_camera_orbit():
+	"""End camera orbit and return camera to player"""
+	if not _camera_orbiting:
+		return
+	
+	_camera_orbiting = false
+	
+	# Restore original camera transform
+	_head.position = _original_camera_position
+	_head.rotation = _original_camera_rotation
+	
+	# Show collision box mesh again
+	_hide_collision_box_mesh(false)
+	
+	# Return to shadow-only mode for first-person
+	if _player_avatar:
+		_player_avatar.set_shadow_only_mode(true)
+	
+	# Re-enable player input
+	input_enabled = true
+	
+	print("📷 Camera orbit ended - returned to first-person")
+
+
+## Update camera position during orbit
+func _update_camera_orbit(delta: float):
+	"""Update camera position to orbit around player"""
+	# Rotate camera around player at constant speed (360 degrees in 8 seconds)
+	_orbit_angle += delta * (TAU / 8.0)
+	
+	# Calculate camera position in local space
+	var orbit_x = cos(_orbit_angle) * _orbit_distance
+	var orbit_z = sin(_orbit_angle) * _orbit_distance
+	
+	var orbit_pos = Vector3(orbit_x, _orbit_height, orbit_z)
+	_head.position = orbit_pos
+	
+	# Look at player center (convert to global coordinates for look_at)
+	var player_center_global = global_position + Vector3(0, 1.0, 0)
+	_head.look_at(player_center_global, Vector3.UP)
+	
+	# Complete orbit after one full rotation
+	if _orbit_angle >= TAU:
+		stop_camera_orbit()
 
 
 ## Apply all graphics settings to this character and terrain

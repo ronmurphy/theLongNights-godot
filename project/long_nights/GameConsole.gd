@@ -242,6 +242,7 @@ func _register_commands() -> void:
 	commands["roster"] = _cmd_roster
 	commands["drain"] = _cmd_drain
 	commands["undervoid"] = _cmd_undervoid  # Spawn Undervoid structure
+	commands["charview"] = _cmd_charview  # Character view - orbit camera around player
 
 ## Commands Implementation
 
@@ -325,6 +326,9 @@ func _cmd_help(_args: Array) -> void:
 	add_output("    Gender: male, female")
 	add_output("    Color: red, green, blue, yellow, etc. (tints clothing)")
 	add_output("    Example: npc human female green Angelica")
+	add_output("")
+	add_output("[color=cyan]Player & Camera:[/color]")
+	add_output("  [color=yellow]charview[/color] - Orbit camera around player to view character")
 	add_output("")
 	add_output("[color=cyan]Home Base:[/color]")
 	add_output("  [color=yellow]homebase set[/color] - Set home base at current location")
@@ -1479,3 +1483,22 @@ func _cmd_undervoid(_args: Array) -> void:
 	else:
 		add_output("[color=red]✗ Failed to spawn structure[/color]")
 		add_output("[color=yellow]Make sure you're on solid ground in the Undervoid (Y -150 to -400)[/color]")
+
+
+func _cmd_charview(_args: Array) -> void:
+	"""Orbit camera around player to view character avatar (billboard sprite)"""
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+	
+	# Check if player has the start_camera_orbit method
+	if not player.has_method("start_camera_orbit"):
+		add_output("[color=red]Error: Player doesn't support camera orbit[/color]")
+		return
+	
+	# Start the orbit
+	player.start_camera_orbit()
+	add_output("[color=cyan]📷 Camera orbiting around your character...[/color]")
+	add_output("[color=yellow]The camera will complete one full rotation (8 seconds)[/color]")
+	add_output("[color=yellow]You'll see front/back sprite switching as camera rotates[/color]")
