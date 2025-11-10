@@ -10,6 +10,7 @@ const CONFIG_PATH = "user://graphics_settings.json"
 var profiles := {
 	"low": {
 		"directional_light_shadows": false,
+		"torch_light_shadows": false,  # Disable torch shadows on low (big FPS gain)
 		"torch_light_enabled": false,
 		"torch_light_range": 0.0,
 		"particle_count": 8,
@@ -33,6 +34,7 @@ var profiles := {
 	},
 	"medium": {
 		"directional_light_shadows": true,
+		"torch_light_shadows": false,  # Still disable on medium to maintain good FPS
 		"torch_light_enabled": true,
 		"torch_light_range": 8.0,
 		"particle_count": 15,
@@ -56,6 +58,7 @@ var profiles := {
 	},
 	"high": {
 		"directional_light_shadows": true,
+		"torch_light_shadows": true,  # Enable beautiful shadows only on high-end hardware
 		"torch_light_enabled": true,
 		"torch_light_range": 12.0,
 		"particle_count": 20,
@@ -267,6 +270,9 @@ func should_create_torch_light() -> bool:
 
 func get_torch_light_range() -> float:
 	return current_settings.get("torch_light_range", 0.0)
+
+func should_enable_torch_shadows() -> bool:
+	return current_settings.get("torch_light_shadows", false)
 
 func get_particle_count() -> int:
 	return current_settings.get("particle_count", 8)
