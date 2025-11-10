@@ -39,6 +39,7 @@ var _wind_dash_time := 0.0  # Time remaining for Wind Dash
 var _flame_aura_timer := 0.0  # Timer for Flame Aura damage ticks
 var _void_fog_damage_timer := 0.0  # Timer for void_fog damage (5 damage per move)
 var _last_void_fog_position := Vector3i(999999, 999999, 999999)  # Track last fog position
+var _flame_aura_visual: MeshInstance3D = null  # Visual effect for flame aura
 
 ## Signals
 signal hp_changed(current: int, maximum: int)
@@ -136,6 +137,9 @@ func _physics_process(delta: float):
 		var equipped_weapon = _get_equipped_weapon()
 		if equipped_weapon and equipped_weapon.skyshard_power == "flame_aura":
 			_apply_flame_aura()
+	
+	# Update flame aura visual effect
+	_update_flame_aura_visual()
 
 	# Handle void_fog damage (5 damage when moving to a new fog block)
 	if has_node(terrain):
@@ -482,6 +486,60 @@ func _apply_flame_aura() -> void:
 
 	if burned_count > 0:
 		print("🔥 Flame Aura! Burned %d nearby enemies for %d damage each" % [burned_count, FLAME_DAMAGE])
+
+
+## Create flame aura visual effect
+func _create_flame_aura_visual() -> void:
+	"""Create a glowing orange/fire sphere around the player"""
+	if _flame_aura_visual:
+		return  # Already exists
+	
+	_flame_aura_visual = MeshInstance3D.new()
+	var sphere_mesh = SphereMesh.new()
+	sphere_mesh.radius = 1.5  # 3-block diameter (1.5 radius = 3 blocks wide)
+	sphere_mesh.height = 3.0
+	sphere_mesh.radial_segments = 24
+	sphere_mesh.rings = 16
+	_flame_aura_visual.mesh = sphere_mesh
+	
+	# Create fiery orange material with transparency and emission
+	var material = StandardMaterial3D.new()
+	material.albedo_color = Color(1.0, 0.5, 0.1, 0.005)  # Orange/red, very see-through
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.4, 0.0)  # Bright fire orange
+	material.emission_energy_multiplier = 2.0
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED  # Visible from inside
+	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD  # Additive blending for glow effect
+	_flame_aura_visual.material_override = material
+	
+	add_child(_flame_aura_visual)
+	
+	# Animate pulsing effect
+	var tween = create_tween()
+	tween.set_loops()
+	tween.tween_property(_flame_aura_visual, "scale", Vector3(1.1, 1.1, 1.1), 0.8)
+	tween.tween_property(_flame_aura_visual, "scale", Vector3(0.9, 0.9, 0.9), 0.8)
+
+
+## Remove flame aura visual effect
+func _remove_flame_aura_visual() -> void:
+	"""Remove the flame aura visual when power is unequipped"""
+	if _flame_aura_visual:
+		_flame_aura_visual.queue_free()
+		_flame_aura_visual = null
+
+
+## Update flame aura visual (check if should be visible)
+func _update_flame_aura_visual() -> void:
+	"""Show/hide flame aura based on equipped items"""
+	var equipped_weapon = _get_equipped_weapon()
+	var has_flame_aura = equipped_weapon and equipped_weapon.skyshard_power == "flame_aura"
+	
+	if has_flame_aura and not _flame_aura_visual:
+		_create_flame_aura_visual()
+	elif not has_flame_aura and _flame_aura_visual:
+		_remove_flame_aura_visual()
 
 
 ## Player death
