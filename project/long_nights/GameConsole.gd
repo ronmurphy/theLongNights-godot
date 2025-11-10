@@ -243,6 +243,7 @@ func _register_commands() -> void:
 	commands["drain"] = _cmd_drain
 	commands["undervoid"] = _cmd_undervoid  # Spawn Undervoid structure
 	commands["charview"] = _cmd_charview  # Character view - orbit camera around player
+	commands["photo"] = _cmd_photo  # Photo mode - manual camera control for screenshots
 
 ## Commands Implementation
 
@@ -329,6 +330,7 @@ func _cmd_help(_args: Array) -> void:
 	add_output("")
 	add_output("[color=cyan]Player & Camera:[/color]")
 	add_output("  [color=yellow]charview[/color] - Orbit camera around player to view character")
+	add_output("  [color=yellow]photo[/color] - Enter photo mode for manual camera control & screenshots")
 	add_output("")
 	add_output("[color=cyan]Home Base:[/color]")
 	add_output("  [color=yellow]homebase set[/color] - Set home base at current location")
@@ -1502,3 +1504,25 @@ func _cmd_charview(_args: Array) -> void:
 	add_output("[color=cyan]📷 Camera orbiting around your character...[/color]")
 	add_output("[color=yellow]The camera will complete one full rotation (8 seconds)[/color]")
 	add_output("[color=yellow]You'll see front/back sprite switching as camera rotates[/color]")
+
+
+func _cmd_photo(_args: Array) -> void:
+	"""Enter photo mode - manual camera control for screenshots"""
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+	
+	# Check if player has the start_photo_mode method
+	if not player.has_method("start_photo_mode"):
+		add_output("[color=red]Error: Player doesn't support photo mode[/color]")
+		return
+	
+	# Start photo mode
+	player.start_photo_mode()
+	add_output("[color=cyan]📷 Photo mode enabled![/color]")
+	add_output("[color=yellow]Controls:[/color]")
+	add_output("  [color=white]Arrow Keys[/color] - Rotate camera")
+	add_output("  [color=white]Q/E[/color] - Zoom in/out")
+	add_output("  [color=white]F5[/color] - Take screenshot")
+	add_output("  [color=white]Esc or P[/color] - Exit photo mode")

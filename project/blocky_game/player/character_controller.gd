@@ -54,12 +54,22 @@ var _orbit_height: float = 1.0
 var _original_camera_position: Vector3 = Vector3.ZERO
 var _original_camera_rotation: Vector3 = Vector3.ZERO
 
+## Photo mode for manual camera control
+var _photo_mode: bool = false
+var _photo_camera_yaw: float = 0.0
+var _photo_camera_pitch: float = 0.0
+var _photo_camera_distance: float = 3.0
+const PHOTO_CAMERA_MOVE_SPEED = 5.0
+const PHOTO_CAMERA_ROTATE_SPEED = 2.0
+const PHOTO_CAMERA_ZOOM_SPEED = 2.0
+
 ## Signals
 signal hp_changed(current: int, maximum: int)
 signal player_died()
 
 ## Input control
 var input_enabled: bool = true
+var _screenshot_taken: bool = false  # Prevent multiple screenshots from one key press
 
 
 func _ready():
@@ -305,6 +315,11 @@ func _physics_process(delta: float):
 	if _camera_orbiting:
 		_update_camera_orbit(delta)
 	
+	# Handle photo mode
+	if _photo_mode:
+		_update_photo_mode(delta)
+		return  # Skip normal movement processing in photo mode
+	
 	# Update player avatar sprite direction based on movement or camera orbit
 	if _player_avatar and _show_avatar:
 		if _camera_orbiting:
@@ -461,6 +476,177 @@ func _update_camera_orbit(delta: float):
 	# Complete orbit after one full rotation
 	if _orbit_angle >= TAU:
 		stop_camera_orbit()
+
+
+## ============================================================================
+## PHOTO MODE - Manual camera control with arrow keys
+## ============================================================================
+
+func start_photo_mode():
+	"""Enter photo mode - manual camera control with arrow keys"""
+	if _photo_mode:
+		return  # Already in photo mode
+	
+	_photo_mode = true
+	
+	# Store original camera transform
+	_original_camera_position = _head.position
+	_original_camera_rotation = _head.rotation
+	
+	# Initialize photo camera position
+	_photo_camera_yaw = 0.0
+	_photo_camera_pitch = -20.0 * (PI / 180.0)  # Start looking down slightly
+	_photo_camera_distance = 3.0
+	
+	# Hide collision box mesh
+	_hide_collision_box_mesh(true)
+	
+	# Make avatar visible
+	if _player_avatar:
+		_player_avatar.set_shadow_only_mode(false)
+	
+	# Disable player input
+	input_enabled = false
+	
+	# Hide UI
+	_set_ui_visible(false)
+	
+	print("📷 Photo mode enabled!")
+	print("  Arrow Keys: Rotate camera")
+	print("  Q/E: Zoom in/out")
+	print("  F5: Take screenshot")
+	print("  Esc or P: Exit photo mode")
+
+
+func stop_photo_mode():
+	"""Exit photo mode and return to first-person"""
+	if not _photo_mode:
+		return
+	
+	_photo_mode = false
+	
+	# Restore original camera transform
+	_head.position = _original_camera_position
+	_head.rotation = _original_camera_rotation
+	
+	# Show collision box mesh again
+	_hide_collision_box_mesh(false)
+	
+	# Return to shadow-only mode
+	if _player_avatar:
+		_player_avatar.set_shadow_only_mode(true)
+	
+	# Re-enable player input
+	input_enabled = true
+	
+	# Show UI again
+	_set_ui_visible(true)
+	
+	print("📷 Photo mode ended")
+
+
+func _update_photo_mode(delta: float):
+	"""Update camera position in photo mode based on arrow key input"""
+	# Rotate with arrow keys
+	if Input.is_key_pressed(KEY_LEFT):
+		_photo_camera_yaw += PHOTO_CAMERA_ROTATE_SPEED * delta
+	if Input.is_key_pressed(KEY_RIGHT):
+		_photo_camera_yaw -= PHOTO_CAMERA_ROTATE_SPEED * delta
+	if Input.is_key_pressed(KEY_UP):
+		_photo_camera_pitch -= PHOTO_CAMERA_ROTATE_SPEED * delta
+		_photo_camera_pitch = clamp(_photo_camera_pitch, -PI / 2 + 0.1, PI / 2 - 0.1)
+	if Input.is_key_pressed(KEY_DOWN):
+		_photo_camera_pitch += PHOTO_CAMERA_ROTATE_SPEED * delta
+		_photo_camera_pitch = clamp(_photo_camera_pitch, -PI / 2 + 0.1, PI / 2 - 0.1)
+	
+	# Zoom with Q/E
+	if Input.is_key_pressed(KEY_Q):
+		_photo_camera_distance -= PHOTO_CAMERA_ZOOM_SPEED * delta
+		_photo_camera_distance = max(1.0, _photo_camera_distance)
+	if Input.is_key_pressed(KEY_E):
+		_photo_camera_distance += PHOTO_CAMERA_ZOOM_SPEED * delta
+		_photo_camera_distance = min(10.0, _photo_camera_distance)
+	
+	# Take screenshot with F5
+	if Input.is_key_pressed(KEY_F5):
+		if not _screenshot_taken:  # Prevent multiple screenshots from one press
+			_take_screenshot()
+			_screenshot_taken = true
+	else:
+		_screenshot_taken = false
+	
+	# Exit photo mode with P or Escape
+	if Input.is_key_pressed(KEY_P) or Input.is_key_pressed(KEY_ESCAPE):
+		stop_photo_mode()
+		return
+	
+	# Calculate camera position based on yaw, pitch, and distance
+	var cam_x = cos(_photo_camera_yaw) * cos(_photo_camera_pitch) * _photo_camera_distance
+	var cam_y = sin(_photo_camera_pitch) * _photo_camera_distance + 1.0  # +1.0 for player center height
+	var cam_z = sin(_photo_camera_yaw) * cos(_photo_camera_pitch) * _photo_camera_distance
+	
+	_head.position = Vector3(cam_x, cam_y, cam_z)
+	
+	# Look at player center
+	var player_center_global = global_position + Vector3(0, 1.0, 0)
+	_head.look_at(player_center_global, Vector3.UP)
+	
+	# Update avatar sprite direction based on camera position
+	if _player_avatar:
+		var player_forward = -global_transform.basis.z
+		player_forward.y = 0
+		
+		var cam_direction = (_head.global_position - global_position).normalized()
+		cam_direction.y = 0
+		
+		var dot = player_forward.normalized().dot(cam_direction.normalized())
+		_player_avatar.force_sprite_direction(dot > 0)
+
+
+func _take_screenshot():
+	"""Take a screenshot and save to user directory"""
+	# Get viewport
+	var viewport = get_viewport()
+	
+	# Capture image
+	var img = viewport.get_texture().get_image()
+	
+	# Generate filename with timestamp
+	var datetime = Time.get_datetime_dict_from_system()
+	var filename = "screenshot_%04d%02d%02d_%02d%02d%02d.png" % [
+		datetime.year, datetime.month, datetime.day,
+		datetime.hour, datetime.minute, datetime.second
+	]
+	
+	# Save to user directory
+	var path = "user://screenshots/" + filename
+	
+	# Create screenshots directory if it doesn't exist
+	DirAccess.make_dir_absolute("user://screenshots")
+	
+	# Save image
+	img.save_png(path)
+	
+	print("📸 Screenshot saved: %s" % path)
+	print("   Location: %s" % ProjectSettings.globalize_path(path))
+
+
+func _set_ui_visible(visible: bool):
+	"""Show/hide UI during photo mode"""
+	# Hide hotbar
+	var hotbar = get_node_or_null("../HotBar")
+	if hotbar:
+		hotbar.visible = visible
+	
+	# Hide party UI
+	var game = get_tree().root.get_node_or_null("Main/Game")
+	if game:
+		for child in game.get_children():
+			if child.name == "PartyUI":
+				child.visible = visible
+	
+	# Hide crosshair (if it exists as a separate node)
+	# The crosshair might be part of the HUD, adjust as needed
 
 
 ## Apply all graphics settings to this character and terrain
