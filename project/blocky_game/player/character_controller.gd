@@ -62,6 +62,8 @@ var _photo_camera_distance: float = 3.0
 const PHOTO_CAMERA_MOVE_SPEED = 5.0
 const PHOTO_CAMERA_ROTATE_SPEED = 2.0
 const PHOTO_CAMERA_ZOOM_SPEED = 2.0
+var _p_key_was_pressed: bool = false  # Track P key state to detect single press
+var _hidden_ui_elements: Array = []  # Track which UI elements we hide for photo mode
 
 ## Signals
 signal hp_changed(current: int, maximum: int)
@@ -589,8 +591,15 @@ func _update_photo_mode(delta: float):
 	else:
 		_screenshot_taken = false
 	
-	# Exit photo mode with P or Escape
-	if Input.is_key_pressed(KEY_P):
+	# Exit photo mode with P key (detect single press, not hold)
+	var p_pressed = Input.is_key_pressed(KEY_P)
+	if p_pressed and not _p_key_was_pressed:
+		stop_photo_mode()
+		return
+	_p_key_was_pressed = p_pressed
+	
+	# Also exit with Escape key
+	if Input.is_key_pressed(KEY_ESCAPE):
 		stop_photo_mode()
 		return
 	
@@ -647,20 +656,40 @@ func _take_screenshot():
 
 func _set_ui_visible(visible: bool):
 	"""Show/hide UI during photo mode"""
-	# Hide hotbar
-	var hotbar = get_node_or_null("../HotBar")
-	if hotbar:
-		hotbar.visible = visible
-	
-	# Hide party UI
-	var game = get_tree().root.get_node_or_null("Main/Game")
-	if game:
-		for child in game.get_children():
-			if child.name == "PartyUI":
-				child.visible = visible
-	
-	# Hide crosshair (if it exists as a separate node)
-	# The crosshair might be part of the HUD, adjust as needed
+	if visible:
+		# Restoring - only show the elements we specifically hid
+		for element in _hidden_ui_elements:
+			if is_instance_valid(element):
+				element.visible = true
+		_hidden_ui_elements.clear()
+	else:
+		# Hiding - track what we hide so we can restore only those
+		_hidden_ui_elements.clear()
+		
+		# Hide hotbar (it's a child of CharacterAvatar, not a sibling)
+		var hotbar = get_node_or_null("HotBar")
+		if hotbar and hotbar.visible:
+			hotbar.visible = false
+			_hidden_ui_elements.append(hotbar)
+		
+		# Hide inventory UI (includes bento box)
+		var inventory = get_node_or_null("Inventory")
+		if inventory and inventory.visible:
+			inventory.visible = false
+			_hidden_ui_elements.append(inventory)
+		
+		# Hide UI elements in Game node (TimeDisplay, PartyUI, etc.)
+		var game = get_tree().root.get_node_or_null("Main/Game")
+		if game:
+			for child in game.get_children():
+				if child is Control or child is CanvasLayer:
+					# Don't hide the console if it's open (user might need it)
+					if child.has_method("is_open") and child.is_open():
+						continue
+					# Only hide if currently visible
+					if child.visible:
+						child.visible = false
+						_hidden_ui_elements.append(child)
 
 
 ## Apply all graphics settings to this character and terrain
@@ -837,6 +866,10 @@ func _apply_flame_aura() -> void:
 	var burned_count = 0
 
 	for entity in _cached_entities:
+		# Skip freed/invalid entities
+		if not is_instance_valid(entity):
+			continue
+		
 		# Skip if not alive or not enemy
 		if not entity.is_alive or entity.team != EntityBase.Team.ENEMY:
 			continue

@@ -119,7 +119,7 @@ func _ready():
 	_torch_light.light_energy = 2.0
 	_torch_light.omni_range = 12.0
 	_torch_light.omni_attenuation = 0.6
-	_torch_light.shadow_enabled = true
+	_torch_light.shadow_enabled = GraphicsSettings.should_enable_torch_shadows()  # Respect graphics settings
 	_torch_light.visible = false
 	_head.add_child(_torch_light)
 
@@ -1741,6 +1741,10 @@ func _find_nearest_entity_in_crosshair() -> Node:
 	var closest_distance = MAX_ENTITY_DISTANCE
 
 	for entity in _cached_entities:
+		# Skip freed/invalid entities
+		if not is_instance_valid(entity):
+			continue
+		
 		if not entity.get("is_alive") or not entity.is_alive:
 			continue
 
