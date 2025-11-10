@@ -13,9 +13,10 @@ var fading_player: AudioStreamPlayer
 var day_music: AudioStream
 var night_music: AudioStream
 var bloodmoon_music: AudioStream
+var sky_day_music: AudioStream  # Sky ruins day music
 
 # State
-enum MusicTrack { NONE, DAY, NIGHT, BLOODMOON }
+enum MusicTrack { NONE, DAY, NIGHT, BLOODMOON, SKY_DAY }
 var current_track := MusicTrack.NONE
 var target_track := MusicTrack.NONE
 var is_crossfading := false
@@ -36,12 +37,19 @@ const DAWN_HOUR = 5  # 5 AM - dawn
 
 var in_game := false  # Only play music when in-game
 
+# Sky ruins threshold
+const SKY_HEIGHT_THRESHOLD = 100.0  # Y >= 100 = sky ruins
+var _is_in_sky_zone := false  # Track which zone player is in (prevents rapid switching)
+var _zone_change_timer := 0.0
+const ZONE_CHANGE_DELAY = 5.0  # Stay in zone for 5 seconds before switching music
+
 
 func _ready() -> void:
 	# Load music tracks
 	day_music = load("res://assets/music/forestDay.ogg")
 	night_music = load("res://assets/music/forestNight.ogg")
 	bloodmoon_music = load("res://assets/music/bloodMoon.ogg")
+	sky_day_music = load("res://assets/music/skyDay.ogg")
 
 	# Create two audio players for crossfading
 	player_a = AudioStreamPlayer.new()
@@ -72,6 +80,9 @@ func _ready() -> void:
 func start_music():
 	"""Called when player enters the game"""
 	in_game = true
+	# Initialize zone state based on player's starting position
+	var player_y = _get_player_y_position()
+	_is_in_sky_zone = player_y >= SKY_HEIGHT_THRESHOLD
 	# Determine what music should be playing based on current time
 	_update_music_for_time(TimeManager.current_hour)
 
@@ -85,9 +96,35 @@ func stop_music():
 		fading_player.stop()
 
 
+var _height_check_timer := 0.0
+const HEIGHT_CHECK_INTERVAL = 1.0  # Check height every second
+
+
 func _process(delta: float) -> void:
 	if not in_game:
 		return
+
+	# Check if player has moved between sky/ground (with hysteresis)
+	_height_check_timer += delta
+	if _height_check_timer >= HEIGHT_CHECK_INTERVAL:
+		_height_check_timer = 0.0
+		
+		# Check current zone
+		var player_y = _get_player_y_position()
+		var currently_in_sky = player_y >= SKY_HEIGHT_THRESHOLD
+		
+		# If zone changed, start timer
+		if currently_in_sky != _is_in_sky_zone:
+			_zone_change_timer += HEIGHT_CHECK_INTERVAL
+			
+			# Only switch music if player has stayed in new zone for ZONE_CHANGE_DELAY
+			if _zone_change_timer >= ZONE_CHANGE_DELAY:
+				_is_in_sky_zone = currently_in_sky
+				_zone_change_timer = 0.0
+				_update_music_for_time(TimeManager.current_hour)
+		else:
+			# Reset timer if player returns to previous zone
+			_zone_change_timer = 0.0
 
 	# Handle crossfading
 	if is_crossfading:
@@ -187,6 +224,14 @@ func _on_bloodmoon_ended() -> void:
 	_update_music_for_time(TimeManager.current_hour)
 
 
+func _get_player_y_position() -> float:
+	"""Get the player's current Y position"""
+	var player = get_tree().get_first_node_in_group("player")
+	if player:
+		return player.global_position.y
+	return 0.0
+
+
 func _update_music_for_time(hour: int) -> void:
 	"""Determine what music should play based on time"""
 	# Bloodmoon overrides everything
@@ -197,8 +242,13 @@ func _update_music_for_time(hour: int) -> void:
 
 	# Day music: 6 AM to 6 PM
 	if hour >= DAY_START_HOUR and hour < TWILIGHT_HOUR:
-		if current_track != MusicTrack.DAY:
-			_crossfade_to(MusicTrack.DAY)
+		# Play sky music if in sky ruins during day (using tracked zone state)
+		if _is_in_sky_zone:
+			if current_track != MusicTrack.SKY_DAY:
+				_crossfade_to(MusicTrack.SKY_DAY)
+		else:
+			if current_track != MusicTrack.DAY:
+				_crossfade_to(MusicTrack.DAY)
 
 	# Night music: 7 PM to 5 AM
 	elif hour >= NIGHT_START_HOUR or hour < DAWN_HOUR:
@@ -225,6 +275,9 @@ func _crossfade_to(new_track: MusicTrack) -> void:
 		MusicTrack.BLOODMOON:
 			new_stream = bloodmoon_music
 			print("🩸 Crossfading to bloodmoon music")
+		MusicTrack.SKY_DAY:
+			new_stream = sky_day_music
+			print("☁️ Crossfading to sky ruins day music")
 
 	if new_stream == null:
 		return
