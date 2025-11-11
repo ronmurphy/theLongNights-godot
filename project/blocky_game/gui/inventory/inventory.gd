@@ -6,11 +6,13 @@ signal equipment_changed
 const BAG_WIDTH = 9
 const BAG_HEIGHT = 3
 const HOTBAR_HEIGHT = 1
+const BENTO_SLOTS = 6
 
 const InventoryItem = preload("../../player/inventory_item.gd")
 
 @onready var _bag_container = $CC/PC/VB/Bag
 @onready var _hotbar_container = $CC/PC/VB/Hotbar
+@onready var _bento_container = $CC/PC/VB/BentoBox
 @onready var _dragged_item_view = $DraggedItem
 @onready var _panel_container = $CC/PC
 @onready var _item_db = get_node("/root/Main/Game/Items")
@@ -18,6 +20,8 @@ const InventoryItem = preload("../../player/inventory_item.gd")
 # TODO Is it worth having the hotbar in the first indexes instead of the last ones?
 var _slots := []
 var _slot_views := []
+var _bento_slots := []  # Array of 6 food items for bento box
+var _bento_slot_views := []
 var _previous_mouse_mode := 0
 var _dragged_slot := -1
 
@@ -65,7 +69,19 @@ func _ready():
 			slot.pressed.connect(_on_slot_pressed.bind(slot_idx))
 			_slot_views[slot_idx] = slot
 			slot_idx += 1
-	
+
+	# Init bento box slots
+	_bento_slots.resize(BENTO_SLOTS)
+	_bento_slot_views.resize(BENTO_SLOTS)
+	for i in _bento_container.get_child_count():
+		var slot = _bento_container.get_child(i)
+		slot.get_display().set_item(_bento_slots[i])
+		slot.pressed.connect(_on_bento_slot_pressed.bind(i))
+		_bento_slot_views[i] = slot
+
+	# Add Power Harmonization button below bento box
+	_create_power_harmonization_button()
+
 	# Initialize companion weapon slot with their default weapon
 	call_deferred("_initialize_companion_default_weapon")
 
@@ -358,9 +374,9 @@ func _on_slot_pressed(idx: int):
 		_dragged_slot = idx
 		_slot_views[_dragged_slot].get_display().set_item(null)
 		_dragged_item_view.start(_slots[idx])
-	
+
 	else:
-		# Get the dragged item (could be from equipment slot)
+		# Get the dragged item (could be from equipment slot OR bento box)
 		var dragged_item = null
 		if _dragged_slot >= 0:
 			dragged_item = _slots[_dragged_slot]
@@ -368,11 +384,15 @@ func _on_slot_pressed(idx: int):
 			dragged_item = _player_weapon_slot
 		elif _dragged_slot == -998:
 			dragged_item = _companion_weapon_slot
+		elif _dragged_slot <= -100:
+			# From bento box
+			var source_bento_idx = -100 - _dragged_slot
+			dragged_item = _bento_slots[source_bento_idx]
 		
 		if _slots[idx] == null:
 			# Move to empty slot
 			_slots[idx] = dragged_item
-			
+
 			# Clear source
 			if _dragged_slot >= 0:
 				_slots[_dragged_slot] = null
@@ -385,6 +405,11 @@ func _on_slot_pressed(idx: int):
 				# Clear saved weapon
 				CompanionManager.equipped_weapon_id = -1
 				CompanionManager.save_to_file()
+			elif _dragged_slot <= -100:
+				# Clear from bento box
+				var source_bento_idx = -100 - _dragged_slot
+				_bento_slots[source_bento_idx] = null
+				_bento_slot_views[source_bento_idx].get_display().set_item(null)
 			
 			_slot_views[idx].get_display().set_item(_slots[idx])
 			_dragged_item_view.stop()
@@ -473,6 +498,298 @@ func _on_slot_pressed(idx: int):
 				_dragged_item_view.stop()
 
 
+func _on_bento_slot_pressed(bento_idx: int):
+	"""Handle clicking on bento box slots (food only)"""
+	if _dragged_slot == -1:
+		# Not dragging - try to pick up food from bento
+		if _bento_slots[bento_idx] != null:
+			# Special ID for bento slots: -100 to -105
+			_dragged_slot = -100 - bento_idx
+			_bento_slot_views[bento_idx].get_display().set_item(null)
+			_dragged_item_view.start(_bento_slots[bento_idx])
+	else:
+		# Dragging something - try to place in bento
+		var dragged_item = null
+
+		# Get the dragged item
+		if _dragged_slot >= 0:
+			# From regular inventory
+			dragged_item = _slots[_dragged_slot]
+		elif _dragged_slot <= -100:
+			# From another bento slot
+			var source_bento_idx = -100 - _dragged_slot
+			dragged_item = _bento_slots[source_bento_idx]
+		else:
+			# From equipment slot - cancel (can't put equipment in bento)
+			print("Cannot place equipment in bento box!")
+			if _dragged_slot == -999:
+				_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
+			elif _dragged_slot == -998:
+				_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+			elif _dragged_slot == -997:
+				_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+			_dragged_item_view.stop()
+			_dragged_slot = -1
+			return
+
+		# Check if it's a food item
+		if dragged_item != null and _is_food_item(dragged_item):
+			# Valid food item - place in bento
+			var old_bento_item = _bento_slots[bento_idx]
+			_bento_slots[bento_idx] = dragged_item
+
+			# Clear source
+			if _dragged_slot >= 0:
+				_slots[_dragged_slot] = old_bento_item  # Swap
+				_slot_views[_dragged_slot].get_display().set_item(old_bento_item)
+			elif _dragged_slot <= -100:
+				var source_bento_idx = -100 - _dragged_slot
+				_bento_slots[source_bento_idx] = old_bento_item  # Swap
+				_bento_slot_views[source_bento_idx].get_display().set_item(old_bento_item)
+
+			# Update bento view
+			_bento_slot_views[bento_idx].get_display().set_item(_bento_slots[bento_idx])
+			_dragged_item_view.stop()
+			_dragged_slot = -1
+			emit_signal("changed")
+		else:
+			# Not a food item
+			print("Only cooked food can go in the bento box!")
+			# Return item to source
+			if _dragged_slot >= 0:
+				_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+			elif _dragged_slot <= -100:
+				var source_bento_idx = -100 - _dragged_slot
+				_bento_slot_views[source_bento_idx].get_display().set_item(_bento_slots[source_bento_idx])
+			_dragged_item_view.stop()
+			_dragged_slot = -1
+
+
+func _on_avatar_clicked(is_player: bool):
+	"""Handle clicking on avatar/paper doll - consume food if dragging food item"""
+	if _dragged_slot == -1:
+		return  # Not dragging anything
+
+	# Get the dragged item
+	var dragged_item = null
+	if _dragged_slot >= 0:
+		dragged_item = _slots[_dragged_slot]
+	elif _dragged_slot <= -100:
+		var source_bento_idx = -100 - _dragged_slot
+		dragged_item = _bento_slots[source_bento_idx]
+	else:
+		# Equipment slot - can't consume weapons/accessories
+		print("Cannot consume equipment!")
+		_cancel_drag()
+		return
+
+	# Check if it's a food item
+	if not _is_food_item(dragged_item):
+		print("Only food items can be consumed!")
+		_cancel_drag()
+		return
+
+	# Consume the food for the target character
+	_consume_food_for_character(dragged_item, is_player)
+
+	# Remove one from the stack
+	dragged_item.count -= 1
+
+	# Clear from source if count reaches 0
+	if dragged_item.count <= 0:
+		if _dragged_slot >= 0:
+			_slots[_dragged_slot] = null
+			_slot_views[_dragged_slot].get_display().set_item(null)
+		elif _dragged_slot <= -100:
+			var source_bento_idx = -100 - _dragged_slot
+			_bento_slots[source_bento_idx] = null
+			_bento_slot_views[source_bento_idx].get_display().set_item(null)
+	else:
+		# Update the stack count
+		if _dragged_slot >= 0:
+			_slot_views[_dragged_slot].get_display().set_item(dragged_item)
+		elif _dragged_slot <= -100:
+			var source_bento_idx = -100 - _dragged_slot
+			_bento_slot_views[source_bento_idx].get_display().set_item(dragged_item)
+
+	# Stop dragging
+	_dragged_item_view.stop()
+	_dragged_slot = -1
+	emit_signal("changed")
+
+
+func _cancel_drag():
+	"""Cancel current drag operation and return item to source"""
+	if _dragged_slot >= 0:
+		_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+	elif _dragged_slot == -999:
+		_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
+	elif _dragged_slot == -998:
+		_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+	elif _dragged_slot == -997:
+		_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+	elif _dragged_slot <= -100:
+		var source_bento_idx = -100 - _dragged_slot
+		_bento_slot_views[source_bento_idx].get_display().set_item(_bento_slots[source_bento_idx])
+	_dragged_item_view.stop()
+	_dragged_slot = -1
+
+
+func _consume_food_for_character(food: InventoryItem, is_player: bool):
+	"""Apply food healing/buffs to player or companion"""
+	# Food healing values for cooked food
+	const BENTO_FOOD_HEALING = {
+		27: 15, 28: 10, 29: 10, 30: 20, 31: 15, 32: 10,
+		33: 25, 34: 20, 35: 20, 36: 25, 37: 20, 38: 28, 39: 30,
+		40: 5  # light_orb if it somehow got here (shouldn't happen)
+	}
+
+	var heal_amount = BENTO_FOOD_HEALING.get(food.id, 10)
+
+	# Get target character
+	var target = null
+	var target_name = ""
+
+	if is_player:
+		target = get_tree().get_first_node_in_group("player")
+		target_name = "Player"
+	else:
+		# Get companion
+		var companions = get_tree().get_nodes_in_group("friendly_entities")
+		if companions.size() > 0:
+			target = companions[0]
+			target_name = target.entity_name if target.has_method("get") else "Companion"
+
+	if target == null or not target.has_method("get"):
+		print("Cannot find target to feed!")
+		return
+
+	# Apply healing
+	var old_hp = target.current_hp
+	target.current_hp = min(target.current_hp + heal_amount, target.max_hp)
+	var actual_heal = target.current_hp - old_hp
+
+	# Emit HP changed signal
+	if target.has_signal("hp_changed"):
+		target.hp_changed.emit(target.current_hp, target.max_hp)
+
+	# Get food name
+	var item = _item_db.get_item(food.id)
+	var food_name = item.base_info.name.replace("_", " ").capitalize()
+
+	# Show message
+	print("🍽️ %s consumed %s! +%d HP (now %d/%d)" % [target_name, food_name, actual_heal, target.current_hp, target.max_hp])
+
+
+func _is_food_item(item: InventoryItem) -> bool:
+	"""Check if an item is a cooked food item (for bento box)"""
+	if item == null or item.type != InventoryItem.TYPE_ITEM:
+		return false
+	# Cooked food item IDs: 27-39 (from item_db.gd)
+	return item.id >= 27 and item.id <= 39
+
+
+# ============================================================================
+# BENTO BOX ACCESSORS
+# ============================================================================
+
+func get_bento_slot_data(slot_idx: int) -> InventoryItem:
+	"""Get food item in bento slot (0-5)"""
+	if slot_idx < 0 or slot_idx >= BENTO_SLOTS:
+		return null
+	return _bento_slots[slot_idx]
+
+
+func consume_bento_food(slot_idx: int) -> InventoryItem:
+	"""Consume food from bento slot and return it (removes from bento)"""
+	if slot_idx < 0 or slot_idx >= BENTO_SLOTS:
+		return null
+
+	var food = _bento_slots[slot_idx]
+	if food == null:
+		return null
+
+	# Decrement count
+	food.count -= 1
+
+	# If count reaches 0, remove from bento
+	if food.count <= 0:
+		_bento_slots[slot_idx] = null
+		_bento_slot_views[slot_idx].get_display().set_item(null)
+	else:
+		# Update view to show new count
+		_bento_slot_views[slot_idx].get_display().set_item(food)
+
+	emit_signal("changed")
+	return food
+
+
+func consume_bento_food_smart() -> InventoryItem:
+	"""Consume weakest food from bento (smart priority)"""
+	# Food healing values (from recipes_database.json)
+	var food_healing = {
+		27: 15, 28: 10, 29: 10, 30: 20, 31: 15, 32: 10,
+		33: 25, 34: 20, 35: 20, 36: 25, 37: 20, 38: 28, 39: 30
+	}
+
+	# Find weakest food in bento
+	var weakest_idx = -1
+	var weakest_healing = 9999
+
+	for i in range(BENTO_SLOTS):
+		if _bento_slots[i] != null:
+			var healing = food_healing.get(_bento_slots[i].id, 10)
+			if healing < weakest_healing:
+				weakest_healing = healing
+				weakest_idx = i
+
+	# Consume weakest food
+	if weakest_idx >= 0:
+		return consume_bento_food(weakest_idx)
+
+	return null
+
+
+func _create_power_harmonization_button():
+	"""Add Power Harmonization button below bento box"""
+	var vbox = _panel_container.get_node("MainHBox/VB")
+
+	# Add separator
+	var separator = HSeparator.new()
+	vbox.add_child(separator)
+
+	# Create centered container for button
+	var button_center = CenterContainer.new()
+	vbox.add_child(button_center)
+
+	# Create the harmonization button
+	var harmonize_btn = Button.new()
+	harmonize_btn.text = "✨ Power Harmonization ✨"
+	harmonize_btn.custom_minimum_size = Vector2(250, 40)
+	harmonize_btn.add_theme_font_size_override("font_size", 14)
+
+	# Style with purple theme to match skyshard aesthetic
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.4, 0.2, 0.6, 0.8)  # Purple
+	style.border_color = Color(0.6, 0.4, 0.8)
+	style.set_border_width_all(2)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	harmonize_btn.add_theme_stylebox_override("normal", style)
+
+	var style_hover = style.duplicate()
+	style_hover.bg_color = Color(0.5, 0.3, 0.7, 0.9)
+	harmonize_btn.add_theme_stylebox_override("hover", style_hover)
+
+	var style_pressed = style.duplicate()
+	style_pressed.bg_color = Color(0.3, 0.15, 0.5, 0.9)
+	harmonize_btn.add_theme_stylebox_override("pressed", style_pressed)
+
+	harmonize_btn.pressed.connect(_show_power_harmonization_modal)
+	button_center.add_child(harmonize_btn)
+
 
 func _create_equipment_panels():
 	"""Create player and companion equipment panels with paper dolls"""
@@ -530,17 +847,18 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 		behavior_buttons_vbox = VBoxContainer.new()
 		behavior_buttons_vbox.add_theme_constant_override("separation", 4)
 		
-		# Create 3 behavior buttons with emojis
-		var behaviors = ["normal", "aggressive", "defensive"]
-		var emojis = ["⚖️", "⚔️", "🛡️"]
+		# Create 4 behavior buttons with emojis
+		var behaviors = ["normal", "aggressive", "defensive", "guard"]
+		var emojis = ["⚖️", "⚔️", "🛡️", "🏰"]
 		var colors = [
 			Color(0.7, 0.7, 0.7),   # Normal - gray
 			Color(1.0, 0.3, 0.3),   # Aggressive - red
-			Color(0.3, 0.5, 1.0)    # Defensive - blue
+			Color(0.3, 0.5, 1.0),   # Defensive - blue
+			Color(0.8, 0.6, 0.3)    # Guard - orange/brown
 		]
-		var tooltips = ["Normal: Balanced behavior", "Aggressive: Attack more enemies from farther away", "Defensive: Stay close and protect"]
+		var tooltips = ["Normal: Balanced behavior", "Aggressive: Attack more enemies from farther away", "Defensive: Stay close and protect", "Guard: Stay at current position and defend"]
 		
-		for i in range(3):
+		for i in range(4):
 			var btn = Button.new()
 			btn.name = behaviors[i].capitalize() + "Button"
 			btn.text = emojis[i]
@@ -563,7 +881,7 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 		# Player: Just use the panel directly (no behavior buttons)
 		content_container = panel
 
-	# Avatar (reuse party UI avatar)
+	# Avatar (reuse party UI avatar) - made clickable for food consumption
 	var avatar_bg = Panel.new()
 	avatar_bg.custom_minimum_size = Vector2(128, 128)  # Bigger avatar, less squished
 
@@ -573,12 +891,22 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 	avatar_style.set_border_width_all(2)
 	avatar_bg.add_theme_stylebox_override("panel", avatar_style)
 
+	# Make avatar clickable for drag-to-consume food
+	var avatar_button = Button.new()
+	avatar_button.name = "AvatarButton"
+	avatar_button.custom_minimum_size = Vector2(128, 128)
+	avatar_button.flat = true  # Invisible button
+	avatar_button.mouse_filter = Control.MOUSE_FILTER_PASS
+	avatar_button.pressed.connect(_on_avatar_clicked.bind(is_player))
+	avatar_bg.add_child(avatar_button)
+
 	var avatar_texture = TextureRect.new()
 	avatar_texture.name = "AvatarTexture"
 	avatar_texture.custom_minimum_size = Vector2(124, 124)  # Match larger avatar size
 	avatar_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	avatar_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	avatar_texture.position = Vector2(2, 2)
+	avatar_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Let button handle clicks
 	avatar_bg.add_child(avatar_texture)
 
 	# Load avatar based on player data
@@ -593,7 +921,7 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 	if is_player:
 		# Player: Single weapon slot (vertical layout)
 		var weapon_label = Label.new()
-		weapon_label.text = "Weapon"
+		weapon_label.text = "Accessory"
 		weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		weapon_label.add_theme_font_size_override("font_size", 12)
 		content_container.add_child(weapon_label)
@@ -809,7 +1137,11 @@ func _on_accessory_slot_pressed():
 				equipment_changed.emit()
 				print("✨ Equipped accessory with power: %s" % dragged_item.skyshard_power)
 			else:
-				print("❌ Only EQUIP powers (stone_skin, moon_jump, flame_aura) can go in accessory slot!")
+				# Invalid item - return it to original slot
+				print("❌ Only EQUIP powers (stone_skin, moon_jump, flame_aura, glide, return) can go in accessory slot!")
+				if _dragged_slot >= 0 and _dragged_slot < _slots.size():
+					# Return item to original slot
+					_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
 				_dragged_item_view.stop()
 				_dragged_slot = -1
 		else:
@@ -825,7 +1157,7 @@ func _on_accessory_slot_pressed():
 
 func _is_equip_power(power_name: String) -> bool:
 	"""Check if power is an EQUIP type (passive powers)"""
-	return power_name in ["stone_skin", "moon_jump", "flame_aura"]
+	return power_name in ["stone_skin", "moon_jump", "flame_aura", "glide", "return"]
 
 
 func _update_accessory_slot_view():
@@ -1177,9 +1509,11 @@ func _show_power_selection_modal(weapon_slot_idx: int) -> void:
 		{"name": "poison_cloud", "display": "Poison Cloud", "desc": "Leaves poison AoE on impact", "slot": "HOTBAR"},
 		{"name": "knife_volley", "display": "Knife Volley", "desc": "Launches 3 knives on attack", "slot": "HOTBAR"},
 		{"name": "wind_dash", "display": "Wind Dash", "desc": "Speed boost for 3s after hit", "slot": "HOTBAR"},
+		{"name": "return", "display": "Return", "desc": "Retrieve thrown projectiles with right-click", "slot": "EQUIP"},
 		{"name": "stone_skin", "display": "Stone Skin", "desc": "+50% defense while equipped", "slot": "EQUIP"},
 		{"name": "moon_jump", "display": "Moon Jump", "desc": "Triple jump height while equipped", "slot": "EQUIP"},
-		{"name": "flame_aura", "display": "Flame Aura", "desc": "Burns nearby enemies constantly", "slot": "EQUIP"}
+		{"name": "flame_aura", "display": "Flame Aura", "desc": "Burns nearby enemies constantly", "slot": "EQUIP"},
+		{"name": "glide", "display": "Glide", "desc": "Slow fall (synergy with Wind Walker Boots)", "slot": "EQUIP"}
 	]
 
 	# Scroll container for powers
@@ -1238,6 +1572,464 @@ func _on_power_selected(weapon_slot_idx: int, power_name: String, modal_bg: Colo
 
 
 # ============================================================================
+# POWER HARMONIZATION SYSTEM (Fusion)
+# ============================================================================
+
+var _harmonization_slot1: InventoryItem = null  # Source item (will be destroyed)
+var _harmonization_slot2: InventoryItem = null  # Target item (will receive power)
+var _harmonization_modal_bg: ColorRect = null
+var _harmonization_modal: Control = null
+
+func _show_power_harmonization_modal() -> void:
+	"""Show modal for fusing two powered items together"""
+	# Create modal background
+	_harmonization_modal_bg = ColorRect.new()
+	_harmonization_modal_bg.name = "HarmonizationBG"
+	_harmonization_modal_bg.color = Color(0, 0, 0, 0.85)
+	_harmonization_modal_bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_harmonization_modal_bg)
+
+	# Create modal dialog
+	_harmonization_modal = Control.new()
+	_harmonization_modal.name = "HarmonizationModal"
+	_harmonization_modal.custom_minimum_size = Vector2(700, 600)
+	add_child(_harmonization_modal)
+
+	# Center on screen
+	var screen_size = get_viewport_rect().size
+	_harmonization_modal.position = (screen_size - _harmonization_modal.custom_minimum_size) / 2
+
+	# Modal background panel
+	var panel = Panel.new()
+	panel.custom_minimum_size = _harmonization_modal.custom_minimum_size
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.08, 0.05, 0.12, 0.98)  # Dark purple
+	panel_style.border_color = Color(0.6, 0.4, 0.9)  # Light purple
+	panel_style.set_border_width_all(4)
+	panel.add_theme_stylebox_override("panel", panel_style)
+	_harmonization_modal.add_child(panel)
+
+	# Main content container
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 15)
+	content.position = Vector2(20, 20)
+	content.size = _harmonization_modal.custom_minimum_size - Vector2(40, 40)
+	_harmonization_modal.add_child(content)
+
+	# Title
+	var title = Label.new()
+	title.text = "✨ Power Harmonization ✨"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(0.7, 0.5, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(title)
+
+	# Subtitle
+	var subtitle = Label.new()
+	subtitle.text = "Combine two powered items to create a dual-power weapon"
+	subtitle.add_theme_font_size_override("font_size", 13)
+	subtitle.add_theme_color_override("font_color", Color(0.8, 0.7, 0.9))
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(subtitle)
+
+	# Fusion slots area (horizontal layout with two slots + preview)
+	var fusion_area = HBoxContainer.new()
+	fusion_area.add_theme_constant_override("separation", 20)
+	fusion_area.alignment = BoxContainer.ALIGNMENT_CENTER
+	fusion_area.custom_minimum_size = Vector2(660, 120)
+	content.add_child(fusion_area)
+
+	# === Slot 1: Source (Destroyed) ===
+	var slot1_panel = _create_fusion_slot_panel("Source Item", "🔴 DESTROYED", Color(0.8, 0.2, 0.2))
+	slot1_panel.name = "Slot1Panel"
+	fusion_area.add_child(slot1_panel)
+
+	# === Center: Fusion Arrow & Preview ===
+	var center_panel = VBoxContainer.new()
+	center_panel.custom_minimum_size = Vector2(250, 120)
+
+	var arrow = Label.new()
+	arrow.text = "◉ → ⚡ ← ◉"
+	arrow.add_theme_font_size_override("font_size", 20)
+	arrow.add_theme_color_override("font_color", Color(0.9, 0.7, 1.0))
+	arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	center_panel.add_child(arrow)
+
+	var preview_label = Label.new()
+	preview_label.name = "PreviewLabel"
+	preview_label.text = "Select items to fuse"
+	preview_label.add_theme_font_size_override("font_size", 10)
+	preview_label.add_theme_color_override("font_color", Color(0.7, 0.6, 0.8))
+	preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	preview_label.custom_minimum_size = Vector2(240, 0)
+	center_panel.add_child(preview_label)
+
+	fusion_area.add_child(center_panel)
+
+	# === Slot 2: Target (Survives) ===
+	var slot2_panel = _create_fusion_slot_panel("Target Item", "✅ KEEPS ITEM", Color(0.2, 0.8, 0.2))
+	slot2_panel.name = "Slot2Panel"
+	fusion_area.add_child(slot2_panel)
+
+	# Cost label with current skyshard count
+	const SKYSHARD_ITEM_ID = 21
+	var skyshard_count = _count_item_in_inventory(SKYSHARD_ITEM_ID)
+	var cost_label = Label.new()
+	cost_label.name = "CostLabel"
+	cost_label.text = "Cost: 20 Skyshards (You have: %d)" % skyshard_count
+	cost_label.add_theme_font_size_override("font_size", 14)
+	var cost_color = Color(0.2, 0.8, 0.2) if skyshard_count >= 20 else Color(0.8, 0.2, 0.2)
+	cost_label.add_theme_color_override("font_color", cost_color)
+	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(cost_label)
+
+	# Item grid (shows all powered items)
+	var grid_label = Label.new()
+	grid_label.text = "Select Powered Items (🟧 = Player Equipped, 🟩 = Companion Equipped):"
+	grid_label.add_theme_font_size_override("font_size", 12)
+	grid_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	content.add_child(grid_label)
+
+	# Scroll container for item grid
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(660, 250)
+	content.add_child(scroll)
+
+	var item_grid = GridContainer.new()
+	item_grid.name = "ItemGrid"
+	item_grid.columns = 6
+	item_grid.add_theme_constant_override("h_separation", 10)
+	item_grid.add_theme_constant_override("v_separation", 10)
+	scroll.add_child(item_grid)
+
+	# Populate grid with powered items
+	_populate_harmonization_item_grid(item_grid)
+
+	# Buttons
+	var button_row = HBoxContainer.new()
+	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	button_row.add_theme_constant_override("separation", 15)
+	content.add_child(button_row)
+
+	var harmonize_btn = Button.new()
+	harmonize_btn.name = "HarmonizeButton"
+	harmonize_btn.text = "⚡ Harmonize Powers ⚡"
+	harmonize_btn.custom_minimum_size = Vector2(200, 40)
+	harmonize_btn.disabled = true  # Disabled until both slots filled
+	harmonize_btn.pressed.connect(_on_harmonize_pressed)
+	button_row.add_child(harmonize_btn)
+
+	var cancel_btn = Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(120, 40)
+	cancel_btn.pressed.connect(_close_harmonization_modal)
+	button_row.add_child(cancel_btn)
+
+
+func _create_fusion_slot_panel(slot_title: String, status_text: String, status_color: Color) -> VBoxContainer:
+	"""Helper to create a fusion slot panel"""
+	var panel = VBoxContainer.new()
+	panel.custom_minimum_size = Vector2(150, 120)
+
+	var title_label = Label.new()
+	title_label.text = slot_title
+	title_label.add_theme_font_size_override("font_size", 12)
+	title_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(title_label)
+
+	# Item icon placeholder (will be updated when item selected)
+	var icon = TextureRect.new()
+	icon.name = "ItemIcon"
+	icon.custom_minimum_size = Vector2(64, 64)
+	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	panel.add_child(icon)
+
+	var status_label = Label.new()
+	status_label.name = "StatusLabel"
+	status_label.text = status_text
+	status_label.add_theme_font_size_override("font_size", 10)
+	status_label.add_theme_color_override("font_color", status_color)
+	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(status_label)
+
+	return panel
+
+
+func _populate_harmonization_item_grid(grid: GridContainer) -> void:
+	"""Populate grid with all powered items from inventory and equipment slots"""
+	# Collect all powered items from inventory
+	for i in range(_slots.size()):
+		var item = _slots[i]
+		if item == null or item.type != InventoryItem.TYPE_ITEM:
+			continue
+
+		# Only show items with powers
+		if item.skyshard_power == "" and item.skyshard_powers.is_empty():
+			continue
+
+		# Create item button with VBoxContainer for layout
+		var item_btn = Button.new()
+		item_btn.custom_minimum_size = Vector2(100, 120)
+
+		# Create vertical layout inside button
+		var vbox = VBoxContainer.new()
+		vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		item_btn.add_child(vbox)
+
+		# Get item info
+		var item_data = _item_db.get_item(item.id)
+		var item_name = item_data.base_info.name.capitalize()
+
+		# Add item texture
+		var texture_rect = TextureRect.new()
+		texture_rect.custom_minimum_size = Vector2(48, 48)
+		texture_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		texture_rect.texture = item_data.base_info.sprite
+
+		var texture_center = CenterContainer.new()
+		texture_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		texture_center.add_child(texture_rect)
+		vbox.add_child(texture_center)
+
+		# Check if equipped
+		var equipped_indicator = ""
+		if _player_weapon_slot != null and _player_weapon_slot.id == item.id and i == _get_slot_index(_player_weapon_slot):
+			equipped_indicator = "🟧 "  # Orange square for player
+		elif _companion_weapon_slot != null and _companion_weapon_slot.id == item.id and i == _get_slot_index(_companion_weapon_slot):
+			equipped_indicator = "🟩 "  # Green square for companion
+		elif _companion_accessory_slot != null and _companion_accessory_slot.id == item.id and i == _get_slot_index(_companion_accessory_slot):
+			equipped_indicator = "🟩 "  # Green square for companion accessory
+
+		# Get all powers
+		var powers = item.get_all_powers()
+		var power_text = "\n".join(powers)
+
+		# Add text labels
+		var name_label = Label.new()
+		name_label.text = "%s%s" % [equipped_indicator, item_name]
+		name_label.add_theme_font_size_override("font_size", 10)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(name_label)
+
+		var power_label = Label.new()
+		power_label.text = power_text
+		power_label.add_theme_font_size_override("font_size", 9)
+		power_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		power_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(power_label)
+
+		# Connect to selection handler
+		item_btn.pressed.connect(_on_harmonization_item_selected.bind(i))
+
+		grid.add_child(item_btn)
+
+
+func _get_slot_index(item: InventoryItem) -> int:
+	"""Helper to find slot index of an item"""
+	for i in range(_slots.size()):
+		if _slots[i] == item:
+			return i
+	return -1
+
+
+func _on_harmonization_item_selected(slot_index: int) -> void:
+	"""Handle item selection for harmonization"""
+	var item = _slots[slot_index]
+
+	# Assign to next empty slot
+	if _harmonization_slot1 == null:
+		_harmonization_slot1 = item
+		print("✨ Slot 1 (Source): %s" % _item_db.get_item(item.id).base_info.name)
+	elif _harmonization_slot2 == null and item != _harmonization_slot1:
+		_harmonization_slot2 = item
+		print("✨ Slot 2 (Target): %s" % _item_db.get_item(item.id).base_info.name)
+	else:
+		# Both slots full, clear and restart
+		_harmonization_slot1 = item
+		_harmonization_slot2 = null
+		print("✨ Slot 1 (Source): %s" % _item_db.get_item(item.id).base_info.name)
+
+	_update_harmonization_ui()
+
+
+func _update_harmonization_ui() -> void:
+	"""Update the harmonization UI to show selected items"""
+	if not _harmonization_modal:
+		return
+
+	# Update slot 1 icon
+	var slot1_panel = _harmonization_modal.find_child("Slot1Panel", true, false)
+	if slot1_panel:
+		var icon1 = slot1_panel.find_child("ItemIcon", true, false)
+		if icon1 and _harmonization_slot1 != null:
+			var item_data = _item_db.get_item(_harmonization_slot1.id)
+			icon1.texture = item_data.base_info.sprite
+
+	# Update slot 2 icon
+	var slot2_panel = _harmonization_modal.find_child("Slot2Panel", true, false)
+	if slot2_panel:
+		var icon2 = slot2_panel.find_child("ItemIcon", true, false)
+		if icon2 and _harmonization_slot2 != null:
+			var item_data = _item_db.get_item(_harmonization_slot2.id)
+			icon2.texture = item_data.base_info.sprite
+
+	# Update preview
+	var preview_label = _harmonization_modal.find_child("PreviewLabel", true, false)
+	if _harmonization_slot1 != null and _harmonization_slot2 != null:
+		var powers1 = _harmonization_slot1.get_all_powers()
+		var powers2 = _harmonization_slot2.get_all_powers()
+
+		# Determine which power becomes major/minor
+		var major_power = powers1[0] if powers1.size() > 0 else ""
+		var minor_power = powers2[0] if powers2.size() > 0 else ""
+
+		# Check power types
+		var major_is_equip = _is_equip_power(major_power)
+		var minor_is_equip = _is_equip_power(minor_power)
+
+		var preview_text = "Major: %s (100%%)\nMinor: %s (60%%)" % [major_power, minor_power]
+
+		# Add usage hint based on power types
+		if major_is_equip and minor_is_equip:
+			preview_text += "\n\n💡 EQUIP powers only\n→ Use in Accessory slot"
+		elif not major_is_equip and not minor_is_equip:
+			preview_text += "\n\n⚔️ HOTBAR powers only\n→ Use in Hotbar or Accessory"
+		else:
+			preview_text += "\n\n⚡ Mixed powers!\n→ Use in Accessory slot for both to work"
+
+		preview_label.text = preview_text
+	else:
+		preview_label.text = "Select items to fuse"
+
+	# Enable/disable harmonize button
+	var harmonize_btn = _harmonization_modal.find_child("HarmonizeButton", true, false)
+	if harmonize_btn:
+		harmonize_btn.disabled = (_harmonization_slot1 == null or _harmonization_slot2 == null)
+
+
+func _on_harmonize_pressed() -> void:
+	"""Execute the power harmonization (fusion)"""
+	if _harmonization_slot1 == null or _harmonization_slot2 == null:
+		print("❌ ERROR: Both slots must be filled!")
+		return
+
+	# Check skyshard cost (20 skyshard consumables from inventory)
+	const SKYSHARD_ITEM_ID = 21
+	var skyshard_count = _count_item_in_inventory(SKYSHARD_ITEM_ID)
+	if skyshard_count < 20:
+		print("❌ ERROR: Need 20 skyshards! You have: %d" % skyshard_count)
+		return
+
+	# Get powers
+	var powers1 = _harmonization_slot1.get_all_powers()
+	var powers2 = _harmonization_slot2.get_all_powers()
+
+	if powers1.is_empty() or powers2.is_empty():
+		print("❌ ERROR: Both items must have powers!")
+		return
+
+	# Perform fusion
+	var major_power = powers1[0]
+	var minor_power = powers2[0]
+
+	# Clear existing powers array and set new dual-power structure
+	_harmonization_slot2.skyshard_powers = [
+		{"name": major_power, "strength": 1.0},  # Major power (100%)
+		{"name": minor_power, "strength": 0.6}   # Minor power (60%)
+	]
+	_harmonization_slot2.skyshard_power = ""  # Clear legacy power
+
+	# Consume 20 skyshard consumables from inventory
+	_consume_item_from_inventory(SKYSHARD_ITEM_ID, 20)
+
+	# Destroy slot 1 item
+	var slot1_index = _get_slot_index(_harmonization_slot1)
+	if slot1_index >= 0:
+		_slots[slot1_index] = null
+		_slot_views[slot1_index].get_display().set_item(null)
+
+	# Update slot 2 display
+	var slot2_index = _get_slot_index(_harmonization_slot2)
+	if slot2_index >= 0:
+		_slot_views[slot2_index].get_display().set_item(_harmonization_slot2)
+
+	# Success message
+	var item2_name = _item_db.get_item(_harmonization_slot2.id).base_info.name
+	print("⚡ HARMONIZATION COMPLETE!")
+	print("   %s now has:" % item2_name)
+	print("   - Major: %s (100%%)" % major_power)
+	print("   - Minor: %s (60%%)" % minor_power)
+
+	# Add usage hint based on power types
+	var major_is_equip = _is_equip_power(major_power)
+	var minor_is_equip = _is_equip_power(minor_power)
+
+	if major_is_equip and minor_is_equip:
+		print("   💡 EQUIP powers only → Use in Accessory slot")
+	elif not major_is_equip and not minor_is_equip:
+		print("   ⚔️ HOTBAR powers only → Use in Hotbar or Accessory")
+	else:
+		print("   ⚡ Mixed powers! → Use in Accessory slot for both to work")
+
+	emit_signal("changed")
+
+	# Close modal
+	_close_harmonization_modal()
+
+
+func _close_harmonization_modal() -> void:
+	"""Close the harmonization modal"""
+	_harmonization_slot1 = null
+	_harmonization_slot2 = null
+
+	if _harmonization_modal_bg:
+		_harmonization_modal_bg.queue_free()
+		_harmonization_modal_bg = null
+
+	if _harmonization_modal:
+		_harmonization_modal.queue_free()
+		_harmonization_modal = null
+
+
+func _count_item_in_inventory(item_id: int) -> int:
+	"""Count total quantity of an item in inventory"""
+	var total = 0
+	for item in _slots:
+		if item != null and item.type == InventoryItem.TYPE_ITEM and item.id == item_id:
+			total += item.count
+	return total
+
+
+func _consume_item_from_inventory(item_id: int, amount: int) -> void:
+	"""Consume a specific amount of an item from inventory"""
+	var remaining = amount
+	for i in range(_slots.size()):
+		if remaining <= 0:
+			break
+
+		var item = _slots[i]
+		if item != null and item.type == InventoryItem.TYPE_ITEM and item.id == item_id:
+			var to_remove = min(remaining, item.count)
+			item.count -= to_remove
+			remaining -= to_remove
+
+			# Remove item if count reaches 0
+			if item.count <= 0:
+				_slots[i] = null
+				_slot_views[i].get_display().set_item(null)
+			else:
+				_slot_views[i].get_display().set_item(item)
+
+	emit_signal("changed")
+
+
+# ============================================================================
 # SAVE/LOAD SYSTEM
 # ============================================================================
 
@@ -1246,7 +2038,9 @@ func serialize_inventory() -> Dictionary:
 	var data = {
 		"slots": [],
 		"player_weapon": null,
-		"companion_weapon": null
+		"companion_weapon": null,
+		"companion_accessory": null,
+		"bento_slots": []
 	}
 
 	# Serialize inventory slots
@@ -1259,7 +2053,8 @@ func serialize_inventory() -> Dictionary:
 				"id": item.id,
 				"count": item.count,
 				"skyshard_count": item.skyshard_count,
-				"skyshard_power": item.skyshard_power
+				"skyshard_power": item.skyshard_power,
+				"skyshard_powers": item.skyshard_powers
 			})
 
 	# Serialize equipped weapons
@@ -1269,7 +2064,8 @@ func serialize_inventory() -> Dictionary:
 			"id": _player_weapon_slot.id,
 			"count": _player_weapon_slot.count,
 			"skyshard_count": _player_weapon_slot.skyshard_count,
-			"skyshard_power": _player_weapon_slot.skyshard_power
+			"skyshard_power": _player_weapon_slot.skyshard_power,
+			"skyshard_powers": _player_weapon_slot.skyshard_powers
 		}
 
 	if _companion_weapon_slot != null:
@@ -1278,8 +2074,34 @@ func serialize_inventory() -> Dictionary:
 			"id": _companion_weapon_slot.id,
 			"count": _companion_weapon_slot.count,
 			"skyshard_count": _companion_weapon_slot.skyshard_count,
-			"skyshard_power": _companion_weapon_slot.skyshard_power
+			"skyshard_power": _companion_weapon_slot.skyshard_power,
+			"skyshard_powers": _companion_weapon_slot.skyshard_powers
 		}
+	
+	# Serialize companion accessory
+	if _companion_accessory_slot != null:
+		data["companion_accessory"] = {
+			"type": _companion_accessory_slot.type,
+			"id": _companion_accessory_slot.id,
+			"count": _companion_accessory_slot.count,
+			"skyshard_count": _companion_accessory_slot.skyshard_count,
+			"skyshard_power": _companion_accessory_slot.skyshard_power,
+			"skyshard_powers": _companion_accessory_slot.skyshard_powers
+		}
+
+	# Serialize bento box slots
+	for item in _bento_slots:
+		if item == null:
+			data["bento_slots"].append(null)
+		else:
+			data["bento_slots"].append({
+				"type": item.type,
+				"id": item.id,
+				"count": item.count,
+				"skyshard_count": item.skyshard_count,
+				"skyshard_power": item.skyshard_power,
+				"skyshard_powers": item.skyshard_powers
+			})
 
 	return data
 
@@ -1304,11 +2126,13 @@ func deserialize_inventory(data: Dictionary) -> void:
 			item.count = slot_data.get("count", 1)
 			item.skyshard_count = slot_data.get("skyshard_count", 0)
 			item.skyshard_power = slot_data.get("skyshard_power", "")
+			item.skyshard_powers = slot_data.get("skyshard_powers", [])
 			_slots[i] = item
 
 	# Load equipped weapons
 	_player_weapon_slot = null
 	_companion_weapon_slot = null
+	_companion_accessory_slot = null
 
 	if data.has("player_weapon") and data["player_weapon"] != null:
 		var weapon_data = data["player_weapon"]
@@ -1318,6 +2142,7 @@ func deserialize_inventory(data: Dictionary) -> void:
 		weapon.count = weapon_data.get("count", 1)
 		weapon.skyshard_count = weapon_data.get("skyshard_count", 0)
 		weapon.skyshard_power = weapon_data.get("skyshard_power", "")
+		weapon.skyshard_powers = weapon_data.get("skyshard_powers", [])
 		_player_weapon_slot = weapon
 
 	if data.has("companion_weapon") and data["companion_weapon"] != null:
@@ -1328,7 +2153,33 @@ func deserialize_inventory(data: Dictionary) -> void:
 		weapon.count = weapon_data.get("count", 1)
 		weapon.skyshard_count = weapon_data.get("skyshard_count", 0)
 		weapon.skyshard_power = weapon_data.get("skyshard_power", "")
+		weapon.skyshard_powers = weapon_data.get("skyshard_powers", [])
 		_companion_weapon_slot = weapon
+	
+	if data.has("companion_accessory") and data["companion_accessory"] != null:
+		var accessory_data = data["companion_accessory"]
+		var accessory = InventoryItem.new()
+		accessory.type = accessory_data["type"]
+		accessory.id = accessory_data["id"]
+		accessory.count = accessory_data.get("count", 1)
+		accessory.skyshard_count = accessory_data.get("skyshard_count", 0)
+		accessory.skyshard_power = accessory_data.get("skyshard_power", "")
+		accessory.skyshard_powers = accessory_data.get("skyshard_powers", [])
+		_companion_accessory_slot = accessory
+
+	# Load bento box slots
+	if data.has("bento_slots") and data["bento_slots"] != null:
+		for i in range(min(data["bento_slots"].size(), BENTO_SLOTS)):
+			var slot_data = data["bento_slots"][i]
+			if slot_data != null:
+				var item = InventoryItem.new()
+				item.type = slot_data["type"]
+				item.id = slot_data["id"]
+				item.count = slot_data.get("count", 1)
+				item.skyshard_count = slot_data.get("skyshard_count", 0)
+				item.skyshard_power = slot_data.get("skyshard_power", "")
+				item.skyshard_powers = slot_data.get("skyshard_powers", [])
+				_bento_slots[i] = item
 
 	# Update views
 	_update_views()
@@ -1338,8 +2189,18 @@ func deserialize_inventory(data: Dictionary) -> void:
 		_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
 	if _companion_weapon_slot_view:
 		_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+	if _companion_accessory_slot_view:
+		_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+
+	# Update bento box views
+	for i in range(BENTO_SLOTS):
+		if _bento_slot_views[i]:
+			_bento_slot_views[i].get_display().set_item(_bento_slots[i])
 
 	# Refresh hotbar display to show loaded items
 	_refresh_hotbar_display()
+
+	# Update companion's equipment
+	_update_companion_accessory()
 
 	print("Inventory loaded from save data")

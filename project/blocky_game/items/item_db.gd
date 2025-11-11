@@ -18,8 +18,8 @@ func _init():
 		"behavior": "grappling_hook.gd"
 	})
 	_create_item({
-		"name": "climbing_claws",
-		"behavior": "climbing_claws.gd"
+		"name": "wind_walker_boots",
+		"behavior": "wind_walker_boots.gd"
 	})
 	_create_item({
 		"name": "ice_bow",
@@ -120,6 +120,67 @@ func _init():
 	_create_item({
 		"name": "fish",
 		"behavior": "fish.gd"
+	})
+	# Cooked food items (Phase 2 - Cooking System)
+	_create_item({
+		"name": "grilled_fish",
+		"behavior": "grilled_fish.gd"
+	})
+	_create_item({
+		"name": "berry_honey_snack",
+		"behavior": "berry_honey_snack.gd"
+	})
+	_create_item({
+		"name": "cooked_egg",
+		"behavior": "cooked_egg.gd"
+	})
+	_create_item({
+		"name": "roasted_rabbit",
+		"behavior": "roasted_rabbit.gd"
+	})
+	_create_item({
+		"name": "pumpkin_soup",
+		"behavior": "pumpkin_soup.gd"
+	})
+	_create_item({
+		"name": "mushroom_bites",
+		"behavior": "mushroom_bites.gd"
+	})
+	_create_item({
+		"name": "honey_bread",
+		"behavior": "honey_bread.gd"
+	})
+	_create_item({
+		"name": "pumpkin_pie",
+		"behavior": "pumpkin_pie.gd"
+	})
+	_create_item({
+		"name": "fish_mushroom_stew",
+		"behavior": "fish_mushroom_stew.gd"
+	})
+	_create_item({
+		"name": "berry_honey_bread",
+		"behavior": "berry_honey_bread.gd"
+	})
+	_create_item({
+		"name": "egg_mushroom_omelette",
+		"behavior": "egg_mushroom_omelette.gd"
+	})
+	_create_item({
+		"name": "hunters_feast",
+		"behavior": "hunters_feast.gd"
+	})
+	_create_item({
+		"name": "super_stew",
+		"behavior": "super_stew.gd"
+	})
+	_create_item({
+		"name": "light_orb",
+		"behavior": "light_orb.gd"
+	})
+	_create_item({
+		"name": "spear",
+		"behavior": "spear.gd"
 	})
 
 

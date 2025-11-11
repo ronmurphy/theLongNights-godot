@@ -246,6 +246,330 @@ offset_top = 136.0
 offset_right = 608.0
 offset_bottom = 200.0
 
+[node name="InventorySlot28" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 0.0
+offset_top = 204.0
+offset_right = 64.0
+offset_bottom = 268.0
+
+[node name="InventorySlot29" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 68.0
+offset_top = 204.0
+offset_right = 132.0
+offset_bottom = 268.0
+
+[node name="InventorySlot30" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 136.0
+offset_top = 204.0
+offset_right = 200.0
+offset_bottom = 268.0
+
+[node name="InventorySlot31" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 204.0
+offset_top = 204.0
+offset_right = 268.0
+offset_bottom = 268.0
+
+[node name="InventorySlot32" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 272.0
+offset_top = 204.0
+offset_right = 336.0
+offset_bottom = 268.0
+
+[node name="InventorySlot33" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 340.0
+offset_top = 204.0
+offset_right = 404.0
+offset_bottom = 268.0
+
+[node name="InventorySlot34" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 408.0
+offset_top = 204.0
+offset_right = 472.0
+offset_bottom = 268.0
+
+[node name="InventorySlot35" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 476.0
+offset_top = 204.0
+offset_right = 540.0
+offset_bottom = 268.0
+
+[node name="InventorySlot36" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 544.0
+offset_top = 204.0
+offset_right = 608.0
+offset_bottom = 268.0
+
+[node name="InventorySlot37" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 0.0
+offset_top = 272.0
+offset_right = 64.0
+offset_bottom = 336.0
+
+[node name="InventorySlot38" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 68.0
+offset_top = 272.0
+offset_right = 132.0
+offset_bottom = 336.0
+
+[node name="InventorySlot39" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 136.0
+offset_top = 272.0
+offset_right = 200.0
+offset_bottom = 336.0
+
+[node name="InventorySlot40" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 204.0
+offset_top = 272.0
+offset_right = 268.0
+offset_bottom = 336.0
+
+[node name="InventorySlot41" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 272.0
+offset_top = 272.0
+offset_right = 336.0
+offset_bottom = 336.0
+
+[node name="InventorySlot42" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 340.0
+offset_top = 272.0
+offset_right = 404.0
+offset_bottom = 336.0
+
+[node name="InventorySlot43" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 408.0
+offset_top = 272.0
+offset_right = 472.0
+offset_bottom = 336.0
+
+[node name="InventorySlot44" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 476.0
+offset_top = 272.0
+offset_right = 540.0
+offset_bottom = 336.0
+
+[node name="InventorySlot45" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 544.0
+offset_top = 272.0
+offset_right = 608.0
+offset_bottom = 336.0
+
+[node name="InventorySlot46" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 0.0
+offset_top = 340.0
+offset_right = 64.0
+offset_bottom = 404.0
+
+[node name="InventorySlot47" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 68.0
+offset_top = 340.0
+offset_right = 132.0
+offset_bottom = 404.0
+
+[node name="InventorySlot48" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 136.0
+offset_top = 340.0
+offset_right = 200.0
+offset_bottom = 404.0
+
+[node name="InventorySlot49" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 204.0
+offset_top = 340.0
+offset_right = 268.0
+offset_bottom = 404.0
+
+[node name="InventorySlot50" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 272.0
+offset_top = 340.0
+offset_right = 336.0
+offset_bottom = 404.0
+
+[node name="InventorySlot51" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 340.0
+offset_top = 340.0
+offset_right = 404.0
+offset_bottom = 404.0
+
+[node name="InventorySlot52" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 408.0
+offset_top = 340.0
+offset_right = 472.0
+offset_bottom = 404.0
+
+[node name="InventorySlot53" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 476.0
+offset_top = 340.0
+offset_right = 540.0
+offset_bottom = 404.0
+
+[node name="InventorySlot54" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 544.0
+offset_top = 340.0
+offset_right = 608.0
+offset_bottom = 404.0
+
+[node name="InventorySlot55" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 0.0
+offset_top = 408.0
+offset_right = 64.0
+offset_bottom = 472.0
+
+[node name="InventorySlot56" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 68.0
+offset_top = 408.0
+offset_right = 132.0
+offset_bottom = 472.0
+
+[node name="InventorySlot57" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 136.0
+offset_top = 408.0
+offset_right = 200.0
+offset_bottom = 472.0
+
+[node name="InventorySlot58" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 204.0
+offset_top = 408.0
+offset_right = 268.0
+offset_bottom = 472.0
+
+[node name="InventorySlot59" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 272.0
+offset_top = 408.0
+offset_right = 336.0
+offset_bottom = 472.0
+
+[node name="InventorySlot60" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 340.0
+offset_top = 408.0
+offset_right = 404.0
+offset_bottom = 472.0
+
+[node name="InventorySlot61" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 408.0
+offset_top = 408.0
+offset_right = 472.0
+offset_bottom = 472.0
+
+[node name="InventorySlot62" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 476.0
+offset_top = 408.0
+offset_right = 540.0
+offset_bottom = 472.0
+
+[node name="InventorySlot63" parent="CC/PC/VB/Bag" instance=ExtResource("2")]
+anchor_right = 0.0
+anchor_bottom = 0.0
+visible = false
+offset_left = 544.0
+offset_top = 408.0
+offset_right = 608.0
+offset_bottom = 472.0
+
 [node name="HSeparator" type="HSeparator" parent="CC/PC/VB"]
 offset_top = 242.0
 offset_right = 608.0
