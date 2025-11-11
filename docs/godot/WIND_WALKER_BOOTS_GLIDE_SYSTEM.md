@@ -218,7 +218,7 @@ Both paths work, encouraging different playstyles and rewarding discovery.
 
 ## Testing Checklist
 
-- [ ] Boots slow fall works without power
+- [x] Boots slow fall works without power
 - [ ] Glide power works on other items
 - [ ] Synergy activates with boots + power
 - [ ] Stats match specification (Y -4 vs Y -2)

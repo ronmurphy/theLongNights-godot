@@ -50,9 +50,9 @@ func get_equip_buffs(power_name: String) -> Dictionary:
 			return {"jump_mult": 3.0, "name": "Moon Jump", "location": "character_controller.gd ~line 186"}
 		"flame_aura":
 			return {"has_flame_aura": true, "name": "Flame Aura", "location": "character_controller.gd ~line 403"}
+		"glide":
+			return {"fall_speed_base": -4.0, "fall_speed_synergy": -3.0, "turn_speed_base": 0.3, "turn_speed_synergy": 1.0, "name": "Glide", "location": "character_controller.gd"}
 		_:
-			if power_name == "glide":
-				return {"fall_speed": -4.0, "turn_speed": 0.3, "name": "Glide", "location": "character_controller.gd"}
 			return {}
 
 

@@ -1094,7 +1094,7 @@ func _on_accessory_slot_pressed():
 				print("✨ Equipped accessory with power: %s" % dragged_item.skyshard_power)
 			else:
 				# Invalid item - return it to original slot
-				print("❌ Only EQUIP powers (stone_skin, moon_jump, flame_aura) can go in accessory slot!")
+				print("❌ Only EQUIP powers (stone_skin, moon_jump, flame_aura, glide, return) can go in accessory slot!")
 				if _dragged_slot >= 0 and _dragged_slot < _slots.size():
 					# Return item to original slot
 					_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
@@ -1113,7 +1113,7 @@ func _on_accessory_slot_pressed():
 
 func _is_equip_power(power_name: String) -> bool:
 	"""Check if power is an EQUIP type (passive powers)"""
-	return power_name in ["stone_skin", "moon_jump", "flame_aura", "glide"]
+	return power_name in ["stone_skin", "moon_jump", "flame_aura", "glide", "return"]
 
 
 func _update_accessory_slot_view():
@@ -1468,7 +1468,8 @@ func _show_power_selection_modal(weapon_slot_idx: int) -> void:
 		{"name": "return", "display": "Return", "desc": "Retrieve thrown projectiles with right-click", "slot": "EQUIP"},
 		{"name": "stone_skin", "display": "Stone Skin", "desc": "+50% defense while equipped", "slot": "EQUIP"},
 		{"name": "moon_jump", "display": "Moon Jump", "desc": "Triple jump height while equipped", "slot": "EQUIP"},
-		{"name": "flame_aura", "display": "Flame Aura", "desc": "Burns nearby enemies constantly", "slot": "EQUIP"}
+		{"name": "flame_aura", "display": "Flame Aura", "desc": "Burns nearby enemies constantly", "slot": "EQUIP"},
+		{"name": "glide", "display": "Glide", "desc": "Slow fall (synergy with Wind Walker Boots)", "slot": "EQUIP"}
 	]
 
 	# Scroll container for powers

@@ -265,6 +265,24 @@ func _physics_process(delta: float):
 
 				motor = motor.normalized() * effective_speed
 
+				# Aerial control: reduce air movement if not gliding
+				# Check glide status early for aerial control
+				var equipped_weapon = _get_equipped_weapon()
+				var has_glide_power = equipped_weapon and equipped_weapon.skyshard_power == "glide"
+				var boots_equipped = _has_wind_walker_boots()
+				var turn_speed_multiplier = 1.0
+
+				if not _grounded and (has_glide_power or boots_equipped):
+					# Calculate turn speed based on boots + power synergy
+					if has_glide_power and boots_equipped:
+						turn_speed_multiplier = 1.0  # 100% control (full synergy)
+					else:
+						turn_speed_multiplier = 0.3  # 30% control (base glide)
+
+					# Apply reduced air control
+					motor.x *= turn_speed_multiplier
+					motor.z *= turn_speed_multiplier
+
 				_velocity.x = motor.x
 				_velocity.z = motor.z
 
@@ -272,25 +290,24 @@ func _physics_process(delta: float):
 		if not _climbing and not _gravity_disabled:
 			var depth_adjusted_gravity = _get_depth_adjusted_gravity()
 			_velocity.y -= depth_adjusted_gravity * delta
-		
-		# Wind Walker Boots and [Glide] Power: slow-fall and turn speed logic
+
+		# Wind Walker Boots and [Glide] Power: slow-fall cap (already checked above for aerial control)
 		var equipped_weapon = _get_equipped_weapon()
 		var has_glide_power = equipped_weapon and equipped_weapon.skyshard_power == "glide"
 		var boots_equipped = _has_wind_walker_boots()
-		var fall_speed = -4.0
-		var turn_speed = 0.3
+		var fall_speed_cap = -4.0
+
 		if has_glide_power and boots_equipped:
-			# Synergy: enhanced stats
-			fall_speed = -2.0
-			turn_speed = 1.0
+			# Synergy: slower fall speed cap (better gliding)
+			fall_speed_cap = -3.0
 		elif has_glide_power or boots_equipped:
-			# Either boots or power: base stats
-			fall_speed = -4.0
-			turn_speed = 0.3
-		# Apply slow-fall if either is active
-		if (has_glide_power or boots_equipped) and _velocity.y < 0:
-			_velocity.y = max(_velocity.y, fall_speed)
-		# TODO: Apply turn_speed to aerial steering (future phase)
+			# Either boots or power: base fall speed cap
+			fall_speed_cap = -4.0
+
+		# Apply slow-fall cap ONLY if falling fast enough (not right after jump)
+		# This prevents glide from activating immediately on jump
+		if (has_glide_power or boots_equipped) and _velocity.y < fall_speed_cap:
+			_velocity.y = max(_velocity.y, fall_speed_cap)
 
 		if _grounded and Input.is_key_pressed(KEY_SPACE):
 			# ⚡ SKYSHARD POWER: Moon Jump (triple jump height when equipped)

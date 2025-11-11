@@ -1377,14 +1377,18 @@ func _apply_equip_powers(delta: float) -> void:
 			"stone_skin":
 				# Defense bonus is handled in take_damage()
 				pass
-			
+
 			"moon_jump":
 				# Jump boost - companions don't really jump, but could apply to movement
 				pass
-			
+
 			"flame_aura":
 				# Burn nearby enemies periodically
 				_apply_companion_flame_aura(delta)
+
+			"glide":
+				# Slow fall effect - cap fall speed
+				_apply_glide_fall_cap()
 	
 	# Defensive mode: Auto-heal when low HP
 	if support_mode == "defensive":
@@ -1440,6 +1444,40 @@ func _apply_companion_flame_aura(delta: float) -> void:
 		
 		if burned_count > 0:
 			print("🔥 %s's Flame Aura! Burned %d nearby enemies for %d damage each" % [entity_name, burned_count, FLAME_DAMAGE])
+
+
+func _apply_glide_fall_cap() -> void:
+	"""Cap fall speed when gliding (works with or without Wind Walker Boots)"""
+	# Only apply when falling
+	if _velocity.y >= 0:
+		return
+
+	# Check if player has Wind Walker Boots equipped (companions share player's inventory)
+	var player_has_boots = false
+	if _player and _player.has_method("_has_wind_walker_boots"):
+		player_has_boots = _player._has_wind_walker_boots()
+
+	# Check if companion has glide power equipped in THEIR accessory slot or weapon
+	var powers = get_all_equipped_powers()  # Gets powers from companion's weapon AND accessory
+	var has_glide_power = "glide" in powers
+
+	# Determine fall speed cap based on synergy
+	var fall_speed_cap = -4.0
+
+	if has_glide_power and player_has_boots:
+		# Synergy: boots + glide power = slower fall (-3.0)
+		fall_speed_cap = -3.0
+	elif has_glide_power or player_has_boots:
+		# Either boots or power: base fall speed (-4.0)
+		fall_speed_cap = -4.0
+	else:
+		# No glide, no boots - don't cap
+		return
+
+	# Apply slow-fall cap ONLY if falling fast enough (not right after jump/being launched)
+	# This prevents glide from activating immediately
+	if _velocity.y < fall_speed_cap:
+		_velocity.y = max(_velocity.y, fall_speed_cap)
 
 
 ## Create flame aura visual effect for companion
