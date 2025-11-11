@@ -8,7 +8,10 @@ class_name PlayerAvatar
 var _sprite: Sprite3D = null
 var _front_sprite_path: String = ""
 var _back_sprite_path: String = ""
+var _jumping_sprite_path: String = ""
+var _jumping_back_sprite_path: String = ""
 var _current_sprite_is_front: bool = true
+var _current_sprite_is_jumping: bool = false
 var _sprite_height_scale: float = 1.0
 
 const MIN_SPEED_FOR_DIRECTION = 0.5
@@ -50,6 +53,8 @@ func _create_sprite(race: String, gender: String, color: Color):
 	# Build sprite paths
 	_front_sprite_path = "res://assets/art/player_avatars/%s_%s.png" % [race, gender]
 	_back_sprite_path = "res://assets/art/player_avatars/%s_%s_back.png" % [race, gender]
+	_jumping_sprite_path = "res://assets/art/player_avatars/%s_%s_jumping.png" % [race, gender]
+	_jumping_back_sprite_path = "res://assets/art/player_avatars/%s_%s_jumping_back.png" % [race, gender]
 	
 	# Load front sprite
 	var front_texture = null
@@ -160,6 +165,47 @@ func update_sprite_direction(velocity: Vector3, camera_forward: Vector3):
 				
 				# Preserve scale when swapping
 				_sprite.scale = Vector3(_sprite_height_scale, _sprite_height_scale, _sprite_height_scale)
+
+
+func update_jumping_state(is_jumping: bool, is_facing_back: bool):
+	"""Update sprite based on jumping state and facing direction"""
+	if not _sprite:
+		return
+
+	# If jumping state changed, update sprite
+	if is_jumping != _current_sprite_is_jumping:
+		_current_sprite_is_jumping = is_jumping
+
+		if is_jumping:
+			# Switch to jumping sprite
+			var jumping_path = _jumping_back_sprite_path if is_facing_back else _jumping_sprite_path
+
+			if ResourceLoader.exists(jumping_path):
+				var jumping_texture = load(jumping_path)
+				if jumping_texture:
+					_sprite.texture = jumping_texture
+
+					# Update shader texture if using shader
+					if _sprite.material_override:
+						_sprite.material_override.set_shader_parameter("texture_albedo", jumping_texture)
+
+					# Preserve scale
+					_sprite.scale = Vector3(_sprite_height_scale, _sprite_height_scale, _sprite_height_scale)
+		else:
+			# Switch back to normal sprite
+			var normal_path = _back_sprite_path if is_facing_back else _front_sprite_path
+
+			if ResourceLoader.exists(normal_path):
+				var normal_texture = load(normal_path)
+				if normal_texture:
+					_sprite.texture = normal_texture
+
+					# Update shader texture if using shader
+					if _sprite.material_override:
+						_sprite.material_override.set_shader_parameter("texture_albedo", normal_texture)
+
+					# Preserve scale
+					_sprite.scale = Vector3(_sprite_height_scale, _sprite_height_scale, _sprite_height_scale)
 
 
 func set_shadow_only_mode(shadow_only: bool):

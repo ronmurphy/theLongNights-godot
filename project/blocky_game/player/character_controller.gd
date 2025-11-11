@@ -187,7 +187,7 @@ func _physics_process(delta: float):
 	if _flame_aura_timer >= 1.0:
 		_flame_aura_timer = 0.0
 		var equipped_weapon = _get_equipped_weapon()
-		if equipped_weapon and equipped_weapon.skyshard_power == "flame_aura":
+		if equipped_weapon and equipped_weapon.has_power("flame_aura"):
 			_apply_flame_aura()
 	
 	# Update flame aura visual effect
@@ -268,7 +268,7 @@ func _physics_process(delta: float):
 				# Aerial control: reduce air movement if not gliding
 				# Check glide status early for aerial control
 				var equipped_weapon = _get_equipped_weapon()
-				var has_glide_power = equipped_weapon and equipped_weapon.skyshard_power == "glide"
+				var has_glide_power = equipped_weapon and equipped_weapon.has_power("glide")
 				var boots_equipped = _has_wind_walker_boots()
 				var turn_speed_multiplier = 1.0
 
@@ -293,7 +293,7 @@ func _physics_process(delta: float):
 
 		# Wind Walker Boots and [Glide] Power: slow-fall cap (already checked above for aerial control)
 		var equipped_weapon = _get_equipped_weapon()
-		var has_glide_power = equipped_weapon and equipped_weapon.skyshard_power == "glide"
+		var has_glide_power = equipped_weapon and equipped_weapon.has_power("glide")
 		var boots_equipped = _has_wind_walker_boots()
 		var fall_speed_cap = -4.0
 
@@ -313,7 +313,7 @@ func _physics_process(delta: float):
 			# ⚡ SKYSHARD POWER: Moon Jump (triple jump height when equipped)
 			var jump_multiplier = 1.0
 			# equipped_weapon already declared above
-			if equipped_weapon and equipped_weapon.skyshard_power == "moon_jump":
+			if equipped_weapon and equipped_weapon.has_power("moon_jump"):
 				jump_multiplier = 3.0
 				print("🌙 Moon Jump active! Tripled jump height!")
 
@@ -379,28 +379,41 @@ func _physics_process(delta: float):
 		_update_photo_mode(delta)
 		return  # Skip normal movement processing in photo mode
 	
-	# Update player avatar sprite direction based on movement or camera orbit
+	# Update player avatar sprite direction and jumping state based on movement or camera orbit
 	if _player_avatar and _show_avatar:
+		var is_facing_back = false
+
 		if _camera_orbiting:
 			# During orbit, switch sprite based on where camera is relative to player's facing
 			var player_forward = -global_transform.basis.z  # Player's forward direction
 			player_forward.y = 0
-			
+
 			var cam_direction = (_head.global_position - global_position).normalized()
 			cam_direction.y = 0
-			
+
 			# Calculate dot product: if camera is in front of player, show front sprite
 			# If camera is behind player, show back sprite
 			var dot = player_forward.normalized().dot(cam_direction.normalized())
-			
+
 			# dot > 0 = camera in front of where player is facing = show back of player
 			# dot < 0 = camera behind where player is facing = show front of player
-			_player_avatar.force_sprite_direction(dot > 0)
+			is_facing_back = dot > 0
+			_player_avatar.force_sprite_direction(is_facing_back)
 		else:
 			# Normal first-person: avatar is in shadow-only mode (invisible)
 			# Still update sprite direction for when we switch to charview
 			var cam_forward = -_head.global_transform.basis.z
 			_player_avatar.update_sprite_direction(_velocity, cam_forward)
+
+			# Determine facing direction based on movement
+			var horizontal_velocity = Vector3(_velocity.x, 0, _velocity.z)
+			if horizontal_velocity.length() >= 0.5:
+				var dot_product = horizontal_velocity.normalized().dot(cam_forward)
+				is_facing_back = dot_product > 0
+
+		# Update jumping state
+		var is_jumping = not _grounded
+		_player_avatar.update_jumping_state(is_jumping, is_facing_back)
 
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer():
@@ -854,7 +867,7 @@ func take_damage(amount: int, from: Node = null) -> void:
 
 	# ⚡ SKYSHARD POWER: Stone Skin (+50% defense when equipped)
 	var equipped_weapon = _get_equipped_weapon()
-	if equipped_weapon and equipped_weapon.skyshard_power == "stone_skin":
+	if equipped_weapon and equipped_weapon.has_power("stone_skin"):
 		effective_defense = int(defense * 1.5)  # +50% defense
 		print("🛡️ Stone Skin active! Defense boosted: %d → %d" % [defense, effective_defense])
 
@@ -973,7 +986,7 @@ func _remove_flame_aura_visual() -> void:
 func _update_flame_aura_visual() -> void:
 	"""Show/hide flame aura based on equipped items"""
 	var equipped_weapon = _get_equipped_weapon()
-	var has_flame_aura = equipped_weapon and equipped_weapon.skyshard_power == "flame_aura"
+	var has_flame_aura = equipped_weapon and equipped_weapon.has_power("flame_aura")
 	
 	if has_flame_aura and not _flame_aura_visual:
 		_create_flame_aura_visual()

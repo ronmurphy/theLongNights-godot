@@ -188,7 +188,7 @@ func _hit_entity(entity: Node):
 		Powers.execute_hotbar_power(_inv_item_or_count.skyshard_power, power_context)
 
 		# If Return power was used, mark for retrieval
-		if _inv_item_or_count.skyshard_power == "return":
+		if _inv_item_or_count.has_power("return"):
 			mark_for_retrieval()
 
 	# Stick to entity or ground

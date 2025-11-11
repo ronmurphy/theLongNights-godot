@@ -9,6 +9,7 @@ const ItemDB = preload("../items/item_db.gd")
 
 var _count_label : Label = null
 var _skyshard_label : Label = null  # Skyshard counter (bottom-left, light blue)
+var _power_badge : Label = null  # Power type badge (top-left, for harmonized items)
 
 
 func _ready():
@@ -45,6 +46,21 @@ func _ready():
 	_skyshard_label.offset_left = 2
 	_skyshard_label.offset_bottom = -2
 
+	# Create power badge label (top-left, for harmonized items)
+	_power_badge = Label.new()
+	_power_badge.name = "PowerBadge"
+	_power_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_power_badge.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_power_badge.add_theme_color_override("font_outline_color", Color.BLACK)
+	_power_badge.add_theme_constant_override("outline_size", 3)
+	_power_badge.add_theme_font_size_override("font_size", 16)
+	_power_badge.visible = false
+	add_child(_power_badge)
+
+	# Position label at top-left of item icon
+	_power_badge.offset_left = 1
+	_power_badge.offset_top = -2
+
 
 func set_item(data: InventoryItem):
 	if data == null:
@@ -54,6 +70,8 @@ func set_item(data: InventoryItem):
 			_count_label.visible = false
 		if _skyshard_label:
 			_skyshard_label.visible = false
+		if _power_badge:
+			_power_badge.visible = false
 
 	elif data.type == InventoryItem.TYPE_BLOCK:
 		var block := _block_types.get_block(data.id)
@@ -78,9 +96,11 @@ func set_item(data: InventoryItem):
 			else:
 				_count_label.visible = false
 
-		# Blocks never have skyshard enhancements
+		# Blocks never have skyshard enhancements or power badges
 		if _skyshard_label:
 			_skyshard_label.visible = false
+		if _power_badge:
+			_power_badge.visible = false
 
 	elif data.type == InventoryItem.TYPE_ITEM:
 		var item := _item_db.get_item(data.id)
@@ -89,10 +109,38 @@ func set_item(data: InventoryItem):
 		# Set tooltip with item name
 		tooltip_text = item.base_info.name.capitalize()
 
-		# Add power to tooltip if weapon has skyshard enhancement
-		if data.skyshard_power != "":
-			var power_display_name = _get_power_display_name(data.skyshard_power)
-			tooltip_text += "\n✨ Power: " + power_display_name
+		# Get all powers (legacy + new system)
+		var all_powers = data.get_all_powers()
+
+		# Add powers to tooltip
+		if all_powers.size() > 0:
+			# Check power types
+			var hotbar_powers = []
+			var equip_powers = []
+			for power in all_powers:
+				if _is_equip_power(power):
+					equip_powers.append(power)
+				else:
+					hotbar_powers.append(power)
+
+			# Build tooltip with power types
+			if hotbar_powers.size() > 0:
+				for power in hotbar_powers:
+					var power_display = _get_power_display_name(power)
+					var strength = data.get_power_strength(power)
+					if strength < 1.0:
+						tooltip_text += "\n⚔️ HOTBAR: %s (%.0f%%)" % [power_display, strength * 100]
+					else:
+						tooltip_text += "\n⚔️ HOTBAR: " + power_display
+
+			if equip_powers.size() > 0:
+				for power in equip_powers:
+					var power_display = _get_power_display_name(power)
+					var strength = data.get_power_strength(power)
+					if strength < 1.0:
+						tooltip_text += "\n🛡️ EQUIP: %s (%.0f%%)" % [power_display, strength * 100]
+					else:
+						tooltip_text += "\n🛡️ EQUIP: " + power_display
 
 		# Show count for all items when more than 1
 		if _count_label:
@@ -109,6 +157,29 @@ func set_item(data: InventoryItem):
 				_skyshard_label.visible = true
 			else:
 				_skyshard_label.visible = false
+
+		# Show power badge for harmonized items (top-left)
+		if _power_badge:
+			if all_powers.size() >= 2:
+				# Harmonized item - determine badge emoji
+				var hotbar_count = 0
+				var equip_count = 0
+				for power in all_powers:
+					if _is_equip_power(power):
+						equip_count += 1
+					else:
+						hotbar_count += 1
+
+				if hotbar_count > 0 and equip_count > 0:
+					_power_badge.text = "⚡"  # Mixed powers
+				elif hotbar_count > 0:
+					_power_badge.text = "⚔️"  # HOTBAR powers only
+				else:
+					_power_badge.text = "🛡️"  # EQUIP powers only
+
+				_power_badge.visible = true
+			else:
+				_power_badge.visible = false
 
 	else:
 		assert(false)
@@ -137,5 +208,14 @@ func _get_power_display_name(power_id: String) -> String:
 			return "Stone Skin"
 		"knife_volley":
 			return "Knife Volley"
+		"glide":
+			return "Glide"
+		"return":
+			return "Return"
 		_:
 			return power_id.capitalize()  # Fallback
+
+
+func _is_equip_power(power_name: String) -> bool:
+	"""Check if power is an EQUIP type (passive powers)"""
+	return power_name in ["stone_skin", "moon_jump", "flame_aura", "glide", "return"]

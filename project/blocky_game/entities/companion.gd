@@ -60,7 +60,10 @@ const HUNT_WANDER_DISTANCE = 80.0  # Wander up to 80 blocks away
 ## Sprite direction tracking
 var _front_sprite_path: String = ""
 var _back_sprite_path: String = ""
+var _jumping_sprite_path: String = ""
+var _jumping_back_sprite_path: String = ""
 var _current_sprite_is_front: bool = true  # Track which sprite we're currently showing
+var _current_sprite_is_jumping: bool = false  # Track if showing jumping sprite
 const MIN_SPEED_FOR_DIRECTION = 0.5  # Minimum speed to consider direction
 
 ## Bento auto-eat system (shares player's bento box)
@@ -98,12 +101,15 @@ func _ready():
 	# Set collision box (similar to player)
 	set_collision_box(Vector3(0.8, 1.6, 0.8))
 
-	# Get sprite paths based on race/gender (front and back)
+	# Get sprite paths based on race/gender (front, back, and jumping)
 	var sprite_path = CompanionManager.get_avatar_path()
 	if sprite_path != "":
 		_front_sprite_path = sprite_path
 		# Generate back sprite path by inserting "_back" before .png
 		_back_sprite_path = sprite_path.get_basename() + "_back.png"
+		# Generate jumping sprite paths
+		_jumping_sprite_path = sprite_path.get_basename() + "_jumping.png"
+		_jumping_back_sprite_path = sprite_path.get_basename() + "_jumping_back.png"
 		_create_sprite(sprite_path, 0.004)
 
 		# Apply stencil shader on all graphics settings
@@ -571,6 +577,7 @@ func _process(delta: float):
 	if is_hunting:
 		_handle_hunting(delta)
 		_update_sprite_direction()  # Also update sprite during hunting!
+		_update_jumping_state()  # Also update jumping sprite during hunting!
 		return
 
 	# Check if player is too far away and needs teleport (NOT in guard mode)
@@ -593,8 +600,9 @@ func _process(delta: float):
 		State.ATTACKING:
 			_handle_attacking(delta)
 
-	# Update sprite direction based on movement
+	# Update sprite direction and jumping state based on movement
 	_update_sprite_direction()
+	_update_jumping_state()
 
 
 func _update_state():
@@ -1276,6 +1284,65 @@ func _update_sprite_direction() -> void:
 						_sprite.material_override.next_pass.set_shader_parameter("main_texture", front_texture)
 			else:
 				push_error("Failed to load front texture: %s" % _front_sprite_path)
+
+
+func _update_jumping_state() -> void:
+	"""Update sprite based on jumping state and facing direction"""
+	if not _sprite or not _player:
+		return
+
+	# Check if jumping (not grounded)
+	var is_jumping = not _grounded
+
+	# Get direction from companion to player to determine facing
+	var to_player = (_player.global_position - global_position).normalized()
+	to_player.y = 0
+
+	var velocity = get_velocity()
+	var horizontal_velocity = Vector3(velocity.x, 0, velocity.z)
+
+	# Determine if facing back based on movement
+	var is_facing_back = _current_sprite_is_front == false
+
+	# Only update velocity-based direction if moving
+	if horizontal_velocity.length() >= MIN_SPEED_FOR_DIRECTION:
+		var dot_product = horizontal_velocity.normalized().dot(to_player)
+		is_facing_back = dot_product < 0  # Moving away from player
+
+	# If jumping state changed, update sprite
+	if is_jumping != _current_sprite_is_jumping:
+		_current_sprite_is_jumping = is_jumping
+
+		if is_jumping:
+			# Switch to jumping sprite
+			var jumping_path = _jumping_back_sprite_path if is_facing_back else _jumping_sprite_path
+
+			if ResourceLoader.exists(jumping_path):
+				var jumping_texture = load(jumping_path)
+				if jumping_texture:
+					_sprite.texture = jumping_texture
+
+					# Update shader textures if using stencil shader
+					if _sprite.material_override:
+						_sprite.material_override.set_shader_parameter("main_texture", jumping_texture)
+						# Also update the silhouette shader texture
+						if _sprite.material_override.next_pass:
+							_sprite.material_override.next_pass.set_shader_parameter("main_texture", jumping_texture)
+		else:
+			# Switch back to normal sprite
+			var normal_path = _back_sprite_path if is_facing_back else _front_sprite_path
+
+			if ResourceLoader.exists(normal_path):
+				var normal_texture = load(normal_path)
+				if normal_texture:
+					_sprite.texture = normal_texture
+
+					# Update shader textures if using stencil shader
+					if _sprite.material_override:
+						_sprite.material_override.set_shader_parameter("main_texture", normal_texture)
+						# Also update the silhouette shader texture
+						if _sprite.material_override.next_pass:
+							_sprite.material_override.next_pass.set_shader_parameter("main_texture", normal_texture)
 
 
 func _apply_stencil_shader(texture_path: String) -> void:

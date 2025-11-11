@@ -33,6 +33,10 @@ var player_node: Node3D
 var _prev_player_hp: int = 0
 var _prev_companion_hp: int = 0
 
+# Track jumping states for avatar updates
+var _player_is_jumping: bool = false
+var _companion_is_jumping: bool = false
+
 
 func _get_inventory():
 	"""Helper to find inventory in scene tree"""
@@ -473,9 +477,62 @@ func _process(_delta: float) -> void:
 	# Keep UI positioned correctly if screen resizes
 	var viewport_size = get_viewport_rect().size
 	party_container.position = Vector2(viewport_size.x - 310, 70)
-	
+
 	# Update hunt timer display
 	_update_hunt_timer()
+
+	# Update jumping avatars
+	_update_jumping_avatars()
+
+
+func _update_jumping_avatars() -> void:
+	"""Update player and companion avatars to show jumping sprites when airborne"""
+	# Update player avatar
+	if player_node:
+		var player_jumping = not player_node._grounded
+		if player_jumping != _player_is_jumping:
+			_player_is_jumping = player_jumping
+			_update_player_avatar_for_jump()
+
+	# Update companion avatar
+	var companion = get_tree().get_first_node_in_group("companion")
+	if companion:
+		var companion_jumping = not companion._grounded
+		if companion_jumping != _companion_is_jumping:
+			_companion_is_jumping = companion_jumping
+			_update_companion_avatar_for_jump()
+
+
+func _update_player_avatar_for_jump() -> void:
+	"""Update player avatar based on jumping state"""
+	if not player_ui:
+		return
+
+	var pose = "jumping" if _player_is_jumping else "ready"
+	var avatar_path = PlayerData.get_avatar_path(pose)
+	var avatar_texture_rect = player_ui.get_node("AvatarBG/AvatarTexture")
+
+	if avatar_texture_rect and ResourceLoader.exists(avatar_path):
+		var texture = load(avatar_path)
+		if texture:
+			avatar_texture_rect.texture = texture
+
+
+func _update_companion_avatar_for_jump() -> void:
+	"""Update companion avatar based on jumping state"""
+	if not companion_ui or not companion_ui.visible:
+		return
+
+	var race = CompanionManager.race
+	var gender = CompanionManager.gender
+	var pose = "jumping" if _companion_is_jumping else "ready"
+	var avatar_path = CharacterQuiz.get_avatar_path(race, gender, pose)
+	var avatar_texture_rect = companion_ui.get_node("AvatarBG/AvatarTexture")
+
+	if avatar_texture_rect and ResourceLoader.exists(avatar_path):
+		var texture = load(avatar_path)
+		if texture:
+			avatar_texture_rect.texture = texture
 
 
 func _update_companion_weapon() -> void:

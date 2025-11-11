@@ -41,7 +41,7 @@ func _use(trans: Transform3D, inv_item_or_count):
 			_cleave_attack(entity, origin, inv_item_or_count)
 
 		# ⚡ SKYSHARD POWER: Wind Dash (activate once if any enemy hit)
-		if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "wind_dash":
+		if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.has_power("wind_dash"):
 			var player = get_tree().get_first_node_in_group("player")
 			if player and player.has_method("activate_wind_dash"):
 				player.activate_wind_dash()

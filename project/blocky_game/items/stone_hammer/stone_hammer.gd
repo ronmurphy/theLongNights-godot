@@ -188,7 +188,7 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 			print("💚 Life Steal (AOE)! Healed %d HP from multiple enemies" % total_heal)
 
 	# ⚡ SKYSHARD POWER: Wind Dash (activate once if any enemy hit)
-	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "wind_dash":
+	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.has_power("wind_dash"):
 		var hit_count = 0
 		for entity in entities:
 			if entity.is_alive and entity.team == EntityBase.Team.ENEMY:
@@ -202,7 +202,7 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 				player.activate_wind_dash()
 
 	# ⚡ SKYSHARD POWER: Lightning Chain (chain from impact center to enemies outside AOE)
-	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power == "lightning_chain":
+	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.has_power("lightning_chain"):
 		_lightning_chain_aoe(center, radius, int(damage * 0.5))
 
 
