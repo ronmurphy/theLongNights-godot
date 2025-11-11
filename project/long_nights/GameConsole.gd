@@ -1206,6 +1206,9 @@ func _cmd_homebase(args: Array) -> void:
 			var tier_name = HomeBaseManager.TIER_NAMES[HomeBaseManager.home_structure_tier]
 			add_output("[color=lime]🏠 Teleported to home base (%s)[/color]" % tier_name)
 			add_output("[color=cyan]Welcome home![/color]")
+			
+			# LampManager will automatically activate nearby lamps within 48 blocks
+			# No scan needed - proximity checks happen every 2 seconds
 
 		"set":
 			if not player:

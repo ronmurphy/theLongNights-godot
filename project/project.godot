@@ -38,6 +38,7 @@ CaveEntranceDecorator="*res://long_nights/CaveEntranceDecorator.gd"
 DepthsEnemySpawner="*res://long_nights/DepthsEnemySpawner.gd"
 RuinRegistry="*res://blocky_game/ruins/RuinRegistry.gd"
 Powers="*res://long_nights/Powers.gd"
+LampManager="*res://long_nights/LampManager.gd"
 
 [display]
 

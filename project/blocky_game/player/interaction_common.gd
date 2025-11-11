@@ -30,6 +30,8 @@ static func place_single_block(terrain_tool: VoxelTool, pos: Vector3, look_dir: 
 	block_id: int, block_types: Blocks, water_updater: WaterUpdater):
 	
 	var block := block_types.get_block(block_id)
+	if block:
+		print("🔨 Placing block: ", block.base_info.name, " (ID: ", block_id, ")")
 	var voxel_id := 0
 
 	match block.base_info.rotation_type:
@@ -55,4 +57,46 @@ static func place_single_block(terrain_tool: VoxelTool, pos: Vector3, look_dir: 
 		safe_set_voxel(terrain_tool, pos, voxel_id)
 
 	water_updater.schedule(pos)
+	
+	# Special handling: ruin_void_lamp needs a light attached
+	if block and block.base_info.name == "ruin_void_lamp":
+		print("🔦 Placing ruin_void_lamp, spawning light...")
+		_spawn_ruin_void_lamp_light(pos)
+
+
+static func _spawn_ruin_void_lamp_light(block_pos: Vector3):
+	"""Spawn a PlacedLightOrb on top of a ruin_void_lamp block"""
+	# Get the world container where lights are spawned (same as light_orb.gd uses)
+	var tree = Engine.get_main_loop() as SceneTree
+	if not tree:
+		return
+	
+	var world_container = tree.root.get_node_or_null("Main/Game")
+	if not world_container:
+		print("⚠️ Could not find Game container for ruin_void_lamp light")
+		return
+	
+	# Load the PlacedLightOrb script
+	const PlacedLightOrb = preload("../items/light_orb/placed_light_orb.gd")
+	
+	# Create the light orb
+	var orb = Node3D.new()
+	orb.set_script(PlacedLightOrb)
+	
+	# IMPORTANT: Set custom range BEFORE adding to tree (so _ready() uses it)
+	orb.set("_custom_range", 15.0)
+	
+	# Add to world FIRST (this calls _ready())
+	world_container.add_child(orb)
+	
+	# THEN set position after _ready() has created the visuals
+	orb.global_position = Vector3(block_pos) + Vector3(0.5, 1.0, 0.5)
+	
+	print("✨ Spawned ruin_void_lamp light at ", orb.global_position)
+	
+	# Register with LampManager for persistence
+	var lamp_manager = tree.root.get_node_or_null("/root/LampManager")
+	if lamp_manager:
+		lamp_manager.register_lamp(block_pos, "cyan")
+
 

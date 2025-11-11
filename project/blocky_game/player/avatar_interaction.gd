@@ -40,6 +40,11 @@ var _cached_entities: Array = []
 var _entity_cache_timer: float = 0.0
 const ENTITY_CACHE_REFRESH_INTERVAL: float = 0.5  # Refresh every 0.5 seconds instead of every frame
 
+## Mining particle pooling - reuse particles instead of creating new ones
+var _particle_pool: Array = []
+const MAX_POOL_SIZE: int = 5
+var _last_particle_progress: float = 0.0  # Track when we last spawned particles during mining
+
 var _terrain_tool : VoxelTool = null
 var _cursor : MeshInstance3D = null
 var _action_place := false
@@ -122,6 +127,12 @@ func _ready():
 	_torch_light.shadow_enabled = GraphicsSettings.should_enable_torch_shadows()  # Respect graphics settings
 	_torch_light.visible = false
 	_head.add_child(_torch_light)
+	
+	# Load saved lamp positions from LampManager
+	await get_tree().create_timer(1.0).timeout
+	var lamp_manager = get_node_or_null("/root/LampManager")
+	if lamp_manager:
+		await lamp_manager.load_lamps()
 
 
 func _process(_delta):
@@ -399,9 +410,23 @@ func _process_block_breaking(pos: Vector3, block_id: int, delta: float, inv_item
 	var progress_percent = (_break_progress / break_time_required) * 100.0
 	_hotbar.set_mining_progress(progress_percent)
 
-	# Spawn particles occasionally
-	if fmod(_break_progress, 0.1) < delta:  # Every 0.1 seconds
-		_spawn_mining_particles(pos)
+	# Spawn particles based on progress milestones and graphics settings
+	var particle_interval = 20.0  # Default for low
+	if GraphicsSettings.current_profile == "medium" or GraphicsSettings.current_profile == "high":
+		particle_interval = 10.0  # Show more frequently on medium/high
+	
+	# Check if we've crossed a particle milestone
+	var current_milestone = floor(progress_percent / particle_interval)
+	var last_milestone = floor(_last_particle_progress / particle_interval)
+	
+	if current_milestone > last_milestone:
+		# Calculate direction from player to block to determine which face is being mined
+		var player_pos = _head.global_position
+		var block_center = pos + Vector3(0.5, 0.5, 0.5)
+		var to_block = (block_center - player_pos).normalized()
+		_spawn_mining_particles(pos, to_block)
+	
+	_last_particle_progress = progress_percent
 
 	# Check if block is broken
 	if _break_progress >= break_time_required:
@@ -411,9 +436,15 @@ func _process_block_breaking(pos: Vector3, block_id: int, delta: float, inv_item
 
 
 func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool, tool_id: int = -1):
-	# Check if breaking ice - replace with water instead of air
+	# Get block info once
 	var block = _block_types.get_block(block_id)
-	var is_ice = (block.base_info.name == "ice")
+	
+	# Check if breaking ruin_void_lamp - remove the light orb
+	if block and block.base_info.name == "ruin_void_lamp":
+		_remove_ruin_void_lamp_light(pos)
+	
+	# Check if breaking ice - replace with water instead of air
+	var is_ice = (block and block.base_info.name == "ice")
 	
 	if is_ice:
 		# Breaking ice reveals water underneath
@@ -461,37 +492,88 @@ func _break_block(pos: Vector3, block_id: int, add_to_inventory: bool, tool_id: 
 		print("Destroyed block %d at %s (not added to inventory)" % [block_id, pos])
 
 
-func _spawn_mining_particles(pos: Vector3):
-	# Create small particle burst at block being mined
-	var particles = GPUParticles3D.new()
-	particles.position = pos + Vector3(0.5, 0.5, 0.5)  # Center of block
-	particles.emitting = true
-	particles.one_shot = true
-	particles.amount = 5
-	particles.lifetime = 0.3
-	particles.explosiveness = 1.0
-
-	# Particle material
-	var material = ParticleProcessMaterial.new()
+func _spawn_mining_particles(pos: Vector3, direction_to_block: Vector3):
+	# Scale particle count based on graphics settings
+	var particle_amount = 5  # Default
+	if GraphicsSettings.current_profile == "low":
+		particle_amount = 3  # Just a few particles on low
+	elif GraphicsSettings.current_profile == "medium":
+		particle_amount = 6  # Normal amount
+	else:  # high
+		particle_amount = 10  # More particles on high
+	
+	# Determine which face of the block is being mined
+	# by finding the dominant axis of the direction vector
+	var abs_dir = Vector3(abs(direction_to_block.x), abs(direction_to_block.y), abs(direction_to_block.z))
+	var face_offset = Vector3.ZERO
+	var particle_normal = Vector3.ZERO
+	
+	if abs_dir.x > abs_dir.y and abs_dir.x > abs_dir.z:
+		# X face (left or right)
+		face_offset.x = 0.5 + (0.5 * sign(direction_to_block.x))
+		face_offset.y = 0.5
+		face_offset.z = 0.5
+		particle_normal = Vector3(-sign(direction_to_block.x), 0, 0)  # Shoot back toward player
+	elif abs_dir.y > abs_dir.x and abs_dir.y > abs_dir.z:
+		# Y face (top or bottom)
+		face_offset.x = 0.5
+		face_offset.y = 0.5 + (0.5 * sign(direction_to_block.y))
+		face_offset.z = 0.5
+		particle_normal = Vector3(0, -sign(direction_to_block.y), 0)
+	else:
+		# Z face (front or back)
+		face_offset.x = 0.5
+		face_offset.y = 0.5
+		face_offset.z = 0.5 + (0.5 * sign(direction_to_block.z))
+		particle_normal = Vector3(0, 0, -sign(direction_to_block.z))
+	
+	# Try to get a particle system from the pool
+	var particles: GPUParticles3D = null
+	for p in _particle_pool:
+		if not p.emitting and is_instance_valid(p):
+			particles = p
+			break
+	
+	# If no available particles in pool, create a new one
+	if particles == null:
+		particles = GPUParticles3D.new()
+		particles.one_shot = true
+		particles.lifetime = 0.5
+		particles.explosiveness = 0.7
+		
+		# CRITICAL: Add a mesh so particles are actually visible!
+		var quad_mesh = QuadMesh.new()
+		quad_mesh.size = Vector2(0.125, 0.125)  # 1/8th of a block (block is 1.0x1.0)
+		particles.draw_pass_1 = quad_mesh
+		
+		# Add to scene and pool
+		_terrain.add_child(particles)
+		if _particle_pool.size() < MAX_POOL_SIZE:
+			_particle_pool.append(particles)
+	
+	# Update particle material for this emission
+	var material = particles.process_material as ParticleProcessMaterial
+	if material == null:
+		material = ParticleProcessMaterial.new()
+		particles.process_material = material
+	
+	# Configure emission from the face being mined, shooting toward player
 	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	material.emission_box_extents = Vector3(0.3, 0.3, 0.3)
-	material.direction = Vector3(0, 1, 0)
-	material.spread = 30.0
-	material.initial_velocity_min = 1.0
-	material.initial_velocity_max = 2.0
-	material.gravity = Vector3(0, -5.0, 0)
-	material.scale_min = 0.05
-	material.scale_max = 0.1
-	material.color = Color(0.7, 0.7, 0.7)  # Gray dust particles
-
-	particles.process_material = material
-
-	# Add to scene
-	_terrain.add_child(particles)
-
-	# Auto-delete using timer instead of await
-	var timer = get_tree().create_timer(0.5)
-	timer.timeout.connect(func(): particles.queue_free())
+	material.emission_box_extents = Vector3(0.3, 0.3, 0.05)  # Flat on the face
+	material.direction = particle_normal  # Shoot toward player
+	material.spread = 35.0
+	material.initial_velocity_min = 2.0
+	material.initial_velocity_max = 4.0  # Fast for visibility
+	material.gravity = Vector3(0, -9.8, 0)
+	material.scale_min = 0.5  # Much bigger - similar to leaf particles (0.5-0.7 = 1/2 to almost 3/4 of visual size)
+	material.scale_max = 0.7
+	material.color = Color(0.85, 0.8, 0.75, 1.0)  # Solid light brown/tan - visible against most blocks
+	
+	# Position on the face being mined (slightly outside the block)
+	particles.amount = particle_amount
+	particles.position = pos + face_offset + (particle_normal * 0.1)  # 0.1 units outside face
+	particles.emitting = true
+	particles.restart()
 
 
 func _add_item_to_inventory(item_id: int, count: int = 1) -> void:
@@ -941,8 +1023,88 @@ func _reset_breaking_progress():
 	if _is_breaking:
 		_is_breaking = false
 		_break_progress = 0.0
+		_last_particle_progress = 0.0  # Reset particle tracking
 		_hotbar.set_mining_progress(0.0)
 		# DDD.set_text("Mining", "")
+
+
+func _remove_ruin_void_lamp_light(block_pos: Vector3):
+	"""Remove the PlacedLightOrb associated with a ruin_void_lamp block when mined"""
+	var world_container = get_node_or_null("/root/Main/Game")
+	if not world_container:
+		return
+	
+	# The light is positioned on top of the block (Y + 1.0)
+	var expected_light_pos = Vector3(block_pos) + Vector3(0.5, 1.0, 0.5)
+	
+	# Find and remove the light orb near this position
+	for child in world_container.get_children():
+		if child is Node3D and child.has_method("set_light_range"):  # It's a PlacedLightOrb
+			if child.global_position.distance_to(expected_light_pos) < 1.5:
+				print("💡 Removing ruin_void_lamp light at ", child.global_position)
+				child.queue_free()
+				
+				# Unregister from LampManager
+				var lamp_manager = get_node_or_null("/root/LampManager")
+				if lamp_manager:
+					lamp_manager.unregister_lamp(block_pos)
+				
+				return
+
+
+func _print_block_info():
+	"""Debug function: Print detailed info about the block being looked at (CTRL+I)"""
+	var hit := _get_pointed_voxel()
+	
+	if hit == null:
+		print("═══════════════════════════════════════")
+		print("🔍 BLOCK INFO (CTRL+I)")
+		print("═══════════════════════════════════════")
+		print("❌ Not looking at any block (air or out of range)")
+		print("═══════════════════════════════════════")
+		return
+	
+	var pos = hit.position
+	var raw_id = _terrain_tool.get_voxel(pos)
+	var rm = _block_types.get_raw_mapping(raw_id)
+	var block = _block_types.get_block(rm.block_id)
+	
+	print("═══════════════════════════════════════")
+	print("🔍 BLOCK INFO (CTRL+I)")
+	print("═══════════════════════════════════════")
+	print("📍 Position: ", pos)
+	print("📦 Raw Voxel ID: ", raw_id)
+	print("🆔 Block ID: ", rm.block_id)
+	
+	if block:
+		print("📛 Block Name: ", block.base_info.name)
+		print("🎨 GUI Model: ", block.base_info.gui_model_path)
+		print("📁 Directory: ", block.base_info.directory)
+		print("🔄 Rotation Type: ", block.base_info.rotation_type)
+		print("👻 Transparent: ", block.base_info.transparent)
+		print("🔙 Backface Culling: ", block.base_info.backface_culling)
+		print("🧊 Voxel IDs: ", block.base_info.voxels)
+		
+		# Check if this block should have special behavior
+		if block.base_info.name == "ruin_void_lamp":
+			print("⚠️  SPECIAL: This is a ruin_void_lamp (should spawn light when placed)")
+			# Check if there's a light nearby
+			var world_container = get_node_or_null("/root/Main/Game")
+			if world_container:
+				var expected_light_pos = Vector3(pos) + Vector3(0.5, 1.0, 0.5)
+				var found_light = false
+				for child in world_container.get_children():
+					if child is Node3D and child.has_method("set_light_range"):
+						if child.global_position.distance_to(expected_light_pos) < 2.0:
+							print("💡 Found associated light at: ", child.global_position)
+							found_light = true
+							break
+				if not found_light:
+					print("⚠️  WARNING: No light found near this ruin_void_lamp!")
+	else:
+		print("❌ ERROR: Block data not found for ID ", rm.block_id)
+	
+	print("═══════════════════════════════════════")
 
 
 func _unhandled_input(event: InputEvent):
@@ -981,8 +1143,12 @@ func _unhandled_input(event: InputEvent):
 
 	elif event is InputEventKey:
 		if event.pressed and not ui_open:
+			# Check for CTRL+I - Debug block info
+			if event.ctrl_pressed and event.keycode == KEY_I:
+				_print_block_info()
+				get_viewport().set_input_as_handled()
 			# Check for CTRL+(1-6) - Eat food from bento box
-			if event.ctrl_pressed and _hotbar_keys.has(event.keycode):
+			elif event.ctrl_pressed and _hotbar_keys.has(event.keycode):
 				var key_num = _hotbar_keys[event.keycode]
 				if key_num >= 0 and key_num <= 5:  # Only 1-6 keys
 					_try_eat_from_bento(key_num)
@@ -1948,3 +2114,72 @@ func _spawn_retrieval_effect(pos: Vector3) -> void:
 	var light_tween = get_tree().create_tween()
 	light_tween.tween_property(light, "light_energy", 0.0, LIGHT_FLASH_DURATION)
 	light_tween.tween_callback(light.queue_free)
+
+
+func scan_and_restore_lights():
+	"""Scan nearby chunks for ruin_void_lamp and void_beacon blocks and restore their lights (called on world load or homebase tp)"""
+	if not _terrain or not _terrain_tool:
+		return
+	
+	print("🔦 Scanning for light blocks to restore...")
+	var player_pos = get_parent().global_position
+	var scan_radius = 64  # Scan 64 blocks around player
+	var lamp_count = 0
+	var beacon_count = 0
+	
+	# Scan in a box around the player
+	for x in range(int(player_pos.x - scan_radius), int(player_pos.x + scan_radius)):
+		for y in range(int(player_pos.y - scan_radius), int(player_pos.y + scan_radius)):
+			for z in range(int(player_pos.z - scan_radius), int(player_pos.z + scan_radius)):
+				var pos = Vector3(x, y, z)
+				var raw_id = _terrain_tool.get_voxel(pos)
+				var rm = _block_types.get_raw_mapping(raw_id)
+				var block = _block_types.get_block(rm.block_id)
+				
+				if not block:
+					continue
+				
+				var expected_light_pos = pos + Vector3(0.5, 1.0, 0.5)
+				var has_light = false
+				
+				# Check if there's already a light here
+				var game = get_node_or_null("/root/Main/Game")
+				if game:
+					for child in game.get_children():
+						if child is Node3D and (child.has_method("set_light_range") or child.is_in_group("undervoid_beacons")):
+							if child.global_position.distance_to(expected_light_pos) < 1.0:
+								has_light = true
+								break
+				
+				# Handle ruin_void_lamp (cyan light)
+				if block.base_info.name == "ruin_void_lamp" and not has_light:
+					InteractionCommon._spawn_ruin_void_lamp_light(pos)
+					lamp_count += 1
+				
+				# Handle void_beacon (purple light)
+				elif block.base_info.name == "void_beacon" and not has_light:
+					_spawn_undervoid_beacon_light(pos)
+					beacon_count += 1
+	
+	if lamp_count > 0 or beacon_count > 0:
+		print("✨ Restored %d cyan lamps, %d purple beacons" % [lamp_count, beacon_count])
+	else:
+		print("🔦 No light blocks found needing restoration")
+
+
+func _spawn_undervoid_beacon_light(block_pos: Vector3):
+	"""Spawn a purple UndervoidBeacon light on top of a void_beacon block"""
+	const UndervoidBeacon = preload("../items/light_orb/undervoid_beacon.gd")
+	
+	var beacon = Node3D.new()
+	beacon.set_script(UndervoidBeacon)
+	
+	var game = get_node_or_null("/root/Main/Game")
+	if game:
+		game.add_child(beacon)
+		beacon.global_position = Vector3(block_pos) + Vector3(0.5, 1.0, 0.5)
+		
+		# Register with LampManager for persistence
+		var lamp_manager = get_node_or_null("/root/LampManager")
+		if lamp_manager:
+			lamp_manager.register_lamp(block_pos, "purple")

@@ -98,14 +98,56 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 	# Register this ruin with the RuinRegistry (including size for enemy scaling)
 	var ruin_data = RuinRegistry.register_ruin(world_position, template.name, template.teleport_stone_positions, template.size)
 
-	# Add glowing lights at all teleport stone positions with correct colors
+	# Prepare stone data for LampManager
+	var stone_positions_and_colors = []
 	for i in range(ruin_data.teleport_stones.size()):
 		var stone = ruin_data.teleport_stones[i]
 		var stone_world_pos = world_position + Vector3(stone.local_pos)
-		_add_teleport_stone_light(stone_world_pos, stone.glow_color)
-
-	# Add magical sphere around the ruin (color-coded by type)
-	_add_ruin_sphere(world_position, ruin_data, template.size)
+		stone_positions_and_colors.append({
+			"pos": stone_world_pos,
+			"color": stone.glow_color
+		})
+	
+	# Prepare sphere data for LampManager
+	var horizontal_size = max(template.size.x, template.size.z)
+	var vertical_size = template.size.y
+	var radius = sqrt(pow(horizontal_size / 2.0, 2) + pow(horizontal_size / 2.0, 2)) + 5.0
+	var vertical_radius = (vertical_size / 2.0) + 5.0
+	if vertical_radius > radius:
+		radius = vertical_radius
+	
+	var center_offset = Vector3(template.size) / 2.0
+	var sphere_center = world_position + center_offset
+	
+	# Determine sphere color and opacity
+	var sphere_color: Color
+	var opacity: float
+	if ruin_data.has_enemies:
+		sphere_color = Color(0.3, 0.0, 0.0)
+		opacity = 0.45
+	else:
+		if ruin_data.teleport_stones.size() > 0:
+			sphere_color = ruin_data.teleport_stones[0].glow_color.darkened(0.6)
+			opacity = 0.15
+		else:
+			sphere_color = Color(0.2, 0.3, 0.5)
+			opacity = 0.15
+	
+	var sphere_data = {
+		"center": sphere_center,
+		"radius": radius,
+		"color": sphere_color,
+		"opacity": opacity,
+		"has_enemies": ruin_data.has_enemies
+	}
+	
+	# Register with LampManager for persistence
+	var lamp_manager = get_tree().root.get_node_or_null("/root/LampManager")
+	if lamp_manager:
+		lamp_manager.register_ruin(world_position, stone_positions_and_colors, sphere_data)
+	
+	# Old functions no longer needed - LampManager handles spawning
+	# _add_teleport_stone_light() and _add_ruin_sphere() are deprecated
 
 	print("Placed ", blocks_placed, " blocks for ruin '", template.name, "' (", ruin_data.ruin_name, ") with ", template.teleport_stone_positions.size(), " teleport stone(s)")
 	return world_position
