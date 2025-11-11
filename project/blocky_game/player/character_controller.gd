@@ -119,16 +119,23 @@ func _ready():
 	_apply_graphics_settings()
 
 
-func _has_climbing_claws() -> bool:
-	# Check if player has climbing claws equipped in hotbar
-	# Performance optimization: Use cached hotbar reference instead of get_node_or_null every call
-	if _hotbar == null:
+func _has_wind_walker_boots() -> bool:
+	# Check if player OR companion has Wind Walker Boots equipped in the equipment slot
+	var inventory = get_node_or_null("Inventory")
+	if inventory == null:
 		return false
-	var item = _hotbar.get_selected_item()
-	if item == null:
-		return false
-	# Climbing claws is item ID 2 (0=rocket_launcher, 1=grappling_hook, 2=climbing_claws)
-	return item.type == 1 and item.id == 2  # TYPE_ITEM = 1
+	
+	# Check player's equipped item
+	var player_equipped = inventory.get_player_equipped_weapon()
+	if player_equipped != null and player_equipped.type == 1 and player_equipped.id == 2:
+		return true
+	
+	# Check companion's equipped item
+	var companion_equipped = inventory.get_companion_equipped_weapon()
+	if companion_equipped != null and companion_equipped.type == 1 and companion_equipped.id == 2:
+		return true
+	
+	return false
 
 
 func _check_wall_ahead() -> bool:
@@ -219,9 +226,9 @@ func _physics_process(delta: float):
 
 	# Only process keyboard input if enabled (not using console)
 	if input_enabled:
-		# Check for climbing
-		var has_claws = _has_climbing_claws()
-		var wall_ahead = has_claws and _check_wall_ahead()
+		# Check for climbing (legacy functionality - will be replaced with glide)
+		var has_boots = _has_wind_walker_boots()
+		var wall_ahead = has_boots and _check_wall_ahead()
 		var trying_to_climb = wall_ahead and (Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_W))
 
 		# Update climbing state
@@ -265,11 +272,30 @@ func _physics_process(delta: float):
 		if not _climbing and not _gravity_disabled:
 			var depth_adjusted_gravity = _get_depth_adjusted_gravity()
 			_velocity.y -= depth_adjusted_gravity * delta
+		
+		# Wind Walker Boots and [Glide] Power: slow-fall and turn speed logic
+		var equipped_weapon = _get_equipped_weapon()
+		var has_glide_power = equipped_weapon and equipped_weapon.skyshard_power == "glide"
+		var boots_equipped = _has_wind_walker_boots()
+		var fall_speed = -4.0
+		var turn_speed = 0.3
+		if has_glide_power and boots_equipped:
+			# Synergy: enhanced stats
+			fall_speed = -2.0
+			turn_speed = 1.0
+		elif has_glide_power or boots_equipped:
+			# Either boots or power: base stats
+			fall_speed = -4.0
+			turn_speed = 0.3
+		# Apply slow-fall if either is active
+		if (has_glide_power or boots_equipped) and _velocity.y < 0:
+			_velocity.y = max(_velocity.y, fall_speed)
+		# TODO: Apply turn_speed to aerial steering (future phase)
 
 		if _grounded and Input.is_key_pressed(KEY_SPACE):
 			# ⚡ SKYSHARD POWER: Moon Jump (triple jump height when equipped)
 			var jump_multiplier = 1.0
-			var equipped_weapon = _get_equipped_weapon()
+			# equipped_weapon already declared above
 			if equipped_weapon and equipped_weapon.skyshard_power == "moon_jump":
 				jump_multiplier = 3.0
 				print("🌙 Moon Jump active! Tripled jump height!")

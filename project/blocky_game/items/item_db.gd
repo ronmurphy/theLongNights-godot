@@ -18,8 +18,8 @@ func _init():
 		"behavior": "grappling_hook.gd"
 	})
 	_create_item({
-		"name": "climbing_claws",
-		"behavior": "climbing_claws.gd"
+		"name": "wind_walker_boots",
+		"behavior": "wind_walker_boots.gd"
 	})
 	_create_item({
 		"name": "ice_bow",

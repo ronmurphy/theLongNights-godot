@@ -1113,7 +1113,7 @@ func _on_accessory_slot_pressed():
 
 func _is_equip_power(power_name: String) -> bool:
 	"""Check if power is an EQUIP type (passive powers)"""
-	return power_name in ["stone_skin", "moon_jump", "flame_aura"]
+	return power_name in ["stone_skin", "moon_jump", "flame_aura", "glide"]
 
 
 func _update_accessory_slot_view():

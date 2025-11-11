@@ -513,8 +513,9 @@ func _cmd_give(args: Array) -> void:
 		"rocketlauncher": 0,
 		"grapplinghook": 1,
 		"grapple": 1,
-		"climbingclaws": 2,
-		"claws": 2,
+		"windwalkerboots": 2,
+		"windboots": 2,
+		"boots": 2,
 		"icebow": 3,
 		"bow": 3,
 		"fire_staff": 4,
@@ -626,7 +627,7 @@ func _cmd_list(args: Array) -> void:
 		add_output("  [color=yellow]stonehammer[/color] (or 'hammer') - Crushing weapon with AOE")
 		add_output("")
 		add_output("[color=cyan]Tools:[/color]")
-		add_output("  [color=yellow]climbing_claws[/color] (or 'claws') - Climb vertical walls")
+		add_output("  [color=yellow]wind_walker_boots[/color] (or 'boots') - Aerial gliding and mobility")
 		add_output("")
 		add_output("[color=cyan]Materials (Stackable):[/color]")
 		add_output("  [color=yellow]skyshard[/color] (or 'shard') - Rare material for weapon enhancement")
