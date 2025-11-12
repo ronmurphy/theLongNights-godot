@@ -33,9 +33,11 @@ var player_node: Node3D
 var _prev_player_hp: int = 0
 var _prev_companion_hp: int = 0
 
-# Track jumping states for avatar updates
+# Track jumping and running states for avatar updates
 var _player_is_jumping: bool = false
 var _companion_is_jumping: bool = false
+var _player_is_running: bool = false
+var _companion_is_running: bool = false
 
 
 func _get_inventory():
@@ -486,30 +488,65 @@ func _process(_delta: float) -> void:
 
 
 func _update_jumping_avatars() -> void:
-	"""Update player and companion avatars to show jumping sprites when airborne"""
+	"""Update player and companion avatars to show jumping/running sprites"""
+	# NOTE: Running sprites currently only available for human_male and elf_female
+
 	# Update player avatar
 	if player_node:
 		var player_jumping = not player_node._grounded
-		if player_jumping != _player_is_jumping:
+		var player_running = false
+
+		# Check running state (grounded + fast movement)
+		if player_node._grounded:
+			var velocity = player_node._velocity
+			var horizontal_velocity = Vector3(velocity.x, 0, velocity.z)
+			player_running = horizontal_velocity.length() >= 2.0  # MIN_SPEED_FOR_RUNNING
+
+		# Update if state changed
+		if player_jumping != _player_is_jumping or player_running != _player_is_running:
 			_player_is_jumping = player_jumping
+			_player_is_running = player_running
 			_update_player_avatar_for_jump()
 
 	# Update companion avatar
 	var companion = get_tree().get_first_node_in_group("companion")
 	if companion:
 		var companion_jumping = not companion._grounded
-		if companion_jumping != _companion_is_jumping:
+		var companion_running = false
+
+		# Check running state (grounded + fast movement)
+		if companion._grounded:
+			var velocity = companion.get_velocity()
+			var horizontal_velocity = Vector3(velocity.x, 0, velocity.z)
+			companion_running = horizontal_velocity.length() >= 2.0  # MIN_SPEED_FOR_RUNNING
+
+		# Update if state changed
+		if companion_jumping != _companion_is_jumping or companion_running != _companion_is_running:
 			_companion_is_jumping = companion_jumping
+			_companion_is_running = companion_running
 			_update_companion_avatar_for_jump()
 
 
 func _update_player_avatar_for_jump() -> void:
-	"""Update player avatar based on jumping state"""
+	"""Update player avatar based on jumping/running state"""
 	if not player_ui:
 		return
 
-	var pose = "jumping" if _player_is_jumping else "ready"
+	# Prioritize: jumping > running > ready
+	# NOTE: Running sprites currently only available for human_male and elf_female
+	var pose = "ready"
+	if _player_is_jumping:
+		pose = "jumping"
+	elif _player_is_running:
+		pose = "run"
+
 	var avatar_path = PlayerData.get_avatar_path(pose)
+
+	# Fallback to "ready" if run sprite doesn't exist
+	if pose == "run" and not ResourceLoader.exists(avatar_path):
+		pose = "ready"
+		avatar_path = PlayerData.get_avatar_path(pose)
+
 	var avatar_texture_rect = player_ui.get_node("AvatarBG/AvatarTexture")
 
 	if avatar_texture_rect and ResourceLoader.exists(avatar_path):
@@ -519,14 +556,28 @@ func _update_player_avatar_for_jump() -> void:
 
 
 func _update_companion_avatar_for_jump() -> void:
-	"""Update companion avatar based on jumping state"""
+	"""Update companion avatar based on jumping/running state"""
 	if not companion_ui or not companion_ui.visible:
 		return
 
 	var race = CompanionManager.race
 	var gender = CompanionManager.gender
-	var pose = "jumping" if _companion_is_jumping else "ready"
+
+	# Prioritize: jumping > running > ready
+	# NOTE: Running sprites currently only available for human_male and elf_female
+	var pose = "ready"
+	if _companion_is_jumping:
+		pose = "jumping"
+	elif _companion_is_running:
+		pose = "run"
+
 	var avatar_path = CharacterQuiz.get_avatar_path(race, gender, pose)
+
+	# Fallback to "ready" if run sprite doesn't exist
+	if pose == "run" and not ResourceLoader.exists(avatar_path):
+		pose = "ready"
+		avatar_path = CharacterQuiz.get_avatar_path(race, gender, pose)
+
 	var avatar_texture_rect = companion_ui.get_node("AvatarBG/AvatarTexture")
 
 	if avatar_texture_rect and ResourceLoader.exists(avatar_path):

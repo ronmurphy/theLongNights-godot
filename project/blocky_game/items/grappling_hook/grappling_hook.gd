@@ -8,7 +8,8 @@ const SERVER_PEER_ID = 1
 # Grappling hook settings
 const GRAPPLE_MAX_DISTANCE = 50.0
 const PULL_SPEED = 20.0
-const ROPE_COLOR = Color(0.6, 0.4, 0.2)  # Brown rope
+const CHAIN_COLOR = Color(0.7, 0.7, 0.8)  # Metallic silver chain
+const CHAIN_SHOOT_SPEED = 80.0  # How fast the chain shoots out
 
 
 func use(trans: Transform3D, inv_item_or_count = 1):
@@ -32,10 +33,12 @@ func _use(trans: Transform3D, stack_count: int = 1):
 	if hit != null:
 		# Found a voxel to grapple to!
 		var target_pos = Vector3(hit.position) + Vector3(0.5, 0.5, 0.5)  # Center of block
-		_grapple_to_position(origin, target_pos)
+		# Create visual grapple chain line
+		var chain_line = _create_grapple_chain(origin, target_pos)
+		_grapple_to_position(origin, target_pos, chain_line)
 
 
-func _grapple_to_position(start_pos: Vector3, target_pos: Vector3):
+func _grapple_to_position(start_pos: Vector3, target_pos: Vector3, chain_line: Node3D):
 	# Find the local player
 	var mp := get_tree().get_multiplayer()
 	var peer_id = 1  # Default for singleplayer
@@ -49,6 +52,9 @@ func _grapple_to_position(start_pos: Vector3, target_pos: Vector3):
 	var player = _player_container.get_node_or_null(str(peer_id))
 	if player == null:
 		print("Grappling hook: Could not find player")
+		# Clean up chain line if player not found
+		if chain_line:
+			chain_line.queue_free()
 		return
 
 	# Calculate arc trajectory
@@ -73,20 +79,82 @@ func _grapple_to_position(start_pos: Vector3, target_pos: Vector3):
 	# Combine horizontal and vertical velocity
 	var launch_velocity = Vector3(horizontal_velocity.x, required_y_velocity, horizontal_velocity.z)
 
-	# Call the character controller's start_grapple method
+	# Call the character controller's start_grapple method with chain line reference
 	if player.has_method("start_grapple"):
-		player.start_grapple(launch_velocity, flight_time)
+		player.start_grapple(launch_velocity, flight_time, chain_line, target_pos)
 		print("Grappling to ", target_pos, " from ", start_pos)
 		print("  Flight time: ", flight_time, "s, Launch velocity: ", launch_velocity)
 	else:
 		print("Grappling hook: Player does not have start_grapple method")
+		# Clean up chain line if method not found
+		if chain_line:
+			chain_line.queue_free()
 
 
-func _draw_grapple_rope(start_pos: Vector3, end_pos: Vector3):
-	# Create a temporary line to show the rope
-	# This will be a simple visual effect using ImmediateMesh
-	# For now, just print - we can add visuals later if needed
-	print("Rope from ", start_pos, " to ", end_pos)
+func _create_grapple_chain(start_pos: Vector3, end_pos: Vector3) -> Node3D:
+	"""
+	Create a metallic chain line from start to end position
+	Returns a Node3D that animates the chain shooting out
+	"""
+	var chain_container = Node3D.new()
+	chain_container.name = "GrappleChain"
+
+	# Calculate distance and direction
+	var distance = start_pos.distance_to(end_pos)
+	var direction = (end_pos - start_pos).normalized()
+
+	# Create cylinder mesh for the chain
+	var mesh_instance = MeshInstance3D.new()
+	var cylinder = CylinderMesh.new()
+	cylinder.top_radius = 0.03  # Thin chain (3cm diameter)
+	cylinder.bottom_radius = 0.03
+	cylinder.height = distance
+	mesh_instance.mesh = cylinder
+
+	# Create metallic material with chain-like appearance
+	var material = StandardMaterial3D.new()
+	material.albedo_color = CHAIN_COLOR
+	material.metallic = 0.9  # Very metallic
+	material.roughness = 0.3  # Slightly rough for realism
+	material.emission_enabled = true
+	material.emission = CHAIN_COLOR * 0.2  # Subtle glow
+	material.emission_energy_multiplier = 0.5
+	mesh_instance.material_override = material
+
+	# Position and orient the cylinder
+	var midpoint = (start_pos + end_pos) / 2.0
+	mesh_instance.global_position = midpoint
+
+	# Point the cylinder from start to end
+	mesh_instance.look_at(end_pos, Vector3.UP)
+	mesh_instance.rotate_object_local(Vector3(1, 0, 0), PI / 2)  # Align cylinder along line
+
+	chain_container.add_child(mesh_instance)
+
+	# Add to scene (Game node)
+	var game = get_node_or_null("/root/Main/Game")
+	if game:
+		game.add_child(chain_container)
+
+	# Animate chain shooting out
+	_animate_chain_shoot(mesh_instance, distance)
+
+	print("🔗 Created grapple chain from ", start_pos, " to ", end_pos)
+	return chain_container
+
+
+func _animate_chain_shoot(mesh_instance: MeshInstance3D, final_distance: float):
+	"""Animate the chain shooting out from 0 length to full length"""
+	var cylinder: CylinderMesh = mesh_instance.mesh as CylinderMesh
+
+	# Start with zero height
+	cylinder.height = 0.0
+
+	# Animate to full height
+	var tween = create_tween()
+	tween.tween_property(cylinder, "height", final_distance, final_distance / CHAIN_SHOOT_SPEED)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_CUBIC)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)

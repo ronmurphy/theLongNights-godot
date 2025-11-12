@@ -10,11 +10,18 @@ var _front_sprite_path: String = ""
 var _back_sprite_path: String = ""
 var _jumping_sprite_path: String = ""
 var _jumping_back_sprite_path: String = ""
+var _running_sprite_path: String = ""  # NOTE: Only human_male and elf_female have sprites currently
+var _running_back_sprite_path: String = ""  # NOTE: Will add all races/genders soon
 var _current_sprite_is_front: bool = true
 var _current_sprite_is_jumping: bool = false
+var _current_sprite_is_running: bool = false
 var _sprite_height_scale: float = 1.0
+var _run_flip_distance: float = 0.0  # Track distance for flipping animation
+var _last_position: Vector3 = Vector3.ZERO  # Track movement for flip animation
 
 const MIN_SPEED_FOR_DIRECTION = 0.5
+const MIN_SPEED_FOR_RUNNING = 2.0  # Speed threshold to show running sprite
+const FLIP_DISTANCE = 1.0  # Flip sprite every 1 block traveled
 const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
 
 ## Initialize billboard with player's race/gender/color
@@ -55,6 +62,9 @@ func _create_sprite(race: String, gender: String, color: Color):
 	_back_sprite_path = "res://assets/art/player_avatars/%s_%s_back.png" % [race, gender]
 	_jumping_sprite_path = "res://assets/art/player_avatars/%s_%s_jumping.png" % [race, gender]
 	_jumping_back_sprite_path = "res://assets/art/player_avatars/%s_%s_jumping_back.png" % [race, gender]
+	# NOTE: Running sprites currently only available for human_male and elf_female
+	_running_sprite_path = "res://assets/art/player_avatars/%s_%s_run.png" % [race, gender]
+	_running_back_sprite_path = "res://assets/art/player_avatars/%s_%s_run_back.png" % [race, gender]
 	
 	# Load front sprite
 	var front_texture = null
@@ -206,6 +216,82 @@ func update_jumping_state(is_jumping: bool, is_facing_back: bool):
 
 					# Preserve scale
 					_sprite.scale = Vector3(_sprite_height_scale, _sprite_height_scale, _sprite_height_scale)
+
+
+func update_running_state(velocity: Vector3, is_grounded: bool, is_facing_back: bool, current_position: Vector3):
+	"""
+	Update sprite based on running state with flip animation
+	NOTE: Running sprites currently only available for human_male and elf_female
+	TODO: Add running sprites for all races/genders
+	"""
+	if not _sprite:
+		return
+
+	# Get horizontal velocity
+	var horizontal_velocity = Vector3(velocity.x, 0, velocity.z)
+	var speed = horizontal_velocity.length()
+
+	# Determine if running (grounded + fast movement)
+	var is_running = is_grounded and speed >= MIN_SPEED_FOR_RUNNING
+
+	# Only process running if sprites exist
+	var running_path = _running_back_sprite_path if is_facing_back else _running_sprite_path
+	var has_running_sprites = ResourceLoader.exists(running_path)
+
+	# Update running state
+	if is_running != _current_sprite_is_running and has_running_sprites:
+		_current_sprite_is_running = is_running
+
+		if is_running:
+			# Switch to running sprite
+			if ResourceLoader.exists(running_path):
+				var running_texture = load(running_path)
+				if running_texture:
+					_sprite.texture = running_texture
+
+					# Update shader texture if using shader
+					if _sprite.material_override:
+						_sprite.material_override.set_shader_parameter("texture_albedo", running_texture)
+
+					# Preserve scale
+					_sprite.scale = Vector3(_sprite_height_scale, _sprite_height_scale, _sprite_height_scale)
+
+					# Reset flip animation
+					_run_flip_distance = 0.0
+					_last_position = current_position
+					_sprite.flip_h = false
+
+					print("🏃 Switched to running sprite")
+		else:
+			# Switch back to normal sprite (not jumping)
+			var normal_path = _back_sprite_path if is_facing_back else _front_sprite_path
+
+			if ResourceLoader.exists(normal_path):
+				var normal_texture = load(normal_path)
+				if normal_texture:
+					_sprite.texture = normal_texture
+
+					# Update shader texture if using shader
+					if _sprite.material_override:
+						_sprite.material_override.set_shader_parameter("texture_albedo", normal_texture)
+
+					# Preserve scale
+					_sprite.scale = Vector3(_sprite_height_scale, _sprite_height_scale, _sprite_height_scale)
+
+					# Reset flip
+					_sprite.flip_h = false
+
+	# Handle flip animation while running
+	if _current_sprite_is_running and has_running_sprites:
+		# Calculate distance traveled since last flip
+		var distance_moved = current_position.distance_to(_last_position)
+		_run_flip_distance += distance_moved
+		_last_position = current_position
+
+		# Flip sprite every FLIP_DISTANCE blocks for running animation
+		if _run_flip_distance >= FLIP_DISTANCE:
+			_sprite.flip_h = !_sprite.flip_h
+			_run_flip_distance = 0.0
 
 
 func set_shadow_only_mode(shadow_only: bool):

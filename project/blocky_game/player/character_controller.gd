@@ -32,8 +32,11 @@ var _head : Node3D = null
 var _box_mover := VoxelBoxMover.new()
 var _grappling := false  # Grappling hook active
 var _grapple_time := 0.0  # Time remaining for grapple
+var _grapple_chain_line: Node3D = null  # Visual chain line for grappling hook
+var _grapple_target_pos: Vector3 = Vector3.ZERO  # Target position for chain line
 var _climbing := false  # Currently climbing a wall
 var _climb_speed := 3.0  # Speed when climbing
+var _jump_grace_period := 0.0  # Time after jump to prevent climbing interference
 var _gravity_disabled := false  # Temporary gravity suspension (for teleporting)
 var _wind_dash_active := false  # Wind Dash power active
 var _wind_dash_time := 0.0  # Time remaining for Wind Dash
@@ -63,7 +66,14 @@ const PHOTO_CAMERA_MOVE_SPEED = 5.0
 const PHOTO_CAMERA_ROTATE_SPEED = 2.0
 const PHOTO_CAMERA_ZOOM_SPEED = 2.0
 var _p_key_was_pressed: bool = false  # Track P key state to detect single press
+var _i_key_was_pressed: bool = false  # Track I key state for pose cycling
 var _hidden_ui_elements: Array = []  # Track which UI elements we hide for photo mode
+
+## Photo mode pose cycling (interactive mode)
+var _photo_front_poses: Array = []  # Available front-facing poses
+var _photo_back_poses: Array = []  # Available back-facing poses
+var _photo_current_front_index: int = 0  # Current front pose index
+var _photo_current_back_index: int = 0  # Current back pose index
 
 ## Signals
 signal hp_changed(current: int, maximum: int)
@@ -139,7 +149,7 @@ func _has_wind_walker_boots() -> bool:
 
 
 func _check_wall_ahead() -> bool:
-	# Raycast forward to see if there's a wall
+	# Check if there's a climbable wall ahead (at least 2 blocks tall)
 	if not has_node(terrain):
 		return false
 
@@ -151,8 +161,40 @@ func _check_wall_ahead() -> bool:
 	forward = Plane(Vector3(0, 1, 0), 0).project(forward).normalized()
 
 	# Cast forward from player position to check for wall
-	var hit = vt.raycast(position, -forward, 1.5)
-	return hit != null
+	# Short distance (0.6) so climbing only activates when touching the wall
+	var hit = vt.raycast(position, -forward, 0.6)
+	if hit == null:
+		return false  # No wall ahead
+
+	# Found a wall - now check if it's at least 2 blocks tall
+	# Check the block at player height and one block above
+	var wall_pos = hit.position
+	var block_at_feet = vt.get_voxel(Vector3i(wall_pos))
+	var block_above = vt.get_voxel(Vector3i(wall_pos.x, wall_pos.y + 1, wall_pos.z))
+
+	# Only allow climbing if there are at least 2 solid blocks vertically
+	# (0 = air, so both must be non-zero)
+	return block_at_feet != 0 and block_above != 0
+
+
+func _check_air_above() -> bool:
+	# Check if there's air above the player (reached top of climb)
+	if not has_node(terrain):
+		return false
+
+	var terrain_node : VoxelTerrain = get_node(terrain)
+	var vt := terrain_node.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	var forward = _head.get_transform().basis.z.normalized()
+	forward = Plane(Vector3(0, 1, 0), 0).project(forward).normalized()
+
+	# Check the block ahead at head height (where we're trying to climb to)
+	var check_pos = position + (-forward * 0.8) + Vector3(0, 1.8, 0)
+	var block_at_top = vt.get_voxel(Vector3i(check_pos))
+
+	# If it's air (0), we've reached the top
+	return block_at_top == 0
 
 
 func _physics_process(delta: float):
@@ -172,8 +214,18 @@ func _physics_process(delta: float):
 	# Handle grappling state
 	if _grappling:
 		_grapple_time -= delta
-		if _grapple_time <= 0:
+
+		# Update chain line position to follow player
+		if _grapple_chain_line:
+			_update_grapple_chain_position()
+
+		if _grapple_time <= 0 or _grounded:
 			_grappling = false
+			# Remove grapple chain line when landing or time expires
+			if _grapple_chain_line:
+				_grapple_chain_line.queue_free()
+				_grapple_chain_line = null
+				print("🔗 Grapple chain removed - landed")
 
 	# Handle Wind Dash state
 	if _wind_dash_active:
@@ -181,6 +233,10 @@ func _physics_process(delta: float):
 		if _wind_dash_time <= 0:
 			_wind_dash_active = false
 			print("💨 Wind Dash ended")
+
+	# Count down jump grace period
+	if _jump_grace_period > 0.0:
+		_jump_grace_period -= delta
 
 	# Handle Flame Aura passive power (burns nearby enemies every second)
 	_flame_aura_timer += delta
@@ -229,7 +285,8 @@ func _physics_process(delta: float):
 		# Check for climbing (legacy functionality - will be replaced with glide)
 		var has_boots = _has_wind_walker_boots()
 		var wall_ahead = has_boots and _check_wall_ahead()
-		var trying_to_climb = wall_ahead and (Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_W))
+		# Only allow climbing if grace period has expired (prevents interference with jumps)
+		var trying_to_climb = _jump_grace_period <= 0.0 and wall_ahead and (Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_W))
 
 		# Update climbing state
 		_climbing = trying_to_climb
@@ -237,11 +294,20 @@ func _physics_process(delta: float):
 		# Only process keyboard input if not grappling
 		if not _grappling:
 			if _climbing:
-				# Climbing mode - move upward
-				_velocity.x = 0
-				_velocity.z = 0
-				_velocity.y = _climb_speed
-				_grounded = false
+				# Check if reached the top (air above player)
+				if _check_air_above():
+					# Auto-jump to get over the ledge
+					_velocity.y = jump_force
+					_grounded = false
+					_climbing = false
+					_jump_grace_period = 0.3
+					print("🧗 Reached top of climb - jumping over ledge!")
+				else:
+					# Climbing mode - move upward
+					_velocity.x = 0
+					_velocity.z = 0
+					_velocity.y = _climb_speed
+					_grounded = false
 			else:
 				# Normal movement
 				var forward = _head.get_transform().basis.z.normalized()
@@ -306,7 +372,8 @@ func _physics_process(delta: float):
 
 		# Apply slow-fall cap ONLY if falling fast enough (not right after jump)
 		# This prevents glide from activating immediately on jump
-		if (has_glide_power or boots_equipped) and _velocity.y < fall_speed_cap:
+		# DON'T apply during grapple - let grapple have full speed
+		if not _grappling and (has_glide_power or boots_equipped) and _velocity.y < fall_speed_cap:
 			_velocity.y = max(_velocity.y, fall_speed_cap)
 
 		if _grounded and Input.is_key_pressed(KEY_SPACE):
@@ -319,6 +386,7 @@ func _physics_process(delta: float):
 
 			_velocity.y = jump_force * jump_multiplier
 			_grounded = false
+			_jump_grace_period = 0.3  # Prevent climbing interference for 0.3 seconds
 	else:
 		# Input disabled (console open) - stop movement and still apply gravity
 		_velocity.x = 0
@@ -415,6 +483,11 @@ func _physics_process(delta: float):
 		var is_jumping = not _grounded
 		_player_avatar.update_jumping_state(is_jumping, is_facing_back)
 
+		# Update running state (only when not jumping - jumping takes priority)
+		# NOTE: Running sprites currently only available for human_male and elf_female
+		if not is_jumping:
+			_player_avatar.update_running_state(_velocity, _grounded, is_facing_back, global_position)
+
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer():
 		# Broadcast our position to other peers.
@@ -431,12 +504,44 @@ func receive_position(_pos: Vector3):
 	push_error("Didn't expect to receive RPC position")
 
 
-func start_grapple(pull_velocity: Vector3, duration: float):
+func start_grapple(pull_velocity: Vector3, duration: float, chain_line: Node3D = null, target_pos: Vector3 = Vector3.ZERO):
 	"""Called by grappling hook to initiate a grapple pull"""
 	_velocity = pull_velocity
 	_grappling = true
 	_grapple_time = duration
 	_grounded = false
+
+	# Store chain line reference for tracking
+	_grapple_chain_line = chain_line
+	_grapple_target_pos = target_pos
+
+
+func _update_grapple_chain_position():
+	"""Update the grapple chain line to stretch from player to target block"""
+	if not _grapple_chain_line:
+		return
+
+	# Get the mesh instance (child of the chain container)
+	var mesh_instance = _grapple_chain_line.get_child(0) as MeshInstance3D
+	if not mesh_instance:
+		return
+
+	var player_pos = global_position + Vector3(0, 1.0, 0)  # From player center height
+	var target_pos = _grapple_target_pos
+
+	# Calculate new distance and direction
+	var distance = player_pos.distance_to(target_pos)
+	var midpoint = (player_pos + target_pos) / 2.0
+
+	# Update cylinder height
+	var cylinder = mesh_instance.mesh as CylinderMesh
+	if cylinder:
+		cylinder.height = distance
+
+	# Update position and orientation
+	mesh_instance.global_position = midpoint
+	mesh_instance.look_at(target_pos, Vector3.UP)
+	mesh_instance.rotate_object_local(Vector3(1, 0, 0), PI / 2)
 
 
 ## Disable shadow on box mesh (use billboard shadow instead)
@@ -582,11 +687,15 @@ func start_photo_mode():
 	
 	# Hide UI
 	_set_ui_visible(false)
-	
+
+	# Build list of available poses for interactive mode
+	_build_pose_lists()
+
 	print("📷 Photo mode enabled!")
 	print("  Arrow Keys: Rotate camera")
 	print("  Q/R: Zoom in/out")
 	print("  C: Take screenshot")
+	print("  I: Cycle poses (interactive mode)")
 	print("  P: Exit photo mode")
 
 
@@ -646,7 +755,13 @@ func _update_photo_mode(delta: float):
 			_screenshot_taken = true
 	else:
 		_screenshot_taken = false
-	
+
+	# Cycle poses with I key (Interactive mode - detect single press, not hold)
+	var i_pressed = Input.is_key_pressed(KEY_I)
+	if i_pressed and not _i_key_was_pressed:
+		_cycle_pose()
+	_i_key_was_pressed = i_pressed
+
 	# Exit photo mode with P key (detect single press, not hold)
 	var p_pressed = Input.is_key_pressed(KEY_P)
 	if p_pressed and not _p_key_was_pressed:
@@ -708,6 +823,121 @@ func _take_screenshot():
 	
 	print("📸 Screenshot saved: %s" % path)
 	print("   Location: %s" % ProjectSettings.globalize_path(path))
+
+
+func _build_pose_lists():
+	"""
+	Dynamically scan player_avatars folder for all available poses
+	Separates front-facing and back-facing (_back) poses
+	"""
+	_photo_front_poses.clear()
+	_photo_back_poses.clear()
+	_photo_current_front_index = 0
+	_photo_current_back_index = 0
+
+	var race = PlayerData.race
+	var gender = PlayerData.gender
+	var avatar_dir = "res://assets/art/player_avatars/"
+
+	# Build pattern to match: race_gender_*.png
+	var prefix = "%s_%s_" % [race, gender]
+
+	# Scan directory for matching files
+	var dir = DirAccess.open(avatar_dir)
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+
+		while file_name != "":
+			# Check if this file matches our race/gender
+			if file_name.begins_with(prefix) and file_name.ends_with(".png"):
+				# Extract the pose name (everything between prefix and .png)
+				var pose_part = file_name.substr(prefix.length(), file_name.length() - prefix.length() - 4)
+
+				# Skip if it's just the base sprite (no pose suffix)
+				if pose_part == "":
+					file_name = dir.get_next()
+					continue
+
+				# Separate front and back poses
+				if pose_part.ends_with("_back"):
+					# Back-facing pose
+					_photo_back_poses.append(file_name)
+				else:
+					# Front-facing pose (includes _run, _jumping, _thumbs_up, etc.)
+					_photo_front_poses.append(file_name)
+
+			file_name = dir.get_next()
+
+		dir.list_dir_end()
+
+	# Sort for consistent ordering
+	_photo_front_poses.sort()
+	_photo_back_poses.sort()
+
+	print("📷 Photo poses found:")
+	print("  Front poses: %d" % _photo_front_poses.size())
+	for pose in _photo_front_poses:
+		print("    - %s" % pose)
+	print("  Back poses: %d" % _photo_back_poses.size())
+	for pose in _photo_back_poses:
+		print("    - %s" % pose)
+
+
+func _cycle_pose():
+	"""Cycle to next pose in photo mode (press I key)"""
+	if not _player_avatar:
+		return
+
+	# Determine if we're currently showing back sprite
+	var is_showing_back = not _player_avatar._current_sprite_is_front
+
+	var race = PlayerData.race
+	var gender = PlayerData.gender
+	var avatar_dir = "res://assets/art/player_avatars/"
+
+	if is_showing_back:
+		# Cycle through back poses
+		if _photo_back_poses.size() == 0:
+			print("📷 No back poses available")
+			return
+
+		_photo_current_back_index = (_photo_current_back_index + 1) % _photo_back_poses.size()
+		var pose_file = _photo_back_poses[_photo_current_back_index]
+		var pose_path = avatar_dir + pose_file
+
+		print("📷 Cycling to back pose: %s (%d/%d)" % [pose_file, _photo_current_back_index + 1, _photo_back_poses.size()])
+
+		# Load and apply texture
+		if ResourceLoader.exists(pose_path):
+			var texture = load(pose_path)
+			if texture and _player_avatar._sprite:
+				_player_avatar._sprite.texture = texture
+
+				# Update shader if present
+				if _player_avatar._sprite.material_override:
+					_player_avatar._sprite.material_override.set_shader_parameter("texture_albedo", texture)
+	else:
+		# Cycle through front poses
+		if _photo_front_poses.size() == 0:
+			print("📷 No front poses available")
+			return
+
+		_photo_current_front_index = (_photo_current_front_index + 1) % _photo_front_poses.size()
+		var pose_file = _photo_front_poses[_photo_current_front_index]
+		var pose_path = avatar_dir + pose_file
+
+		print("📷 Cycling to front pose: %s (%d/%d)" % [pose_file, _photo_current_front_index + 1, _photo_front_poses.size()])
+
+		# Load and apply texture
+		if ResourceLoader.exists(pose_path):
+			var texture = load(pose_path)
+			if texture and _player_avatar._sprite:
+				_player_avatar._sprite.texture = texture
+
+				# Update shader if present
+				if _player_avatar._sprite.material_override:
+					_player_avatar._sprite.material_override.set_shader_parameter("texture_albedo", texture)
 
 
 func _set_ui_visible(visible: bool):

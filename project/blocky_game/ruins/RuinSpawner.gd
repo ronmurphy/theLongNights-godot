@@ -171,6 +171,27 @@ func spawn_ruin_near_spawn(offset_chunks: Vector3i = Vector3i(3, 0, 3)) -> Vecto
 	# Spawn the ruin at ground level
 	var spawn_position = Vector3(spawn_x, ground_y, spawn_z)
 
+	# FORCE CHUNK GENERATION before checking for existing ruin
+	print("Checking for existing crashed ruin at: ", spawn_position)
+	var temp_viewer = VoxelViewer.new()
+	temp_viewer.position = spawn_position
+	temp_viewer.view_distance = 32
+	temp_viewer.requires_visuals = true
+	temp_viewer.requires_collisions = true
+	_terrain.add_child(temp_viewer)
+
+	# Wait for chunks to generate
+	await get_tree().create_timer(2.0).timeout
+
+	# CHECK FOR EXISTING TELEPORT_STONE - Don't spawn if ruin already exists
+	if _check_for_existing_ruin(spawn_position):
+		print("Crashed ruin already exists at: ", spawn_position, " - skipping spawn")
+		temp_viewer.queue_free()
+		return spawn_position
+
+	# Clean up temporary viewer
+	temp_viewer.queue_free()
+
 	var ruin_pos = await spawn_ruin_at(spawn_position, "crashed_tower_small")
 	if ruin_pos != Vector3.ZERO:
 		print("Successfully spawned initial ruin at: ", spawn_position)
@@ -178,6 +199,35 @@ func spawn_ruin_near_spawn(offset_chunks: Vector3i = Vector3i(3, 0, 3)) -> Vecto
 	else:
 		push_error("Failed to spawn initial ruin")
 		return Vector3.ZERO
+
+
+func _check_for_existing_ruin(spawn_position: Vector3) -> bool:
+	"""
+	Check if a ruin already exists at this position by scanning for teleport_stone blocks
+	Scans a 20x20x20 area centered on the spawn position
+	Returns true if teleport_stone is found (ruin exists), false otherwise
+	"""
+	if _terrain == null:
+		return false
+
+	var voxel_tool = _terrain.get_voxel_tool()
+	if voxel_tool == null:
+		return false
+
+	const TELEPORT_STONE_ID = 35  # Must match generator.gd
+	const SCAN_RADIUS = 20  # Check 20 blocks in each direction
+
+	# Scan the area where the ruin should be
+	var center = Vector3i(spawn_position)
+	for x in range(center.x - SCAN_RADIUS, center.x + SCAN_RADIUS):
+		for y in range(center.y - SCAN_RADIUS, center.y + SCAN_RADIUS):
+			for z in range(center.z - SCAN_RADIUS, center.z + SCAN_RADIUS):
+				var voxel_id = voxel_tool.get_voxel(Vector3i(x, y, z))
+				if voxel_id == TELEPORT_STONE_ID:
+					print("Found existing teleport_stone at: ", Vector3i(x, y, z))
+					return true  # Ruin already exists!
+
+	return false  # No teleport_stone found, safe to spawn
 
 
 func _find_ground_level(position: Vector3) -> float:

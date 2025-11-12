@@ -62,9 +62,16 @@ var _front_sprite_path: String = ""
 var _back_sprite_path: String = ""
 var _jumping_sprite_path: String = ""
 var _jumping_back_sprite_path: String = ""
+var _running_sprite_path: String = ""  # NOTE: Only human_male and elf_female have sprites currently
+var _running_back_sprite_path: String = ""  # NOTE: Will add all races/genders soon
 var _current_sprite_is_front: bool = true  # Track which sprite we're currently showing
 var _current_sprite_is_jumping: bool = false  # Track if showing jumping sprite
+var _current_sprite_is_running: bool = false  # Track if showing running sprite
+var _run_flip_distance: float = 0.0  # Track distance for flipping animation
+var _last_position_for_flip: Vector3 = Vector3.ZERO  # Track movement for flip animation
 const MIN_SPEED_FOR_DIRECTION = 0.5  # Minimum speed to consider direction
+const MIN_SPEED_FOR_RUNNING = 2.0  # Speed threshold to show running sprite
+const FLIP_DISTANCE = 1.0  # Flip sprite every 1 block traveled
 
 ## Bento auto-eat system (shares player's bento box)
 var _recently_ate := false  # Prevent eating entire bento instantly
@@ -110,6 +117,10 @@ func _ready():
 		# Generate jumping sprite paths
 		_jumping_sprite_path = sprite_path.get_basename() + "_jumping.png"
 		_jumping_back_sprite_path = sprite_path.get_basename() + "_jumping_back.png"
+		# Generate running sprite paths
+		# NOTE: Running sprites currently only available for human_male and elf_female
+		_running_sprite_path = sprite_path.get_basename() + "_run.png"
+		_running_back_sprite_path = sprite_path.get_basename() + "_run_back.png"
 		_create_sprite(sprite_path, 0.004)
 
 		# Apply stencil shader on all graphics settings
@@ -578,6 +589,7 @@ func _process(delta: float):
 		_handle_hunting(delta)
 		_update_sprite_direction()  # Also update sprite during hunting!
 		_update_jumping_state()  # Also update jumping sprite during hunting!
+		_update_running_state()  # Also update running sprite during hunting! (NOTE: Only human_male/elf_female have sprites)
 		return
 
 	# Check if player is too far away and needs teleport (NOT in guard mode)
@@ -600,9 +612,12 @@ func _process(delta: float):
 		State.ATTACKING:
 			_handle_attacking(delta)
 
-	# Update sprite direction and jumping state based on movement
+	# Update sprite direction, jumping state, and running state based on movement
 	_update_sprite_direction()
 	_update_jumping_state()
+	# NOTE: Running sprites currently only available for human_male and elf_female
+	if not _current_sprite_is_jumping:  # Only show running when not jumping
+		_update_running_state()
 
 
 func _update_state():
@@ -1343,6 +1358,93 @@ func _update_jumping_state() -> void:
 						# Also update the silhouette shader texture
 						if _sprite.material_override.next_pass:
 							_sprite.material_override.next_pass.set_shader_parameter("main_texture", normal_texture)
+
+
+func _update_running_state() -> void:
+	"""
+	Update sprite based on running state with flip animation
+	NOTE: Running sprites currently only available for human_male and elf_female
+	TODO: Add running sprites for all races/genders
+	"""
+	if not _sprite or not _player:
+		return
+
+	# Get velocity and speed
+	var velocity = get_velocity()
+	var horizontal_velocity = Vector3(velocity.x, 0, velocity.z)
+	var speed = horizontal_velocity.length()
+
+	# Determine if running (grounded + fast movement)
+	var is_running = _grounded and speed >= MIN_SPEED_FOR_RUNNING
+
+	# Get direction from companion to player to determine facing
+	var to_player = (_player.global_position - global_position).normalized()
+	to_player.y = 0
+
+	# Determine if facing back based on movement
+	var is_facing_back = _current_sprite_is_front == false
+
+	# Only update velocity-based direction if moving
+	if horizontal_velocity.length() >= MIN_SPEED_FOR_DIRECTION:
+		var dot_product = horizontal_velocity.normalized().dot(to_player)
+		is_facing_back = dot_product < 0  # Moving away from player
+
+	# Only process running if sprites exist
+	var running_path = _running_back_sprite_path if is_facing_back else _running_sprite_path
+	var has_running_sprites = ResourceLoader.exists(running_path)
+
+	# Update running state
+	if is_running != _current_sprite_is_running and has_running_sprites:
+		_current_sprite_is_running = is_running
+
+		if is_running:
+			# Switch to running sprite
+			if ResourceLoader.exists(running_path):
+				var running_texture = load(running_path)
+				if running_texture:
+					_sprite.texture = running_texture
+
+					# Update shader textures if using stencil shader
+					if _sprite.material_override:
+						_sprite.material_override.set_shader_parameter("main_texture", running_texture)
+						# Also update the silhouette shader texture
+						if _sprite.material_override.next_pass:
+							_sprite.material_override.next_pass.set_shader_parameter("main_texture", running_texture)
+
+					# Reset flip animation
+					_run_flip_distance = 0.0
+					_last_position_for_flip = global_position
+					_sprite.flip_h = false
+		else:
+			# Switch back to normal sprite (not jumping)
+			var normal_path = _back_sprite_path if is_facing_back else _front_sprite_path
+
+			if ResourceLoader.exists(normal_path):
+				var normal_texture = load(normal_path)
+				if normal_texture:
+					_sprite.texture = normal_texture
+
+					# Update shader textures if using stencil shader
+					if _sprite.material_override:
+						_sprite.material_override.set_shader_parameter("main_texture", normal_texture)
+						# Also update the silhouette shader texture
+						if _sprite.material_override.next_pass:
+							_sprite.material_override.next_pass.set_shader_parameter("main_texture", normal_texture)
+
+					# Reset flip
+					_sprite.flip_h = false
+
+	# Handle flip animation while running
+	if _current_sprite_is_running and has_running_sprites:
+		# Calculate distance traveled since last flip
+		var distance_moved = global_position.distance_to(_last_position_for_flip)
+		_run_flip_distance += distance_moved
+		_last_position_for_flip = global_position
+
+		# Flip sprite every FLIP_DISTANCE blocks for running animation
+		if _run_flip_distance >= FLIP_DISTANCE:
+			_sprite.flip_h = !_sprite.flip_h
+			_run_flip_distance = 0.0
 
 
 func _apply_stencil_shader(texture_path: String) -> void:

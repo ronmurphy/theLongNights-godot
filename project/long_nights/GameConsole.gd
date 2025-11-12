@@ -1183,13 +1183,26 @@ func _give_all_food_items() -> void:
 func _cmd_homebase(args: Array) -> void:
 	"""Home base management commands"""
 	if args.is_empty():
-		add_output("[color=red]Usage: homebase <set|go|clear|status>[/color]")
+		add_output("[color=red]Usage: homebase <set|go|cr|clear|status>[/color]")
 		return
 
 	var player = get_tree().get_first_node_in_group("player")
 	var subcmd = args[0].to_lower()
 
 	match subcmd:
+		"cr":
+			if not player:
+				add_output("[color=red]Player not found![/color]")
+				return
+
+			# Teleport player to crashed ruins
+			# Crashed ruins spawn at (48, ground_y, 48) - 3 chunks from spawn
+			# Teleport a bit above to ensure we're not underground
+			var crashed_ruins_pos = Vector3(48, 5, 48)  # Y=5 above the ruin floor
+			player.global_position = crashed_ruins_pos
+			add_output("[color=lime]💥 Teleported to Crashed Ruins location[/color]")
+			add_output("[color=cyan]Coordinates: (48, 5, 48)[/color]")
+
 		"go":
 			if not player:
 				add_output("[color=red]Player not found![/color]")
