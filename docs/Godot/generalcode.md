@@ -365,7 +365,7 @@ Database of 50+ items organized by category.
 
 **Materials**:
 - Stone Ore, Coal, Iron Ore, Gold Ore
-- Skyshard (rare, grants powers)
+- Skyshard (extremely rare, grants powers - only drops from Blood Moon enemies in Sky Ruins Y > 3000)
 
 #### Item Behavior Pattern
 
@@ -1337,10 +1337,25 @@ else:
 
 ### 9. Skyshard Power System
 
-**Skyshard**: Rare material found deep underground
+**Skyshard**: Extremely rare material with special drop conditions
+
+**How to Obtain Skyshards** (`entity_base.gd:256-301`):
+
+Skyshards drop ONLY when ALL these conditions are met:
+1. **Kill an enemy entity** during a **Blood Moon event** (day 7, 9PM-2AM)
+2. **Enemy must be in a Sky Ruin** (Y > 3000 - floating structures high in the sky)
+3. Enemy must have been spawned during the Blood Moon (marked with `is_bloodmoon_spawn` metadata)
+
+**Drop Rates**:
+- **100% guaranteed**: 1 Skyshard per kill
+- **25% chance**: Additional Portal Compass
+
+**Important**: Regular enemy kills, underground enemies, and non-Blood Moon kills do NOT drop Skyshards. You must fight in Sky Ruins during Blood Moon events.
+
+---
 
 **Usage**:
-1. Find Skyshard (rare drop from golems)
+1. Obtain Skyshard from Blood Moon Sky Ruin enemies
 2. Craft power items (Fire Staff = Staff + Skyshard)
 3. Equip in hotbar or equipment slot
 4. Power activates automatically
