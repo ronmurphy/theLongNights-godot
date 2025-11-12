@@ -204,6 +204,12 @@ func _physics_process(delta: float):
 		_entity_cache_timer = 0.0
 		_refresh_entity_cache()
 
+	# Check for proximity-based dialogue triggers (e.g., crashed ruin)
+	if Engine.has_singleton("DialogueManager"):
+		var dm = Engine.get_singleton("DialogueManager")
+		if dm:
+			dm.check_event_triggers(global_position)
+
 	# Handle auto-regeneration (1 HP every 3 minutes)
 	if is_alive and current_hp < max_hp:
 		_regen_timer += delta

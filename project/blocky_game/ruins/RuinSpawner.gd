@@ -195,6 +195,15 @@ func spawn_ruin_near_spawn(offset_chunks: Vector3i = Vector3i(3, 0, 3)) -> Vecto
 	var ruin_pos = await spawn_ruin_at(spawn_position, "crashed_tower_small")
 	if ruin_pos != Vector3.ZERO:
 		print("Successfully spawned initial ruin at: ", spawn_position)
+
+		# Register dialogue event trigger for crashed ruin teleport stone
+		var teleport_stone_pos = get_teleport_stone_position(ruin_pos, "crashed_tower_small")
+		print("[DEBUG] Registering event trigger for teleport stone at:", teleport_stone_pos)
+		if Engine.has_singleton("DialogueManager"):
+			var dm = Engine.get_singleton("DialogueManager")
+			if dm:
+				dm.register_event_trigger(teleport_stone_pos, "ruin_discovered")
+
 		return spawn_position
 	else:
 		push_error("Failed to spawn initial ruin")

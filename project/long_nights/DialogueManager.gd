@@ -7,9 +7,30 @@ extends Node
 signal dialogue_started(dialogue_id: String)
 signal dialogue_ended(dialogue_id: String)
 
-# Data
+## Data
 var dialogue_data: Dictionary = {}
 var seen_dialogues: Dictionary = {}  # Track which dialogues have been shown
+
+# Event triggers for proximity-based dialogue
+var event_triggers: Array = []
+
+# Register a proximity event trigger
+func register_event_trigger(position: Vector3, dialogue_id: String, radius: float = 6.0) -> void:
+	event_triggers.append({
+		"position": position,
+		"dialogue_id": dialogue_id,
+		"radius": radius,
+		"triggered": false
+	})
+
+# Check all event triggers for proximity
+func check_event_triggers(player_position: Vector3) -> void:
+		for trigger in event_triggers:
+			print("[DEBUG] Player position:", player_position, "Trigger position:", trigger["position"], "Radius:", trigger["radius"])
+			if not trigger["triggered"] and player_position.distance_to(trigger["position"]) <= trigger["radius"]:
+				if not has_seen_dialogue(trigger["dialogue_id"]):
+					trigger_dialogue(trigger["dialogue_id"])
+				trigger["triggered"] = true
 
 # Paths
 const DIALOGUE_SAVE_PATH = "user://dialogue_progress.json"
