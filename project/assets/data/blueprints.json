@@ -123,21 +123,5 @@
     },
     "description": "Light up the darkness",
     "unlocked": true
-  },
-  "light_orb": {
-    "id": "light_orb",
-    "name": "💎 Light Orb",
-    "emoji": "💎",
-    "ingredients": {
-      "coal": 3,
-      "iron_ore": 2,
-      "stone": 2
-    },
-    "result": {
-      "itemType": "light_orb",
-      "lightLevel": 30
-    },
-    "description": "Powerful area lighting with no shadows - perfect for illuminating large spaces",
-    "unlocked": true
   }
 }
