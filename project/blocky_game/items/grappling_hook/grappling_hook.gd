@@ -121,20 +121,21 @@ func _create_grapple_chain(start_pos: Vector3, end_pos: Vector3) -> Node3D:
 	material.emission_energy_multiplier = 0.5
 	mesh_instance.material_override = material
 
-	# Position and orient the cylinder
-	var midpoint = (start_pos + end_pos) / 2.0
-	mesh_instance.global_position = midpoint
-
-	# Point the cylinder from start to end
-	mesh_instance.look_at(end_pos, Vector3.UP)
-	mesh_instance.rotate_object_local(Vector3(1, 0, 0), PI / 2)  # Align cylinder along line
-
+	# Add nodes to tree FIRST before setting global properties
 	chain_container.add_child(mesh_instance)
 
 	# Add to scene (Game node)
 	var game = get_node_or_null("/root/Main/Game")
 	if game:
 		game.add_child(chain_container)
+
+	# NOW position and orient the cylinder (after it's in the tree)
+	var midpoint = (start_pos + end_pos) / 2.0
+	mesh_instance.global_position = midpoint
+
+	# Point the cylinder from start to end
+	mesh_instance.look_at(end_pos, Vector3.UP)
+	mesh_instance.rotate_object_local(Vector3(1, 0, 0), PI / 2)  # Align cylinder along line
 
 	# Animate chain shooting out
 	_animate_chain_shoot(mesh_instance, distance)

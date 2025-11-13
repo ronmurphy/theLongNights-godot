@@ -82,6 +82,10 @@ var _item_db = null  # Reference to item database
 ## Void fog damage tracking
 var _last_void_fog_position := Vector3i(999999, 999999, 999999)  # Track last fog position
 
+## Teleport retry system (prevents infinite loop in sky ruins)
+var _teleport_retry_timer: float = 0.0  # Timer before retrying teleport
+const TELEPORT_RETRY_DELAY = 2.0  # Seconds to wait before retrying (matches teleport_stone cooldown)
+
 
 func _ready():
 	# Set up as friendly entity BEFORE calling super._ready()
@@ -579,6 +583,10 @@ func _process(delta: float):
 	if _attack_cooldown > 0:
 		_attack_cooldown -= delta
 
+	# Update teleport retry timer
+	if _teleport_retry_timer > 0:
+		_teleport_retry_timer -= delta
+
 	# Find player if we don't have one
 	if _player == null:
 		_find_player()
@@ -597,8 +605,19 @@ func _process(delta: float):
 	if not _is_guarding and distance_to_player > TELEPORT_DISTANCE:
 		# Only teleport if player is on the ground (check _grounded variable)
 		if _player.get("_grounded") == true:
-			_teleport_to_player()
-			return
+			# Check if we're still in cooldown from last failed teleport attempt
+			if _teleport_retry_timer > 0:
+				return  # Wait for retry timer to expire
+
+			# Check if there's ground at the player's location before teleporting
+			if _check_ground_at_player():
+				_teleport_to_player()
+				return
+			else:
+				# No ground found, set retry timer and wait
+				_teleport_retry_timer = TELEPORT_RETRY_DELAY
+				print("%s: No ground at player location, waiting %.1f seconds before retry..." % [entity_name, TELEPORT_RETRY_DELAY])
+				return
 
 	# Determine state based on situation
 	_update_state()
@@ -886,6 +905,43 @@ func _update_party_ui():
 		if child.has_method("update_companion_hp"):
 			child.update_companion_hp(current_hp, max_hp)
 			return
+
+
+func _check_ground_at_player() -> bool:
+	"""Check if there's ground at/near the player's location"""
+	if _player == null:
+		return false
+
+	# Get terrain node to check voxels
+	var terrain_node = get_node_or_null("/root/Main/Game/VoxelTerrain")
+	if not terrain_node:
+		return true  # Can't check, assume it's safe
+
+	var vt: VoxelTool = terrain_node.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	# Check for solid ground within 15 blocks below the player
+	var check_pos = _player.global_position + Vector3(2, 0, 2)  # 2 blocks away from player
+	var max_check_distance = 15.0
+
+	# Scan downward from player position
+	for i in range(int(max_check_distance)):
+		var check_block = Vector3i(
+			floor(check_pos.x),
+			floor(check_pos.y - i),
+			floor(check_pos.z)
+		)
+
+		var block_id = vt.get_voxel(check_block)
+
+		# Check if this is a solid block (not air/void_fog/water)
+		# AIR = 0, VOID_FOG = 55
+		if block_id != 0 and block_id != 55:
+			# Found ground!
+			return true
+
+	# No ground found within search range
+	return false
 
 
 func _teleport_to_player():
