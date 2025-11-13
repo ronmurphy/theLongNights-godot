@@ -144,6 +144,12 @@ func generate_entrance_at(world_x: int, world_z: int):
 	# Add purple beacon light at entrance (visible at night)
 	_create_entrance_beacon(entrance_pos)
 
+	# Register beacon with LampManager for persistence
+	var lamp_manager = get_tree().root.get_node_or_null("/root/LampManager")
+	if lamp_manager:
+		# Beacon position is 4 blocks above entrance
+		lamp_manager.register_lamp(entrance_pos + Vector3(0, 4, 0), "purple")
+
 	# Register with registry
 	var depth = abs(ground_y - (-150))  # Distance from surface to Undervoid start
 	if _registry:

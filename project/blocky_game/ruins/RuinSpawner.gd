@@ -138,7 +138,8 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 		"radius": radius,
 		"color": sphere_color,
 		"opacity": opacity,
-		"has_enemies": ruin_data.has_enemies
+		"has_enemies": ruin_data.has_enemies,
+		"ruin_size": template.size  # Store size for proper scaling on reload
 	}
 	
 	# Register with LampManager for persistence

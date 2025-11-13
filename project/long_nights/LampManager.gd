@@ -10,7 +10,7 @@ extends Node
 
 const SAVE_PATH = "user://save/lamps.json"
 const RUINS_SAVE_PATH = "user://save/ruin_lights.json"
-const ACTIVATION_DISTANCE = 48.0  # 3 chunks (16 blocks each)
+const ACTIVATION_DISTANCE = 100.0  # Increased to 100 blocks to ensure lights load at spawn
 const CHECK_INTERVAL = 2.0  # Check player distance every 2 seconds
 
 # Lamp data: position → {type: "cyan" or "purple", active: bool, node: Node3D or null}
@@ -201,33 +201,57 @@ func _activate_ruin(key: String):
 	if not ruin.sphere_node or not is_instance_valid(ruin.sphere_node):
 		var sphere_mesh_instance = MeshInstance3D.new()
 		sphere_mesh_instance.name = "RuinSphere"
-		
+
+		# Recalculate radius and center based on ruin size for proper scaling
+		var sphere_radius = ruin.sphere.radius
+		var sphere_center = ruin.sphere.center
+		if ruin.sphere.has("ruin_size"):
+			var ruin_size = ruin.sphere.ruin_size
+			var horizontal_size = max(ruin_size.x, ruin_size.z)
+			var vertical_size = ruin_size.y
+			# Calculate diagonal from center to corner + padding
+			sphere_radius = sqrt(pow(horizontal_size / 2.0, 2) + pow(horizontal_size / 2.0, 2)) + 5.0
+			var vertical_radius = (vertical_size / 2.0) + 5.0
+			if vertical_radius > sphere_radius:
+				sphere_radius = vertical_radius
+
+			# Recalculate center: ruin position + half the ruin size
+			var center_offset = Vector3(ruin_size) / 2.0
+			sphere_center = ruin.ruin_position + center_offset
+			print("🔵 Recalculated sphere - radius: %.2f, center: %s (from ruin pos: %s, size: %s)" % [sphere_radius, sphere_center, ruin.ruin_position, ruin_size])
+
 		var sphere_mesh = SphereMesh.new()
-		sphere_mesh.radius = ruin.sphere.radius
-		sphere_mesh.height = ruin.sphere.radius * 2.0
+		sphere_mesh.radius = sphere_radius
+		sphere_mesh.height = sphere_radius * 2.0
 		sphere_mesh.radial_segments = 32
 		sphere_mesh.rings = 16
 		sphere_mesh_instance.mesh = sphere_mesh
-		
+
 		var material = StandardMaterial3D.new()
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
 		material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-		material.albedo_color = Color(ruin.sphere.color.r, ruin.sphere.color.g, ruin.sphere.color.b, ruin.sphere.opacity)
-		
+		# TEMP DEBUG: Increase opacity to make sphere visible
+		var debug_opacity = min(ruin.sphere.opacity * 3.0, 0.5)  # 3x opacity, max 50%
+		material.albedo_color = Color(ruin.sphere.color.r, ruin.sphere.color.g, ruin.sphere.color.b, debug_opacity)
+		print("🔴 DEBUG: Using debug opacity %.2f instead of %.2f" % [debug_opacity, ruin.sphere.opacity])
+
 		# Add emission for combat ruins
 		if ruin.sphere.has_enemies:
 			material.emission_enabled = true
 			material.emission = Color(0.5, 0.0, 0.0)
 			material.emission_energy_multiplier = 0.3
-		
+
 		sphere_mesh_instance.material_override = material
-		sphere_mesh_instance.position = ruin.sphere.center
-		
+		sphere_mesh_instance.position = sphere_center
+
+		print("🔴 DEBUG: Creating sphere at position %s with radius %.2f and color %s (opacity %.2f)" % [sphere_center, sphere_radius, ruin.sphere.color, ruin.sphere.opacity])
+		print("🔴 DEBUG: Terrain node is: ", terrain.name if terrain else "NULL")
 		terrain.add_child(sphere_mesh_instance)
+		print("🔴 DEBUG: Sphere added to terrain as child, node: ", sphere_mesh_instance)
 		ruin.sphere_node = sphere_mesh_instance
-	
+
 	ruin.active = true
 
 
@@ -300,7 +324,10 @@ func save_ruins():
 			"sphere_color_g": ruin.sphere.color.g,
 			"sphere_color_b": ruin.sphere.color.b,
 			"sphere_opacity": ruin.sphere.opacity,
-			"has_enemies": ruin.sphere.has_enemies
+			"has_enemies": ruin.sphere.has_enemies,
+			"ruin_size_x": ruin.sphere.get("ruin_size", Vector3i(10, 10, 10)).x,
+			"ruin_size_y": ruin.sphere.get("ruin_size", Vector3i(10, 10, 10)).y,
+			"ruin_size_z": ruin.sphere.get("ruin_size", Vector3i(10, 10, 10)).z
 		})
 	
 	var file = FileAccess.open(RUINS_SAVE_PATH, FileAccess.WRITE)
@@ -386,7 +413,8 @@ func load_lamps():
 								"radius": ruin_data.sphere_radius,
 								"color": Color(ruin_data.sphere_color_r, ruin_data.sphere_color_g, ruin_data.sphere_color_b),
 								"opacity": ruin_data.sphere_opacity,
-								"has_enemies": ruin_data.has_enemies
+								"has_enemies": ruin_data.has_enemies,
+								"ruin_size": Vector3i(ruin_data.get("ruin_size_x", 10), ruin_data.get("ruin_size_y", 10), ruin_data.get("ruin_size_z", 10))
 							},
 							"sphere_node": null,
 							"active": false
@@ -398,6 +426,12 @@ func load_lamps():
 		print("🔍 No saved ruins found - scanning for existing teleport stones...")
 		await get_tree().create_timer(2.0).timeout  # Wait for world to load
 		_scan_for_existing_ruins()
+
+	# Immediately check if any lamps/ruins are within activation distance
+	# This ensures lights appear without waiting for next _process() call
+	print("💡 Performing immediate activation check for loaded lamps and ruins...")
+	await get_tree().process_frame
+	_update_lamp_activation()
 
 
 func _scan_for_existing_ruins():
