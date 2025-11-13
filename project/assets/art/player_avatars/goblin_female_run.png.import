@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bxfxpm42lj005"
-path="res://.godot/imported/Copilot_20251112_013028_inspyrenet.png-d537cb8642f2aecb5646bef351e6cd2e.ctex"
+uid="uid://gipo8n8wele3"
+path="res://.godot/imported/goblin_female_run.png-c04d678e0b29bb9760859f1208de37a4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/player_avatars/Copilot_20251112_013028_inspyrenet.png"
-dest_files=["res://.godot/imported/Copilot_20251112_013028_inspyrenet.png-d537cb8642f2aecb5646bef351e6cd2e.ctex"]
+source_file="res://assets/art/player_avatars/goblin_female_run.png"
+dest_files=["res://.godot/imported/goblin_female_run.png-c04d678e0b29bb9760859f1208de37a4.ctex"]
 
 [params]
 
