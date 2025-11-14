@@ -2,16 +2,12 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b4ldu2cx48drf"
-path="res://.godot/imported/Screenshot From 2025-10-13 00-44-43.png-2694434dde359e4613b7ccae79cae403.ctex"
-metadata={
-"vram_texture": false
-}
+uid="uid://cafgyu7n0k7op"
+valid=false
 
 [deps]
 
-source_file="res://assets/art/Screenshot From 2025-10-13 00-44-43.png"
-dest_files=["res://.godot/imported/Screenshot From 2025-10-13 00-44-43.png-2694434dde359e4613b7ccae79cae403.ctex"]
+source_file="res://assets/art/blocks/pine_wood-sides.jpg"
 
 [params]
 

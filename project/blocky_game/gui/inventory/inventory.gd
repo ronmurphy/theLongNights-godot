@@ -80,7 +80,8 @@ func _ready():
 		_bento_slot_views[i] = slot
 
 	# Add Power Harmonization button below bento box
-	_create_power_harmonization_button()
+	# NOTE: Power Harmonization now only available through Armorer NPC
+	# _create_power_harmonization_button()
 
 	# Initialize companion weapon slot with their default weapon
 	call_deferred("_initialize_companion_default_weapon")
@@ -1582,18 +1583,33 @@ var _harmonization_modal: Control = null
 
 func _show_power_harmonization_modal() -> void:
 	"""Show modal for fusing two powered items together"""
-	# Create modal background
+	print("🔧 _show_power_harmonization_modal called!")
+
+	# Get the root scene to add modal to (not inventory!)
+	var root = get_tree().root
+	if not root:
+		push_error("Cannot show harmonization modal - no root node")
+		return
+
+	# Create modal background (fill entire screen)
 	_harmonization_modal_bg = ColorRect.new()
 	_harmonization_modal_bg.name = "HarmonizationBG"
 	_harmonization_modal_bg.color = Color(0, 0, 0, 0.85)
 	_harmonization_modal_bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(_harmonization_modal_bg)
+	# Make it fill the screen
+	_harmonization_modal_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(_harmonization_modal_bg)
+	print("  Added modal background to root")
 
 	# Create modal dialog
 	_harmonization_modal = Control.new()
 	_harmonization_modal.name = "HarmonizationModal"
 	_harmonization_modal.custom_minimum_size = Vector2(700, 600)
-	add_child(_harmonization_modal)
+	root.add_child(_harmonization_modal)
+	print("  Added modal dialog to root")
+
+	# IMPORTANT: Force mouse to be visible when modal opens
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 	# Center on screen
 	var screen_size = get_viewport_rect().size
@@ -1987,6 +2003,9 @@ func _close_harmonization_modal() -> void:
 	"""Close the harmonization modal"""
 	_harmonization_slot1 = null
 	_harmonization_slot2 = null
+
+	# Restore mouse capture (hide cursor)
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 	if _harmonization_modal_bg:
 		_harmonization_modal_bg.queue_free()

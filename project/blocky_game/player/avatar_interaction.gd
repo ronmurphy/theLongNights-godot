@@ -188,6 +188,45 @@ func _get_pointed_voxel() -> VoxelRaycastResult:
 	return hit
 
 
+func _raycast_for_npc() -> Node:
+	"""Find NPC player is looking at (within range and angle)"""
+	var npcs = get_tree().get_nodes_in_group("npcs")
+	if npcs.is_empty():
+		return null
+
+	var origin := _head.get_global_transform().origin
+	var forward := -_head.get_transform().basis.z.normalized()
+
+	var closest_npc: Node = null
+	var closest_distance: float = 999999.0
+	const MAX_INTERACTION_DISTANCE = 5.0
+	const MAX_INTERACTION_ANGLE = 0.5  # Cosine of ~60 degrees (much more lenient)
+
+	for npc in npcs:
+		# Check distance (use horizontal distance to ignore height difference)
+		var to_npc = npc.global_position - origin
+		var horizontal_to_npc = Vector3(to_npc.x, 0, to_npc.z)
+		var distance = horizontal_to_npc.length()
+
+		if distance > MAX_INTERACTION_DISTANCE:
+			continue
+
+		# Check if player is looking at NPC (dot product, ignore Y component)
+		var forward_horizontal = Vector3(forward.x, 0, forward.z).normalized()
+		var direction_to_npc = horizontal_to_npc.normalized()
+		var dot = forward_horizontal.dot(direction_to_npc)
+
+		if dot < MAX_INTERACTION_ANGLE:
+			continue
+
+		# This NPC is in range and player is looking at it
+		if distance < closest_distance:
+			closest_distance = distance
+			closest_npc = npc
+
+	return closest_npc
+
+
 func _physics_process(_delta):
 	if _terrain == null:
 		return
@@ -221,6 +260,14 @@ func _physics_process(_delta):
 		if _torch_light:
 			_torch_light.visible = (_current_held_item_id == 6)
 	
+	# Check for NPC interaction (right-click) - HIGHEST PRIORITY
+	if _action_place:
+		var npc = _raycast_for_npc()
+		if npc:
+			_handle_npc_interaction(npc)
+			_action_place = false  # Consume the right-click
+			return  # Don't process other interactions
+
 	# Check for teleport stone and chest interaction (before other block interactions)
 	# Trigger on single click (not hold-to-mine)
 	if hit != null and _action_use:
@@ -1694,6 +1741,174 @@ func _create_materialization_particles(center_pos: Vector3) -> CPUParticles3D:
 # Chest tracking - keep track of opened chests so they can't be looted twice
 var _opened_chests: Array[Vector3i] = []
 var _first_chest_opened := false  # Track if the special first chest has been opened
+
+# NPC interaction tracking
+var _current_interacting_npc: Node = null  # Track which NPC we're interacting with
+
+
+func _handle_npc_interaction(npc: Node) -> void:
+	"""Called when player right-clicks on an NPC"""
+	if not npc or not npc.is_in_group("npcs"):
+		return
+
+	print("🗣️ Interacting with NPC: %s (Job: %s)" % [npc.entity_name, npc.npc_job])
+
+	# Store reference for when dialogue closes
+	_current_interacting_npc = npc
+
+	# Pause NPC movement and hide billboard
+	npc._in_dialogue = true  # Prevent auto-resume
+	npc._is_idle = true  # Stop wandering
+	npc._wander_direction = Vector3.ZERO  # Stop current movement
+	if npc.get("_sprite"):
+		npc._sprite.visible = false  # Hide billboard during dialogue
+
+	# Get DialogueManager
+	var dialogue_manager = get_node_or_null("/root/DialogueManager")
+	if not dialogue_manager:
+		push_error("DialogueManager not found!")
+		return
+
+	# Check if this NPC has a custom dialogue ID
+	var dialogue_id = npc.npc_dialogue_id
+
+	# Try to trigger the dialogue
+	var triggered = dialogue_manager.trigger_dialogue(dialogue_id)
+
+	# If no custom dialogue exists, create a dynamic one using NPC's portrait
+	if not triggered:
+		var greeting = npc.get_default_greeting(npc.npc_job, npc.npc_display_name)
+
+		# Build NPC portrait path (left side, facing right)
+		# Try npc_sprites first, fallback to player_avatars
+		var npc_portrait = "res://assets/art/npc_sprites/%s_%s.png" % [npc.npc_race, npc.npc_gender]
+		var player_portrait = "res://assets/art/player_avatars/%s_%s.png" % [npc.npc_race, npc.npc_gender]
+
+		print("🖼️ NPC Portrait Debug:")
+		print("  Race: %s, Gender: %s" % [npc.npc_race, npc.npc_gender])
+		print("  Trying NPC sprites path: %s" % npc_portrait)
+		print("  NPC sprites exists: %s" % ResourceLoader.exists(npc_portrait))
+		print("  Trying player avatars path: %s" % player_portrait)
+		print("  Player avatars exists: %s" % ResourceLoader.exists(player_portrait))
+
+		var portrait_path = npc_portrait if ResourceLoader.exists(npc_portrait) else player_portrait
+		print("  Final portrait path: %s" % portrait_path)
+
+		var dynamic_dialogue = {
+			"id": dialogue_id,
+			"messages": [
+				{
+					"speaker": "npc",
+					"speaker_display": npc.npc_display_name,
+					"text": greeting,
+					"portrait_left": portrait_path,
+					"portrait_right": "",
+					"delay": 0
+				}
+			]
+		}
+		dialogue_manager.trigger_dynamic_dialogue(dynamic_dialogue)
+
+	# Connect to dialogue closed signal to open UI
+	if not dialogue_manager.dialogue_ui.dialogue_closed.is_connected(_on_npc_dialogue_closed):
+		dialogue_manager.dialogue_ui.dialogue_closed.connect(_on_npc_dialogue_closed)
+
+
+func _on_npc_dialogue_closed() -> void:
+	"""Called when NPC dialogue finishes - open appropriate UI based on job"""
+	if not _current_interacting_npc:
+		return
+
+	var npc = _current_interacting_npc
+	var job = npc.npc_job
+
+	print("📋 Opening UI for NPC job: %s" % job)
+
+	# Restore NPC billboard visibility and resume movement
+	if npc.get("_sprite"):
+		npc._sprite.visible = true
+	npc._in_dialogue = false  # Re-enable auto-resume
+	npc._is_idle = false
+	npc._idle_time = 0.0  # Reset idle timer
+	npc._pick_new_wander_direction()
+
+	# Route to appropriate UI based on job type
+	match job:
+		"cook":
+			_open_cooking_modal()
+
+		"armorer":
+			_open_harmonization_modal()
+
+		"merchant":
+			_open_merchant_shop(npc)
+
+		"blacksmith":
+			_open_blacksmith_trade(npc)
+
+		"companion":
+			_open_companion_swap_dialog(npc)
+
+		_:
+			print("⚠️ Unknown NPC job type: %s" % job)
+
+	# Clear reference
+	_current_interacting_npc = null
+
+
+func _open_cooking_modal() -> void:
+	"""Open the cooking modal (reused from cooking console command)"""
+	print("[NPC] Opening cooking interface...")
+
+	# Load and create cooking modal
+	var CookingModal = load("res://blocky_game/gui/CookingModal.gd")
+	var modal = CookingModal.new()
+
+	# Get game node
+	var game = get_node("/root/Main/Game")
+	game.add_child(modal)
+
+	# Set modal open flag (prevents player movement)
+	set_cooking_modal_open(true)
+
+	# Connect close signal
+	modal.modal_closed.connect(func():
+		set_cooking_modal_open(false)
+	)
+
+
+func _open_harmonization_modal() -> void:
+	"""Open the power harmonization modal"""
+	print("[NPC] Opening power harmonization...")
+
+	# Get inventory reference
+	print("  Inventory exists: %s" % (_inventory != null))
+	if _inventory:
+		print("  Has method: %s" % _inventory.has_method("_show_power_harmonization_modal"))
+
+	if _inventory and _inventory.has_method("_show_power_harmonization_modal"):
+		print("  ✓ Calling _show_power_harmonization_modal()")
+		_inventory._show_power_harmonization_modal()
+	else:
+		print("  ✗ Power harmonization not available - inventory missing or method not found")
+
+
+func _open_merchant_shop(npc: Node) -> void:
+	"""Open merchant shop UI (TODO)"""
+	print("[NPC] Merchant shop coming soon!")
+	# TODO: Implement merchant shop modal
+
+
+func _open_blacksmith_trade(npc: Node) -> void:
+	"""Open blacksmith trade UI (TODO)"""
+	print("[NPC] Blacksmith trade coming soon!")
+	# TODO: Implement blacksmith trade modal (rust -> iron)
+
+
+func _open_companion_swap_dialog(npc: Node) -> void:
+	"""Open companion swap dialog (TODO)"""
+	print("[NPC] Companion swap coming soon!")
+	# TODO: Implement companion swap modal
 
 
 func _handle_chest_interaction(chest_pos: Vector3) -> void:

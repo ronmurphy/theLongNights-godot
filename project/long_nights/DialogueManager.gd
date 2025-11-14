@@ -150,31 +150,33 @@ func _prepare_messages(raw_messages: Array) -> Array:
 		var delay = msg.get("delay", 0)
 
 		# Get character info for portraits
-		var left_path = ""
-		var right_path = ""
-		var speaker_display = ""
+		var left_path = msg.get("portrait_left", "")  # Check if portrait already provided
+		var right_path = msg.get("portrait_right", "")  # Check if portrait already provided
+		var speaker_display = msg.get("speaker_display", "")  # Check if name already provided
 
-		if speaker == "companion":
-			# Get companion info from CompanionManager
-			var race = CompanionManager.companion_race
-			var gender = CompanionManager.companion_gender
-			left_path = _get_portrait_path(race, gender, mood)
-			speaker_display = CompanionManager.get_companion_name()
+		# Only auto-generate if not already provided
+		if left_path == "" and right_path == "" and speaker_display == "":
+			if speaker == "companion":
+				# Get companion info from CompanionManager
+				var race = CompanionManager.companion_race
+				var gender = CompanionManager.companion_gender
+				left_path = _get_portrait_path(race, gender, mood)
+				speaker_display = CompanionManager.get_companion_name()
 
-		elif speaker == "player":
-			# Get player info from PlayerData
-			var race = PlayerData.race
-			var gender = PlayerData.gender
-			right_path = _get_portrait_path(race, gender, mood)
-			speaker_display = "You"
+			elif speaker == "player":
+				# Get player info from PlayerData
+				var race = PlayerData.race
+				var gender = PlayerData.gender
+				right_path = _get_portrait_path(race, gender, mood)
+				speaker_display = "You"
 
-		elif speaker == "narrator":
-			left_path = "res://assets/art/player_avatars/narrator.png"
-			speaker_display = "Narrator"
+			elif speaker == "narrator":
+				left_path = "res://assets/art/player_avatars/narrator.png"
+				speaker_display = "Narrator"
 
-		else:
-			# Custom NPC - would need to be expanded
-			speaker_display = speaker
+			else:
+				# Custom NPC - use speaker name as display
+				speaker_display = speaker
 
 		# Substitute variables in text
 		text = _substitute_variables(text)

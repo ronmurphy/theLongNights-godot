@@ -11,6 +11,10 @@ var npc_gender: String = "female"
 var npc_color: Color = Color.WHITE
 var npc_display_name: String = "NPC"
 
+# Job type and dialogue
+var npc_job: String = "companion"  # "companion", "cook", "blacksmith", "merchant", "armorer"
+var npc_dialogue_id: String = ""  # Dialogue ID to trigger when interacted with
+
 # Sprite direction tracking (like companion)
 var _front_sprite_path: String = ""
 var _back_sprite_path: String = ""
@@ -24,6 +28,7 @@ var _wander_duration: float = 3.0  # Change direction every 3 seconds
 var _wander_direction: Vector3 = Vector3.ZERO
 var _idle_time: float = 0.0
 var _is_idle: bool = false
+var _in_dialogue: bool = false  # Paused for player interaction (don't auto-resume)
 
 
 func _ready():
@@ -42,31 +47,37 @@ func _ready():
 	# Note: Sprite and health bar are created in initialize() after race/gender are set
 
 
-func initialize(race: String, gender: String, color: Color, display_name: String):
-	"""Initialize NPC with race, gender, color, and name"""
+func initialize(race: String, gender: String, color: Color, display_name: String, job: String = "companion", dialogue_id: String = ""):
+	"""Initialize NPC with race, gender, color, name, job, and dialogue"""
 	npc_race = race
 	npc_gender = gender
 	npc_color = color
 	npc_display_name = display_name
 	entity_name = display_name
-	
+	npc_job = job
+	npc_dialogue_id = dialogue_id
+
+	# Auto-generate dialogue ID if not provided
+	if npc_dialogue_id == "":
+		npc_dialogue_id = "npc_%s_%s" % [job, display_name.to_lower().replace(" ", "_")]
+
 	# Load stats from entities.json data
 	_load_stats_from_race(race)
-	
+
 	# Apply race-based speed multiplier
 	var speed_multiplier = CharacterQuiz.get_race_speed_multiplier(race)
 	movement_speed *= speed_multiplier
-	
+
 	# Create sprite AFTER race/gender are set
 	_create_sprite()
-	
+
 	# Create health bar
 	_create_health_bar()
-	
+
 	# Apply race-based height scaling
 	_apply_race_height_scaling(race)
-	
-	print("TestNPC: Initialized %s (%s %s) with color %s, speed %.2fx" % [display_name, race, gender, color, speed_multiplier])
+
+	print("TestNPC: Initialized %s (%s %s) - Job: %s, Dialogue: %s" % [display_name, race, gender, job, npc_dialogue_id])
 
 
 func _load_stats_from_race(race: String):
@@ -95,8 +106,9 @@ func _load_stats_from_race(race: String):
 			attack_damage = 4
 			defense = 13
 	
-	# Use unified base movement speed (will be modified by race multiplier)
-	movement_speed = 4.0
+	# Use slower base movement speed for NPCs (casual wandering)
+	# Player walks at ~4.0, NPCs should be slower to make interaction easier
+	movement_speed = 1.5
 	current_hp = max_hp
 
 
@@ -246,10 +258,11 @@ func _process(delta):
 	
 	# Simple wander AI
 	_wander_timer += delta
-	
+
 	if _is_idle:
 		_idle_time += delta
-		if _idle_time >= 2.0:  # Idle for 2 seconds
+		# Only auto-resume if not in dialogue
+		if _idle_time >= 2.0 and not _in_dialogue:
 			_is_idle = false
 			_idle_time = 0.0
 			_pick_new_wander_direction()
@@ -343,3 +356,21 @@ func _update_sprite_direction() -> void:
 				
 				# Preserve scale when swapping
 				_sprite.scale = Vector3(_sprite_height_scale, _sprite_height_scale, _sprite_height_scale)
+
+
+## Get default dialogue greeting text based on job type
+static func get_default_greeting(job: String, npc_name: String) -> String:
+	"""Generate a default greeting message based on NPC job"""
+	match job:
+		"cook":
+			return "Hello! I'm %s, the cook. Looking for some food?" % npc_name
+		"armorer":
+			return "Greetings! I'm %s. Need your gear enhanced?" % npc_name
+		"blacksmith":
+			return "Hey there! I'm %s the blacksmith. Got rust to refine?" % npc_name
+		"merchant":
+			return "Welcome! I'm %s. Care to do some trading?" % npc_name
+		"companion":
+			return "Hi! I'm %s. Want to swap companions?" % npc_name
+		_:
+			return "Hello! I'm %s." % npc_name

@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c4mlwu2x8wq5c"
-valid=false
+uid="uid://8wj08fxnrbbe"
+path="res://.godot/imported/winter.png-07f515c8132c488f1a4c89fd6d742f81.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
-source_file="res://assets/art/blocks/dead_wood-sides.jpeg"
+source_file="res://assets/art/blocks/winter.png"
+dest_files=["res://.godot/imported/winter.png-07f515c8132c488f1a4c89fd6d742f81.ctex"]
 
 [params]
 

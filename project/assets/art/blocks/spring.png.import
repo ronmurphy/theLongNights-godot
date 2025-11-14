@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c4mlwu2x8wq5c"
-valid=false
+uid="uid://kemp358fmauw"
+path="res://.godot/imported/spring.png-07a177a8d6dc1042470d48bce32d6ea6.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
-source_file="res://assets/art/blocks/dead_wood-sides.jpeg"
+source_file="res://assets/art/blocks/spring.png"
+dest_files=["res://.godot/imported/spring.png-07a177a8d6dc1042470d48bce32d6ea6.ctex"]
 
 [params]
 

@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dm5sbs0fjcg8l"
-path="res://.godot/imported/birch_wood-sides.jpeg-71654578c9dd302a578fa2f9c8be9adb.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://assets/art/blocks/birch_wood-sides.jpeg"
-dest_files=["res://.godot/imported/birch_wood-sides.jpeg-71654578c9dd302a578fa2f9c8be9adb.ctex"]
 
 [params]
 

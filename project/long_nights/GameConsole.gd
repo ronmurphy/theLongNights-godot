@@ -1017,19 +1017,21 @@ func _cmd_cooking(_args: Array) -> void:
 
 
 func _cmd_npc(args: Array) -> void:
-	"""Spawn a test NPC: npc <race> <gender> <color> <name>"""
+	"""Spawn a test NPC: npc <race> <gender> <color> <name> [job]"""
 	if args.size() < 4:
-		add_output("[color=red]Usage: npc <race> <gender> <color> <name>[/color]")
+		add_output("[color=red]Usage: npc <race> <gender> <color> <name> [job][/color]")
 		add_output("[color=yellow]Races: human, elf, dwarf, goblin[/color]")
 		add_output("[color=yellow]Gender: male, female[/color]")
-		add_output("[color=yellow]Color: red, green, blue, yellow, etc.[/color]")
-		add_output("[color=yellow]Example: npc human female green Angelica[/color]")
+		add_output("[color=yellow]Color: red, green, blue, yellow, white, etc.[/color]")
+		add_output("[color=yellow]Jobs: companion, cook, armorer, blacksmith, merchant[/color]")
+		add_output("[color=yellow]Example: npc human female white Emma cook[/color]")
 		return
-	
+
 	var race = args[0].to_lower()
 	var gender = args[1].to_lower()
 	var color_name = args[2].to_lower()
 	var npc_name = args[3]
+	var job = args[4].to_lower() if args.size() >= 5 else "companion"
 	
 	# Validate race
 	if not race in ["human", "elf", "dwarf", "goblin"]:
@@ -1040,7 +1042,12 @@ func _cmd_npc(args: Array) -> void:
 	if not gender in ["male", "female"]:
 		add_output("[color=red]Invalid gender! Use: male or female[/color]")
 		return
-	
+
+	# Validate job
+	if not job in ["companion", "cook", "armorer", "blacksmith", "merchant"]:
+		add_output("[color=red]Invalid job! Use: companion, cook, armorer, blacksmith, or merchant[/color]")
+		return
+
 	# Parse color
 	var npc_color = _parse_color(color_name)
 	
@@ -1074,9 +1081,9 @@ func _cmd_npc(args: Array) -> void:
 		npc.global_position = spawn_pos
 	
 	# Initialize NPC with data
-	npc.initialize(race, gender, npc_color, npc_name)
-	
-	add_output("[color=lime]Spawned NPC: %s (%s %s)[/color]" % [npc_name, race, gender])
+	npc.initialize(race, gender, npc_color, npc_name, job)
+
+	add_output("[color=lime]✓ Spawned %s NPC: %s (%s %s)[/color]" % [job, npc_name, race, gender])
 
 
 func _parse_color(color_name: String) -> Color:
