@@ -92,6 +92,9 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 		voxel_tool.set_voxel(world_block_pos, voxel_id)
 		blocks_placed += 1
 
+	# Generate inverted pyramid beneath the ruin (for flying ruins)
+	var pyramid_blocks_placed = _generate_inverted_pyramid(voxel_tool, world_position, template.size)
+
 	# Clean up temporary VoxelViewer
 	temp_viewer.queue_free()
 
@@ -150,7 +153,7 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 	# Old functions no longer needed - LampManager handles spawning
 	# _add_teleport_stone_light() and _add_ruin_sphere() are deprecated
 
-	print("Placed ", blocks_placed, " blocks for ruin '", template.name, "' (", ruin_data.ruin_name, ") with ", template.teleport_stone_positions.size(), " teleport stone(s)")
+	print("Placed ", blocks_placed, " blocks for ruin '", template.name, "' (", ruin_data.ruin_name, ") with ", template.teleport_stone_positions.size(), " teleport stone(s) and ", pyramid_blocks_placed, " pyramid blocks")
 	return world_position
 
 
@@ -378,3 +381,84 @@ func _add_ruin_sphere(ruin_position: Vector3, ruin_data: RuinRegistry.RuinData, 
 
 	var sphere_type = "COMBAT (red)" if ruin_data.has_enemies else "normal (" + str(sphere_color) + ")"
 	print("Added ", sphere_type, " sphere (radius: %.1f) around %dx%dx%d ruin at: %s" % [radius, ruin_size.x, ruin_size.y, ruin_size.z, ruin_position])
+
+
+func _generate_inverted_pyramid(voxel_tool, world_position: Vector3, ruin_size: Vector3i) -> int:
+	"""
+	Generate an inverted pyramid beneath a flying ruin.
+	The pyramid tapers from the ruin's base to a point below.
+
+	Features:
+	- Height scales with ruin size (1.5x the largest horizontal dimension)
+	- Gradient: GRASS (top) → DIRT → STONE → RUIN_STONE (bottom)
+	- Slightly jagged edges for natural appearance
+	- Flat top aligns perfectly with ruin bottom
+	"""
+	var blocks_placed = 0
+
+	# Get block IDs
+	const GRASS_ID = 2          # Grass block ID (top layer)
+	const DIRT_ID = 1           # Dirt block ID
+	const STONE_ID = 29         # Stone block ID
+	const RUIN_STONE_ID = 33    # Ruin stone block ID (bottom layer)
+	const AIR_ID = 0            # Air
+
+	# Calculate pyramid dimensions based on ruin size
+	var base_width = max(ruin_size.x, ruin_size.z)
+	var pyramid_height = int(base_width * 1.5)
+
+	# Get the bottom Y of the ruin (this is where the flat top of pyramid should be)
+	var ruin_bottom_y = int(world_position.y)
+	var pyramid_start_y = ruin_bottom_y - 1  # Start one block below the ruin bottom
+
+	# Ruin center
+	var ruin_center_x = int(world_position.x) + ruin_size.x / 2
+	var ruin_center_z = int(world_position.z) + ruin_size.z / 2
+
+	# Generate pyramid layer by layer from top to bottom
+	for layer in range(pyramid_height):
+		var current_y = pyramid_start_y - layer
+
+		# Calculate the scaling factor for this layer (1.0 at top, 0.0 at bottom for proper taper)
+		var layer_progress = float(pyramid_height - layer - 1) / float(pyramid_height)
+
+		# Current layer size (tapers as we go down)
+		var current_width = int(float(base_width) * layer_progress)
+		if current_width < 1:
+			current_width = 1
+
+		# Determine block type based on depth
+		var block_voxel_id: int
+		if layer == 0:  # Only the very first (top) layer is grass
+			block_voxel_id = GRASS_ID
+		else:  # Remaining layers: Dirt → Stone → Ruin Stone gradient
+			if layer_progress > 0.67:  # Top 33% - Dirt
+				block_voxel_id = DIRT_ID
+			elif layer_progress > 0.33:  # Middle 33% - Stone
+				block_voxel_id = STONE_ID
+			else:  # Bottom 33% - Ruin Stone
+				block_voxel_id = RUIN_STONE_ID
+
+		# Place blocks in a square pattern, with slight jaggedness
+		for x in range(-current_width, current_width + 1):
+			for z in range(-current_width, current_width + 1):
+				# Add slight randomness for jagged edges
+				var jag_threshold = randf() * 0.3  # 30% randomness
+				var distance_from_center = max(abs(x), abs(z))
+
+				# Create diamond/square pattern (slightly jagged)
+				if distance_from_center <= current_width + jag_threshold:
+					var world_x = ruin_center_x + x
+					var world_z = ruin_center_z + z
+					var block_pos = Vector3i(world_x, current_y, world_z)
+
+					# Don't overwrite existing blocks (the ruin itself)
+					var existing_voxel = voxel_tool.get_voxel(block_pos)
+					if existing_voxel == AIR_ID:
+						voxel_tool.set_voxel(block_pos, block_voxel_id)
+						blocks_placed += 1
+
+	if blocks_placed > 0:
+		print("Generated inverted pyramid with ", blocks_placed, " blocks (height: ", pyramid_height, ", base: ", base_width, ")")
+
+	return blocks_placed
