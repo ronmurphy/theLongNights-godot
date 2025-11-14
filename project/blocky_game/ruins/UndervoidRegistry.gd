@@ -77,11 +77,6 @@ func mark_structure_visited(structure_position: Vector3):
 			return
 
 
-func get_all_entrances() -> Array[UndervoidEntrance]:
-	"""Return all registered Undervoid entrances"""
-	return _entrances
-
-
 func get_nearest_entrance(from_position: Vector3) -> UndervoidEntrance:
 	"""Get the closest entrance to a position"""
 	if _entrances.is_empty():

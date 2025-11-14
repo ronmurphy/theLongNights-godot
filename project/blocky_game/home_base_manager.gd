@@ -66,13 +66,15 @@ func set_home_base(position: Vector3, ruin_id: String = ""):
 	home_base_ruin_id = ruin_id
 	
 	# Check if we're setting home base in a ruin
-	var ruin = RuinRegistry.get_ruin_at_position(position, 50.0)  # 50 block tolerance
-	
+	var ruin = RuinRegistry.get_ruin_at_position(position, 100.0)  # 100 block tolerance (increased)
+
 	if ruin:
 		# We're in a ruin!
 		home_base_ruin_id = ruin.ruin_name
 		print("🏠 Home Base established in: %s (%s)" % [ruin.ruin_name, ruin.ruin_type])
-		print("   Size: %s, Position: %s" % [ruin.ruin_size, ruin.position])
+		print("   Ruin registered size: %s" % ruin.ruin_size)
+		print("   Ruin base position: %s" % ruin.position)
+		print("   Homebase set at: %s" % position)
 		
 		# Check if it's a sky ruin (high Y coordinate)
 		if position.y > 100:  # Sky ruins are typically above y=100
@@ -91,8 +93,8 @@ func set_home_base(position: Vector3, ruin_id: String = ""):
 	if ruin:
 		_build_homebase_fence(ruin)
 
-	# Spawn home structure
-	_spawn_home_structure()
+	# NOTE: Homebase tier system removed - full ruin platform is given to player
+	# TODO: Structure spawning (cave/tent/lodge) will be added later
 
 	# Relocate benched companions (if any)
 	_relocate_benched_companions()
@@ -273,7 +275,7 @@ func _build_homebase_fence(ruin: RuinRegistry.RuinData) -> void:
 		return
 
 	# Get terrain and blocks references
-	var terrain = _game.get_node_or_null("Terrain")
+	var terrain = _game.get_node_or_null("VoxelTerrain")
 	if not terrain:
 		push_error("HomeBaseManager: Cannot build fence - terrain not found")
 		return
@@ -299,6 +301,12 @@ func _build_homebase_fence(ruin: RuinRegistry.RuinData) -> void:
 	var ruin_base = Vector3i(ruin.position)
 	var ruin_size = ruin.ruin_size
 
+	# DETECT if size looks like old default (10x10x10) and auto-detect actual platform size
+	if ruin_size == Vector3i(10, 10, 10) and not ruin.ruin_type.contains("crashed"):
+		print("   ⚠️ Ruin has old default size (10x10x10), scanning for actual platform bounds...")
+		ruin_size = _detect_actual_ruin_size(ruin_base, voxel_tool)
+		print("   ✓ Detected actual platform size: %s" % ruin_size)
+
 	# Check if this is the crashed ruins by ruin type (not position!)
 	var is_crashed_ruins = ruin.ruin_type.contains("crashed")
 
@@ -315,12 +323,12 @@ func _build_homebase_fence(ruin: RuinRegistry.RuinData) -> void:
 		print("   Position: %s" % ruin.position)
 		print("   Expanded area: %dx%d (to accommodate Undervoid entrance)" % [expanded_size, expanded_size])
 	else:
-		# Normal ruin fence
+		# Normal ruin fence - use the full ruin platform size
 		min_corner = ruin_base
 		max_corner = ruin_base + ruin_size
-		print("🔨 Building planks fence around homebase...")
-		print("   Ruin: %s" % ruin.ruin_name)
-		print("   Base: %s, Size: %s" % [ruin_base, ruin_size])
+		print("🔨 Building planks fence around %s homebase..." % ruin.ruin_name)
+		print("   Platform size: %s (full ruin area)" % ruin_size)
+		print("   Fence will enclose entire platform")
 
 	var blocks_placed = 0
 
@@ -336,13 +344,13 @@ func _build_homebase_fence(ruin: RuinRegistry.RuinData) -> void:
 				entrance_positions.append(entrance_pos)
 				print("   🟣 Detected Undervoid entrance at %s - will leave gap" % entrance_pos)
 
-	# Build 3-block tall fence around perimeter
+	# Build 5-block tall fence around perimeter (prevents NPC step-climbing escape)
 	# Bottom y level of the ruin (approximate ground level)
 	var ground_y = ruin_base.y
 	var gap_size = 5  # Leave 5-block gap around entrances
 
 	# Build fence on all 4 sides
-	for y_offset in range(3):  # 3 blocks tall
+	for y_offset in range(5):  # 5 blocks tall (NPCs can step 2 blocks high)
 		var y = ground_y + y_offset
 
 		# North side (min Z)
@@ -383,6 +391,39 @@ func _is_near_entrance(pos: Vector3i, entrance_positions: Array, gap_size: int) 
 		if distance <= gap_size:
 			return true
 	return false
+
+
+func _detect_actual_ruin_size(ruin_base: Vector3i, voxel_tool: VoxelTool) -> Vector3i:
+	"""Scan outward from ruin base to detect actual platform size by finding grass/dirt edges"""
+	var max_scan = 60  # Don't scan more than 60 blocks in any direction
+	var ground_y = ruin_base.y
+
+	# Scan for X bounds (min and max)
+	var min_x = ruin_base.x
+	var max_x = ruin_base.x
+	for x in range(ruin_base.x - max_scan, ruin_base.x + max_scan):
+		var block_id = voxel_tool.get_voxel(Vector3i(x, ground_y, ruin_base.z))
+		if block_id != 0:  # Not air
+			min_x = min(min_x, x)
+			max_x = max(max_x, x)
+
+	# Scan for Z bounds (min and max)
+	var min_z = ruin_base.z
+	var max_z = ruin_base.z
+	for z in range(ruin_base.z - max_scan, ruin_base.z + max_scan):
+		var block_id = voxel_tool.get_voxel(Vector3i(ruin_base.x, ground_y, z))
+		if block_id != 0:  # Not air
+			min_z = min(min_z, z)
+			max_z = max(max_z, z)
+
+	# Calculate size from bounds
+	var detected_size = Vector3i(
+		max_x - min_x + 1,
+		20,  # Reasonable height for most ruins
+		max_z - min_z + 1
+	)
+
+	return detected_size
 
 
 func _get_platform_expansion_info(ruin: RuinRegistry.RuinData) -> Dictionary:

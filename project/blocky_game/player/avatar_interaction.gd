@@ -287,6 +287,17 @@ func _physics_process(_delta):
 				_action_use_held = false  # Prevent mining the block
 				return  # Don't process other interactions
 
+	# Check for RIGHT-CLICK on teleport stone with compass equipped (homebase teleport)
+	if hit != null and _action_place and inv_item != null and inv_item.type == InventoryItem.TYPE_ITEM and inv_item.id == 7:
+		var hit_raw_id := _terrain_tool.get_voxel(hit.position)
+		if hit_raw_id != 0:
+			var rm := _block_types.get_raw_mapping(hit_raw_id)
+			# Teleport stone is block ID 20
+			if rm.block_id == 20:
+				_handle_teleport_stone_interaction(hit.position)
+				_action_place = false
+				return  # Don't process other interactions
+
 	# Check for projectile retrieval FIRST if right-click with empty hotbar slot
 	if _action_place and inv_item == null:
 		if _can_retrieve_projectiles():

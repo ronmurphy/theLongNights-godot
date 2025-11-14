@@ -124,7 +124,7 @@ func register_ruin(world_position: Vector3, ruin_type: String, teleport_position
 	# Add to registry
 	_ruins.append(ruin_data)
 
-	print("Registered ruin: ", ruin_name, " (", ruin_type, ") at ", world_position, " with ", ruin_data.teleport_stones.size(), " portal(s)")
+	print("Registered ruin: ", ruin_name, " (", ruin_type, ") at ", world_position, " with ", ruin_data.teleport_stones.size(), " portal(s), size: ", ruin_size)
 
 	return ruin_data
 
