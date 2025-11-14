@@ -43,15 +43,48 @@ const TIER_RECYCLE_BLOCKS = {
 var _game: Node = null
 var _player: Node = null
 
+# NPC spawning system
+var homebase_set_day: int = -1  # Track what day homebase was set (-1 = not set)
+var spawned_npcs: Array = []  # Track spawned NPC nodes
+var npc_spawn_pool: Array = []  # Pool of NPCs to spawn
+var npcs_to_spawn_index: int = 0  # Current index in spawn pool
+var _pending_npc_data: Array = []  # Store NPC data from save until game is ready
+
+# NPC templates (will spawn 1 per day in this order)
+const NPC_TEMPLATES = [
+	{"name": "Michelle", "race": "human", "gender": "female", "job": "cook", "color": Color(1.0, 0.9, 0.8)},
+	{"name": "Mahan", "race": "dwarf", "gender": "male", "job": "blacksmith", "color": Color(0.9, 0.8, 0.7)},
+	{"name": "Lydia", "race": "elf", "gender": "female", "job": "merchant", "color": Color(1.0, 0.95, 0.85)},
+	{"name": "Daniels", "race": "human", "gender": "male", "job": "armorer", "color": Color(0.85, 0.75, 0.65)},
+	{"name": "Zara", "race": "elf", "gender": "female", "job": "ruinkeeper", "color": Color(0.95, 0.9, 1.0)},
+]
+
 
 func _ready():
 	print("HomeBaseManager: Initialized")
+
+	# Connect to TimeManager's day_changed signal for NPC spawning
+	var time_manager = get_node_or_null("/root/TimeManager")
+	if time_manager:
+		time_manager.day_changed.connect(_on_day_changed)
+		print("HomeBaseManager: Connected to TimeManager day_changed signal")
+	else:
+		push_warning("HomeBaseManager: TimeManager not found - NPC spawning disabled")
+
+	# Initialize NPC spawn pool
+	_initialize_npc_pool()
 
 
 func set_game_reference(game_node: Node):
 	"""Set reference to the main game node"""
 	_game = game_node
 	print("HomeBaseManager: Game reference set")
+
+	# If we have pending NPC data from a load, restore them now
+	if _pending_npc_data.size() > 0:
+		print("HomeBaseManager: Restoring %d pending NPCs now that game is ready" % _pending_npc_data.size())
+		_restore_homebase_npcs(_pending_npc_data)
+		_pending_npc_data.clear()
 
 
 func set_player_reference(player_node: Node):
@@ -64,6 +97,16 @@ func set_home_base(position: Vector3, ruin_id: String = ""):
 	home_base_position = position
 	has_home_base = true
 	home_base_ruin_id = ruin_id
+
+	# Track the day homebase was set
+	var time_manager = get_node_or_null("/root/TimeManager")
+	if time_manager:
+		homebase_set_day = time_manager.current_day
+		print("HomeBaseManager: Homebase set on day %d (Week %d, %s)" % [
+			time_manager.current_day,
+			time_manager.current_week,
+			time_manager.get_day_name()
+		])
 	
 	# Check if we're setting home base in a ruin
 	var ruin = RuinRegistry.get_ruin_at_position(position, 100.0)  # 100 block tolerance (increased)
@@ -106,26 +149,31 @@ func set_home_base(position: Vector3, ruin_id: String = ""):
 func clear_home_base(recycle: bool = false) -> int:
 	"""Remove home base (for relocating). Returns blocks if recycled."""
 	var blocks_returned = 0
-	
+
 	if recycle and home_structure_tier >= 0:
 		blocks_returned = TIER_RECYCLE_BLOCKS[home_structure_tier]
 		print("♻️ Recycling home structure: %d blocks returned" % blocks_returned)
-	
+
 	if home_structure_node:
 		home_structure_node.queue_free()
 		home_structure_node = null
-	
+
 	# Despawn benched companions
 	_despawn_benched_npcs()
-	
+
+	# Despawn homebase NPCs
+	_despawn_homebase_npcs()
+
 	has_home_base = false
 	home_base_position = Vector3.ZERO
 	home_base_ruin_id = ""
 	home_structure_tier = 0
-	
+	homebase_set_day = -1  # Reset day tracking
+	npcs_to_spawn_index = 0  # Reset NPC spawn index
+
 	print("🏠 Home Base cleared")
 	home_base_cleared.emit()
-	
+
 	return blocks_returned
 
 
@@ -550,13 +598,192 @@ func _despawn_benched_npcs():
 		npc.queue_free()
 
 
+func _despawn_homebase_npcs():
+	"""Remove homebase NPCs when clearing homebase"""
+	var homebase_npcs = get_tree().get_nodes_in_group("homebase_npcs")
+	for npc in homebase_npcs:
+		npc.queue_free()
+	spawned_npcs.clear()
+	print("HomeBaseManager: Despawned %d homebase NPCs" % homebase_npcs.size())
+
+
+func _restore_homebase_npcs(npc_data_array: Array):
+	"""Restore homebase NPCs from save data"""
+	if not _game:
+		push_warning("HomeBaseManager: Cannot restore NPCs - game reference not set")
+		return
+
+	# Clear any existing homebase NPCs first
+	_despawn_homebase_npcs()
+
+	# Recreate each NPC from saved data
+	for npc_data in npc_data_array:
+		# Create NPC node
+		var TestNPC = load("res://blocky_game/entities/test_npc.gd")
+		var npc = Node3D.new()
+		npc.set_script(TestNPC)
+
+		# Add to game world
+		_game.add_child(npc)
+
+		# Restore position
+		var pos = npc_data.position
+		npc.global_position = Vector3(pos.x, pos.y, pos.z)
+
+		# Restore color
+		var col = npc_data.color
+		var color = Color(col.r, col.g, col.b, col.a)
+
+		# Initialize NPC with saved data
+		npc.initialize(
+			npc_data.race,
+			npc_data.gender,
+			color,
+			npc_data.name,
+			npc_data.job
+		)
+
+		# Add to homebase NPCs group and tracking array
+		npc.add_to_group("homebase_npcs")
+		spawned_npcs.append(npc)
+
+	print("🏘️ Restored %d homebase NPCs from save data" % npc_data_array.size())
+
+
+## ============================================================================
+## HOMEBASE NPC SPAWNING SYSTEM (1 PER DAY)
+## ============================================================================
+
+func _initialize_npc_pool():
+	"""Initialize the pool of NPCs to spawn"""
+	npc_spawn_pool = NPC_TEMPLATES.duplicate()
+	npcs_to_spawn_index = 0
+	print("HomeBaseManager: NPC spawn pool initialized with %d NPCs" % npc_spawn_pool.size())
+
+
+func _on_day_changed(day: int):
+	"""Called when in-game day changes - spawn 1 NPC if homebase is set"""
+	if not has_home_base:
+		return
+
+	# Set homebase_set_day if this is the first day after homebase was set
+	if homebase_set_day == -1:
+		var time_manager = get_node_or_null("/root/TimeManager")
+		if time_manager:
+			homebase_set_day = time_manager.current_day
+			print("HomeBaseManager: Homebase set on day %d" % homebase_set_day)
+
+	# Check if we have more NPCs to spawn
+	if npcs_to_spawn_index >= npc_spawn_pool.size():
+		return  # All NPCs have been spawned
+
+	# Spawn 1 NPC per day
+	_spawn_daily_npc()
+
+
+func _spawn_daily_npc():
+	"""Spawn a single NPC at homebase"""
+	if not _game:
+		push_warning("HomeBaseManager: Cannot spawn NPC - game reference not set")
+		return
+
+	if npcs_to_spawn_index >= npc_spawn_pool.size():
+		print("HomeBaseManager: All NPCs have been spawned")
+		return
+
+	# Get next NPC template
+	var npc_template = npc_spawn_pool[npcs_to_spawn_index]
+	npcs_to_spawn_index += 1
+
+	# Find spawn position within homebase
+	var spawn_pos = _find_npc_spawn_position()
+	if spawn_pos == Vector3.ZERO:
+		push_warning("HomeBaseManager: Could not find valid spawn position for NPC")
+		return
+
+	# Create NPC node
+	var TestNPC = load("res://blocky_game/entities/test_npc.gd")
+	var npc = Node3D.new()
+	npc.set_script(TestNPC)
+
+	# Add to game world
+	_game.add_child(npc)
+	npc.global_position = spawn_pos
+
+	# Initialize NPC with template data
+	npc.initialize(
+		npc_template.race,
+		npc_template.gender,
+		npc_template.color,
+		npc_template.name,
+		npc_template.job
+	)
+
+	# Add to homebase NPCs group and tracking array
+	npc.add_to_group("homebase_npcs")
+	spawned_npcs.append(npc)
+
+	print("🏘️ Spawned homebase NPC: %s (%s %s) - Job: %s at %s" % [
+		npc_template.name,
+		npc_template.race,
+		npc_template.gender,
+		npc_template.job,
+		spawn_pos
+	])
+
+
+func _find_npc_spawn_position() -> Vector3:
+	"""Find a valid spawn position at the CENTER of the ruin's terrain"""
+	if not has_home_base:
+		return Vector3.ZERO
+
+	# Get ruin data if homebase is on a ruin
+	var ruin = RuinRegistry.get_ruin_at_position(home_base_position, 100.0)
+	if not ruin:
+		# Not on a ruin, spawn near homebase position
+		var spawn_range = 5.0
+		var offset_x = randf_range(-spawn_range, spawn_range)
+		var offset_z = randf_range(-spawn_range, spawn_range)
+		return home_base_position + Vector3(offset_x, 1, offset_z)
+
+	# Get ruin dimensions
+	var ruin_base = Vector3i(ruin.position)
+	var ruin_size = ruin.ruin_size
+
+	# Auto-detect actual size if old default (10x10x10)
+	if ruin_size == Vector3i(10, 10, 10) and not ruin.ruin_type.contains("crashed"):
+		if not _game:
+			return home_base_position
+		var terrain = _game.get_node_or_null("VoxelTerrain")
+		if terrain:
+			var voxel_tool = terrain.get_voxel_tool()
+			ruin_size = _detect_actual_ruin_size(ruin_base, voxel_tool)
+			print("   Auto-detected ruin size for NPC spawn: %s" % ruin_size)
+
+	# Calculate CENTER of the ruin's terrain platform
+	var center_x = ruin_base.x + (ruin_size.x / 2.0)
+	var center_z = ruin_base.z + (ruin_size.z / 2.0)
+	var ground_y = ruin_base.y + 1  # Slightly above ground
+
+	# Add small random offset around center (±3 blocks)
+	var spawn_range = 3.0
+	var offset_x = randf_range(-spawn_range, spawn_range)
+	var offset_z = randf_range(-spawn_range, spawn_range)
+
+	var spawn_pos = Vector3(center_x + offset_x, ground_y, center_z + offset_z)
+
+	print("   Ruin center: (%.1f, %d, %.1f), NPC spawn: %s" % [center_x, ground_y, center_z, spawn_pos])
+
+	return spawn_pos
+
+
 ## ============================================================================
 ## SAVE/LOAD SYSTEM
 ## ============================================================================
 
 func save_to_dict() -> Dictionary:
 	"""Save home base state to dictionary"""
-	return {
+	var save_data = {
 		"has_home_base": has_home_base,
 		"home_base_position": {
 			"x": home_base_position.x,
@@ -564,33 +791,81 @@ func save_to_dict() -> Dictionary:
 			"z": home_base_position.z
 		},
 		"home_base_ruin_id": home_base_ruin_id,
-		"home_structure_tier": home_structure_tier
+		"home_structure_tier": home_structure_tier,
+		"homebase_set_day": homebase_set_day,
+		"npcs_to_spawn_index": npcs_to_spawn_index,
+		"spawned_npcs": []
 	}
+
+	# Save spawned NPC data
+	for npc in spawned_npcs:
+		if is_instance_valid(npc):
+			save_data["spawned_npcs"].append({
+				"name": npc.npc_display_name,
+				"race": npc.npc_race,
+				"gender": npc.npc_gender,
+				"job": npc.npc_job,
+				"color": {
+					"r": npc.npc_color.r,
+					"g": npc.npc_color.g,
+					"b": npc.npc_color.b,
+					"a": npc.npc_color.a
+				},
+				"position": {
+					"x": npc.global_position.x,
+					"y": npc.global_position.y,
+					"z": npc.global_position.z
+				}
+			})
+
+	print("HomeBaseManager: Saved %d homebase NPCs" % save_data["spawned_npcs"].size())
+	return save_data
 
 
 func load_from_dict(data: Dictionary):
 	"""Load home base state from dictionary"""
 	if data.has("has_home_base"):
 		has_home_base = data.has_home_base
-	
+
 	if data.has("home_base_position"):
 		var pos = data.home_base_position
 		home_base_position = Vector3(pos.x, pos.y, pos.z)
-	
+
 	if data.has("home_base_ruin_id"):
 		home_base_ruin_id = data.home_base_ruin_id
-	
+
 	if data.has("home_structure_tier"):
 		home_structure_tier = data.home_structure_tier
 	else:
 		home_structure_tier = 0  # Default to cave for old saves
-	
+
+	# Load NPC spawn tracking
+	if data.has("homebase_set_day"):
+		homebase_set_day = data.homebase_set_day
+	else:
+		homebase_set_day = -1  # Default for old saves
+
+	if data.has("npcs_to_spawn_index"):
+		npcs_to_spawn_index = data.npcs_to_spawn_index
+	else:
+		npcs_to_spawn_index = 0  # Default for old saves
+
 	# Respawn structure if we had a home base
 	if has_home_base:
 		print("🏠 Home Base restored at: %s (Tier %d: %s)" % [
-			home_base_position, 
-			home_structure_tier, 
+			home_base_position,
+			home_structure_tier,
 			TIER_NAMES[home_structure_tier]
 		])
 		_spawn_home_structure()
 		_relocate_benched_companions()
+
+		# Restore spawned NPCs (or queue for later if game isn't ready)
+		if data.has("spawned_npcs"):
+			if _game:
+				# Game is ready, restore immediately
+				_restore_homebase_npcs(data.spawned_npcs)
+			else:
+				# Game not ready yet, store for later
+				_pending_npc_data = data.spawned_npcs
+				print("HomeBaseManager: Queued %d NPCs for restoration when game is ready" % _pending_npc_data.size())
