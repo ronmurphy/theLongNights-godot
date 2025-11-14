@@ -87,12 +87,16 @@ func set_home_base(position: Vector3, ruin_id: String = ""):
 		else:
 			print("   ⛰️ Elevated position")
 	
+	# Build fence around homebase if on a ruin
+	if ruin:
+		_build_homebase_fence(ruin)
+
 	# Spawn home structure
 	_spawn_home_structure()
-	
+
 	# Relocate benched companions (if any)
 	_relocate_benched_companions()
-	
+
 	# Emit signal
 	home_base_set.emit(position)
 
@@ -260,6 +264,125 @@ func _load_structure_scene(tier: int) -> PackedScene:
 		3: return null  # preload("res://blocky_game/structures/home_cabin.tscn")
 		4: return null  # preload("res://blocky_game/structures/home_lodge.tscn")
 		_: return null
+
+
+func _build_homebase_fence(ruin: RuinRegistry.RuinData) -> void:
+	"""Build a 3-block tall planks fence around the ruin perimeter"""
+	if not _game:
+		push_error("HomeBaseManager: Cannot build fence - game reference not set")
+		return
+
+	# Get terrain and blocks references
+	var terrain = _game.get_node_or_null("Terrain")
+	if not terrain:
+		push_error("HomeBaseManager: Cannot build fence - terrain not found")
+		return
+
+	var blocks_node = _game.get_node_or_null("Blocks")
+	if not blocks_node:
+		push_error("HomeBaseManager: Cannot build fence - blocks node not found")
+		return
+
+	# Get planks block
+	var planks_block = blocks_node.get_block_by_name("planks")
+	if not planks_block:
+		push_error("HomeBaseManager: Cannot build fence - planks block not found")
+		return
+
+	var planks_voxel_id = planks_block.base_info.voxels[0]
+
+	# Get voxel tool
+	var voxel_tool = terrain.get_voxel_tool()
+	voxel_tool.channel = VoxelBuffer.CHANNEL_TYPE
+
+	# Calculate ruin boundaries
+	var ruin_base = Vector3i(ruin.position)
+	var ruin_size = ruin.ruin_size
+
+	# Check if this is the crashed ruins by ruin type (not position!)
+	var is_crashed_ruins = ruin.ruin_type.contains("crashed")
+
+	var min_corner: Vector3i
+	var max_corner: Vector3i
+
+	if is_crashed_ruins:
+		# Expand fence area for crashed ruins (small area + Undervoid entrance nearby)
+		var expanded_size = 40  # 40x40 area
+		var center = Vector3i(ruin.position.x, ruin_base.y, ruin.position.z)  # Use actual ruin position
+		min_corner = center - Vector3i(expanded_size / 2, 0, expanded_size / 2)
+		max_corner = center + Vector3i(expanded_size / 2, 0, expanded_size / 2)
+		print("🔨 Building expanded fence around crashed ruins homebase...")
+		print("   Position: %s" % ruin.position)
+		print("   Expanded area: %dx%d (to accommodate Undervoid entrance)" % [expanded_size, expanded_size])
+	else:
+		# Normal ruin fence
+		min_corner = ruin_base
+		max_corner = ruin_base + ruin_size
+		print("🔨 Building planks fence around homebase...")
+		print("   Ruin: %s" % ruin.ruin_name)
+		print("   Base: %s, Size: %s" % [ruin_base, ruin_size])
+
+	var blocks_placed = 0
+
+	# Get Undervoid entrances to avoid blocking them
+	var UndervoidRegistry = get_node_or_null("/root/UndervoidRegistry")
+	var entrance_positions: Array = []
+	if UndervoidRegistry and UndervoidRegistry.has_method("get_all_entrances"):
+		var entrances = UndervoidRegistry.get_all_entrances()
+		for entrance in entrances:
+			# Check if entrance is within our fence area
+			var entrance_pos = Vector3i(entrance.position)
+			if entrance_pos.x >= min_corner.x and entrance_pos.x <= max_corner.x and entrance_pos.z >= min_corner.z and entrance_pos.z <= max_corner.z:
+				entrance_positions.append(entrance_pos)
+				print("   🟣 Detected Undervoid entrance at %s - will leave gap" % entrance_pos)
+
+	# Build 3-block tall fence around perimeter
+	# Bottom y level of the ruin (approximate ground level)
+	var ground_y = ruin_base.y
+	var gap_size = 5  # Leave 5-block gap around entrances
+
+	# Build fence on all 4 sides
+	for y_offset in range(3):  # 3 blocks tall
+		var y = ground_y + y_offset
+
+		# North side (min Z)
+		for x in range(min_corner.x, max_corner.x + 1):
+			var pos = Vector3i(x, y, min_corner.z)
+			if not _is_near_entrance(pos, entrance_positions, gap_size):
+				voxel_tool.set_voxel(pos, planks_voxel_id)
+				blocks_placed += 1
+
+		# South side (max Z)
+		for x in range(min_corner.x, max_corner.x + 1):
+			var pos = Vector3i(x, y, max_corner.z)
+			if not _is_near_entrance(pos, entrance_positions, gap_size):
+				voxel_tool.set_voxel(pos, planks_voxel_id)
+				blocks_placed += 1
+
+		# West side (min X) - skip corners to avoid overlap
+		for z in range(min_corner.z + 1, max_corner.z):
+			var pos = Vector3i(min_corner.x, y, z)
+			if not _is_near_entrance(pos, entrance_positions, gap_size):
+				voxel_tool.set_voxel(pos, planks_voxel_id)
+				blocks_placed += 1
+
+		# East side (max X) - skip corners to avoid overlap
+		for z in range(min_corner.z + 1, max_corner.z):
+			var pos = Vector3i(max_corner.x, y, z)
+			if not _is_near_entrance(pos, entrance_positions, gap_size):
+				voxel_tool.set_voxel(pos, planks_voxel_id)
+				blocks_placed += 1
+
+	print("✓ Fence complete! Placed %d planks blocks" % blocks_placed)
+
+
+func _is_near_entrance(pos: Vector3i, entrance_positions: Array, gap_size: int) -> bool:
+	"""Check if position is near any Undervoid entrance (within gap_size)"""
+	for entrance_pos in entrance_positions:
+		var distance = Vector2(pos.x - entrance_pos.x, pos.z - entrance_pos.z).length()
+		if distance <= gap_size:
+			return true
+	return false
 
 
 func _get_platform_expansion_info(ruin: RuinRegistry.RuinData) -> Dictionary:

@@ -186,6 +186,11 @@ func _execute_command(command_text: String) -> void:
 		add_output("[color=red]Unknown command: " + cmd + "[/color]")
 		add_output("[color=yellow]Type 'help' for available commands[/color]")
 
+
+func execute_command(command_text: String) -> void:
+	"""Public method to execute a command from other scripts"""
+	_execute_command(command_text)
+
 func add_output(text: String) -> void:
 	output_label.append_text(text + "\n")
 
@@ -1023,7 +1028,7 @@ func _cmd_npc(args: Array) -> void:
 		add_output("[color=yellow]Races: human, elf, dwarf, goblin[/color]")
 		add_output("[color=yellow]Gender: male, female[/color]")
 		add_output("[color=yellow]Color: red, green, blue, yellow, white, etc.[/color]")
-		add_output("[color=yellow]Jobs: companion, cook, armorer, blacksmith, merchant[/color]")
+		add_output("[color=yellow]Jobs: companion, cook, armorer, blacksmith, merchant, ruinkeeper[/color]")
 		add_output("[color=yellow]Example: npc human female white Emma cook[/color]")
 		return
 
@@ -1044,8 +1049,8 @@ func _cmd_npc(args: Array) -> void:
 		return
 
 	# Validate job
-	if not job in ["companion", "cook", "armorer", "blacksmith", "merchant"]:
-		add_output("[color=red]Invalid job! Use: companion, cook, armorer, blacksmith, or merchant[/color]")
+	if not job in ["companion", "cook", "armorer", "blacksmith", "merchant", "ruinkeeper"]:
+		add_output("[color=red]Invalid job! Use: companion, cook, armorer, blacksmith, merchant, or ruinkeeper[/color]")
 		return
 
 	# Parse color

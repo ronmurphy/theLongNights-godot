@@ -17,6 +17,9 @@ var attack_bonus: int = 0
 var max_mana: int = 0
 var current_mana: int = 0
 
+## Tutorial flags
+var compass_tutorial_shown: bool = false
+
 
 ## Apply quiz results and calculate stats
 func set_character(p_role: String, p_race: String, p_gender: String, p_name: String = "") -> void:
@@ -87,7 +90,8 @@ func save_to_file() -> void:
 		"role": role,
 		"race": race,
 		"gender": gender,
-		"player_name": player_name
+		"player_name": player_name,
+		"compass_tutorial_shown": compass_tutorial_shown
 	}
 
 	var file = FileAccess.open("user://player_character.save", FileAccess.WRITE)
@@ -123,5 +127,9 @@ func load_from_file() -> bool:
 		save_data.get("gender", "male"),
 		save_data.get("player_name", "")  # Load saved name, or get default if empty
 	)
+
+	# Load tutorial flags
+	compass_tutorial_shown = save_data.get("compass_tutorial_shown", false)
+
 	print("PlayerData: Character loaded from save")
 	return true

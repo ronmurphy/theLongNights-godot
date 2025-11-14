@@ -1200,9 +1200,6 @@ func _unhandled_input(event: InputEvent):
 				if key_num >= 0 and key_num <= 5:  # Only 1-6 keys
 					_try_eat_from_bento(key_num)
 					get_viewport().set_input_as_handled()  # Prevent hotbar switch
-			# Check for C key - Emergency Teleport with Portal Compass
-			elif event.keycode == KEY_C:
-				_try_emergency_teleport()
 			elif _hotbar_keys.has(event.keycode):
 				var slot_index = _hotbar_keys[event.keycode]
 				_hotbar.select_slot(slot_index)
@@ -1358,24 +1355,6 @@ func _try_consume_food() -> void:
 	_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
 
 
-func _try_emergency_teleport() -> void:
-	"""Try to use Portal Compass for emergency teleport from anywhere (costs 3)"""
-	# Check if player has Portal Compass equipped
-	var inv_item = _hotbar.get_selected_item()
-	if inv_item == null or inv_item.type != InventoryItem.TYPE_ITEM or inv_item.id != 7:
-		# Not holding Portal Compass
-		return
-
-	# Check if player has at least 3 compasses
-	if inv_item.count < 3:
-		_show_chest_message("Need 3 Portal Compasses for Emergency Teleport! (Have " + str(inv_item.count) + ")")
-		return
-
-	# Open portal compass modal in emergency mode
-	print("Emergency Teleport activated! Opening navigation modal...")
-	_show_portal_compass_modal(Vector3.ZERO, true)  # true = emergency mode
-
-
 func _handle_teleport_stone_interaction(teleport_stone_pos: Vector3) -> void:
 	"""Called when player right-clicks on a teleport stone"""
 	print("Player interacted with teleport stone at: ", teleport_stone_pos)
@@ -1384,12 +1363,106 @@ func _handle_teleport_stone_interaction(teleport_stone_pos: Vector3) -> void:
 	var inv_item = _hotbar.get_selected_item()
 	if inv_item != null and inv_item.type == InventoryItem.TYPE_ITEM and inv_item.id == 7:  # Portal Compass
 		# Player has Portal Compass equipped!
-		print("Portal Compass detected! Opening navigation modal...")
-		_show_portal_compass_modal(teleport_stone_pos, false)  # false = normal mode
+		print("Portal Compass detected! Checking homebase...")
+
+		# Check if homebase is set
+		var HomeBaseManager = get_node_or_null("/root/HomeBaseManager")
+		if not HomeBaseManager:
+			push_error("HomeBaseManager not found!")
+			return
+
+		if HomeBaseManager.has_home_base:
+			# Teleport to homebase
+			print("Teleporting to homebase...")
+			var player = get_parent()
+			var teleport_pos = HomeBaseManager.home_base_position + Vector3(0, 2, 0)  # Spawn slightly above ground
+			player.global_position = teleport_pos
+			_show_chest_message("Teleported to homebase!")
+		else:
+			# No homebase set - ask if they want to set it here
+			print("No homebase set - showing companion dialogue...")
+			_show_homebase_set_dialogue(teleport_stone_pos)
+
 		return
 
 	# Normal teleport behavior (show confirmation dialog)
 	_show_teleport_confirmation_dialog()
+
+
+func _show_homebase_set_dialogue(teleport_stone_pos: Vector3) -> void:
+	"""Show companion dialogue asking if player wants to set homebase"""
+	# First, show companion dialogue with warning
+	var DialogueManager = get_node_or_null("/root/DialogueManager")
+	if not DialogueManager:
+		push_error("DialogueManager not found!")
+		return
+
+	# Get companion info for portrait
+	var race = CompanionManager.companion_race
+	var gender = CompanionManager.companion_gender
+	var companion_name = CompanionManager.get_companion_name()
+	var portrait_path = "res://assets/art/player_avatars/%s_%s.png" % [race, gender]
+
+	# Create dynamic dialogue
+	var dynamic_dialogue = {
+		"messages": [
+			{
+				"speaker": "companion",
+				"speaker_display": companion_name,
+				"text": "You don't have a homebase set yet. Would you like to set one here? Remember, you can only have ONE homebase at a time!",
+				"portrait_left": portrait_path,
+				"portrait_right": "",
+				"delay": 0
+			}
+		]
+	}
+
+	# Connect to dialogue closed signal
+	if not DialogueManager.dialogue_ended.is_connected(_on_homebase_dialogue_closed):
+		DialogueManager.dialogue_ended.connect(_on_homebase_dialogue_closed.bind(teleport_stone_pos))
+
+	# Show the dialogue
+	DialogueManager.trigger_dynamic_dialogue(dynamic_dialogue)
+
+
+func _on_homebase_dialogue_closed(dialogue_id: String, teleport_stone_pos: Vector3) -> void:
+	"""Called when homebase dialogue closes - show confirmation"""
+	var DialogueManager = get_node_or_null("/root/DialogueManager")
+	if DialogueManager and DialogueManager.dialogue_ended.is_connected(_on_homebase_dialogue_closed):
+		DialogueManager.dialogue_ended.disconnect(_on_homebase_dialogue_closed)
+
+	# Show confirmation dialog
+	var dialog = ConfirmationDialog.new()
+	dialog.title = "Set Homebase?"
+	dialog.dialog_text = "Set this location as your homebase?\n\nYou can only have ONE homebase, and you can teleport here anytime with your Portal Compass."
+	dialog.ok_button_text = "Yes, Set Homebase"
+	dialog.cancel_button_text = "No, Not Yet"
+
+	# Connect signals
+	dialog.confirmed.connect(func():
+		# Set homebase at teleport stone position
+		var HomeBaseManager = get_node_or_null("/root/HomeBaseManager")
+		if HomeBaseManager:
+			HomeBaseManager.set_home_base(teleport_stone_pos)
+			_show_chest_message("Homebase set! Use your Portal Compass on any teleport stone to return here.")
+		dialog.queue_free()
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	)
+
+	dialog.canceled.connect(func():
+		dialog.queue_free()
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	)
+
+	dialog.close_requested.connect(func():
+		dialog.queue_free()
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	)
+
+	# Add to scene and show
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func set_cooking_modal_open(is_open: bool) -> void:
@@ -1840,6 +1913,10 @@ func _on_npc_dialogue_closed() -> void:
 		"armorer":
 			_open_harmonization_modal()
 
+		"ruinkeeper":
+			# Open compass modal for traveling to visited ruins
+			_show_portal_compass_modal(Vector3.ZERO, false)
+
 		"merchant":
 			_open_merchant_shop(npc)
 
@@ -2006,6 +2083,47 @@ func _give_item_to_player(item_id: int, count: int = 1) -> void:
 	_inventory._update_views()
 
 	print("Added item ID ", item_id, " (count: ", count, ") to inventory slot ", empty_slot)
+
+	# Show compass tutorial on first Portal Compass (ID 7)
+	if item_id == 7 and not PlayerData.compass_tutorial_shown:
+		PlayerData.compass_tutorial_shown = true
+		PlayerData.save_to_file()  # Save immediately so it persists
+		_show_compass_tutorial()
+
+
+func _show_compass_tutorial() -> void:
+	"""Show companion tutorial when player first gets a Portal Compass"""
+	# Delay slightly so the chest message appears first
+	await get_tree().create_timer(1.5).timeout
+
+	var DialogueManager = get_node_or_null("/root/DialogueManager")
+	if not DialogueManager:
+		push_error("DialogueManager not found!")
+		return
+
+	# Get companion info for portrait
+	var race = CompanionManager.companion_race
+	var gender = CompanionManager.companion_gender
+	var companion_name = CompanionManager.get_companion_name()
+	var portrait_path = "res://assets/art/player_avatars/%s_%s.png" % [race, gender]
+
+	# Create tutorial dialogue
+	var dynamic_dialogue = {
+		"messages": [
+			{
+				"speaker": "companion",
+				"speaker_display": companion_name,
+				"text": "That's a Portal Compass! Right-click a teleport stone with it to set your homebase. After that, you can quick-travel to your homebase anytime! Find a Ruin Keeper to travel between discovered ruins.",
+				"portrait_left": portrait_path,
+				"portrait_right": "",
+				"delay": 0
+			}
+		]
+	}
+
+	# Show the dialogue
+	DialogueManager.trigger_dynamic_dialogue(dynamic_dialogue)
+	print("Compass tutorial shown!")
 
 
 func _create_chest_open_particles(chest_pos: Vector3) -> void:

@@ -372,5 +372,7 @@ static func get_default_greeting(job: String, npc_name: String) -> String:
 			return "Welcome! I'm %s. Care to do some trading?" % npc_name
 		"companion":
 			return "Hi! I'm %s. Want to swap companions?" % npc_name
+		"ruinkeeper":
+			return "Greetings, traveler. I'm %s, keeper of the ruins. Need to travel?" % npc_name
 		_:
 			return "Hello! I'm %s." % npc_name
