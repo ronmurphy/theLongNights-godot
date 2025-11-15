@@ -285,6 +285,7 @@ func _cmd_help(_args: Array) -> void:
 	add_output("  [color=yellow]list items[/color] - Show all available items")
 	add_output("  [color=yellow]give <item_name> [amount][/color] - Give item to inventory")
 	add_output("  [color=yellow]blocks[/color] - Open block selector GUI (visual block picker)")
+	add_output("  [color=yellow]blocks true[/color] - Open block shop (trade your blocks for others)")
 	add_output("")
 	add_output("[color=cyan]Graphics Commands:[/color]")
 	add_output("  [color=yellow]graphics low[/color] - Set to LOW profile (50 chunks)")
@@ -1024,15 +1025,23 @@ func _cmd_cooking(_args: Array) -> void:
 
 
 func _cmd_blocks(_args: Array) -> void:
-	"""Open the block selector modal"""
-	add_output("[color=lime]Opening block selector...[/color]")
+	"""Open the block selector modal - use 'blocks true' for shop mode"""
+	# Check if shop mode is requested
+	var is_shop = false
+	if _args.size() > 0 and (_args[0] == "true" or _args[0] == "shop"):
+		is_shop = true
+
+	if is_shop:
+		add_output("[color=lime]Opening block shop...[/color]")
+	else:
+		add_output("[color=lime]Opening block selector...[/color]")
 
 	# Close console first
 	toggle_console()
 
-	# Load and create modal
+	# Load and create modal with shop mode parameter
 	var BlockSelectorModal = load("res://blocky_game/gui/BlockSelectorModal.gd")
-	var modal = BlockSelectorModal.new()
+	var modal = BlockSelectorModal.new(is_shop)
 
 	# Disable player input while modal is open
 	var player = get_tree().get_first_node_in_group("player")
