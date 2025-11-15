@@ -12,7 +12,7 @@ var npc_color: Color = Color.WHITE
 var npc_display_name: String = "NPC"
 
 # Job type and dialogue
-var npc_job: String = "companion"  # "companion", "cook", "blacksmith", "merchant", "armorer"
+var npc_job: String = "companion"  # "companion", "cook", "power_shop", "food_merchant", "merchant", "town_manager", "ruinkeeper"
 var npc_dialogue_id: String = ""  # Dialogue ID to trigger when interacted with
 
 # Sprite direction tracking (like companion)
@@ -156,14 +156,23 @@ func _create_sprite(_texture_path: String = "", pixel_size: float = 0.004) -> Sp
 	# Match companion positioning - sprite is centered by default, so raise it up
 	_sprite.position = Vector3(0, 1.0, 0)  # Raise sprite to show full character
 	
-	# Build sprite paths - try npc_sprites folder first, fallback to player_avatars
+	# Build sprite paths with priority:
+	# 1. Custom named sprites (Michelle.png, Daniels.png, Mahan.png)
+	# 2. Race/gender sprites in npc_sprites folder
+	# 3. Fallback to player_avatars folder
+	var custom_front = "res://assets/art/npc_sprites/%s.png" % npc_display_name
+	var custom_back = "res://assets/art/npc_sprites/%s_back.png" % npc_display_name
 	var npc_front = "res://assets/art/npc_sprites/%s_%s.png" % [npc_race, npc_gender]
 	var npc_back = "res://assets/art/npc_sprites/%s_%s_back.png" % [npc_race, npc_gender]
 	var fallback_front = "res://assets/art/player_avatars/%s_%s.png" % [npc_race, npc_gender]
 	var fallback_back = "res://assets/art/player_avatars/%s_%s_back.png" % [npc_race, npc_gender]
-	
-	# Choose sprite paths (prefer npc_sprites)
-	if ResourceLoader.exists(npc_front):
+
+	# Choose sprite paths (prioritize custom named sprites)
+	if ResourceLoader.exists(custom_front):
+		_front_sprite_path = custom_front
+		_back_sprite_path = custom_back
+		print("TestNPC: Using custom sprite for %s" % npc_display_name)
+	elif ResourceLoader.exists(npc_front):
 		_front_sprite_path = npc_front
 		_back_sprite_path = npc_back
 	else:
@@ -364,12 +373,18 @@ static func get_default_greeting(job: String, npc_name: String) -> String:
 	match job:
 		"cook":
 			return "Hello! I'm %s, the cook. Looking for some food?" % npc_name
+		"power_shop":
+			return "Hey! I'm %s. Want to fuse weapons with powers?" % npc_name
+		"food_merchant":
+			return "Welcome! I'm %s. I sell raw and cooked foods." % npc_name
+		"merchant":
+			return "Welcome! I'm %s. I buy and sell weapons and items." % npc_name
+		"town_manager":
+			return "Hi! I'm %s, the town manager. Want to customize your homebase?" % npc_name
 		"armorer":
 			return "Greetings! I'm %s. Need your gear enhanced?" % npc_name
 		"blacksmith":
 			return "Hey there! I'm %s the blacksmith. Got rust to refine?" % npc_name
-		"merchant":
-			return "Welcome! I'm %s. Care to do some trading?" % npc_name
 		"companion":
 			return "Hi! I'm %s. Want to swap companions?" % npc_name
 		"ruinkeeper":

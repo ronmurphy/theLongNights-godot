@@ -1864,18 +1864,29 @@ func _handle_npc_interaction(npc: Node) -> void:
 		var greeting = npc.get_default_greeting(npc.npc_job, npc.npc_display_name)
 
 		# Build NPC portrait path (left side, facing right)
-		# Try npc_sprites first, fallback to player_avatars
+		# Priority: 1. Custom named sprites, 2. npc_sprites race/gender, 3. player_avatars
+		var custom_portrait = "res://assets/art/npc_sprites/%s.png" % npc.npc_display_name
 		var npc_portrait = "res://assets/art/npc_sprites/%s_%s.png" % [npc.npc_race, npc.npc_gender]
 		var player_portrait = "res://assets/art/player_avatars/%s_%s.png" % [npc.npc_race, npc.npc_gender]
 
 		print("🖼️ NPC Portrait Debug:")
+		print("  NPC Name: %s" % npc.npc_display_name)
 		print("  Race: %s, Gender: %s" % [npc.npc_race, npc.npc_gender])
+		print("  Trying custom named sprite: %s" % custom_portrait)
+		print("  Custom sprite exists: %s" % ResourceLoader.exists(custom_portrait))
 		print("  Trying NPC sprites path: %s" % npc_portrait)
 		print("  NPC sprites exists: %s" % ResourceLoader.exists(npc_portrait))
 		print("  Trying player avatars path: %s" % player_portrait)
 		print("  Player avatars exists: %s" % ResourceLoader.exists(player_portrait))
 
-		var portrait_path = npc_portrait if ResourceLoader.exists(npc_portrait) else player_portrait
+		var portrait_path: String
+		if ResourceLoader.exists(custom_portrait):
+			portrait_path = custom_portrait
+			print("  ✓ Using custom named sprite for %s" % npc.npc_display_name)
+		elif ResourceLoader.exists(npc_portrait):
+			portrait_path = npc_portrait
+		else:
+			portrait_path = player_portrait
 		print("  Final portrait path: %s" % portrait_path)
 
 		var dynamic_dialogue = {

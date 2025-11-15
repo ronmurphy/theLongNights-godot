@@ -52,10 +52,11 @@ var _pending_npc_data: Array = []  # Store NPC data from save until game is read
 
 # NPC templates (will spawn 1 per day in this order)
 const NPC_TEMPLATES = [
-	{"name": "Michelle", "race": "human", "gender": "female", "job": "cook", "color": Color(1.0, 0.9, 0.8)},
-	{"name": "Mahan", "race": "dwarf", "gender": "male", "job": "blacksmith", "color": Color(0.9, 0.8, 0.7)},
-	{"name": "Lydia", "race": "elf", "gender": "female", "job": "merchant", "color": Color(1.0, 0.95, 0.85)},
-	{"name": "Daniels", "race": "human", "gender": "male", "job": "armorer", "color": Color(0.85, 0.75, 0.65)},
+	{"name": "Emma", "race": "human", "gender": "female", "job": "cook", "color": Color(1.0, 0.9, 0.8)},
+	{"name": "Mahan", "race": "dwarf", "gender": "male", "job": "power_shop", "color": Color(0.9, 0.8, 0.7)},
+	{"name": "Lydia", "race": "elf", "gender": "female", "job": "food_merchant", "color": Color(1.0, 0.95, 0.85)},
+	{"name": "Daniels", "race": "human", "gender": "male", "job": "merchant", "color": Color(0.85, 0.75, 0.65)},
+	{"name": "Michelle", "race": "human", "gender": "female", "job": "town_manager", "color": Color(0.95, 0.85, 0.9)},
 	{"name": "Zara", "race": "elf", "gender": "female", "job": "ruinkeeper", "color": Color(0.95, 0.9, 1.0)},
 ]
 

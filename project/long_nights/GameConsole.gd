@@ -1028,7 +1028,7 @@ func _cmd_npc(args: Array) -> void:
 		add_output("[color=yellow]Races: human, elf, dwarf, goblin[/color]")
 		add_output("[color=yellow]Gender: male, female[/color]")
 		add_output("[color=yellow]Color: red, green, blue, yellow, white, etc.[/color]")
-		add_output("[color=yellow]Jobs: companion, cook, armorer, blacksmith, merchant, ruinkeeper[/color]")
+		add_output("[color=yellow]Jobs: companion, cook, power_shop, food_merchant, merchant, town_manager, ruinkeeper[/color]")
 		add_output("[color=yellow]Example: npc human female white Emma cook[/color]")
 		return
 
@@ -1037,20 +1037,20 @@ func _cmd_npc(args: Array) -> void:
 	var color_name = args[2].to_lower()
 	var npc_name = args[3]
 	var job = args[4].to_lower() if args.size() >= 5 else "companion"
-	
+
 	# Validate race
 	if not race in ["human", "elf", "dwarf", "goblin"]:
 		add_output("[color=red]Invalid race! Use: human, elf, dwarf, or goblin[/color]")
 		return
-	
+
 	# Validate gender
 	if not gender in ["male", "female"]:
 		add_output("[color=red]Invalid gender! Use: male or female[/color]")
 		return
 
 	# Validate job
-	if not job in ["companion", "cook", "armorer", "blacksmith", "merchant", "ruinkeeper"]:
-		add_output("[color=red]Invalid job! Use: companion, cook, armorer, blacksmith, merchant, or ruinkeeper[/color]")
+	if not job in ["companion", "cook", "power_shop", "food_merchant", "merchant", "town_manager", "ruinkeeper"]:
+		add_output("[color=red]Invalid job! Use: companion, cook, power_shop, food_merchant, merchant, town_manager, or ruinkeeper[/color]")
 		return
 
 	# Parse color
