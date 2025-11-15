@@ -347,6 +347,38 @@ func _init():
 		"voxels": ["void_gas"],
 		"transparent": false
 	})
+	_create_block({
+		"name": "rune_core",
+		"gui_model": "rune_core.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["rune_core"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "rune_marker",
+		"gui_model": "rune_marker.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["rune_marker"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "stone_bricks",
+		"gui_model": "stone_bricks.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["stone_bricks"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "void_stone_bricks",
+		"gui_model": "void_stone_bricks.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["void_stone_bricks"],
+		"transparent": false
+	})
+
+
+
+
 
 
 

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(/tmp/terrain_52194c2.gd)",
+      "Bash(/tmp/terrain_476744b.gd)"
     ],
     "deny": [],
     "ask": []

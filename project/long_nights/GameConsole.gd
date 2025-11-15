@@ -241,6 +241,7 @@ func _register_commands() -> void:
 	commands["season"] = _cmd_season
 	commands["perfmon"] = _cmd_perfmon
 	commands["cooking"] = _cmd_cooking
+	commands["blocks"] = _cmd_blocks
 	commands["npc"] = _cmd_npc
 	commands["homebase"] = _cmd_homebase
 	commands["home"] = _cmd_homebase  # Alias
@@ -283,6 +284,7 @@ func _cmd_help(_args: Array) -> void:
 	add_output("[color=cyan]Item Commands:[/color]")
 	add_output("  [color=yellow]list items[/color] - Show all available items")
 	add_output("  [color=yellow]give <item_name> [amount][/color] - Give item to inventory")
+	add_output("  [color=yellow]blocks[/color] - Open block selector GUI (visual block picker)")
 	add_output("")
 	add_output("[color=cyan]Graphics Commands:[/color]")
 	add_output("  [color=yellow]graphics low[/color] - Set to LOW profile (50 chunks)")
@@ -997,6 +999,40 @@ func _cmd_cooking(_args: Array) -> void:
 	# Load and create cooking modal
 	var CookingModal = load("res://blocky_game/gui/CookingModal.gd")
 	var modal = CookingModal.new()
+
+	# Disable player input while modal is open
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("set_input_enabled"):
+		player.set_input_enabled(false)
+
+	# Get avatar interaction to disable hotbar scroll wheel
+	var avatar_interaction = player.get_node_or_null("Head/Interaction")
+	if avatar_interaction and avatar_interaction.has_method("set_cooking_modal_open"):
+		avatar_interaction.set_cooking_modal_open(true)
+
+	# Connect modal_closed signal to re-enable input
+	modal.modal_closed.connect(func():
+		if player and player.has_method("set_input_enabled"):
+			player.set_input_enabled(true)
+		# Re-enable hotbar scroll wheel
+		if avatar_interaction and avatar_interaction.has_method("set_cooking_modal_open"):
+			avatar_interaction.set_cooking_modal_open(false)
+	)
+
+	# Add to scene tree
+	get_tree().root.add_child(modal)
+
+
+func _cmd_blocks(_args: Array) -> void:
+	"""Open the block selector modal"""
+	add_output("[color=lime]Opening block selector...[/color]")
+
+	# Close console first
+	toggle_console()
+
+	# Load and create modal
+	var BlockSelectorModal = load("res://blocky_game/gui/BlockSelectorModal.gd")
+	var modal = BlockSelectorModal.new()
 
 	# Disable player input while modal is open
 	var player = get_tree().get_first_node_in_group("player")

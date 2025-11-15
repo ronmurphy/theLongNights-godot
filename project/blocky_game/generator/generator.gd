@@ -100,6 +100,10 @@ var _trees_max_y := 0
 # Cave and depth constants
 const BEDROCK_LEVEL = -512
 const CAVE_THRESHOLD = 0.35  # Higher = bigger caves
+const RUNE_CORE = 61
+const RUNE_MARKER = 62
+const STONE_BRICKS = 63
+const VOID_STONE_BRICKS = 64
 const MIN_CAVE_HEIGHT = -10  # Caves start just below surface
 
 

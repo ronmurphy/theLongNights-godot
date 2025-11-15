@@ -997,7 +997,7 @@ func _generate_instructions(block_name: String) -> String:
 	inst += "STEP 2: Add to blocks.gd\n"
 	inst += "==================================================\n"
 	inst += "File: res://blocky_game/blocks/blocks.gd\n\n"
-	inst += "Add this in the _ready() function:\n\n"
+	inst += "Add this in the _init() function:\n\n"
 	
 	# Generate proper blocks.gd template with actual block name
 	var blocks_template = "_create_block({\n"
@@ -1223,16 +1223,15 @@ func _auto_edit_blocks(block_name: String) -> bool:
 	
 	print("[TerrainMapper] Adding _create_block() for: %s" % block_name)
 
-	# Find where to insert - after the LAST _create_block call
-	# Look for all occurrences of "})" and insert after the last one
+	# Find where to insert - look for the "})" that comes before "func get_block"
+	# This is the end of the last _create_block call in the _init() function
 	var regex = RegEx.new()
-	regex.compile("\\t\\}\\)")
-	var all_matches = regex.search_all(content)
+	regex.compile("\\}\\)\\n+func get_block")
+	var insert_match = regex.search(content)
 
-	if all_matches.size() > 0:
-		# Get the last "})" - this is the end of the last _create_block call
-		var last_match = all_matches[all_matches.size() - 1]
-		var insert_pos = last_match.get_end()
+	if insert_match:
+		# Insert after the "})" but before the newlines and "func get_block"
+		var insert_pos = insert_match.get_start() + 2  # After the "})"
 
 		# Insert new _create_block right after the last "})"
 		var new_content = content.substr(0, insert_pos) + "\n" + create_block_code + content.substr(insert_pos)
@@ -1248,5 +1247,5 @@ func _auto_edit_blocks(block_name: String) -> bool:
 			print("[TerrainMapper] ERROR: Could not write to blocks.gd")
 			return false
 	else:
-		print("[TerrainMapper] ERROR: Could not find '})'  pattern in blocks.gd")
+		print("[TerrainMapper] ERROR: Could not find '})' before 'func get_block' pattern in blocks.gd")
 		return false
