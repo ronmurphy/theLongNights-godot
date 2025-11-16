@@ -1935,8 +1935,11 @@ func _on_npc_dialogue_closed() -> void:
 		"banker":
 			_open_block_shop()
 
-		"armorer":
+		"armorer", "power_shop":
 			_open_harmonization_modal()
+
+		"food_merchant":
+			_open_food_shop(npc)
 
 		"ruinkeeper":
 			# Open compass modal for traveling to visited ruins
@@ -2017,9 +2020,33 @@ func _open_harmonization_modal() -> void:
 
 
 func _open_merchant_shop(npc: Node) -> void:
-	"""Open merchant shop UI (TODO)"""
-	print("[NPC] Merchant shop coming soon!")
-	# TODO: Implement merchant shop modal
+	"""Open Daniels' Item Shop (rust block currency)"""
+	print("[NPC] Opening Daniels' Item Shop...")
+
+	# Load and create shop modal in ITEMS mode
+	var ShopModal = load("res://blocky_game/gui/BlockSelectorModal.gd")
+	var modal = ShopModal.new(ShopModal.ShopType.ITEMS)
+
+	# Get game node
+	var game = get_node("/root/Main/Game")
+	game.add_child(modal)
+
+	print("[NPC] Item Shop opened! Buy and sell weapons with rust blocks")
+
+
+func _open_food_shop(npc: Node) -> void:
+	"""Open Lydia's Food Shop (food barter system)"""
+	print("[NPC] Opening Lydia's Food Shop...")
+
+	# Load and create shop modal in FOOD mode
+	var ShopModal = load("res://blocky_game/gui/BlockSelectorModal.gd")
+	var modal = ShopModal.new(ShopModal.ShopType.FOOD)
+
+	# Get game node
+	var game = get_node("/root/Main/Game")
+	game.add_child(modal)
+
+	print("[NPC] Food Shop opened! Trade food items")
 
 
 func _open_blacksmith_trade(npc: Node) -> void:

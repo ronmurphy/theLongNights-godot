@@ -122,3 +122,46 @@ func get_total_hours() -> int:
 	var weeks_hours = (current_week - 1) * DAYS_PER_WEEK * HOURS_PER_DAY
 	var days_hours = (current_day - 1) * HOURS_PER_DAY
 	return weeks_hours + days_hours + current_hour
+
+
+## ============================================================================
+## SAVE/LOAD SYSTEM
+## ============================================================================
+
+func save_to_dict() -> Dictionary:
+	"""Save time state to dictionary"""
+	return {
+		"current_week": current_week,
+		"current_day": current_day,
+		"current_hour": current_hour,
+		"current_minute": current_minute,
+		"current_season": current_season,
+		"elapsed_time": elapsed_time
+	}
+
+
+func load_from_dict(data: Dictionary) -> void:
+	"""Load time state from dictionary"""
+	if data.has("current_week"):
+		current_week = data.current_week
+	if data.has("current_day"):
+		current_day = data.current_day
+	if data.has("current_hour"):
+		current_hour = data.current_hour
+	if data.has("current_minute"):
+		current_minute = data.current_minute
+	if data.has("current_season"):
+		current_season = data.current_season
+	if data.has("elapsed_time"):
+		elapsed_time = data.elapsed_time
+
+	# Update bloodmoon state based on loaded time
+	_update_bloodmoon_state()
+
+	print("⏰ TimeManager: Restored time to Week %d, Day %d (%s), %02d:%02d" % [
+		current_week,
+		current_day,
+		get_day_name(),
+		current_hour,
+		current_minute
+	])

@@ -43,6 +43,7 @@ var _blocks_node: Node = null
 var _item_db: Node = null
 var _player: Node = null
 var _inventory: Node = null
+var _rust_balance_label: Label = null  # Reference to rust block balance label
 
 # Constants
 const GRID_COLUMNS = 5
@@ -166,6 +167,17 @@ func _build_ui():
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content_vbox.add_child(subtitle)
 
+	# Rust block balance (ITEMS mode only)
+	if _shop_type == ShopType.ITEMS:
+		_rust_balance_label = Label.new()
+		var rust_count = _inventory.get_rust_block_count() if _inventory else 0
+		_rust_balance_label.text = "💎 Rust Blocks: %d" % rust_count
+		_rust_balance_label.name = "RustBalanceLabel"  # Named so we can update it later
+		_rust_balance_label.add_theme_font_size_override("font_size", 13)
+		_rust_balance_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.4))
+		_rust_balance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		content_vbox.add_child(_rust_balance_label)
+
 	# Separator
 	var separator1 = HSeparator.new()
 	separator1.add_theme_constant_override("separation", 2)
@@ -285,9 +297,12 @@ func _build_ui():
 		preview_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 		preview_margin.add_child(preview_vbox)
 
-		# Trading label at top
+		# Trading label at top (customized for shop type)
 		var trade_label = Label.new()
-		trade_label.text = "TRADING:"
+		if _shop_type == ShopType.ITEMS:
+			trade_label.text = "BUY OR SELL:"
+		else:
+			trade_label.text = "TRADING:"
 		trade_label.add_theme_font_size_override("font_size", 11)
 		trade_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		trade_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -312,7 +327,10 @@ func _build_ui():
 		player_preview_vbox.add_child(_player_preview_texture)
 
 		var player_giving_label = Label.new()
-		player_giving_label.text = "You give"
+		if _shop_type == ShopType.ITEMS:
+			player_giving_label.text = "Your Items"
+		else:
+			player_giving_label.text = "You give"
 		player_giving_label.add_theme_font_size_override("font_size", 10)
 		player_giving_label.add_theme_color_override("font_color", Color(0.9, 0.5, 0.5))
 		player_giving_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -325,13 +343,14 @@ func _build_ui():
 		_player_preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		player_preview_vbox.add_child(_player_preview_label)
 
-		# CENTER-LEFT: Arrow
-		var arrow_label = Label.new()
-		arrow_label.text = "←→"
-		arrow_label.add_theme_font_size_override("font_size", 20)
-		arrow_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-		arrow_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		main_hbox.add_child(arrow_label)
+		# CENTER-LEFT: Arrow (hidden for ITEMS mode)
+		if _shop_type != ShopType.ITEMS:
+			var arrow_label = Label.new()
+			arrow_label.text = "←→"
+			arrow_label.add_theme_font_size_override("font_size", 20)
+			arrow_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+			arrow_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			main_hbox.add_child(arrow_label)
 
 		# CENTER-RIGHT: Shop block (You get)
 		var shop_preview_vbox = VBoxContainer.new()
@@ -346,7 +365,10 @@ func _build_ui():
 		shop_preview_vbox.add_child(_preview_texture)
 
 		var shop_getting_label = Label.new()
-		shop_getting_label.text = "You get"
+		if _shop_type == ShopType.ITEMS:
+			shop_getting_label.text = "Shop Items"
+		else:
+			shop_getting_label.text = "You get"
 		shop_getting_label.add_theme_font_size_override("font_size", 10)
 		shop_getting_label.add_theme_color_override("font_color", Color(0.5, 0.9, 0.5))
 		shop_getting_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -697,17 +719,18 @@ func _on_block_selected(block_id: int, button: Button):
 
 	# Update preview based on shop type
 	var is_food = button.has_meta("is_food") and button.get_meta("is_food")
+	var is_item = button.has_meta("is_item") and button.get_meta("is_item")
 
-	if is_food:
-		# Food item from item_db
+	if is_food or is_item:
+		# Item from item_db (food or weapon/tool)
 		var item = _item_db.get_item(block_id)
 		if item:
 			_preview_label.text = item.base_info.name.replace("_", " ").capitalize()
 			if item.base_info.sprite and _preview_texture:
 				_preview_texture.texture = item.base_info.sprite
 
-		# Apply food type filtering to player grid
-		if _shop_type == ShopType.FOOD and _player_grid_container:
+		# Apply food type filtering to player grid (FOOD mode only)
+		if is_food and _shop_type == ShopType.FOOD and _player_grid_container:
 			var selected_food_type = button.get_meta("food_type")
 			_filter_player_food_by_type(selected_food_type)
 	else:
@@ -718,12 +741,18 @@ func _on_block_selected(block_id: int, button: Button):
 			if block.base_info.sprite_texture and _preview_texture:
 				_preview_texture.texture = block.base_info.sprite_texture
 
-	# In shop modes, only enable button if BOTH items are selected
-	# In FREE mode, enable immediately
-	if _shop_type != ShopType.FREE:
-		_add_button.disabled = (_selected_player_block_id < 0)
-	else:
+	# Button enable logic depends on shop type:
+	# FREE: Enable immediately when shop item selected
+	# ITEMS: Enable when either shop OR player item selected (buy/sell mode)
+	# BLOCKS/FOOD: Enable only when both items selected (1:1 barter)
+	if _shop_type == ShopType.FREE:
 		_add_button.disabled = false
+	elif _shop_type == ShopType.ITEMS:
+		# ITEMS mode: Enable if shop item selected (for buying)
+		_add_button.disabled = false
+	else:
+		# BLOCKS/FOOD mode: Require both items selected
+		_add_button.disabled = (_selected_player_block_id < 0)
 
 
 func _on_player_block_selected(block_id: int, button: Button, count: int):
@@ -762,17 +791,18 @@ func _on_player_block_selected(block_id: int, button: Button, count: int):
 
 	# Update preview based on shop type
 	var is_food = button.has_meta("is_food") and button.get_meta("is_food")
+	var is_item = button.has_meta("is_item") and button.get_meta("is_item")
 
-	if is_food:
-		# Food item from item_db
+	if is_food or is_item:
+		# Item from item_db (food or weapon/tool)
 		var item = _item_db.get_item(block_id)
 		if item:
 			_player_preview_label.text = item.base_info.name.replace("_", " ").capitalize()
 			if item.base_info.sprite and _player_preview_texture:
 				_player_preview_texture.texture = item.base_info.sprite
 
-		# Apply food type filtering to shop grid
-		if _shop_type == ShopType.FOOD and _grid_container:
+		# Apply food type filtering to shop grid (FOOD mode only)
+		if is_food and _shop_type == ShopType.FOOD and _grid_container:
 			var selected_food_type = button.get_meta("food_type")
 			_filter_shop_food_by_type(selected_food_type)
 	else:
@@ -788,22 +818,36 @@ func _on_player_block_selected(block_id: int, button: Button, count: int):
 	if _quantity_spinbox.value > count:
 		_quantity_spinbox.value = count
 
-	# Enable trade button only if both blocks are selected
-	_add_button.disabled = (_selected_block_id < 0)
+	# Button enable logic depends on shop type:
+	# ITEMS: Enable when player item selected (for selling)
+	# BLOCKS/FOOD: Enable only when both items selected (1:1 barter)
+	if _shop_type == ShopType.ITEMS:
+		# ITEMS mode: Enable if player item selected (for selling)
+		_add_button.disabled = false
+	else:
+		# BLOCKS/FOOD mode: Require both items selected
+		_add_button.disabled = (_selected_block_id < 0)
 
 
 func _on_trade_blocks():
 	"""Handle trading blocks or items in shop mode"""
-	if _selected_block_id < 0 or _selected_player_block_id < 0:
-		_show_message("Select both items to trade!", Color.RED)
-		return
-
 	if not _player or not _inventory:
 		_show_message("Error: Could not access inventory!", Color.RED)
 		return
 
-	var quantity = int(_quantity_spinbox.value)
 	var InventoryItem = load("res://blocky_game/player/inventory_item.gd")
+
+	# ITEMS mode uses different logic (buy/sell with rust blocks)
+	if _shop_type == ShopType.ITEMS:
+		_handle_item_shop_transaction()
+		return
+
+	# BLOCKS and FOOD modes require both items to be selected
+	if _selected_block_id < 0 or _selected_player_block_id < 0:
+		_show_message("Select both items to trade!", Color.RED)
+		return
+
+	var quantity = int(_quantity_spinbox.value)
 
 	# Determine if we're trading blocks or items (food)
 	var is_food_trade = (_shop_type == ShopType.FOOD)
@@ -918,6 +962,128 @@ func _on_trade_blocks():
 		_player_preview_texture.texture = null
 
 
+func _handle_item_shop_transaction():
+	"""Handle ITEMS mode transactions (buy with rust blocks OR sell for rust blocks)"""
+	var InventoryItem = load("res://blocky_game/player/inventory_item.gd")
+
+	# Determine if this is a BUY (shop item selected) or SELL (player item selected) transaction
+	var is_buy = (_selected_block_id >= 0 and _selected_player_block_id < 0)
+	var is_sell = (_selected_player_block_id >= 0 and _selected_block_id < 0)
+
+	if not is_buy and not is_sell:
+		_show_message("Select an item to buy or sell!", Color.RED)
+		return
+
+	if is_buy:
+		# BUY: Purchase shop item with rust blocks
+		var item_id = _selected_block_id
+		var item = _item_db.get_item(item_id)
+		if not item:
+			return
+
+		var price = 10  # Base price for shop items (no powers)
+
+		# Check if player has enough rust blocks
+		var rust_count = _inventory.get_rust_block_count()
+		if rust_count < price:
+			_show_message("Not enough rust blocks! Need %d, have %d" % [price, rust_count], Color.RED)
+			return
+
+		# Spend rust blocks
+		if not _inventory.spend_rust_blocks(price):
+			_show_message("Transaction failed!", Color.RED)
+			return
+
+		# Add item to inventory (find empty slot)
+		var added = false
+		for i in range(_inventory._slots.size()):
+			if _inventory._slots[i] == null:
+				var new_item = InventoryItem.new()
+				new_item.type = InventoryItem.TYPE_ITEM
+				new_item.id = item_id
+				new_item.count = 1  # Items aren't stackable
+				_inventory._slots[i] = new_item
+				added = true
+				break
+
+		if not added:
+			# Refund rust blocks if inventory full
+			_inventory.add_rust_blocks(price)
+			_show_message("Inventory full! Purchase cancelled.", Color.RED)
+			return
+
+		_inventory._update_views()
+		print("[Item Shop] ✅ Bought %s for %d rust blocks" % [item.base_info.name, price])
+		_show_message("✅ Bought %s for %d rust blocks!" % [item.base_info.name.replace("_", " ").capitalize(), price], Color.GREEN)
+
+	else:  # is_sell
+		# SELL: Sell player item for rust blocks
+		var item_id = _selected_player_block_id
+		var item = _item_db.get_item(item_id)
+		if not item:
+			return
+
+		# Find the item in inventory to get its power count
+		var item_slot = null
+		var slot_index = -1
+		for i in range(_inventory._slots.size()):
+			var slot = _inventory._slots[i]
+			if slot != null and slot.type == InventoryItem.TYPE_ITEM and slot.id == item_id:
+				item_slot = slot
+				slot_index = i
+				break
+
+		if not item_slot:
+			_show_message("Item not found in inventory!", Color.RED)
+			return
+
+		var power_count = item_slot.skyshard_powers.size()
+		var sell_price = _calculate_item_price(power_count)
+
+		# Remove item from inventory
+		_inventory._slots[slot_index] = null
+
+		# Add rust blocks
+		_inventory.add_rust_blocks(sell_price)
+		_inventory._update_views()
+
+		print("[Item Shop] ✅ Sold %s for %d rust blocks" % [item.base_info.name, sell_price])
+		_show_message("✅ Sold %s for %d rust blocks!" % [item.base_info.name.replace("_", " ").capitalize(), sell_price], Color.GREEN)
+
+	# Update rust block balance display
+	_update_rust_balance_display()
+
+	# Refresh player inventory grid to update counts
+	for child in _player_grid_container.get_children():
+		child.queue_free()
+	await get_tree().process_frame
+	_populate_player_inventory()
+
+	# Reset selections
+	_selected_block_id = -1
+	_selected_button = null
+	_selected_player_block_id = -1
+	_selected_player_button = null
+	_add_button.disabled = true
+
+	if _preview_label:
+		_preview_label.text = "None"
+	if _preview_texture:
+		_preview_texture.texture = null
+	if _player_preview_label:
+		_player_preview_label.text = "None"
+	if _player_preview_texture:
+		_player_preview_texture.texture = null
+
+
+func _update_rust_balance_display():
+	"""Update the rust block balance label in the UI"""
+	if _rust_balance_label and _inventory:
+		var rust_count = _inventory.get_rust_block_count()
+		_rust_balance_label.text = "💎 Rust Blocks: %d" % rust_count
+		print("[Item Shop] Updated balance display: %d rust blocks" % rust_count)
+
+
 func _on_add_to_inventory():
 	"""Add selected block(s) to player inventory"""
 	if _selected_block_id < 0:
@@ -1021,10 +1187,98 @@ func _get_player_items_label() -> String:
 			return "🎒 YOUR BLOCKS"
 
 
-# Placeholder functions for future phases
+# ============================================================================
+# PHASE 3: DANIELS' ITEM SHOP (Rust Block Currency)
+# ============================================================================
+
 func _populate_items():
-	"""TODO: Phase 3 - Populate items from items.json"""
-	push_warning("ShopModal: Item shop not yet implemented (Phase 3)")
+	"""Populate shop grid with weapons and items (excludes food)"""
+	if not _item_db:
+		return
+
+	# Define weapon/item IDs (exclude food IDs 13-39)
+	var weapon_ids = range(0, 13)  # IDs 0-12: rocket_launcher through tree_feller
+	var misc_item_ids = [40, 41]  # light_orb, spear
+	var all_item_ids = weapon_ids + misc_item_ids
+
+	# Create buttons for each item
+	for item_id in all_item_ids:
+		var item = _item_db.get_item(item_id)
+		if not item:
+			continue
+
+		# Create item button
+		var button = Button.new()
+		button.custom_minimum_size = Vector2(BUTTON_SIZE, BUTTON_SIZE + 30)
+		button.pressed.connect(_on_block_selected.bind(item_id, button))
+
+		# Store metadata for item type
+		button.set_meta("is_item", true)
+		button.set_meta("item_id", item_id)
+
+		# Button style
+		var normal_style = StyleBoxFlat.new()
+		normal_style.bg_color = Color(0.2, 0.15, 0.1, 0.8)
+		normal_style.border_width_left = 2
+		normal_style.border_width_top = 2
+		normal_style.border_width_right = 2
+		normal_style.border_width_bottom = 2
+		normal_style.border_color = Color(0.4, 0.3, 0.2, 1.0)
+		normal_style.corner_radius_top_left = 4
+		normal_style.corner_radius_top_right = 4
+		normal_style.corner_radius_bottom_left = 4
+		normal_style.corner_radius_bottom_right = 4
+		button.add_theme_stylebox_override("normal", normal_style)
+
+		var hover_style = normal_style.duplicate()
+		hover_style.bg_color = Color(0.25, 0.2, 0.13, 0.9)
+		hover_style.border_color = Color(0.6, 0.5, 0.3, 1.0)
+		button.add_theme_stylebox_override("hover", hover_style)
+
+		# Button content - VBox with icon + label + price
+		var vbox = VBoxContainer.new()
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		vbox.add_theme_constant_override("separation", 3)
+		vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(vbox)
+
+		# Item sprite
+		var texture_rect = TextureRect.new()
+		texture_rect.custom_minimum_size = Vector2(56, 56)
+		texture_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+		# Load sprite from item
+		if item.base_info.sprite:
+			texture_rect.texture = item.base_info.sprite
+
+		vbox.add_child(texture_rect)
+
+		# Item name
+		var label = Label.new()
+		label.text = item.base_info.name.replace("_", " ").capitalize()
+		label.add_theme_font_size_override("font_size", 10)
+		label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.custom_minimum_size = Vector2(BUTTON_SIZE - 8, 0)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(label)
+
+		# Price label (10 rust blocks base price, no powers on shop items)
+		var price_label = Label.new()
+		price_label.text = "💎 10"
+		price_label.add_theme_font_size_override("font_size", 9)
+		price_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.4))
+		price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(price_label)
+
+		_grid_container.add_child(button)
+
+	print("Item Shop: Populated %d items (%d weapons, %d misc)" % [all_item_ids.size(), weapon_ids.size(), misc_item_ids.size()])
 
 
 func _populate_food():
@@ -1114,8 +1368,138 @@ func _populate_food():
 
 
 func _populate_player_items():
-	"""TODO: Phase 3 - Populate player items from inventory"""
-	push_warning("ShopModal: Player items not yet implemented (Phase 3)")
+	"""Fill player grid with weapons/items from inventory (with power counts)"""
+	if not _player_grid_container or not _inventory or not _item_db:
+		return
+
+	# Define weapon/item IDs (exclude food)
+	var weapon_ids = range(0, 13)  # IDs 0-12
+	var misc_item_ids = [40, 41]  # light_orb, spear
+	var all_item_ids = weapon_ids + misc_item_ids
+
+	# Collect all items from inventory slots
+	var items_data = []  # [{item, slot_index, power_count}, ...]
+
+	for i in range(_inventory._slots.size()):
+		var slot = _inventory._slots[i]
+		if slot != null and slot.type == slot.TYPE_ITEM and slot.id in all_item_ids:
+			var power_count = slot.skyshard_powers.size()
+			items_data.append({"item": slot, "slot_index": i, "power_count": power_count})
+
+	# Create buttons for each item
+	for item_data in items_data:
+		var slot_item = item_data.item
+		var item_id = slot_item.id
+		var power_count = item_data.power_count
+		var item = _item_db.get_item(item_id)
+		if not item:
+			continue
+
+		# Calculate sell price based on power count
+		var sell_price = _calculate_item_price(power_count)
+
+		# Create item button
+		var button = Button.new()
+		button.custom_minimum_size = Vector2(BUTTON_SIZE, BUTTON_SIZE + 30)
+		button.pressed.connect(_on_player_block_selected.bind(item_id, button, 1))  # Items aren't stackable
+
+		# Store metadata for pricing
+		button.set_meta("is_item", true)
+		button.set_meta("power_count", power_count)
+		button.set_meta("sell_price", sell_price)
+
+		# Button style (player variant)
+		var normal_style = StyleBoxFlat.new()
+		normal_style.bg_color = Color(0.15, 0.2, 0.25, 0.8)
+		normal_style.border_width_left = 2
+		normal_style.border_width_top = 2
+		normal_style.border_width_right = 2
+		normal_style.border_width_bottom = 2
+		normal_style.border_color = Color(0.3, 0.4, 0.5, 1.0)
+		normal_style.corner_radius_top_left = 4
+		normal_style.corner_radius_top_right = 4
+		normal_style.corner_radius_bottom_left = 4
+		normal_style.corner_radius_bottom_right = 4
+		button.add_theme_stylebox_override("normal", normal_style)
+
+		var hover_style = normal_style.duplicate()
+		hover_style.bg_color = Color(0.2, 0.25, 0.3, 0.9)
+		hover_style.border_color = Color(0.5, 0.6, 0.7, 1.0)
+		button.add_theme_stylebox_override("hover", hover_style)
+
+		# Button content - VBox with icon + label + price
+		var vbox = VBoxContainer.new()
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		vbox.add_theme_constant_override("separation", 3)
+		vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(vbox)
+
+		# Item sprite
+		var texture_rect = TextureRect.new()
+		texture_rect.custom_minimum_size = Vector2(56, 56)
+		texture_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+		# Load sprite from item
+		if item.base_info.sprite:
+			texture_rect.texture = item.base_info.sprite
+
+		vbox.add_child(texture_rect)
+
+		# Power count overlay (top-left corner) - only if has powers
+		if power_count > 0:
+			var power_label = Label.new()
+			power_label.text = "⭐%d" % power_count
+			power_label.add_theme_font_size_override("font_size", 12)
+			power_label.add_theme_color_override("font_color", Color.YELLOW)
+			power_label.add_theme_color_override("font_outline_color", Color.BLACK)
+			power_label.add_theme_constant_override("outline_size", 4)
+			power_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			power_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+			power_label.position = Vector2(4, 4)
+			power_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			button.add_child(power_label)
+
+		# Item name
+		var label = Label.new()
+		label.text = item.base_info.name.replace("_", " ").capitalize()
+		label.add_theme_font_size_override("font_size", 10)
+		label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.custom_minimum_size = Vector2(BUTTON_SIZE - 8, 0)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(label)
+
+		# Sell price label
+		var price_label = Label.new()
+		price_label.text = "💎 %d" % sell_price
+		price_label.add_theme_font_size_override("font_size", 9)
+		price_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))  # Green for sell price
+		price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(price_label)
+
+		_player_grid_container.add_child(button)
+
+	print("Item Shop: Player has %d items" % items_data.size())
+
+
+## Calculate item price based on power count
+## Base: 10, +1 power: 20, +2 powers: 40
+func _calculate_item_price(power_count: int) -> int:
+	"""Calculate item buy/sell price based on number of fused powers"""
+	match power_count:
+		0:
+			return 10
+		1:
+			return 20
+		2:
+			return 40
+		_:
+			return 40  # Cap at 40 for 2+ powers
 
 
 func _populate_player_food():

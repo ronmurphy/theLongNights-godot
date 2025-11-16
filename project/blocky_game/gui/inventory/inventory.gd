@@ -1615,13 +1615,17 @@ func _show_power_harmonization_modal() -> void:
 	var screen_size = get_viewport_rect().size
 	_harmonization_modal.position = (screen_size - _harmonization_modal.custom_minimum_size) / 2
 
-	# Modal background panel
+	# Modal background panel (matches other shops - brown/gold theme)
 	var panel = Panel.new()
 	panel.custom_minimum_size = _harmonization_modal.custom_minimum_size
 	var panel_style = StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.08, 0.05, 0.12, 0.98)  # Dark purple
-	panel_style.border_color = Color(0.6, 0.4, 0.9)  # Light purple
-	panel_style.set_border_width_all(4)
+	panel_style.bg_color = Color(0.15, 0.1, 0.05, 0.95)  # Dark brown (matches other shops)
+	panel_style.border_color = Color(0.8, 0.6, 0.2, 1.0)  # Golden border (matches other shops)
+	panel_style.set_border_width_all(3)
+	panel_style.corner_radius_top_left = 8
+	panel_style.corner_radius_top_right = 8
+	panel_style.corner_radius_bottom_left = 8
+	panel_style.corner_radius_bottom_right = 8
 	panel.add_theme_stylebox_override("panel", panel_style)
 	_harmonization_modal.add_child(panel)
 
@@ -1688,14 +1692,24 @@ func _show_power_harmonization_modal() -> void:
 	slot2_panel.name = "Slot2Panel"
 	fusion_area.add_child(slot2_panel)
 
-	# Cost label with current skyshard count
+	# Cost label with hybrid currency (skyshards OR rust blocks)
 	const SKYSHARD_ITEM_ID = 21
+	const SKYSHARD_COST = 20
+	const RUST_BLOCK_COST = 100  # 5 rust blocks per skyshard
 	var skyshard_count = _count_item_in_inventory(SKYSHARD_ITEM_ID)
+	var rust_block_count = get_rust_block_count()
+
 	var cost_label = Label.new()
 	cost_label.name = "CostLabel"
-	cost_label.text = "Cost: 20 Skyshards (You have: %d)" % skyshard_count
+	cost_label.text = "Cost: %d Skyshards OR %d Rust Blocks\n(You have: %d ⭐ / %d 💎)" % [
+		SKYSHARD_COST, RUST_BLOCK_COST,
+		skyshard_count, rust_block_count
+	]
 	cost_label.add_theme_font_size_override("font_size", 14)
-	var cost_color = Color(0.2, 0.8, 0.2) if skyshard_count >= 20 else Color(0.8, 0.2, 0.2)
+
+	# Green if player can afford with either currency, red if neither
+	var can_afford = (skyshard_count >= SKYSHARD_COST) or (rust_block_count >= RUST_BLOCK_COST)
+	var cost_color = Color(0.2, 0.8, 0.2) if can_afford else Color(0.8, 0.2, 0.2)
 	cost_label.add_theme_color_override("font_color", cost_color)
 	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(cost_label)
@@ -1734,12 +1748,57 @@ func _show_power_harmonization_modal() -> void:
 	harmonize_btn.custom_minimum_size = Vector2(200, 40)
 	harmonize_btn.disabled = true  # Disabled until both slots filled
 	harmonize_btn.pressed.connect(_on_harmonize_pressed)
+
+	# Style Harmonize button (golden theme for action button)
+	var harmonize_normal = StyleBoxFlat.new()
+	harmonize_normal.bg_color = Color(0.3, 0.25, 0.15, 0.9)  # Darker brown
+	harmonize_normal.border_width_left = 2
+	harmonize_normal.border_width_top = 2
+	harmonize_normal.border_width_right = 2
+	harmonize_normal.border_width_bottom = 2
+	harmonize_normal.border_color = Color(0.8, 0.6, 0.2, 1.0)  # Golden border
+	harmonize_normal.corner_radius_top_left = 6
+	harmonize_normal.corner_radius_top_right = 6
+	harmonize_normal.corner_radius_bottom_left = 6
+	harmonize_normal.corner_radius_bottom_right = 6
+	harmonize_btn.add_theme_stylebox_override("normal", harmonize_normal)
+
+	var harmonize_hover = harmonize_normal.duplicate()
+	harmonize_hover.bg_color = Color(0.35, 0.3, 0.18, 1.0)  # Brighter on hover
+	harmonize_hover.border_color = Color(1.0, 0.8, 0.3, 1.0)  # Brighter gold
+	harmonize_btn.add_theme_stylebox_override("hover", harmonize_hover)
+
+	var harmonize_disabled = harmonize_normal.duplicate()
+	harmonize_disabled.bg_color = Color(0.15, 0.12, 0.08, 0.6)  # Dim when disabled
+	harmonize_disabled.border_color = Color(0.3, 0.25, 0.15, 0.8)  # Dim border
+	harmonize_btn.add_theme_stylebox_override("disabled", harmonize_disabled)
+
 	button_row.add_child(harmonize_btn)
 
 	var cancel_btn = Button.new()
 	cancel_btn.text = "Cancel"
 	cancel_btn.custom_minimum_size = Vector2(120, 40)
 	cancel_btn.pressed.connect(_close_harmonization_modal)
+
+	# Style Cancel button (matches other shop cancel buttons)
+	var cancel_normal = StyleBoxFlat.new()
+	cancel_normal.bg_color = Color(0.2, 0.15, 0.1, 0.8)
+	cancel_normal.border_width_left = 2
+	cancel_normal.border_width_top = 2
+	cancel_normal.border_width_right = 2
+	cancel_normal.border_width_bottom = 2
+	cancel_normal.border_color = Color(0.4, 0.3, 0.2, 1.0)
+	cancel_normal.corner_radius_top_left = 6
+	cancel_normal.corner_radius_top_right = 6
+	cancel_normal.corner_radius_bottom_left = 6
+	cancel_normal.corner_radius_bottom_right = 6
+	cancel_btn.add_theme_stylebox_override("normal", cancel_normal)
+
+	var cancel_hover = cancel_normal.duplicate()
+	cancel_hover.bg_color = Color(0.25, 0.2, 0.13, 0.9)
+	cancel_hover.border_color = Color(0.6, 0.5, 0.3, 1.0)
+	cancel_btn.add_theme_stylebox_override("hover", cancel_hover)
+
 	button_row.add_child(cancel_btn)
 
 
@@ -1786,9 +1845,29 @@ func _populate_harmonization_item_grid(grid: GridContainer) -> void:
 		if item.skyshard_power == "" and item.skyshard_powers.is_empty():
 			continue
 
-		# Create item button with VBoxContainer for layout
+		# Create item button with VBoxContainer for layout (matches shop grid style)
 		var item_btn = Button.new()
-		item_btn.custom_minimum_size = Vector2(100, 120)
+		item_btn.custom_minimum_size = Vector2(72, 102)  # 72x72 button + 30 for label
+
+		# Apply shop grid button styling (brown/gold theme)
+		var normal_style = StyleBoxFlat.new()
+		normal_style.bg_color = Color(0.2, 0.15, 0.1, 0.8)  # Dark brown
+		normal_style.border_width_left = 2
+		normal_style.border_width_top = 2
+		normal_style.border_width_right = 2
+		normal_style.border_width_bottom = 2
+		normal_style.border_color = Color(0.4, 0.3, 0.2, 1.0)  # Brown border
+		normal_style.corner_radius_top_left = 4
+		normal_style.corner_radius_top_right = 4
+		normal_style.corner_radius_bottom_left = 4
+		normal_style.corner_radius_bottom_right = 4
+		item_btn.add_theme_stylebox_override("normal", normal_style)
+
+		# Hover style (lighter brown, brighter border)
+		var hover_style = normal_style.duplicate()
+		hover_style.bg_color = Color(0.25, 0.2, 0.13, 0.9)  # Lighter brown on hover
+		hover_style.border_color = Color(0.6, 0.5, 0.3, 1.0)  # Golden border on hover
+		item_btn.add_theme_stylebox_override("hover", hover_style)
 
 		# Create vertical layout inside button
 		var vbox = VBoxContainer.new()
@@ -1935,11 +2014,22 @@ func _on_harmonize_pressed() -> void:
 		print("❌ ERROR: Both slots must be filled!")
 		return
 
-	# Check skyshard cost (20 skyshard consumables from inventory)
+	# Check hybrid currency cost (20 skyshards OR 100 rust blocks)
 	const SKYSHARD_ITEM_ID = 21
+	const SKYSHARD_COST = 20
+	const RUST_BLOCK_COST = 100
 	var skyshard_count = _count_item_in_inventory(SKYSHARD_ITEM_ID)
-	if skyshard_count < 20:
-		print("❌ ERROR: Need 20 skyshards! You have: %d" % skyshard_count)
+	var rust_block_count = get_rust_block_count()
+
+	# Determine which currency to use (prefer skyshards)
+	var use_skyshards = (skyshard_count >= SKYSHARD_COST)
+	var use_rust_blocks = (rust_block_count >= RUST_BLOCK_COST)
+
+	if not use_skyshards and not use_rust_blocks:
+		print("❌ ERROR: Need %d skyshards OR %d rust blocks! You have: %d ⭐ / %d 💎" % [
+			SKYSHARD_COST, RUST_BLOCK_COST,
+			skyshard_count, rust_block_count
+		])
 		return
 
 	# Get powers
@@ -1961,8 +2051,13 @@ func _on_harmonize_pressed() -> void:
 	]
 	_harmonization_slot2.skyshard_power = ""  # Clear legacy power
 
-	# Consume 20 skyshard consumables from inventory
-	_consume_item_from_inventory(SKYSHARD_ITEM_ID, 20)
+	# Consume currency (prefer skyshards, fallback to rust blocks)
+	if use_skyshards:
+		_consume_item_from_inventory(SKYSHARD_ITEM_ID, SKYSHARD_COST)
+		print("💰 Paid %d Skyshards" % SKYSHARD_COST)
+	else:
+		spend_rust_blocks(RUST_BLOCK_COST)
+		print("💰 Paid %d Rust Blocks" % RUST_BLOCK_COST)
 
 	# Destroy slot 1 item
 	var slot1_index = _get_slot_index(_harmonization_slot1)
@@ -2046,6 +2141,105 @@ func _consume_item_from_inventory(item_id: int, amount: int) -> void:
 				_slot_views[i].get_display().set_item(item)
 
 	emit_signal("changed")
+
+
+# ============================================================================
+# RUST BLOCK CURRENCY SYSTEM
+# ============================================================================
+
+## Count total rust blocks in inventory (used as currency in item shops)
+func get_rust_block_count() -> int:
+	"""Count total rust blocks across all inventory slots"""
+	var blocks_node = get_node("/root/Main/Game/Blocks")
+	if not blocks_node:
+		return 0
+
+	var rust_block = blocks_node.get_block_by_name("rust_block")
+	if not rust_block:
+		return 0
+
+	var rust_block_id = rust_block.base_info.id
+	var total = 0
+	for item in _slots:
+		if item != null and item.type == InventoryItem.TYPE_BLOCK and item.id == rust_block_id:
+			total += item.count
+	return total
+
+
+## Spend rust blocks from inventory (returns true if successful)
+func spend_rust_blocks(amount: int) -> bool:
+	"""Remove rust blocks from inventory, return true if player had enough"""
+	if get_rust_block_count() < amount:
+		return false  # Not enough rust blocks
+
+	var blocks_node = get_node("/root/Main/Game/Blocks")
+	if not blocks_node:
+		return false
+
+	var rust_block = blocks_node.get_block_by_name("rust_block")
+	if not rust_block:
+		return false
+
+	var rust_block_id = rust_block.base_info.id
+	var remaining = amount
+	for i in range(_slots.size()):
+		if remaining <= 0:
+			break
+
+		var item = _slots[i]
+		if item != null and item.type == InventoryItem.TYPE_BLOCK and item.id == rust_block_id:
+			var to_remove = min(remaining, item.count)
+			item.count -= to_remove
+			remaining -= to_remove
+
+			# Remove item if count reaches 0
+			if item.count <= 0:
+				_slots[i] = null
+				_slot_views[i].get_display().set_item(null)
+			else:
+				_slot_views[i].get_display().set_item(item)
+
+	emit_signal("changed")
+	return true
+
+
+## Add rust blocks to inventory (selling items to Daniels)
+func add_rust_blocks(amount: int) -> void:
+	"""Add rust blocks to inventory (find existing stack or create new)"""
+	var blocks_node = get_node("/root/Main/Game/Blocks")
+	if not blocks_node:
+		print("WARNING: Could not find Blocks node to add rust blocks")
+		return
+
+	var rust_block = blocks_node.get_block_by_name("rust_block")
+	if not rust_block:
+		print("WARNING: Could not find rust_block definition")
+		return
+
+	var rust_block_id = rust_block.base_info.id
+
+	# Try to stack with existing rust blocks first
+	for i in range(_slots.size()):
+		if _slots[i] != null and _slots[i].type == InventoryItem.TYPE_BLOCK and _slots[i].id == rust_block_id:
+			_slots[i].count += amount
+			_slot_views[i].get_display().set_item(_slots[i])
+			emit_signal("changed")
+			return
+
+	# No existing stack found - create new stack in first empty slot
+	for i in range(_slots.size()):
+		if _slots[i] == null:
+			var new_item = InventoryItem.new()
+			new_item.type = InventoryItem.TYPE_BLOCK
+			new_item.id = rust_block_id
+			new_item.count = amount
+			_slots[i] = new_item
+			_slot_views[i].get_display().set_item(new_item)
+			emit_signal("changed")
+			return
+
+	# Inventory full - drop on ground? For now just print warning
+	print("WARNING: Inventory full! Could not add %d rust blocks" % amount)
 
 
 # ============================================================================

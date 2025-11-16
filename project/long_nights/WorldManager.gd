@@ -126,6 +126,12 @@ func load_world() -> bool:
 			_world_data["home_base"] = data["home_base"]
 			HomeBaseManager.load_from_dict(data["home_base"])
 
+		# Load time manager data
+		if "time_manager" in data:
+			_world_data["time_manager"] = data["time_manager"]
+			if TimeManager.has_method("load_from_dict"):
+				TimeManager.load_from_dict(data["time_manager"])
+
 		print("WorldManager: World loaded - Seed: ", _world_data["seed"])
 		if _world_data["is_halloween"]:
 			print("🎃 This is a HALLOWEEN world! 👻")
@@ -181,6 +187,11 @@ func save_world() -> bool:
 	
 	# Save home base data
 	_world_data["home_base"] = HomeBaseManager.save_to_dict()
+
+	# Save time manager data
+	if TimeManager.has_method("save_to_dict"):
+		_world_data["time_manager"] = TimeManager.save_to_dict()
+		print("WorldManager: Saved time manager data")
 
 	# Convert Vector3 to array for JSON
 	var save_data = _world_data.duplicate()

@@ -114,12 +114,32 @@ func _build_ui():
 	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_hbox.add_child(_title_label)
 	
-	# Close button (X)
+	# Close button (X) - styled with brown/gold theme
 	_close_button = Button.new()
 	_close_button.text = "✕"
 	_close_button.custom_minimum_size = Vector2(40, 40)
 	_close_button.add_theme_font_size_override("font_size", 24)
 	_close_button.pressed.connect(_on_close_pressed)
+
+	# Style close button
+	var close_normal = StyleBoxFlat.new()
+	close_normal.bg_color = Color(0.25, 0.2, 0.13, 0.9)
+	close_normal.border_width_left = 2
+	close_normal.border_width_top = 2
+	close_normal.border_width_right = 2
+	close_normal.border_width_bottom = 2
+	close_normal.border_color = Color(0.5, 0.4, 0.25, 1.0)
+	close_normal.corner_radius_top_left = 4
+	close_normal.corner_radius_top_right = 4
+	close_normal.corner_radius_bottom_left = 4
+	close_normal.corner_radius_bottom_right = 4
+	_close_button.add_theme_stylebox_override("normal", close_normal)
+
+	var close_hover = close_normal.duplicate()
+	close_hover.bg_color = Color(0.4, 0.25, 0.15, 1.0)  # Reddish-brown on hover
+	close_hover.border_color = Color(0.8, 0.4, 0.3, 1.0)  # Reddish border
+	_close_button.add_theme_stylebox_override("hover", close_hover)
+
 	header_hbox.add_child(_close_button)
 	
 	# Spacer
@@ -213,6 +233,26 @@ func _build_ui():
 		slot_btn.text = "Empty"
 		slot_btn.add_theme_font_size_override("font_size", 12)
 		slot_btn.pressed.connect(_on_ingredient_slot_clicked.bind(i))
+
+		# Apply brown/gold styling to ingredient slots
+		var slot_normal = StyleBoxFlat.new()
+		slot_normal.bg_color = Color(0.18, 0.14, 0.09, 0.85)  # Slightly darker brown
+		slot_normal.border_width_left = 3
+		slot_normal.border_width_top = 3
+		slot_normal.border_width_right = 3
+		slot_normal.border_width_bottom = 3
+		slot_normal.border_color = Color(0.5, 0.4, 0.25, 1.0)  # Golden-brown border
+		slot_normal.corner_radius_top_left = 6
+		slot_normal.corner_radius_top_right = 6
+		slot_normal.corner_radius_bottom_left = 6
+		slot_normal.corner_radius_bottom_right = 6
+		slot_btn.add_theme_stylebox_override("normal", slot_normal)
+
+		var slot_hover = slot_normal.duplicate()
+		slot_hover.bg_color = Color(0.23, 0.18, 0.12, 0.95)  # Lighter on hover
+		slot_hover.border_color = Color(0.7, 0.55, 0.35, 1.0)  # Brighter gold on hover
+		slot_btn.add_theme_stylebox_override("hover", slot_hover)
+
 		slots_hbox.add_child(slot_btn)
 		_ingredient_slots.append(slot_btn)
 
@@ -407,11 +447,30 @@ func _populate_food_inventory():
 		var count = found_food[food_id]
 		var food_name = food_names.get(food_id, "Unknown")
 
-		# Create button with icon and count
+		# Create button with icon and count (matches shop grid style)
 		var btn = Button.new()
-		btn.custom_minimum_size = Vector2(80, 80)
+		btn.custom_minimum_size = Vector2(72, 102)  # Match shop grid size
 		btn.pressed.connect(_on_food_item_clicked.bind(food_id))
 		btn.tooltip_text = food_name  # Tooltip shows food name
+
+		# Apply shop grid button styling (brown/gold theme)
+		var normal_style = StyleBoxFlat.new()
+		normal_style.bg_color = Color(0.2, 0.15, 0.1, 0.8)  # Dark brown
+		normal_style.border_width_left = 2
+		normal_style.border_width_top = 2
+		normal_style.border_width_right = 2
+		normal_style.border_width_bottom = 2
+		normal_style.border_color = Color(0.4, 0.3, 0.2, 1.0)  # Brown border
+		normal_style.corner_radius_top_left = 4
+		normal_style.corner_radius_top_right = 4
+		normal_style.corner_radius_bottom_left = 4
+		normal_style.corner_radius_bottom_right = 4
+		btn.add_theme_stylebox_override("normal", normal_style)
+
+		var hover_style = normal_style.duplicate()
+		hover_style.bg_color = Color(0.25, 0.2, 0.13, 0.9)  # Lighter brown on hover
+		hover_style.border_color = Color(0.6, 0.5, 0.3, 1.0)  # Golden border on hover
+		btn.add_theme_stylebox_override("hover", hover_style)
 
 		# VBox to stack icon and count
 		var vbox = VBoxContainer.new()
@@ -489,9 +548,24 @@ func _populate_recipes():
 		if not recipe_data:
 			continue
 
-		# Create recipe card
+		# Create recipe card (styled with brown/gold theme)
 		var recipe_card = PanelContainer.new()
 		recipe_card.custom_minimum_size = Vector2(0, 100)
+
+		# Style the recipe card panel
+		var card_style = StyleBoxFlat.new()
+		card_style.bg_color = Color(0.18, 0.14, 0.09, 0.85)  # Dark brown
+		card_style.border_width_left = 2
+		card_style.border_width_top = 2
+		card_style.border_width_right = 2
+		card_style.border_width_bottom = 2
+		card_style.border_color = Color(0.5, 0.4, 0.25, 1.0)  # Golden-brown border
+		card_style.corner_radius_top_left = 6
+		card_style.corner_radius_top_right = 6
+		card_style.corner_radius_bottom_left = 6
+		card_style.corner_radius_bottom_right = 6
+		recipe_card.add_theme_stylebox_override("panel", card_style)
+
 		_recipe_panel.add_child(recipe_card)
 
 		var card_vbox = VBoxContainer.new()
@@ -553,11 +627,31 @@ func _populate_recipes():
 				healing_label.add_theme_color_override("font_color", Color(0.5, 1.0, 0.5))  # Bright green
 				card_vbox.add_child(healing_label)
 
-		# Quick cook button
+		# Quick cook button (styled with brown/gold theme)
 		var quick_cook_btn = Button.new()
 		quick_cook_btn.text = "Quick Cook"
 		quick_cook_btn.add_theme_font_size_override("font_size", 11)
 		quick_cook_btn.pressed.connect(_on_quick_cook.bind(recipe_data))
+
+		# Style the Quick Cook button
+		var qc_normal = StyleBoxFlat.new()
+		qc_normal.bg_color = Color(0.3, 0.25, 0.15, 0.9)  # Darker brown
+		qc_normal.border_width_left = 2
+		qc_normal.border_width_top = 2
+		qc_normal.border_width_right = 2
+		qc_normal.border_width_bottom = 2
+		qc_normal.border_color = Color(0.6, 0.5, 0.3, 1.0)  # Golden border
+		qc_normal.corner_radius_top_left = 4
+		qc_normal.corner_radius_top_right = 4
+		qc_normal.corner_radius_bottom_left = 4
+		qc_normal.corner_radius_bottom_right = 4
+		quick_cook_btn.add_theme_stylebox_override("normal", qc_normal)
+
+		var qc_hover = qc_normal.duplicate()
+		qc_hover.bg_color = Color(0.35, 0.3, 0.18, 1.0)  # Brighter on hover
+		qc_hover.border_color = Color(0.8, 0.65, 0.4, 1.0)  # Brighter gold
+		quick_cook_btn.add_theme_stylebox_override("hover", qc_hover)
+
 		card_vbox.add_child(quick_cook_btn)
 
 		# Spacer between recipes
