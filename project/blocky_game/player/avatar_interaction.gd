@@ -1932,6 +1932,9 @@ func _on_npc_dialogue_closed() -> void:
 		"cook":
 			_open_cooking_modal()
 
+		"banker":
+			_open_block_shop()
+
 		"armorer":
 			_open_harmonization_modal()
 
@@ -1974,6 +1977,27 @@ func _open_cooking_modal() -> void:
 	modal.modal_closed.connect(func():
 		set_cooking_modal_open(false)
 	)
+
+
+func _open_block_shop() -> void:
+	"""Open Conner's Block Shop (1:1 block trading)"""
+	print("[NPC] Opening Conner's Block Shop...")
+
+	# Load and create shop modal in BLOCKS mode
+	var ShopModal = load("res://blocky_game/gui/BlockSelectorModal.gd")
+	var modal = ShopModal.new(ShopModal.ShopType.BLOCKS)
+
+	# Get game node
+	var game = get_node("/root/Main/Game")
+	game.add_child(modal)
+
+	# Block shop doesn't have a specific modal flag (uses generic UI blocking)
+	# The modal handles its own mouse capture
+
+	# Connect close signal if needed
+	# modal.modal_closed.connect(func():
+	# 	# Nothing specific to do on close
+	# )
 
 
 func _open_harmonization_modal() -> void:

@@ -1,11 +1,22 @@
 extends Control
 
-## BlockSelectorModal - Visual block selector for console
-## Opens from `blocks` console command
-## Shows all blocks in a grid, allows selecting and adding to inventory
-## Can also be used as a shop interface for NPC block merchants
+## ShopModal - Universal shop interface for blocks, items, and food
+## Opens from `shop <type>` or `blocks` console command
+## Supports multiple shop types with different barter systems:
+## - FREE: Free block selector (original blocks command)
+## - BLOCKS: Block trading (1:1 barter with NPCs)
+## - ITEMS: Item/weapon shop (rust block currency)
+## - FOOD: Food shop (raw/cooked separation)
 
 signal modal_closed
+
+# Shop type enum
+enum ShopType {
+	FREE,      # Free block selector (add to inventory)
+	BLOCKS,    # Block shop (1:1 block trading)
+	ITEMS,     # Item/weapon shop (rust block currency)
+	FOOD       # Food shop (raw/cooked only)
+}
 
 # UI nodes
 var _main_panel: Panel
@@ -23,12 +34,13 @@ var _add_button: Button
 var _cancel_button: Button
 
 # State
-var _is_shop: bool = false
+var _shop_type: int = ShopType.FREE
 var _selected_block_id: int = -1
 var _selected_button: Button = null
 var _selected_player_block_id: int = -1
 var _selected_player_button: Button = null
 var _blocks_node: Node = null
+var _item_db: Node = null
 var _player: Node = null
 var _inventory: Node = null
 
@@ -43,14 +55,15 @@ const SHOP_GRID_COLUMNS = 6  # Shop blocks column count (use the width!)
 const PLAYER_GRID_COLUMNS = 4  # Player blocks column count (use the width!)
 
 
-func _init(is_shop: bool = false):
-	"""Initialize modal - set to shop mode if is_shop is true"""
-	_is_shop = is_shop
+func _init(shop_type: int = ShopType.FREE):
+	"""Initialize modal with specified shop type"""
+	_shop_type = shop_type
 
 
 func _ready():
 	# Get references
 	_blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	_item_db = get_node_or_null("/root/Main/Game/Items")
 	_player = get_tree().get_first_node_in_group("player")
 	if _player:
 		_inventory = _player.get_node_or_null("Inventory")
@@ -60,13 +73,18 @@ func _ready():
 		queue_free()
 		return
 
+	if not _item_db:
+		push_error("BlockSelectorModal: Could not find Items node")
+		queue_free()
+		return
+
 	# Build UI
 	_build_ui()
-	_populate_block_grid()
+	_populate_shop_grid()
 
-	# In shop mode, also populate player's inventory grid
-	if _is_shop:
-		_populate_player_block_grid()
+	# In shop modes (not FREE), also populate player's inventory grid
+	if _shop_type != ShopType.FREE:
+		_populate_player_inventory()
 
 	# Show mouse cursor
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -93,8 +111,9 @@ func _input(event):
 func _build_ui():
 	# Main panel with dark brown background + golden border
 	_main_panel = Panel.new()
-	var panel_width = SHOP_MODAL_WIDTH if _is_shop else MODAL_WIDTH
-	var panel_height = SHOP_MODAL_HEIGHT if _is_shop else MODAL_HEIGHT
+	var is_shop_mode = (_shop_type != ShopType.FREE)
+	var panel_width = SHOP_MODAL_WIDTH if is_shop_mode else MODAL_WIDTH
+	var panel_height = SHOP_MODAL_HEIGHT if is_shop_mode else MODAL_HEIGHT
 	_main_panel.custom_minimum_size = Vector2(panel_width, panel_height)
 
 	var panel_style = StyleBoxFlat.new()
@@ -120,7 +139,7 @@ func _build_ui():
 
 	# Add margins (smaller for compact layout)
 	var margin = MarginContainer.new()
-	var margin_size = 12 if _is_shop else 15
+	var margin_size = 12 if is_shop_mode else 15
 	margin.add_theme_constant_override("margin_left", margin_size)
 	margin.add_theme_constant_override("margin_top", margin_size)
 	margin.add_theme_constant_override("margin_right", margin_size)
@@ -131,21 +150,18 @@ func _build_ui():
 	content_vbox.add_theme_constant_override("separation", 8)  # Tighter spacing
 	margin.add_child(content_vbox)
 
-	# Title (more compact)
+	# Title (shop type specific)
 	var title = Label.new()
-	title.text = "🏪 Block Shop" if _is_shop else "🧱 Block Selector"
-	title.add_theme_font_size_override("font_size", 22)  # Smaller
+	title.text = _get_shop_title()
+	title.add_theme_font_size_override("font_size", 22)
 	title.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content_vbox.add_child(title)
 
-	# Subtitle (more compact)
+	# Subtitle (shop type specific)
 	var subtitle = Label.new()
-	if _is_shop:
-		subtitle.text = "Choose a block to buy and a block to trade (1-for-1 barter)"
-	else:
-		subtitle.text = "Click a block to select it, then choose quantity and add to inventory"
-	subtitle.add_theme_font_size_override("font_size", 11)  # Smaller
+	subtitle.text = _get_shop_subtitle()
+	subtitle.add_theme_font_size_override("font_size", 11)
 	subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content_vbox.add_child(subtitle)
@@ -155,8 +171,8 @@ func _build_ui():
 	separator1.add_theme_constant_override("separation", 2)
 	content_vbox.add_child(separator1)
 
-	# Grid area - either single column (normal) or dual column (shop)
-	if _is_shop:
+	# Grid area - either single column (FREE) or dual column (shop modes)
+	if is_shop_mode:
 		# Dual-column layout for shop mode
 		var grid_hbox = HBoxContainer.new()
 		grid_hbox.add_theme_constant_override("separation", 12)  # Tighter spacing between columns
@@ -170,8 +186,8 @@ func _build_ui():
 		grid_hbox.add_child(shop_vbox)
 
 		var shop_label = Label.new()
-		shop_label.text = "📦 SHOP BLOCKS"
-		shop_label.add_theme_font_size_override("font_size", 13)  # Smaller
+		shop_label.text = _get_shop_items_label()  # Shop type specific
+		shop_label.add_theme_font_size_override("font_size", 13)
 		shop_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
 		shop_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		shop_vbox.add_child(shop_label)
@@ -194,8 +210,8 @@ func _build_ui():
 		grid_hbox.add_child(player_vbox)
 
 		var player_label = Label.new()
-		player_label.text = "🎒 YOUR BLOCKS"
-		player_label.add_theme_font_size_override("font_size", 13)  # Smaller
+		player_label.text = _get_player_items_label()  # Shop type specific
+		player_label.add_theme_font_size_override("font_size", 13)
 		player_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
 		player_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		player_vbox.add_child(player_label)
@@ -230,7 +246,7 @@ func _build_ui():
 
 	# Bottom panel for selection preview and controls
 	_preview_panel = Panel.new()
-	var preview_height = 115 if _is_shop else 100  # Taller for shop (proper padding)
+	var preview_height = 115 if is_shop_mode else 100  # Taller for shop (proper padding)
 	_preview_panel.custom_minimum_size = Vector2(0, preview_height)
 
 	var preview_style = StyleBoxFlat.new()
@@ -254,14 +270,14 @@ func _build_ui():
 
 	# Preview margin (better padding for shop)
 	var preview_margin = MarginContainer.new()
-	var preview_margin_size = 12 if _is_shop else 10  # More padding in shop mode
+	var preview_margin_size = 12 if is_shop_mode else 10  # More padding in shop mode
 	preview_margin.add_theme_constant_override("margin_left", preview_margin_size)
 	preview_margin.add_theme_constant_override("margin_top", preview_margin_size)
 	preview_margin.add_theme_constant_override("margin_right", preview_margin_size)
 	preview_margin.add_theme_constant_override("margin_bottom", preview_margin_size)
 	preview_hbox.add_child(preview_margin)
 
-	if _is_shop:
+	if is_shop_mode:
 		# Shop mode: Compact horizontal layout (everything in one row)
 		var preview_vbox = VBoxContainer.new()
 		preview_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -454,8 +470,19 @@ func _build_ui():
 		buttons_hbox.add_child(_cancel_button)
 
 
-func _populate_block_grid():
-	"""Fill grid with all available blocks"""
+func _populate_shop_grid():
+	"""Fill shop grid based on shop type"""
+	match _shop_type:
+		ShopType.FREE, ShopType.BLOCKS:
+			_populate_blocks()
+		ShopType.ITEMS:
+			_populate_items()  # TODO: Phase 3
+		ShopType.FOOD:
+			_populate_food()  # TODO: Phase 2
+
+
+func _populate_blocks():
+	"""Populate grid with blocks"""
 	if not _blocks_node:
 		return
 
@@ -529,9 +556,20 @@ func _populate_block_grid():
 		_grid_container.add_child(button)
 
 
-func _populate_player_block_grid():
-	"""Fill player grid with blocks from inventory (shop mode only)"""
-	if not _is_shop or not _player_grid_container or not _inventory:
+func _populate_player_inventory():
+	"""Fill player inventory grid based on shop type"""
+	match _shop_type:
+		ShopType.BLOCKS:
+			_populate_player_blocks()
+		ShopType.ITEMS:
+			_populate_player_items()  # TODO: Phase 3
+		ShopType.FOOD:
+			_populate_player_food()  # TODO: Phase 2
+
+
+func _populate_player_blocks():
+	"""Fill player grid with blocks from inventory"""
+	if not _player_grid_container or not _inventory:
 		return
 
 	# Collect all block items from inventory with their total counts
@@ -624,7 +662,7 @@ func _populate_player_block_grid():
 
 
 func _on_block_selected(block_id: int, button: Button):
-	"""Handle shop block button click"""
+	"""Handle shop block/item button click"""
 	_selected_block_id = block_id
 
 	# Remove highlight from previous button
@@ -657,23 +695,39 @@ func _on_block_selected(block_id: int, button: Button):
 	selected_style.corner_radius_bottom_right = 4
 	button.add_theme_stylebox_override("normal", selected_style)
 
-	# Update preview
-	var block = _blocks_node.get_block(block_id)
-	if block:
-		_preview_label.text = block.base_info.name.capitalize()
-		if block.base_info.sprite_texture and _preview_texture:
-			_preview_texture.texture = block.base_info.sprite_texture
+	# Update preview based on shop type
+	var is_food = button.has_meta("is_food") and button.get_meta("is_food")
 
-		# In shop mode, only enable button if BOTH blocks are selected
-		# In normal mode, enable immediately
-		if _is_shop:
-			_add_button.disabled = (_selected_player_block_id < 0)
-		else:
-			_add_button.disabled = false
+	if is_food:
+		# Food item from item_db
+		var item = _item_db.get_item(block_id)
+		if item:
+			_preview_label.text = item.base_info.name.replace("_", " ").capitalize()
+			if item.base_info.sprite and _preview_texture:
+				_preview_texture.texture = item.base_info.sprite
+
+		# Apply food type filtering to player grid
+		if _shop_type == ShopType.FOOD and _player_grid_container:
+			var selected_food_type = button.get_meta("food_type")
+			_filter_player_food_by_type(selected_food_type)
+	else:
+		# Block item from blocks_node
+		var block = _blocks_node.get_block(block_id)
+		if block:
+			_preview_label.text = block.base_info.name.capitalize()
+			if block.base_info.sprite_texture and _preview_texture:
+				_preview_texture.texture = block.base_info.sprite_texture
+
+	# In shop modes, only enable button if BOTH items are selected
+	# In FREE mode, enable immediately
+	if _shop_type != ShopType.FREE:
+		_add_button.disabled = (_selected_player_block_id < 0)
+	else:
+		_add_button.disabled = false
 
 
 func _on_player_block_selected(block_id: int, button: Button, count: int):
-	"""Handle player block button click (shop mode only)"""
+	"""Handle player block/item button click (shop mode only)"""
 	_selected_player_block_id = block_id
 
 	# Remove highlight from previous button
@@ -706,12 +760,28 @@ func _on_player_block_selected(block_id: int, button: Button, count: int):
 	selected_style.corner_radius_bottom_right = 4
 	button.add_theme_stylebox_override("normal", selected_style)
 
-	# Update preview
-	var block = _blocks_node.get_block(block_id)
-	if block:
-		_player_preview_label.text = block.base_info.name.capitalize()
-		if block.base_info.sprite_texture and _player_preview_texture:
-			_player_preview_texture.texture = block.base_info.sprite_texture
+	# Update preview based on shop type
+	var is_food = button.has_meta("is_food") and button.get_meta("is_food")
+
+	if is_food:
+		# Food item from item_db
+		var item = _item_db.get_item(block_id)
+		if item:
+			_player_preview_label.text = item.base_info.name.replace("_", " ").capitalize()
+			if item.base_info.sprite and _player_preview_texture:
+				_player_preview_texture.texture = item.base_info.sprite
+
+		# Apply food type filtering to shop grid
+		if _shop_type == ShopType.FOOD and _grid_container:
+			var selected_food_type = button.get_meta("food_type")
+			_filter_shop_food_by_type(selected_food_type)
+	else:
+		# Block item from blocks_node
+		var block = _blocks_node.get_block(block_id)
+		if block:
+			_player_preview_label.text = block.base_info.name.capitalize()
+			if block.base_info.sprite_texture and _player_preview_texture:
+				_player_preview_texture.texture = block.base_info.sprite_texture
 
 	# Update quantity spinbox max value based on player's count
 	_quantity_spinbox.max_value = count
@@ -723,9 +793,9 @@ func _on_player_block_selected(block_id: int, button: Button, count: int):
 
 
 func _on_trade_blocks():
-	"""Handle trading blocks in shop mode"""
+	"""Handle trading blocks or items in shop mode"""
 	if _selected_block_id < 0 or _selected_player_block_id < 0:
-		_show_message("Select both a shop block and your block to trade!", Color.RED)
+		_show_message("Select both items to trade!", Color.RED)
 		return
 
 	if not _player or not _inventory:
@@ -733,20 +803,39 @@ func _on_trade_blocks():
 		return
 
 	var quantity = int(_quantity_spinbox.value)
-	var shop_block = _blocks_node.get_block(_selected_block_id)
-	var player_block = _blocks_node.get_block(_selected_player_block_id)
+	var InventoryItem = load("res://blocky_game/player/inventory_item.gd")
 
-	if not shop_block or not player_block:
-		return
+	# Determine if we're trading blocks or items (food)
+	var is_food_trade = (_shop_type == ShopType.FOOD)
+	var item_type = InventoryItem.TYPE_ITEM if is_food_trade else InventoryItem.TYPE_BLOCK
 
-	# Find and remove player's blocks from inventory
+	# Get item/block names for display
+	var shop_item_name = ""
+	var player_item_name = ""
+
+	if is_food_trade:
+		var shop_item = _item_db.get_item(_selected_block_id)
+		var player_item = _item_db.get_item(_selected_player_block_id)
+		if not shop_item or not player_item:
+			return
+		shop_item_name = shop_item.base_info.name.replace("_", " ").capitalize()
+		player_item_name = player_item.base_info.name.replace("_", " ").capitalize()
+	else:
+		var shop_block = _blocks_node.get_block(_selected_block_id)
+		var player_block = _blocks_node.get_block(_selected_player_block_id)
+		if not shop_block or not player_block:
+			return
+		shop_item_name = shop_block.base_info.name.capitalize()
+		player_item_name = player_block.base_info.name.capitalize()
+
+	# Find and remove player's items from inventory
 	var removed_count = 0
 	for i in range(_inventory._slots.size()):
 		if _inventory._slots[i] == null:
 			continue
 
 		var slot = _inventory._slots[i]
-		if slot.type == slot.TYPE_BLOCK and slot.id == _selected_player_block_id:
+		if slot.type == item_type and slot.id == _selected_player_block_id:
 			var remove_amount = min(slot.count, quantity - removed_count)
 			slot.count -= remove_amount
 			removed_count += remove_amount
@@ -760,20 +849,19 @@ func _on_trade_blocks():
 				break
 
 	if removed_count < quantity:
-		_show_message("Error: Not enough blocks to trade!", Color.RED)
+		_show_message("Error: Not enough items to trade!", Color.RED)
 		return
 
-	# Add shop blocks to inventory
+	# Add shop items to inventory
 	var added = false
-	var InventoryItem = load("res://blocky_game/player/inventory_item.gd")
 
-	# Try to find existing stack of the shop block
+	# Try to find existing stack of the shop item
 	for i in range(_inventory._slots.size()):
 		if _inventory._slots[i] == null:
 			continue
 
 		var slot = _inventory._slots[i]
-		if slot.type == slot.TYPE_BLOCK and slot.id == _selected_block_id:
+		if slot.type == item_type and slot.id == _selected_block_id:
 			slot.count += quantity
 			added = true
 			break
@@ -783,7 +871,7 @@ func _on_trade_blocks():
 		for i in range(_inventory._slots.size()):
 			if _inventory._slots[i] == null:
 				var item = InventoryItem.new()
-				item.type = InventoryItem.TYPE_BLOCK
+				item.type = item_type
 				item.id = _selected_block_id
 				item.count = quantity
 				_inventory._slots[i] = item
@@ -797,20 +885,21 @@ func _on_trade_blocks():
 	# Update inventory views
 	_inventory._update_views()
 
-	print("[BlockShop] ✅ Traded %dx %s for %dx %s" % [
-		quantity, player_block.base_info.name,
-		quantity, shop_block.base_info.name
+	var shop_name = "Provisions Market" if is_food_trade else "Block Shop"
+	print("[%s] ✅ Traded %dx %s for %dx %s" % [
+		shop_name, quantity, player_item_name,
+		quantity, shop_item_name
 	])
 	_show_message("✅ Traded %dx %s for %dx %s!" % [
-		quantity, player_block.base_info.name.capitalize(),
-		quantity, shop_block.base_info.name.capitalize()
+		quantity, player_item_name,
+		quantity, shop_item_name
 	], Color.GREEN)
 
-	# Refresh player block grid to update counts
+	# Refresh player inventory grid to update counts
 	for child in _player_grid_container.get_children():
 		child.queue_free()
 	await get_tree().process_frame
-	_populate_player_block_grid()
+	_populate_player_inventory()
 
 	# Reset selections and quantity
 	_selected_player_block_id = -1
@@ -818,6 +907,10 @@ func _on_trade_blocks():
 	_quantity_spinbox.value = 1
 	_quantity_spinbox.max_value = 99
 	_add_button.disabled = true
+
+	# Clear food filters if we were in food shop mode
+	if _shop_type == ShopType.FOOD:
+		_clear_food_filters()
 
 	if _player_preview_label:
 		_player_preview_label.text = "None"
@@ -874,6 +967,300 @@ func _show_message(text: String, color: Color):
 	"""Show temporary message (could be enhanced with actual popup)"""
 	# For now, just print - could add a Label that fades out
 	print("[BlockSelector] ", text)
+
+
+func _get_shop_title() -> String:
+	"""Get title based on shop type"""
+	match _shop_type:
+		ShopType.BLOCKS:
+			return "🏪 Block Shop"
+		ShopType.ITEMS:
+			return "⚔️ Item Shop"
+		ShopType.FOOD:
+			return "🍖 Food Shop"
+		_:
+			return "🧱 Block Selector"
+
+
+func _get_shop_subtitle() -> String:
+	"""Get subtitle based on shop type"""
+	match _shop_type:
+		ShopType.BLOCKS:
+			return "Choose a block to buy and a block to trade (1-for-1 barter)"
+		ShopType.ITEMS:
+			return "Buy and sell items and weapons using rust blocks"
+		ShopType.FOOD:
+			return "Trade raw foods for raw foods, or cooked for cooked (1-for-1)"
+		_:
+			return "Click a block to select it, then choose quantity and add to inventory"
+
+
+func _get_shop_items_label() -> String:
+	"""Get shop items label based on shop type"""
+	match _shop_type:
+		ShopType.BLOCKS:
+			return "📦 SHOP BLOCKS"
+		ShopType.ITEMS:
+			return "⚔️ SHOP ITEMS"
+		ShopType.FOOD:
+			return "🍖 SHOP FOOD"
+		_:
+			return "📦 SHOP BLOCKS"
+
+
+func _get_player_items_label() -> String:
+	"""Get player items label based on shop type"""
+	match _shop_type:
+		ShopType.BLOCKS:
+			return "🎒 YOUR BLOCKS"
+		ShopType.ITEMS:
+			return "🎒 YOUR ITEMS"
+		ShopType.FOOD:
+			return "🎒 YOUR FOOD"
+		_:
+			return "🎒 YOUR BLOCKS"
+
+
+# Placeholder functions for future phases
+func _populate_items():
+	"""TODO: Phase 3 - Populate items from items.json"""
+	push_warning("ShopModal: Item shop not yet implemented (Phase 3)")
+
+
+func _populate_food():
+	"""Populate shop grid with food items (raw first, then cooked)"""
+	if not _item_db:
+		return
+
+	# Define food IDs (from recipes_database.json)
+	var raw_food_ids = [13, 14, 15, 16, 22, 24, 25, 26]  # egg, rabbit, berries, honey, wheat_seeds, pumpkin, mushroom, fish
+	var cooked_food_ids = range(27, 40)  # IDs 27-39 (grilled_fish through super_stew)
+
+	# Combine lists: raw foods first, then cooked
+	var all_food_ids = raw_food_ids + cooked_food_ids
+
+	# Create buttons for each food item
+	for food_id in all_food_ids:
+		var item = _item_db.get_item(food_id)
+		if not item:
+			continue
+
+		# Determine food type
+		var food_type = "raw" if food_id in raw_food_ids else "cooked"
+
+		# Create food button
+		var button = Button.new()
+		button.custom_minimum_size = Vector2(BUTTON_SIZE, BUTTON_SIZE + 30)
+		button.pressed.connect(_on_block_selected.bind(food_id, button))
+
+		# Store food type as metadata for filtering
+		button.set_meta("food_type", food_type)
+		button.set_meta("is_food", true)
+
+		# Button style (same as blocks)
+		var normal_style = StyleBoxFlat.new()
+		normal_style.bg_color = Color(0.2, 0.15, 0.1, 0.8)
+		normal_style.border_width_left = 2
+		normal_style.border_width_top = 2
+		normal_style.border_width_right = 2
+		normal_style.border_width_bottom = 2
+		normal_style.border_color = Color(0.4, 0.3, 0.2, 1.0)
+		normal_style.corner_radius_top_left = 4
+		normal_style.corner_radius_top_right = 4
+		normal_style.corner_radius_bottom_left = 4
+		normal_style.corner_radius_bottom_right = 4
+		button.add_theme_stylebox_override("normal", normal_style)
+
+		var hover_style = normal_style.duplicate()
+		hover_style.bg_color = Color(0.25, 0.2, 0.13, 0.9)
+		hover_style.border_color = Color(0.6, 0.5, 0.3, 1.0)
+		button.add_theme_stylebox_override("hover", hover_style)
+
+		# Button content - VBox with icon + label
+		var vbox = VBoxContainer.new()
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		vbox.add_theme_constant_override("separation", 5)
+		vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(vbox)
+
+		# Food sprite
+		var texture_rect = TextureRect.new()
+		texture_rect.custom_minimum_size = Vector2(56, 56)
+		texture_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+		# Load sprite from item
+		if item.base_info.sprite:
+			texture_rect.texture = item.base_info.sprite
+
+		vbox.add_child(texture_rect)
+
+		# Food name
+		var label = Label.new()
+		label.text = item.base_info.name.replace("_", " ").capitalize()
+		label.add_theme_font_size_override("font_size", 10)
+		label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.custom_minimum_size = Vector2(BUTTON_SIZE - 8, 0)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(label)
+
+		_grid_container.add_child(button)
+
+	print("Provisions Market: Populated %d food items (%d raw, %d cooked)" % [all_food_ids.size(), raw_food_ids.size(), cooked_food_ids.size()])
+
+
+func _populate_player_items():
+	"""TODO: Phase 3 - Populate player items from inventory"""
+	push_warning("ShopModal: Player items not yet implemented (Phase 3)")
+
+
+func _populate_player_food():
+	"""Fill player grid with food items from inventory"""
+	if not _player_grid_container or not _inventory or not _item_db:
+		return
+
+	# Define food ID ranges
+	var raw_food_ids = [13, 14, 15, 16, 22, 24, 25, 26]
+	var cooked_food_ids = range(27, 40)
+	var all_food_ids = raw_food_ids + cooked_food_ids
+
+	# Collect all food items from inventory with their total counts
+	var food_counts = {}  # {food_id: count}
+
+	for slot in _inventory._slots:
+		if slot != null and slot.type == slot.TYPE_ITEM and slot.id in all_food_ids:
+			var food_id = slot.id
+			if not food_counts.has(food_id):
+				food_counts[food_id] = 0
+			food_counts[food_id] += slot.count
+
+	# Create buttons for each food type the player has
+	for food_id in food_counts.keys():
+		var count = food_counts[food_id]
+		var item = _item_db.get_item(food_id)
+		if not item:
+			continue
+
+		# Determine food type
+		var food_type = "raw" if food_id in raw_food_ids else "cooked"
+
+		# Create food button with count overlay
+		var button = Button.new()
+		button.custom_minimum_size = Vector2(BUTTON_SIZE, BUTTON_SIZE + 30)
+		button.pressed.connect(_on_player_block_selected.bind(food_id, button, count))
+
+		# Store food type as metadata for filtering
+		button.set_meta("food_type", food_type)
+		button.set_meta("is_food", true)
+
+		# Button style (player variant)
+		var normal_style = StyleBoxFlat.new()
+		normal_style.bg_color = Color(0.15, 0.2, 0.25, 0.8)
+		normal_style.border_width_left = 2
+		normal_style.border_width_top = 2
+		normal_style.border_width_right = 2
+		normal_style.border_width_bottom = 2
+		normal_style.border_color = Color(0.3, 0.4, 0.5, 1.0)
+		normal_style.corner_radius_top_left = 4
+		normal_style.corner_radius_top_right = 4
+		normal_style.corner_radius_bottom_left = 4
+		normal_style.corner_radius_bottom_right = 4
+		button.add_theme_stylebox_override("normal", normal_style)
+
+		var hover_style = normal_style.duplicate()
+		hover_style.bg_color = Color(0.2, 0.25, 0.3, 0.9)
+		hover_style.border_color = Color(0.5, 0.6, 0.7, 1.0)
+		button.add_theme_stylebox_override("hover", hover_style)
+
+		# Button content - VBox with icon + label + count
+		var vbox = VBoxContainer.new()
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		vbox.add_theme_constant_override("separation", 5)
+		vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(vbox)
+
+		# Food sprite
+		var texture_rect = TextureRect.new()
+		texture_rect.custom_minimum_size = Vector2(56, 56)
+		texture_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+		# Load sprite from item
+		if item.base_info.sprite:
+			texture_rect.texture = item.base_info.sprite
+
+		vbox.add_child(texture_rect)
+
+		# Count overlay (bottom-right corner)
+		var count_label = Label.new()
+		count_label.text = str(count)
+		count_label.add_theme_font_size_override("font_size", 14)
+		count_label.add_theme_color_override("font_color", Color.WHITE)
+		count_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		count_label.add_theme_constant_override("outline_size", 6)
+		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		count_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		count_label.position = Vector2(BUTTON_SIZE - 28, 5)
+		count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(count_label)
+
+		# Food name
+		var label = Label.new()
+		label.text = item.base_info.name.replace("_", " ").capitalize()
+		label.add_theme_font_size_override("font_size", 10)
+		label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.custom_minimum_size = Vector2(BUTTON_SIZE - 8, 0)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(label)
+
+		_player_grid_container.add_child(button)
+
+	print("Provisions Market: Player has %d different food items" % food_counts.size())
+
+
+func _filter_player_food_by_type(selected_food_type: String):
+	"""Disable player food buttons that don't match the selected shop food type"""
+	if not _player_grid_container:
+		return
+
+	for child in _player_grid_container.get_children():
+		if child is Button and child.has_meta("is_food"):
+			var button_food_type = child.get_meta("food_type")
+			# Disable if types don't match, enable if they do
+			child.disabled = (button_food_type != selected_food_type)
+
+
+func _filter_shop_food_by_type(selected_food_type: String):
+	"""Disable shop food buttons that don't match the selected player food type"""
+	if not _grid_container:
+		return
+
+	for child in _grid_container.get_children():
+		if child is Button and child.has_meta("is_food"):
+			var button_food_type = child.get_meta("food_type")
+			# Disable if types don't match, enable if they do
+			child.disabled = (button_food_type != selected_food_type)
+
+
+func _clear_food_filters():
+	"""Re-enable all food buttons (clear filtering)"""
+	if _grid_container:
+		for child in _grid_container.get_children():
+			if child is Button and child.has_meta("is_food"):
+				child.disabled = false
+
+	if _player_grid_container:
+		for child in _player_grid_container.get_children():
+			if child is Button and child.has_meta("is_food"):
+				child.disabled = false
 
 
 func _close_modal():

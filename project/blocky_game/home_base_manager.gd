@@ -53,6 +53,7 @@ var _pending_npc_data: Array = []  # Store NPC data from save until game is read
 # NPC templates (will spawn 1 per day in this order)
 const NPC_TEMPLATES = [
 	{"name": "Emma", "race": "human", "gender": "female", "job": "cook", "color": Color(1.0, 0.9, 0.8)},
+	{"name": "Conner", "race": "human", "gender": "male", "job": "banker", "color": Color(0.9, 0.85, 0.75)},
 	{"name": "Mahan", "race": "dwarf", "gender": "male", "job": "power_shop", "color": Color(0.9, 0.8, 0.7)},
 	{"name": "Lydia", "race": "elf", "gender": "female", "job": "food_merchant", "color": Color(1.0, 0.95, 0.85)},
 	{"name": "Daniels", "race": "human", "gender": "male", "job": "merchant", "color": Color(0.85, 0.75, 0.65)},

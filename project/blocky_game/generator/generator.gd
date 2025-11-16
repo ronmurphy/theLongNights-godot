@@ -104,6 +104,7 @@ const RUNE_CORE = 61
 const RUNE_MARKER = 62
 const STONE_BRICKS = 63
 const VOID_STONE_BRICKS = 64
+const RUST_FLOOR_X = 65
 const MIN_CAVE_HEIGHT = -10  # Caves start just below surface
 
 

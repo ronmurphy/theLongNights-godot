@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dqjbb7ty7uuh8"
-path="res://.godot/imported/rust_floor_sprite.png-95edbac59f79f1c87274d9f0136dfc1a.ctex"
+uid="uid://dqtjondfhue02"
+path="res://.godot/imported/human_female_glasses.png-9d9058c610a90a4adec30a6765e436ef.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/blocks/rust_floor/rust_floor_sprite.png"
-dest_files=["res://.godot/imported/rust_floor_sprite.png-95edbac59f79f1c87274d9f0136dfc1a.ctex"]
+source_file="res://assets/art/npc_sprites/human_female_glasses.png"
+dest_files=["res://.godot/imported/human_female_glasses.png-9d9058c610a90a4adec30a6765e436ef.ctex"]
 
 [params]
 

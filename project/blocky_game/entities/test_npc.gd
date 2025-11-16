@@ -373,6 +373,8 @@ static func get_default_greeting(job: String, npc_name: String) -> String:
 	match job:
 		"cook":
 			return "Hello! I'm %s, the cook. Looking for some food?" % npc_name
+		"banker":
+			return "Welcome to Conner's Bank! I'm %s. Want to trade blocks?" % npc_name
 		"power_shop":
 			return "Hey! I'm %s. Want to fuse weapons with powers?" % npc_name
 		"food_merchant":

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dqjbb7ty7uuh8"
-path="res://.godot/imported/rust_floor_sprite.png-95edbac59f79f1c87274d9f0136dfc1a.ctex"
+uid="uid://2q0vwsmpd7ml"
+path="res://.godot/imported/conner.png-8b807419b49403fdfd8f81a7652e44a8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/blocks/rust_floor/rust_floor_sprite.png"
-dest_files=["res://.godot/imported/rust_floor_sprite.png-95edbac59f79f1c87274d9f0136dfc1a.ctex"]
+source_file="res://assets/art/npc_sprites/conner.png"
+dest_files=["res://.godot/imported/conner.png-8b807419b49403fdfd8f81a7652e44a8.ctex"]
 
 [params]
 

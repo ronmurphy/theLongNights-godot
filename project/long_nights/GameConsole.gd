@@ -242,6 +242,7 @@ func _register_commands() -> void:
 	commands["perfmon"] = _cmd_perfmon
 	commands["cooking"] = _cmd_cooking
 	commands["blocks"] = _cmd_blocks
+	commands["shop"] = _cmd_shop
 	commands["npc"] = _cmd_npc
 	commands["homebase"] = _cmd_homebase
 	commands["home"] = _cmd_homebase  # Alias
@@ -284,8 +285,12 @@ func _cmd_help(_args: Array) -> void:
 	add_output("[color=cyan]Item Commands:[/color]")
 	add_output("  [color=yellow]list items[/color] - Show all available items")
 	add_output("  [color=yellow]give <item_name> [amount][/color] - Give item to inventory")
-	add_output("  [color=yellow]blocks[/color] - Open block selector GUI (visual block picker)")
-	add_output("  [color=yellow]blocks true[/color] - Open block shop (trade your blocks for others)")
+	add_output("  [color=yellow]blocks[/color] - Open free block selector (add blocks to inventory)")
+	add_output("")
+	add_output("[color=cyan]Shop Commands:[/color]")
+	add_output("  [color=yellow]shop blocks[/color] - Open block shop (1-for-1 block trading)")
+	add_output("  [color=yellow]shop items[/color] - Open item shop (buy/sell with rust blocks)")
+	add_output("  [color=yellow]shop food[/color] - Open food shop (raw/cooked trading)")
 	add_output("")
 	add_output("[color=cyan]Graphics Commands:[/color]")
 	add_output("  [color=yellow]graphics low[/color] - Set to LOW profile (50 chunks)")
@@ -1025,23 +1030,75 @@ func _cmd_cooking(_args: Array) -> void:
 
 
 func _cmd_blocks(_args: Array) -> void:
-	"""Open the block selector modal - use 'blocks true' for shop mode"""
-	# Check if shop mode is requested
-	var is_shop = false
-	if _args.size() > 0 and (_args[0] == "true" or _args[0] == "shop"):
-		is_shop = true
-
-	if is_shop:
-		add_output("[color=lime]Opening block shop...[/color]")
-	else:
-		add_output("[color=lime]Opening block selector...[/color]")
+	"""Open the free block selector (backward compatible)"""
+	add_output("[color=lime]Opening block selector...[/color]")
 
 	# Close console first
 	toggle_console()
 
-	# Load and create modal with shop mode parameter
-	var BlockSelectorModal = load("res://blocky_game/gui/BlockSelectorModal.gd")
-	var modal = BlockSelectorModal.new(is_shop)
+	# Load and create modal in FREE mode
+	var ShopModal = load("res://blocky_game/gui/BlockSelectorModal.gd")
+	var modal = ShopModal.new(ShopModal.ShopType.FREE)
+
+	# Disable player input while modal is open
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("set_input_enabled"):
+		player.set_input_enabled(false)
+
+	# Get avatar interaction to disable hotbar scroll wheel
+	var avatar_interaction = player.get_node_or_null("Head/Interaction")
+	if avatar_interaction and avatar_interaction.has_method("set_cooking_modal_open"):
+		avatar_interaction.set_cooking_modal_open(true)
+
+	# Connect modal_closed signal to re-enable input
+	modal.modal_closed.connect(func():
+		if player and player.has_method("set_input_enabled"):
+			player.set_input_enabled(true)
+		# Re-enable hotbar scroll wheel
+		if avatar_interaction and avatar_interaction.has_method("set_cooking_modal_open"):
+			avatar_interaction.set_cooking_modal_open(false)
+	)
+
+	# Add to scene tree
+	get_tree().root.add_child(modal)
+
+
+func _cmd_shop(args: Array) -> void:
+	"""Open shop modal: shop <blocks|items|food>"""
+	if args.size() == 0:
+		add_output("[color=red]Usage: shop <blocks|items|food>[/color]")
+		add_output("[color=yellow]  shop blocks - Block trading (1-for-1)[/color]")
+		add_output("[color=yellow]  shop items - Item/weapon shop (rust blocks)[/color]")
+		add_output("[color=yellow]  shop food - Food shop (raw/cooked)[/color]")
+		return
+
+	var shop_type_str = args[0].to_lower()
+	var ShopModal = load("res://blocky_game/gui/BlockSelectorModal.gd")
+	var shop_type = ShopModal.ShopType.FREE
+	var shop_name = ""
+
+	match shop_type_str:
+		"blocks", "block":
+			shop_type = ShopModal.ShopType.BLOCKS
+			shop_name = "block shop"
+		"items", "item", "weapons", "weapon":
+			shop_type = ShopModal.ShopType.ITEMS
+			shop_name = "item shop"
+		"food", "foods":
+			shop_type = ShopModal.ShopType.FOOD
+			shop_name = "food shop"
+		_:
+			add_output("[color=red]Unknown shop type: %s[/color]" % shop_type_str)
+			add_output("[color=yellow]Valid types: blocks, items, food[/color]")
+			return
+
+	add_output("[color=lime]Opening %s...[/color]" % shop_name)
+
+	# Close console first
+	toggle_console()
+
+	# Create modal with specified shop type
+	var modal = ShopModal.new(shop_type)
 
 	# Disable player input while modal is open
 	var player = get_tree().get_first_node_in_group("player")

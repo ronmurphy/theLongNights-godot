@@ -11,7 +11,7 @@ const RUIN_STONE = 18  # Block ID for ruin_stone
 const RUIN_FLOOR = 19  # Block ID for ruin_floor
 const RUST_BLOCK = 29  # Block ID for rust_block
 const RUST_PIPE = 30  # Block ID for rust_pipe
-const RUST_CUBE = 31  # Block ID for rust_cube
+const RUST_FLOOR = 32  # Block ID for rust_floor (Undervoid flooring)
 const CHEST = 28  # Block ID for chest
 
 const UndervoidBeacon = preload("res://blocky_game/items/light_orb/undervoid_beacon.gd")
@@ -97,7 +97,7 @@ func _create_rusted_shrine() -> UndervoidStructure:
 	# Floor - rusted metal floor
 	for x in range(7):
 		for z in range(7):
-			blocks.append({"pos": Vector3i(x, 0, z), "block_id": RUST_CUBE, "variant": 0})
+			blocks.append({"pos": Vector3i(x, 0, z), "block_id": RUST_FLOOR, "variant": 0})
 
 	# Ruin stone base layer
 	for x in range(1, 6):
@@ -123,7 +123,7 @@ func _create_rusted_shrine() -> UndervoidStructure:
 		blocks.append({"pos": corner + Vector3i(0, 1, 0), "block_id": RUST_PIPE, "variant": 0})
 
 	# Beacon platform on top (center)
-	blocks.append({"pos": Vector3i(3, 6, 3), "block_id": RUST_CUBE, "variant": 0})
+	blocks.append({"pos": Vector3i(3, 6, 3), "block_id": RUST_FLOOR, "variant": 0})
 
 	# Chest in the center
 	var chest_pos = Vector3i(3, 2, 3)
@@ -177,7 +177,7 @@ func _create_mechanical_outpost() -> UndervoidStructure:
 	]
 	for corner in corners:
 		for y in range(7, 10):  # Taller towers
-			blocks.append({"pos": corner + Vector3i(0, y, 0), "block_id": RUST_CUBE, "variant": 0})
+			blocks.append({"pos": corner + Vector3i(0, y, 0), "block_id": RUST_FLOOR, "variant": 0})
 
 	# Central platform for beacon
 	blocks.append({"pos": Vector3i(4, 9, 4), "block_id": RUST_BLOCK, "variant": 0})
@@ -230,8 +230,8 @@ func _create_corrupted_altar() -> UndervoidStructure:
 		blocks.append({"pos": pos, "block_id": RUIN_STONE, "variant": 0})
 
 	# Central pillar
-	blocks.append({"pos": Vector3i(3, 2, 3), "block_id": RUST_CUBE, "variant": 0})
-	blocks.append({"pos": Vector3i(3, 3, 3), "block_id": RUST_CUBE, "variant": 0})
+	blocks.append({"pos": Vector3i(3, 2, 3), "block_id": RUST_FLOOR, "variant": 0})
+	blocks.append({"pos": Vector3i(3, 3, 3), "block_id": RUST_FLOOR, "variant": 0})
 	blocks.append({"pos": Vector3i(3, 4, 3), "block_id": RUST_BLOCK, "variant": 0})
 
 	# Chest at the base
@@ -276,7 +276,7 @@ func _create_watchtower() -> UndervoidStructure:
 	var corners = [Vector3i(1, 0, 1), Vector3i(1, 0, 5), Vector3i(5, 0, 1), Vector3i(5, 0, 5)]
 	for corner in corners:
 		for y in range(2, 10):
-			blocks.append({"pos": corner + Vector3i(0, y, 0), "block_id": RUST_CUBE, "variant": 0})
+			blocks.append({"pos": corner + Vector3i(0, y, 0), "block_id": RUST_FLOOR, "variant": 0})
 
 	# Top platform
 	for x in range(2, 5):
@@ -284,7 +284,7 @@ func _create_watchtower() -> UndervoidStructure:
 			blocks.append({"pos": Vector3i(x, 10, z), "block_id": RUST_BLOCK, "variant": 0})
 
 	# Beacon pedestal
-	blocks.append({"pos": Vector3i(3, 11, 3), "block_id": RUST_CUBE, "variant": 0})
+	blocks.append({"pos": Vector3i(3, 11, 3), "block_id": RUST_FLOOR, "variant": 0})
 
 	# Chest inside at mid-level
 	var chest_pos = Vector3i(3, 5, 3)
@@ -335,7 +335,7 @@ func _create_mining_camp() -> UndervoidStructure:
 		for z in range(2, 6):
 			for y in range(1, 4):
 				if x == 9 or x == 12 or z == 2 or z == 5:
-					blocks.append({"pos": Vector3i(x, y, z), "block_id": RUST_CUBE, "variant": 0})
+					blocks.append({"pos": Vector3i(x, y, z), "block_id": RUST_FLOOR, "variant": 0})
 	# Roof
 	for x in range(9, 13):
 		for z in range(2, 6):
@@ -346,7 +346,7 @@ func _create_mining_camp() -> UndervoidStructure:
 	# Central beacon tower
 	for y in range(1, 7):
 		blocks.append({"pos": Vector3i(7, y, 7), "block_id": RUST_PIPE, "variant": 0})
-	blocks.append({"pos": Vector3i(7, 7, 7), "block_id": RUST_CUBE, "variant": 0})
+	blocks.append({"pos": Vector3i(7, 7, 7), "block_id": RUST_FLOOR, "variant": 0})
 
 	var chest_pos_1 = Vector3i(3, 1, 3)
 	var chest_pos_2 = Vector3i(10, 1, 3)
@@ -393,7 +393,7 @@ func _create_foundry_complex() -> UndervoidStructure:
 	]
 	for pillar in pillars:
 		for y in range(2, 8):
-			blocks.append({"pos": pillar + Vector3i(0, y, 0), "block_id": RUST_CUBE, "variant": 0})
+			blocks.append({"pos": pillar + Vector3i(0, y, 0), "block_id": RUST_FLOOR, "variant": 0})
 
 	# Chests in chambers
 	var chest_positions = [
@@ -435,7 +435,7 @@ func _create_void_fortress() -> UndervoidStructure:
 	for x in range(30):
 		for z in range(30):
 			blocks.append({"pos": Vector3i(x, 0, z), "block_id": RUST_BLOCK, "variant": 0})
-			blocks.append({"pos": Vector3i(x, 1, z), "block_id": RUST_CUBE, "variant": 0})
+			blocks.append({"pos": Vector3i(x, 1, z), "block_id": RUST_FLOOR, "variant": 0})
 			if x > 1 and x < 28 and z > 1 and z < 28:
 				blocks.append({"pos": Vector3i(x, 2, z), "block_id": STONE, "variant": 0})
 
@@ -445,7 +445,7 @@ func _create_void_fortress() -> UndervoidStructure:
 			for z in range(2, 28):
 				# Double-thick walls
 				if x == 2 or x == 3 or x == 26 or x == 27 or z == 2 or z == 3 or z == 26 or z == 27:
-					blocks.append({"pos": Vector3i(x, y, z), "block_id": RUST_CUBE, "variant": 0})
+					blocks.append({"pos": Vector3i(x, y, z), "block_id": RUST_FLOOR, "variant": 0})
 
 	# Corner towers (tall)
 	var corner_towers = [
@@ -477,7 +477,7 @@ func _create_void_fortress() -> UndervoidStructure:
 	# Central beacon spire (very tall)
 	for y in range(5, 14):
 		blocks.append({"pos": Vector3i(15, y, 15), "block_id": RUST_PIPE, "variant": 0})
-	blocks.append({"pos": Vector3i(15, 14, 15), "block_id": RUST_CUBE, "variant": 0})
+	blocks.append({"pos": Vector3i(15, 14, 15), "block_id": RUST_FLOOR, "variant": 0})
 
 	var beacon_pos = Vector3(15.5, 15, 15.5)
 
