@@ -131,6 +131,10 @@ func _try_spawn_animal():
 		if animal.has_signal("died"):
 			animal.died.connect(_on_animal_died)
 
+		# Handle fish spawning - show fishing icon
+		if habitat_type == "water" and animal_name == "fish":
+			_on_fish_spawned(animal, player)
+
 		print("%s Spawned %s at %s (total: %d)" % [emoji, animal_name, spawn_pos, _active_animals])
 
 
@@ -252,3 +256,33 @@ func _on_animal_died(entity):
 		_spawned_animals.remove_at(index)
 
 	print("🐾 Animal died (remaining: %d)" % _active_animals)
+
+
+# ============================================================================
+# FISHING SYSTEM
+# ============================================================================
+
+func _on_fish_spawned(fish: Node3D, player: Node3D) -> void:
+	"""Called when a fish spawns - set up fishing icon and timer"""
+	print("🎣 Fish spawned - fishing available for 30 seconds")
+
+	# Tell player about the fish
+	player.set_nearby_fish(fish)
+
+	# Start 30-second timer for fishing availability
+	var timer = Timer.new()
+	timer.wait_time = 30.0
+	timer.one_shot = true
+	add_child(timer)
+
+	timer.timeout.connect(func():
+		print("⏰ Fish despawn - fishing window closed")
+		# Despawn fish if still exists
+		if fish and is_instance_valid(fish):
+			fish.queue_free()
+		# Clear player's nearby fish reference
+		player.clear_nearby_fish()
+		timer.queue_free()
+	)
+
+	timer.start()

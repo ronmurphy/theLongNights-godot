@@ -57,9 +57,10 @@ func _process(delta: float):
 	if _water_check_timer >= WATER_CHECK_INTERVAL:
 		_water_check_timer = 0.0
 		if not _is_in_water():
-			# Out of water - despawn quietly
-			queue_free()
-			return
+			# Out of water - despawn quietly (unless marked for fishing)
+			if not has_meta("fishing_available"):
+				queue_free()
+				return
 
 	match _state:
 		State.SWIMMING:

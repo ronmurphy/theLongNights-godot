@@ -27,6 +27,9 @@ func _ready() -> void:
 	# Register commands
 	_register_commands()
 
+	# Register fishing command (declared later in file)
+	commands["fish"] = _cmd_fish
+
 	# Start hidden
 	visible = false
 
@@ -1657,3 +1660,89 @@ func _cmd_photo(_args: Array) -> void:
 	add_output("  [color=white]Q/E[/color] - Zoom in/out")
 	add_output("  [color=white]F5[/color] - Take screenshot")
 	add_output("  [color=white]Esc or P[/color] - Exit photo mode")
+
+
+func _cmd_fish(_args: Array) -> void:
+	"""Spawn a fish in nearby water for testing fishing minigame"""
+	# Get player
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		add_output("[color=red]Error: Player not found[/color]")
+		return
+
+	# Get terrain and voxel tool
+	var terrain = get_node_or_null("/root/Main/Game/VoxelTerrain")
+	if not terrain:
+		add_output("[color=red]Error: VoxelTerrain not found[/color]")
+		return
+
+	var vt = terrain.get_voxel_tool()
+	vt.set_channel(VoxelBuffer.CHANNEL_TYPE)
+
+	# Get blocks registry
+	var blocks = get_node_or_null("/root/Main/Game/Blocks")
+	if not blocks:
+		add_output("[color=red]Error: Blocks not found[/color]")
+		return
+
+	var water_block = blocks.get_block_by_name("water")
+	if not water_block:
+		add_output("[color=red]Error: Water block not found[/color]")
+		return
+
+	var water_voxels = water_block.base_info.voxels
+	add_output("[color=yellow]Debug: Looking for water voxels: %s[/color]" % water_voxels)
+
+	# Search for water near player - check DIRECTLY AROUND PLAYER FIRST
+	var spawn_pos = Vector3.ZERO
+
+	# First, check directly at and near player position for water
+	add_output("[color=yellow]Debug: Checking around player at %s[/color]" % player.global_position)
+	for y_offset in range(-5, 5):
+		for x_offset in range(-5, 5):
+			for z_offset in range(-5, 5):
+				var check_pos = player.global_position + Vector3(x_offset, y_offset, z_offset)
+				var voxel_pos = check_pos.floor()
+				var voxel_id = vt.get_voxel(voxel_pos)
+
+				if voxel_id in water_voxels:
+					add_output("[color=cyan]Found water at %s (voxel_id: %d)[/color]" % [voxel_pos, voxel_id])
+					spawn_pos = Vector3(voxel_pos) + Vector3(0.5, 0.5, 0.5)
+					break
+			if spawn_pos != Vector3.ZERO:
+				break
+		if spawn_pos != Vector3.ZERO:
+			break
+
+	if spawn_pos == Vector3.ZERO:
+		add_output("[color=red]Error: No water found in 5-block radius of player[/color]")
+		return
+
+	# Spawn fish
+	const Fish = preload("res://blocky_game/entities/fish.gd")
+	var fish = Node3D.new()
+	fish.set_script(Fish)
+
+	var game = get_node_or_null("/root/Main/Game")
+	if game:
+		game.add_child(fish)
+		fish.global_position = spawn_pos
+
+		# Mark fish as "fishing_available" so it won't despawn
+		fish.set_meta("fishing_available", true)
+
+		# Tell player about the fish - avatar_interaction is a child node
+		var avatar_interaction = null
+		for child in player.get_children():
+			if child.get_script() and child.get_script().resource_path.contains("avatar_interaction"):
+				avatar_interaction = child
+				break
+
+		if avatar_interaction and avatar_interaction.has_method("set_nearby_fish"):
+			avatar_interaction.set_nearby_fish(fish)
+			add_output("[color=cyan]🐟 Fish spawned at %s[/color]" % spawn_pos)
+			add_output("[color=yellow]Press F to start fishing![/color]")
+		else:
+			add_output("[color=orange]⚠️ Fish spawned but couldn't register with player[/color]")
+	else:
+		add_output("[color=red]Error: Game node not found[/color]")

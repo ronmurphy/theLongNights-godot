@@ -55,6 +55,9 @@ var _torch_light : OmniLight3D = null
 var _current_held_item_id := -1
 var _portal_compass_modal_open := false  # Track if Portal Compass modal is open
 var _cooking_modal_open := false  # Track if Cooking modal is open
+var _fishing_mode := false  # Track if player is fishing (disables movement)
+var _active_fishing_minigame: FishingMinigame = null  # Reference to active fishing minigame
+var _nearby_fish: Node3D = null  # Reference to nearby fish for fishing
 
 # Block breaking system
 const BASE_BLOCK_HARDNESS = 100.0  # Base time to break a block
@@ -1251,8 +1254,16 @@ func _unhandled_input(event: InputEvent):
 
 	elif event is InputEventKey:
 		if event.pressed and not ui_open:
+			# Check for F key - Start fishing
+			if event.keycode == KEY_F:
+				_try_start_fishing()
+				get_viewport().set_input_as_handled()
+			# Check for ESC key while fishing - Cancel fishing
+			elif event.keycode == KEY_ESCAPE and _fishing_mode:
+				_cancel_fishing()
+				get_viewport().set_input_as_handled()
 			# Structure placement mode controls
-			if _placement_mode:
+			elif _placement_mode:
 				if event.keycode == KEY_R:
 					# Rotate structure
 					_placement_rotation_y = (_placement_rotation_y + 90) % 360
@@ -3147,3 +3158,60 @@ func _spawn_undervoid_beacon_light(block_pos: Vector3):
 		var lamp_manager = get_node_or_null("/root/LampManager")
 		if lamp_manager:
 			lamp_manager.register_lamp(block_pos, "purple")
+
+
+# ============================================================================
+# FISHING SYSTEM
+# ============================================================================
+
+func _try_start_fishing() -> void:
+	"""Attempt to start fishing if fish is nearby"""
+	# Check if we have a fish available and hotbar item is active
+	print("🎣 _try_start_fishing called - _nearby_fish: %s" % _nearby_fish)
+	if _nearby_fish:
+		print("  - is_instance_valid: %s" % is_instance_valid(_nearby_fish))
+
+	if not _nearby_fish or not is_instance_valid(_nearby_fish):
+		print("🎣 No fish available nearby")
+		return
+
+	# Get the player node (owner of this script)
+	var player_node = get_owner()
+	if not player_node:
+		print("⚠️ Could not find player node")
+		return
+
+	# Start the fishing minigame
+	var fishing_minigame = FishingMinigame.new()
+	_active_fishing_minigame = fishing_minigame
+	get_tree().root.add_child(fishing_minigame)
+
+	# Connect signals
+	fishing_minigame.fishing_ended.connect(_on_fishing_ended)
+
+	# Start fishing
+	fishing_minigame.start_fishing(player_node, _nearby_fish, null)
+
+func _cancel_fishing() -> void:
+	"""Cancel fishing via ESC key"""
+	if _active_fishing_minigame and is_instance_valid(_active_fishing_minigame):
+		_active_fishing_minigame.escape_fishing()
+
+func _on_fishing_ended(caught: bool) -> void:
+	"""Called when fishing minigame ends"""
+	_active_fishing_minigame = null
+	_nearby_fish = null
+
+func _set_fishing_mode(enabled: bool) -> void:
+	"""Enable/disable fishing mode (disables movement)"""
+	_fishing_mode = enabled
+
+func set_nearby_fish(fish: Node3D) -> void:
+	"""Called by animal spawner to set nearby fish"""
+	print("🎣 set_nearby_fish called with: %s" % fish)
+	_nearby_fish = fish
+	print("  - _nearby_fish is now: %s" % _nearby_fish)
+
+func clear_nearby_fish() -> void:
+	"""Called when fish is no longer available"""
+	_nearby_fish = null
