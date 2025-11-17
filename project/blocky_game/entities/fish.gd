@@ -80,8 +80,14 @@ func _handle_swimming(delta: float):
 		else:
 			_start_swimming()
 	else:
-		# Continue moving in current direction
-		global_position += _swim_direction * movement_speed * delta
+		# Check if next move would leave water - if so, pick new direction
+		var next_pos = global_position + _swim_direction * movement_speed * delta
+		if not _is_position_in_water(next_pos):
+			# Would leave water - pick new direction that stays in water
+			_start_swimming()
+		else:
+			# Continue moving in current direction
+			global_position += _swim_direction * movement_speed * delta
 
 
 func _handle_idle(delta: float):
@@ -97,12 +103,29 @@ func _handle_idle(delta: float):
 func _start_swimming():
 	_state = State.SWIMMING
 
-	# Random 3D direction (horizontal + vertical movement)
-	_swim_direction = Vector3(
-		randf_range(-1, 1),
-		randf_range(-0.3, 0.3),  # Less vertical movement
-		randf_range(-1, 1)
-	).normalized()
+	# Try to find a direction that stays in water (max 10 attempts)
+	var attempts = 0
+	var valid_direction = false
+
+	while attempts < 10 and not valid_direction:
+		# Random 3D direction (horizontal + vertical movement)
+		var test_direction = Vector3(
+			randf_range(-1, 1),
+			randf_range(-0.3, 0.3),  # Less vertical movement
+			randf_range(-1, 1)
+		).normalized()
+
+		# Test if this direction keeps us in water
+		var test_pos = global_position + test_direction * movement_speed * 0.5
+		if _is_position_in_water(test_pos):
+			_swim_direction = test_direction
+			valid_direction = true
+
+		attempts += 1
+
+	# If no valid direction found after 10 tries, just stay still
+	if not valid_direction:
+		_swim_direction = Vector3.ZERO
 
 	_swim_timer = randf_range(SWIM_INTERVAL_MIN, SWIM_INTERVAL_MAX)
 
@@ -114,6 +137,11 @@ func _start_idle():
 
 func _is_in_water() -> bool:
 	"""Check if fish is currently in water"""
+	return _is_position_in_water(global_position)
+
+
+func _is_position_in_water(pos: Vector3) -> bool:
+	"""Check if a specific position is in water"""
 	var terrain = get_node_or_null("/root/Main/Game/VoxelTerrain")
 	if not terrain:
 		return false
@@ -121,8 +149,8 @@ func _is_in_water() -> bool:
 	var vt = terrain.get_voxel_tool()
 	vt.set_channel(VoxelBuffer.CHANNEL_TYPE)
 
-	# Check voxel at fish position
-	var voxel_pos = global_position.floor()
+	# Check voxel at position
+	var voxel_pos = pos.floor()
 	var voxel_id = vt.get_voxel(voxel_pos)
 
 	# Get water block info

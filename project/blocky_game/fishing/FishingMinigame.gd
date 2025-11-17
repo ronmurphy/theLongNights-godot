@@ -26,7 +26,7 @@ var successes_needed: int = 3
 var successes: int = 0
 var failures: int = 0
 var target_zone_width: float = 0.4  # 40% of bar
-var bar_fill_speed: float = 1.0  # Multiplier for bar speed
+var bar_fill_speed: float = 0.125  # Start slow: ~8 seconds to fill
 
 # 3D fishing visuals
 var fishing_line_mesh: MeshInstance3D = null
@@ -52,7 +52,12 @@ func start_fishing(p_player: Node3D, p_fish: Node3D, p_spawner: Node) -> void:
 
 	print("🎣 Fishing started! Fish will bite in %.1f seconds..." % fish_bite_time)
 
-	# Disable player movement - find avatar_interaction script
+	# Disable player input (prevents movement, jumping, etc)
+	if player and player.has_method("set_input_enabled"):
+		player.set_input_enabled(false)
+		print("  Disabled player input for fishing")
+
+	# Set fishing mode in avatar_interaction
 	var avatar_interaction = null
 	for child in player.get_children():
 		if child.get_script() and child.get_script().resource_path.contains("avatar_interaction"):
@@ -124,7 +129,12 @@ func _on_attempt_completed(success: bool) -> void:
 
 		# Shrink target zone for next attempt
 		target_zone_width = max(0.15, target_zone_width - 0.1)
-		bar_fill_speed += 0.3
+
+		# Speed progression: 8s -> 5s -> 2.5s
+		if successes == 1:
+			bar_fill_speed = 0.2  # 5 seconds to fill
+		elif successes >= 2:
+			bar_fill_speed = 0.4  # 2.5 seconds to fill
 
 		# Check if we won
 		if successes >= successes_needed:
@@ -157,7 +167,12 @@ func _finish_fishing(caught: bool) -> void:
 
 	is_fishing = false
 
-	# Re-enable player movement - find avatar_interaction script
+	# Re-enable player input
+	if player and player.has_method("set_input_enabled"):
+		player.set_input_enabled(true)
+		print("  Re-enabled player input after fishing")
+
+	# Disable fishing mode in avatar_interaction
 	var avatar_interaction = null
 	for child in player.get_children():
 		if child.get_script() and child.get_script().resource_path.contains("avatar_interaction"):
@@ -261,14 +276,46 @@ func _play_escape_sound() -> void:
 
 func _give_fish_to_player() -> void:
 	"""Add caught fish to player inventory"""
-	# Fish item ID is 26 (from fish.gd _drop_loot)
+	# Fish item ID is 26
 	const FISH_ITEM_ID = 26
 
-	if player.has_method("_add_item_to_inventory"):
-		player._add_item_to_inventory(FISH_ITEM_ID, 1)
-		print("🐟 Added fish to inventory")
-	else:
-		print("⚠️ Could not add fish to inventory")
+	# Get player's inventory
+	var inventory = player.get_node_or_null("Inventory")
+	if not inventory:
+		print("⚠️ Could not find inventory")
+		return
+
+	# Try to add fish to existing stack or empty slot
+	var added = false
+	for i in range(inventory._slots.size()):
+		var slot = inventory._slots[i]
+
+		# Add to existing fish stack
+		if slot != null and slot.type == 1 and slot.id == FISH_ITEM_ID:
+			if slot.count < 99:  # Max stack size
+				slot.count += 1
+				added = true
+				inventory._update_views()
+				print("🐟 Added fish to stack (slot %d, total: %d)" % [i, slot.count])
+				break
+
+		# Add to empty slot
+		if slot == null:
+			# Create item using InventoryItem (like GameConsole does)
+			const InventoryItem = preload("res://blocky_game/player/inventory_item.gd")
+			var item = InventoryItem.new()
+			item.id = FISH_ITEM_ID
+			item.type = InventoryItem.TYPE_ITEM
+			item.count = 1
+
+			inventory._slots[i] = item
+			added = true
+			inventory._update_views()
+			print("🐟 Added fish to inventory (slot %d)" % i)
+			break
+
+	if not added:
+		print("⚠️ Inventory full - fish not added")
 
 func _remove_fish_icon_from_ui() -> void:
 	"""Remove fish icon from UI"""

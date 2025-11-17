@@ -1226,7 +1226,7 @@ func _unhandled_input(event: InputEvent):
 	var terrain_mapper = get_node_or_null("/root/Main/Game/TerrainMapper")
 	var terrain_mapper_open = terrain_mapper != null and terrain_mapper.is_visible
 
-	var ui_open = console_open or terrain_mapper_open or _portal_compass_modal_open or _cooking_modal_open
+	var ui_open = console_open or terrain_mapper_open or _portal_compass_modal_open or _cooking_modal_open or _fishing_mode
 
 	if event is InputEventMouseButton:
 		match event.button_index:

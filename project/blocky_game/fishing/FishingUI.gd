@@ -1,4 +1,4 @@
-extends Control
+extends CanvasLayer
 class_name FishingUI
 
 ## FishingUI - Bar filling minigame interface
@@ -21,7 +21,7 @@ var is_filling: bool = false
 var current_attempt_active: bool = false
 
 # UI References
-var bar_container: PanelContainer = null
+var bar_container: Panel = null
 var bar_progress: ProgressBar = null
 var target_zone_visual: Control = null
 var status_label: Label = null
@@ -42,73 +42,102 @@ func setup(p_attempt: int, p_max_attempts: int, p_successes_needed: int, p_curre
 
 func _build_ui() -> void:
 	"""Create the fishing minigame UI"""
-	# Root container
+	# Root container - use absolute positioning (much simpler!)
 	var root = VBoxContainer.new()
-	root.custom_minimum_size = Vector2(600, 200)
-	root.anchor_left = 0.5
-	root.anchor_top = 0.5
-	root.anchor_right = 0.5
-	root.anchor_bottom = 0.5
-	root.offset_left = -300
-	root.offset_top = -100
+	root.custom_minimum_size = Vector2(900, 350)
+
+	# Get viewport size for centering
+	var viewport_size = get_viewport().get_visible_rect().size
+	var x = (viewport_size.x - 900) / 2.0
+	var y = (viewport_size.y - 350) / 2.0
+
+	root.position = Vector2(x, y)
+	root.size = Vector2(900, 350)
+
 	add_child(root)
 
-	# Title
+	# Add background panel for visibility
+	var bg_panel = Panel.new()
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.1, 0.1, 0.1, 0.9)  # Dark semi-transparent background
+	bg_style.border_width_left = 3
+	bg_style.border_width_right = 3
+	bg_style.border_width_top = 3
+	bg_style.border_width_bottom = 3
+	bg_style.border_color = Color(0.3, 0.6, 0.8, 1.0)  # Blue border
+	bg_panel.add_theme_stylebox_override("panel", bg_style)
+	root.add_child(bg_panel)
+	root.move_child(bg_panel, 0)  # Move to back
+
+	# Title - bigger and bolder
 	var title = Label.new()
-	title.text = "FISHING MINIGAME"
-	title.add_theme_font_size_override("font_size", 24)
+	title.text = "🎣 FISHING MINIGAME 🎣"
+	title.add_theme_font_size_override("font_size", 32)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(title)
 
-	# Attempt counter
+	print("🎣 Fishing UI created at bottom-center!")
+
+	# Attempt counter - larger text
 	attempt_label = Label.new()
 	attempt_label.text = "Attempt: %d / %d | Success: %d / %d" % [attempt + 1, max_attempts, current_successes, successes_needed]
-	attempt_label.add_theme_font_size_override("font_size", 14)
+	attempt_label.add_theme_font_size_override("font_size", 20)
 	attempt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(attempt_label)
 
 	# Spacer
 	var spacer1 = Control.new()
-	spacer1.custom_minimum_size = Vector2(0, 10)
+	spacer1.custom_minimum_size = Vector2(0, 20)
 	root.add_child(spacer1)
 
-	# Bar container
-	bar_container = PanelContainer.new()
-	bar_container.custom_minimum_size = Vector2(500, 80)
-	root.add_child(bar_container)
+	# Bar container - uses MarginContainer for proper layering
+	var bar_margin = MarginContainer.new()
+	bar_margin.custom_minimum_size = Vector2(800, 120)
+	root.add_child(bar_margin)
 
-	var bar_bg = ColorRect.new()
-	bar_bg.color = Color(0.2, 0.2, 0.2, 0.8)
-	bar_container.add_child(bar_bg)
+	# Panel background
+	bar_container = Panel.new()
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.15, 0.15, 0.15, 0.95)
+	panel_style.border_color = Color(0.4, 0.4, 0.4)
+	panel_style.set_border_width_all(2)
+	bar_container.add_theme_stylebox_override("panel", panel_style)
+	bar_margin.add_child(bar_container)
 
-	# Progress bar (the filling bar)
+	# Progress bar (the filling bar) - properly sized
 	bar_progress = ProgressBar.new()
 	bar_progress.min_value = 0.0
 	bar_progress.max_value = 1.0
 	bar_progress.value = 0.0
-	bar_progress.custom_minimum_size = Vector2(500, 50)
+	bar_progress.custom_minimum_size = Vector2(800, 120)
 	bar_progress.show_percentage = false
-	bar_container.add_child(bar_progress)
+	bar_progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar_progress.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	# Style the bar
+	# Style the bar - bright cyan/blue for better visibility
 	var bar_theme = Theme.new()
-	var bar_style = StyleBoxFlat.new()
-	bar_style.bg_color = Color(0.2, 0.8, 0.2, 0.8)  # Green fill
-	bar_theme.set_stylebox("fill", "ProgressBar", bar_style)
+	var bar_bg_style = StyleBoxFlat.new()
+	bar_bg_style.bg_color = Color(0.2, 0.2, 0.2, 1.0)
+	var bar_fill_style = StyleBoxFlat.new()
+	bar_fill_style.bg_color = Color(0.1, 0.8, 1.0, 1.0)  # Bright cyan fill
+	bar_theme.set_stylebox("background", "ProgressBar", bar_bg_style)
+	bar_theme.set_stylebox("fill", "ProgressBar", bar_fill_style)
 	bar_progress.theme = bar_theme
+	bar_container.add_child(bar_progress)
 
 	# Target zone visual (overlay showing the target area)
 	target_zone_visual = Control.new()
-	target_zone_visual.custom_minimum_size = Vector2(500, 50)
+	target_zone_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	target_zone_visual.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bar_container.add_child(target_zone_visual)
 	target_zone_visual.draw.connect(_draw_target_zone)
 
-	# Status label
+	# Status label - larger and more visible
 	status_label = Label.new()
-	status_label.text = "Press SPACEBAR when the bar reaches the target zone!"
-	status_label.add_theme_font_size_override("font_size", 12)
+	status_label.text = "Press SPACEBAR when bar is INSIDE the BIG GREEN AREA!"
+	status_label.add_theme_font_size_override("font_size", 18)
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	status_label.custom_minimum_size = Vector2(500, 0)
+	status_label.custom_minimum_size = Vector2(800, 0)
 	status_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	root.add_child(status_label)
 
@@ -117,13 +146,13 @@ func _build_ui() -> void:
 	spacer2.custom_minimum_size = Vector2(0, 10)
 	root.add_child(spacer2)
 
-	# Instructions
+	# Instructions - larger text
 	var instructions = Label.new()
 	instructions.text = "Miss 3 times = Game Over | Get %d successes to catch the fish!" % successes_needed
-	instructions.add_theme_font_size_override("font_size", 11)
+	instructions.add_theme_font_size_override("font_size", 16)
 	instructions.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	instructions.modulate = Color(0.8, 0.8, 0.8)
-	instructions.custom_minimum_size = Vector2(500, 0)
+	instructions.modulate = Color(0.9, 0.9, 0.9)
+	instructions.custom_minimum_size = Vector2(800, 0)
 	root.add_child(instructions)
 
 func start_attempt(p_bar_fill_speed: float) -> void:
@@ -137,7 +166,7 @@ func start_attempt(p_bar_fill_speed: float) -> void:
 	# Randomize target zone position in the bar (0.0 to 1.0 - target_zone_width)
 	_randomize_target_zone()
 
-	status_label.text = "Press SPACEBAR when the bar reaches the target zone!"
+	status_label.text = "Press SPACEBAR when bar is INSIDE the BIG GREEN AREA!"
 	target_zone_visual.queue_redraw()
 
 func _process(delta: float) -> void:
@@ -187,15 +216,15 @@ func _draw_target_zone() -> void:
 	var zone_start = target_start * bar_width
 	var zone_width = (target_end - target_start) * bar_width
 
-	# Draw semi-transparent green rectangle for target zone
+	# Draw brighter, more visible green rectangle for target zone
 	target_zone_visual.draw_rect(
 		Rect2(zone_start, 0, zone_width, target_zone_visual.size.y),
-		Color(0, 1, 0, 0.3)
+		Color(0.2, 1.0, 0.2, 0.5)  # Brighter green, more opaque
 	)
 
-	# Draw border
-	target_zone_visual.draw_line(Vector2(zone_start, 0), Vector2(zone_start, target_zone_visual.size.y), Color(0, 1, 0, 0.8), 2.0)
-	target_zone_visual.draw_line(Vector2(zone_start + zone_width, 0), Vector2(zone_start + zone_width, target_zone_visual.size.y), Color(0, 1, 0, 0.8), 2.0)
+	# Draw thicker, brighter borders
+	target_zone_visual.draw_line(Vector2(zone_start, 0), Vector2(zone_start, target_zone_visual.size.y), Color(0, 1, 0, 1.0), 4.0)
+	target_zone_visual.draw_line(Vector2(zone_start + zone_width, 0), Vector2(zone_start + zone_width, target_zone_visual.size.y), Color(0, 1, 0, 1.0), 4.0)
 
 func _check_success() -> void:
 	"""Check if spacebar was pressed in the target zone"""
