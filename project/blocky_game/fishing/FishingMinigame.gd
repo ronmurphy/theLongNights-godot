@@ -15,7 +15,7 @@ var fish_spawner: Node = null
 # Fishing state
 var is_fishing: bool = false
 var wait_timer: float = 0.0
-var wait_duration: float = 30.0
+var wait_duration: float = 10.0 # was 30
 var fish_bite_time: float = -1.0  # When fish will bite (-1 = not yet)
 var fishing_ui: Node = null
 
@@ -26,7 +26,7 @@ var successes_needed: int = 3
 var successes: int = 0
 var failures: int = 0
 var target_zone_width: float = 0.4  # 40% of bar
-var bar_fill_speed: float = 0.125  # Start slow: ~8 seconds to fill
+var bar_fill_speed: float = 0.8  # Start slow: ~8 seconds to fill -> 0.125
 
 # 3D fishing visuals
 var fishing_line_mesh: MeshInstance3D = null
@@ -132,9 +132,9 @@ func _on_attempt_completed(success: bool) -> void:
 
 		# Speed progression: 8s -> 5s -> 2.5s
 		if successes == 1:
-			bar_fill_speed = 0.2  # 5 seconds to fill
+			bar_fill_speed = 0.6  # 5 seconds to fill -> 0.2
 		elif successes >= 2:
-			bar_fill_speed = 0.4  # 2.5 seconds to fill
+			bar_fill_speed = 0.4  # 2.5 seconds to fill = 0.4
 
 		# Check if we won
 		if successes >= successes_needed:
