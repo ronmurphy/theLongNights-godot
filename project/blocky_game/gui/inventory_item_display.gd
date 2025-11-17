@@ -11,6 +11,10 @@ var _count_label : Label = null
 var _skyshard_label : Label = null  # Skyshard counter (bottom-left, light blue)
 var _power_badge : Label = null  # Power type badge (top-left, for harmonized items)
 
+# Enchantment outline shader
+var _enchant_shader : Shader = preload("res://blocky_game/shaders/item_enchant_outline.gdshader")
+var _shader_material : ShaderMaterial = null
+
 
 func _ready():
 	# Create count label for stackable items
@@ -72,6 +76,8 @@ func set_item(data: InventoryItem):
 			_skyshard_label.visible = false
 		if _power_badge:
 			_power_badge.visible = false
+		# Remove outline for empty slots
+		_apply_enchant_outline(Color.TRANSPARENT)
 
 	elif data.type == InventoryItem.TYPE_BLOCK:
 		var block := _block_types.get_block(data.id)
@@ -101,6 +107,9 @@ func set_item(data: InventoryItem):
 			_skyshard_label.visible = false
 		if _power_badge:
 			_power_badge.visible = false
+
+		# Blocks don't get enchantment outlines
+		_apply_enchant_outline(Color.TRANSPARENT)
 
 	elif data.type == InventoryItem.TYPE_ITEM:
 		var item := _item_db.get_item(data.id)
@@ -219,3 +228,49 @@ func _get_power_display_name(power_id: String) -> String:
 func _is_equip_power(power_name: String) -> bool:
 	"""Check if power is an EQUIP type (passive powers)"""
 	return power_name in ["stone_skin", "moon_jump", "flame_aura", "glide", "return"]
+
+
+func _get_enchant_outline_color(all_powers: Array) -> Color:
+	"""Determine outline color based on power types"""
+	if all_powers.is_empty():
+		return Color.TRANSPARENT
+
+	# Count power types
+	var hotbar_count = 0
+	var equip_count = 0
+	for power in all_powers:
+		if _is_equip_power(power):
+			equip_count += 1
+		else:
+			hotbar_count += 1
+
+	# Return appropriate color
+	if hotbar_count > 0 and equip_count > 0:
+		# Mixed powers - cyan/electric blue
+		return Color(0.0, 0.8, 1.0, 1.0)
+	elif hotbar_count > 0:
+		# Hotbar powers only - purple/magenta
+		return Color(0.8, 0.2, 1.0, 1.0)
+	else:
+		# Equip powers only - gold/yellow
+		return Color(1.0, 0.85, 0.0, 1.0)
+
+
+func _apply_enchant_outline(outline_color: Color) -> void:
+	"""Apply or remove enchantment outline shader"""
+	if outline_color.a > 0.0:
+		# Create shader material if needed
+		if _shader_material == null:
+			_shader_material = ShaderMaterial.new()
+			_shader_material.shader = _enchant_shader
+
+		# Set shader parameters
+		_shader_material.set_shader_parameter("outline_width", 2.0)
+		_shader_material.set_shader_parameter("outline_color", outline_color)
+		_shader_material.set_shader_parameter("outline_alpha", 0.8)
+
+		# Apply shader
+		material = _shader_material
+	else:
+		# Remove shader
+		material = null
