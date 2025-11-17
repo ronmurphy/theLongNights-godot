@@ -6,7 +6,8 @@
       "Bash(/tmp/terrain_476744b.gd)",
       "Bash(nul)",
       "Bash(find:*)",
-      "Bash(godot --script res://blocky_game/long_nights/GameConsole.gd -c 2:*)"
+      "Bash(godot --script res://blocky_game/long_nights/GameConsole.gd -c 2:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []

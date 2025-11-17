@@ -133,28 +133,28 @@
           "speaker": "npc",
           "speaker_display": "Zara",
           "text": "Greetings, traveler. I am Zara, Keeper of the Ruins.",
-          "portrait_left": "res://assets/art/npc_sprites/elf_female.png",
+          "portrait_left": "res://assets/art/npc_sprites/zara.png",
           "delay": 2000
         },
         {
           "speaker": "npc",
           "speaker_display": "Zara",
           "text": "I sense you are new to these lands. The ruins can be treacherous, and you may find yourself in dangerous places.",
-          "portrait_left": "res://assets/art/npc_sprites/elf_female.png",
+          "portrait_left": "res://assets/art/npc_sprites/zara.png",
           "delay": 2500
         },
         {
           "speaker": "npc",
           "speaker_display": "Zara",
           "text": "Please, take this Keeper's Charm. It is a gift from the ancient keepers.",
-          "portrait_left": "res://assets/art/npc_sprites/elf_female.png",
+          "portrait_left": "res://assets/art/npc_sprites/zara.png",
           "delay": 2500
         },
         {
           "speaker": "npc",
           "speaker_display": "Zara",
           "text": "If you ever find yourself in danger or somewhere inhospitable, hold the charm and left-click. It will return you safely to your home base.",
-          "portrait_left": "res://assets/art/npc_sprites/elf_female.png",
+          "portrait_left": "res://assets/art/npc_sprites/zara.png",
           "delay": 0
         }
       ]
