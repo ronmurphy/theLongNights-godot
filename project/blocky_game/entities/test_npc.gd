@@ -157,21 +157,27 @@ func _create_sprite(_texture_path: String = "", pixel_size: float = 0.004) -> Sp
 	_sprite.position = Vector3(0, 1.0, 0)  # Raise sprite to show full character
 	
 	# Build sprite paths with priority:
-	# 1. Custom named sprites (Michelle.png, Daniels.png, Mahan.png)
+	# 1. Custom named sprites (Michelle.png, Daniels.png, Mahan.png, zara.png)
 	# 2. Race/gender sprites in npc_sprites folder
 	# 3. Fallback to player_avatars folder
 	var custom_front = "res://assets/art/npc_sprites/%s.png" % npc_display_name
 	var custom_back = "res://assets/art/npc_sprites/%s_back.png" % npc_display_name
+	var custom_front_lower = "res://assets/art/npc_sprites/%s.png" % npc_display_name.to_lower()
+	var custom_back_lower = "res://assets/art/npc_sprites/%s_back.png" % npc_display_name.to_lower()
 	var npc_front = "res://assets/art/npc_sprites/%s_%s.png" % [npc_race, npc_gender]
 	var npc_back = "res://assets/art/npc_sprites/%s_%s_back.png" % [npc_race, npc_gender]
 	var fallback_front = "res://assets/art/player_avatars/%s_%s.png" % [npc_race, npc_gender]
 	var fallback_back = "res://assets/art/player_avatars/%s_%s_back.png" % [npc_race, npc_gender]
 
-	# Choose sprite paths (prioritize custom named sprites)
+	# Choose sprite paths (prioritize custom named sprites, check both capitalized and lowercase)
 	if ResourceLoader.exists(custom_front):
 		_front_sprite_path = custom_front
 		_back_sprite_path = custom_back
 		print("TestNPC: Using custom sprite for %s" % npc_display_name)
+	elif ResourceLoader.exists(custom_front_lower):
+		_front_sprite_path = custom_front_lower
+		_back_sprite_path = custom_back_lower
+		print("TestNPC: Using custom lowercase sprite for %s" % npc_display_name)
 	elif ResourceLoader.exists(npc_front):
 		_front_sprite_path = npc_front
 		_back_sprite_path = npc_back
@@ -299,10 +305,52 @@ func _process(delta):
 
 
 func _pick_new_wander_direction():
-	"""Pick a random direction to wander"""
+	"""Pick a random direction to wander - with edge detection"""
+	# Pick a random direction
 	var angle = randf() * TAU
-	_wander_direction = Vector3(cos(angle), 0, sin(angle)).normalized()
+	var test_direction = Vector3(cos(angle), 0, sin(angle)).normalized()
+
+	# Only do edge check if we might be near an edge (optimization + less strict)
+	# Check 4 blocks ahead to give plenty of warning
+	if not _is_ground_ahead(test_direction, 4.0):
+		# No ground ahead - try to find a safer direction
+		# But only try a few times, then give up and accept any direction
+		for attempt in range(3):
+			angle = randf() * TAU
+			test_direction = Vector3(cos(angle), 0, sin(angle)).normalized()
+
+			if _is_ground_ahead(test_direction, 4.0):
+				# Found a safe direction!
+				break
+
+	# Use whatever direction we ended up with (safe or not - NPCs can handle it)
+	_wander_direction = test_direction
 	_wander_duration = randf_range(2.0, 5.0)
+
+
+func _is_ground_ahead(direction: Vector3, distance: float) -> bool:
+	"""Check if there's ground ahead in the given direction (prevent falling off edges)"""
+	var check_pos = global_position + direction * distance
+
+	# Use VoxelTool to check if there's ground (more reliable for voxel terrain)
+	var terrain = get_tree().root.get_node_or_null("Main/Game/VoxelTerrain")
+	if not terrain:
+		return true  # If we can't find terrain, assume it's safe (fail-open)
+
+	var voxel_tool = terrain.get_voxel_tool()
+	if not voxel_tool:
+		return true  # Fail-open
+
+	# Check a few blocks down from the test position
+	var test_pos_i = Vector3i(check_pos)
+	for y_offset in range(5):
+		var check_voxel = Vector3i(test_pos_i.x, test_pos_i.y - y_offset, test_pos_i.z)
+		var voxel_id = voxel_tool.get_voxel(check_voxel)
+		if voxel_id != 0:  # Found solid ground
+			return true
+
+	# No ground found within 5 blocks down - probably an edge!
+	return false
 
 
 func _update_sprite_direction() -> void:

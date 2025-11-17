@@ -80,6 +80,12 @@ const RANGED_ITEM_IDS = {
 # Creative mode toggle
 var _creative_mode := false
 
+# Structure placement mode
+var _placement_mode := false
+var _placement_blueprint: StructureBlueprintLibrary.StructureBlueprint = null
+var _placement_rotation_y := 0  # 0, 90, 180, 270 degrees
+var _placement_ghost_mesh: MeshInstance3D = null
+
 # Bento auto-eat system
 var _recently_ate := false  # Prevent eating entire bento instantly
 const AUTO_EAT_HP_THRESHOLD = 0.25  # Auto-eat at 25% HP
@@ -237,6 +243,32 @@ func _physics_process(_delta):
 		_entity_cache_timer = 0.0
 		_refresh_entity_cache()
 
+	# Handle structure placement mode (takes priority over normal block interaction)
+	if _placement_mode:
+		_update_ghost_preview_position()
+
+		# Handle placement confirmation (left-click)
+		if _action_place:
+			var origin := _head.get_global_transform().origin
+			var forward := -_head.get_transform().basis.z.normalized()
+			var hit_placement := _terrain_tool.raycast(origin, forward, 20)
+
+			if hit_placement:
+				var is_valid = _validate_placement_location(hit_placement.position)
+				if is_valid:
+					_place_structure_at_position(hit_placement.position)
+					_exit_placement_mode()
+				else:
+					print("❌ Cannot place structure here!")
+
+			_action_place = false
+
+		# Consume all actions in placement mode
+		_action_use = false
+		_action_use_held = false
+		_action_pick = false
+		return  # Skip normal block interaction
+
 	var hit := _get_pointed_voxel()
 	if hit != null:
 		_cursor.show()
@@ -268,7 +300,7 @@ func _physics_process(_delta):
 			_action_place = false  # Consume the right-click
 			return  # Don't process other interactions
 
-	# Check for teleport stone and chest interaction (before other block interactions)
+	# Check for teleport stone, chest, and blueprint block interaction (before other block interactions)
 	# Trigger on single click (not hold-to-mine)
 	if hit != null and _action_use:
 		var hit_raw_id := _terrain_tool.get_voxel(hit.position)
@@ -285,6 +317,18 @@ func _physics_process(_delta):
 				_handle_chest_interaction(hit.position)
 				_action_use = false
 				_action_use_held = false  # Prevent mining the block
+				return  # Don't process other interactions
+
+	# Check for RIGHT-CLICK on rune_marker (blueprint blocks)
+	if hit != null and _action_place:
+		var hit_raw_id := _terrain_tool.get_voxel(hit.position)
+		if hit_raw_id != 0:
+			var rm := _block_types.get_raw_mapping(hit_raw_id)
+			# Get rune_marker block ID dynamically
+			var rune_marker_block = _block_types.get_block_by_name("rune_marker")
+			if rune_marker_block and rm.block_id == rune_marker_block.base_info.id:
+				_handle_blueprint_block_interaction(hit.position)
+				_action_place = false
 				return  # Don't process other interactions
 
 	# Check for RIGHT-CLICK on teleport stone with compass equipped (homebase teleport)
@@ -334,6 +378,12 @@ func _physics_process(_delta):
 					if inv_item != null and inv_item.count > 0:
 						_place_single_block(pos, inv_item.id)
 						print("Place voxel at ", pos)
+
+						# Check if this is a rune_marker block - assign blueprint if player has any
+						var rune_marker_block = _block_types.get_block_by_name("rune_marker")
+						if rune_marker_block and inv_item.id == rune_marker_block.base_info.id:
+							_assign_blueprint_to_block(Vector3i(pos))
+
 						# Decrement block count in hotbar (but NOT in creative mode)
 						if not _creative_mode:
 							_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
@@ -1201,8 +1251,26 @@ func _unhandled_input(event: InputEvent):
 
 	elif event is InputEventKey:
 		if event.pressed and not ui_open:
+			# Structure placement mode controls
+			if _placement_mode:
+				if event.keycode == KEY_R:
+					# Rotate structure
+					_placement_rotation_y = (_placement_rotation_y + 90) % 360
+					var direction = ""
+					match _placement_rotation_y:
+						0: direction = "North (0°)"
+						90: direction = "East (90°)"
+						180: direction = "South (180°)"
+						270: direction = "West (270°)"
+					print("🔄 Rotated: %s" % direction)
+					get_viewport().set_input_as_handled()
+				elif event.keycode == KEY_ESCAPE:
+					# Cancel placement
+					_exit_placement_mode()
+					print("🚫 Placement cancelled - Blueprint block preserved")
+					get_viewport().set_input_as_handled()
 			# Check for CTRL+I - Debug block info
-			if event.ctrl_pressed and event.keycode == KEY_I:
+			elif event.ctrl_pressed and event.keycode == KEY_I:
 				_print_block_info()
 				get_viewport().set_input_as_handled()
 			# Check for CTRL+(1-6) - Eat food from bento box
@@ -1826,6 +1894,9 @@ func _create_materialization_particles(center_pos: Vector3) -> CPUParticles3D:
 var _opened_chests: Array[Vector3i] = []
 var _first_chest_opened := false  # Track if the special first chest has been opened
 
+# Blueprint block tracking - map world positions to blueprint names
+var _blueprint_block_positions: Dictionary = {}  # Vector3i -> blueprint_name
+
 # NPC interaction tracking
 var _current_interacting_npc: Node = null  # Track which NPC we're interacting with
 
@@ -1855,6 +1926,13 @@ func _handle_npc_interaction(npc: Node) -> void:
 
 	# Check if this NPC has a custom dialogue ID
 	var dialogue_id = npc.npc_dialogue_id
+
+	# Special handling for Zara - check if player has Keeper's Charm
+	if npc.npc_job == "ruinkeeper":
+		var has_charm = _player_has_keepers_charm()
+		if not has_charm:
+			# First meeting - use special dialogue
+			dialogue_id = "zara_keepers_charm"
 
 	# Try to trigger the dialogue
 	var triggered = dialogue_manager.trigger_dialogue(dialogue_id)
@@ -1942,11 +2020,17 @@ func _on_npc_dialogue_closed() -> void:
 			_open_food_shop(npc)
 
 		"ruinkeeper":
+			# Give Keeper's Charm if this was the first meeting
+			_give_keepers_charm_if_needed()
+
 			# Open compass modal for traveling to visited ruins
 			_show_portal_compass_modal(Vector3.ZERO, false)
 
 		"merchant":
 			_open_merchant_shop(npc)
+
+		"town_manager":
+			_open_town_manager_shop(npc)
 
 		"blacksmith":
 			_open_blacksmith_trade(npc)
@@ -2049,6 +2133,386 @@ func _open_food_shop(npc: Node) -> void:
 	print("[NPC] Food Shop opened! Trade food items")
 
 
+func _open_town_manager_shop(npc: Node) -> void:
+	"""Open Michelle's Town Manager Shop (fence upgrades + structure blueprints)"""
+	print("[NPC] Opening Michelle's Town Manager Shop...")
+
+	# Load and create town manager modal
+	var TownManagerModal = load("res://blocky_game/gui/TownManagerModal.gd")
+	var modal = TownManagerModal.new()
+
+	# Get game node
+	var game = get_node("/root/Main/Game")
+	game.add_child(modal)
+
+	# Connect signals
+	modal.structure_purchased.connect(_on_structure_purchased)
+	modal.fence_upgraded.connect(_on_fence_upgraded)
+	modal.first_blueprint_tutorial_needed.connect(_show_blueprint_tutorial)
+
+	print("[NPC] Town Manager Shop opened! Browse structures and upgrades")
+
+
+## ===== STRUCTURE PLACEMENT SYSTEM =====
+
+func _enter_placement_mode(blueprint: StructureBlueprintLibrary.StructureBlueprint) -> void:
+	"""Enter structure placement mode with ghost preview"""
+	_placement_mode = true
+	_placement_blueprint = blueprint
+	_placement_rotation_y = 0
+
+	# Hide normal block cursor while in placement mode
+	if _cursor:
+		_cursor.visible = false
+
+	# Create ghost preview mesh
+	_create_ghost_preview()
+
+	print("🏗️ Placement mode active for: %s" % blueprint.display_name)
+
+
+func _exit_placement_mode() -> void:
+	"""Exit placement mode and cleanup"""
+	# Check if this was cancelled (blueprint block still exists)
+	# If so, restore the blueprint availability
+	if has_meta("current_blueprint_block_pos"):
+		var block_pos = get_meta("current_blueprint_block_pos")
+
+		# Check if the blueprint block still exists (not yet placed)
+		if _blueprint_block_positions.has(block_pos):
+			var blueprint_name = _blueprint_block_positions[block_pos]
+
+			# Restore blueprint availability
+			var player = get_parent()
+			if player and player.has_meta("blueprint_blocks"):
+				var blueprint_data = player.get_meta("blueprint_blocks")
+				if blueprint_data.has(blueprint_name):
+					blueprint_data[blueprint_name].owned = true
+					print("♻️ Blueprint '%s' restored - block remains at %s" % [blueprint_name, block_pos])
+
+		# Clear the metadata
+		remove_meta("current_blueprint_block_pos")
+
+	_placement_mode = false
+	_placement_blueprint = null
+	_placement_rotation_y = 0
+
+	# Restore normal cursor
+	if _cursor:
+		_cursor.visible = true
+
+	# Destroy ghost mesh
+	if _placement_ghost_mesh:
+		_placement_ghost_mesh.queue_free()
+		_placement_ghost_mesh = null
+
+	print("🚫 Exited placement mode")
+
+
+func _create_ghost_preview() -> void:
+	"""Create a semi-transparent ghost mesh preview of the structure"""
+	if not _placement_blueprint:
+		return
+
+	# Load voxel library
+	var voxel_library = load("res://blocky_game/blocks/voxel_library.tres")
+
+	# Create voxel buffer
+	var size = _placement_blueprint.size
+	var voxels = VoxelBuffer.new()
+	voxels.create(size.x, size.y, size.z)
+	voxels.fill(0, VoxelBuffer.CHANNEL_TYPE)
+
+	# Place voxels from blueprint
+	for voxel_data in _placement_blueprint.blocks:
+		var pos: Vector3i = voxel_data.pos
+		var voxel_name: String = voxel_data.voxel_name
+
+		var voxel_id = voxel_library.get_model_index_from_resource_name(voxel_name)
+		if voxel_id == -1:
+			continue
+
+		voxels.set_voxel(voxel_id, pos.x, pos.y, pos.z, VoxelBuffer.CHANNEL_TYPE)
+
+	# Create mesher and generate mesh
+	var mesher = VoxelMesherBlocky.new()
+	mesher.set_library(voxel_library)
+
+	var materials = []
+	var generated_mesh = mesher.build_mesh(voxels, materials)
+
+	if generated_mesh:
+		# Create ghost mesh instance
+		_placement_ghost_mesh = MeshInstance3D.new()
+		_placement_ghost_mesh.mesh = generated_mesh
+		_placement_ghost_mesh.name = "StructurePlacementGhost"
+
+		# Apply materials with transparency
+		for i in range(materials.size()):
+			var ghost_material = StandardMaterial3D.new()
+			# Copy original material settings
+			var original_mat = materials[i]
+			if original_mat:
+				ghost_material.albedo_texture = original_mat.albedo_texture
+			# Make semi-transparent with green tint (valid placement color)
+			ghost_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			ghost_material.albedo_color = Color(0.5, 1.0, 0.5, 0.5)  # Green tint, 50% opacity
+			generated_mesh.surface_set_material(i, ghost_material)
+
+		# Add to terrain node
+		_terrain.add_child(_placement_ghost_mesh)
+		print("👻 Created ghost preview mesh")
+
+
+func _update_ghost_preview_position() -> void:
+	"""Update ghost preview position based on raycast"""
+	if not _placement_mode or not _placement_ghost_mesh or not _placement_blueprint:
+		return
+
+	# Raycast to find ground position
+	var origin := _head.get_global_transform().origin
+	var forward := -_head.get_transform().basis.z.normalized()
+	var hit := _terrain_tool.raycast(origin, forward, 20)
+
+	if hit:
+		# Position ghost at hit location
+		var pos = hit.position
+
+		# Apply rotation
+		var rotation_rad = deg_to_rad(_placement_rotation_y)
+		_placement_ghost_mesh.rotation.y = rotation_rad
+
+		# Set position (center the structure on the hit point)
+		# Calculate center offset based on rotation
+		var size_x = _placement_blueprint.size.x
+		var size_z = _placement_blueprint.size.z
+		if _placement_rotation_y == 90 or _placement_rotation_y == 270:
+			# Swap X and Z dimensions when rotated 90 or 270 degrees
+			var temp = size_x
+			size_x = size_z
+			size_z = temp
+
+		var center_offset = Vector3(
+			size_x / 2.0,
+			0,  # Don't offset Y
+			size_z / 2.0
+		)
+		_placement_ghost_mesh.position = Vector3(pos) - center_offset
+
+		# Validate placement and update ghost color
+		var is_valid = _validate_placement_location(pos)
+		_update_ghost_color(is_valid)
+
+		_placement_ghost_mesh.visible = true
+	else:
+		_placement_ghost_mesh.visible = false
+
+
+func _update_ghost_color(is_valid: bool) -> void:
+	"""Update ghost mesh color based on placement validity"""
+	if not _placement_ghost_mesh or not _placement_ghost_mesh.mesh:
+		return
+
+	var color = Color(0.5, 1.0, 0.5, 0.5) if is_valid else Color(1.0, 0.5, 0.5, 0.5)  # Green = valid, Red = invalid
+
+	# Update all materials
+	for i in range(_placement_ghost_mesh.mesh.get_surface_count()):
+		var mat = _placement_ghost_mesh.mesh.surface_get_material(i)
+		if mat and mat is StandardMaterial3D:
+			mat.albedo_color = color
+
+
+func _validate_placement_location(pos: Vector3) -> bool:
+	"""Check if structure can be placed at this location"""
+	if not _placement_blueprint:
+		return false
+
+	# TODO: Add more validation:
+	# - Check if area is within homebase
+	# - Check if ground is flat
+	# - Check if area is clear (no existing blocks in the way)
+
+	# For now, just allow placement anywhere
+	return true
+
+
+func _place_structure_at_position(pos: Vector3) -> void:
+	"""Actually place the structure voxels in the terrain"""
+	if not _placement_blueprint:
+		return
+
+	# FIRST: Remove the blueprint block BEFORE placing the structure
+	# This prevents leaving an empty block if the structure overlaps with the blueprint block
+	if has_meta("current_blueprint_block_pos"):
+		var block_pos = get_meta("current_blueprint_block_pos")
+
+		# Remove the blueprint block from the world
+		_terrain_tool.set_voxel(block_pos, 0)  # Set to AIR
+		print("🗑️ Removed blueprint block at %s" % block_pos)
+
+		# Remove the position mapping
+		if _blueprint_block_positions.has(block_pos):
+			_blueprint_block_positions.erase(block_pos)
+
+		# Clear the metadata
+		remove_meta("current_blueprint_block_pos")
+
+	# Load voxel library
+	var voxel_library = load("res://blocky_game/blocks/voxel_library.tres")
+
+	# Calculate center offset based on rotation
+	var size_x = _placement_blueprint.size.x
+	var size_z = _placement_blueprint.size.z
+	if _placement_rotation_y == 90 or _placement_rotation_y == 270:
+		# Swap X and Z dimensions when rotated 90 or 270 degrees
+		var temp = size_x
+		size_x = size_z
+		size_z = temp
+
+	var center_offset = Vector3i(
+		size_x / 2,
+		0,
+		size_z / 2
+	)
+
+	# Place each voxel
+	for voxel_data in _placement_blueprint.blocks:
+		var voxel_pos: Vector3i = voxel_data.pos
+		var voxel_name: String = voxel_data.voxel_name
+
+		# Get voxel ID
+		var voxel_id = voxel_library.get_model_index_from_resource_name(voxel_name)
+		if voxel_id == -1:
+			continue
+
+		# Apply rotation
+		var rotated_pos = _rotate_position_y(voxel_pos, _placement_rotation_y, _placement_blueprint.size)
+
+		# Calculate world position
+		var world_pos = Vector3i(pos) - center_offset + rotated_pos
+
+		# Place voxel in terrain
+		_terrain_tool.set_voxel(world_pos, voxel_id)
+
+	print("🏗️ Placed structure '%s' at %s" % [_placement_blueprint.display_name, pos])
+
+
+func _rotate_position_y(pos: Vector3i, degrees: int, size: Vector3i) -> Vector3i:
+	"""Rotate a position around Y axis by given degrees (0, 90, 180, 270)"""
+	var result = pos
+
+	match degrees:
+		90:
+			result = Vector3i(size.z - 1 - pos.z, pos.y, pos.x)
+		180:
+			result = Vector3i(size.x - 1 - pos.x, pos.y, size.z - 1 - pos.z)
+		270:
+			result = Vector3i(pos.z, pos.y, size.x - 1 - pos.x)
+
+	return result
+
+
+func _on_structure_purchased(blueprint_name: String) -> void:
+	"""Handle structure blueprint purchase"""
+	print("✅ Purchased structure blueprint: %s" % blueprint_name)
+
+	# Get blueprint
+	var blueprint = StructureBlueprintLibrary.get_blueprint(blueprint_name)
+	if not blueprint:
+		print("❌ Blueprint not found: %s" % blueprint_name)
+		return
+
+	# Deduct rust blocks from inventory
+	if _inventory and _inventory.has_method("spend_rust_blocks"):
+		_inventory.spend_rust_blocks(blueprint.rust_block_cost)
+		print("💰 Spent %d rust blocks" % blueprint.rust_block_cost)
+
+	# Enter structure placement mode
+	_enter_placement_mode(blueprint)
+	print("📐 Entered placement mode - Press R to rotate, Left-Click to place, Escape to cancel")
+
+
+func _on_fence_upgraded(full_price: bool, new_material_block_id: int) -> void:
+	"""Handle fence upgrade purchase"""
+	var cost = 400 if full_price else 200
+	print("✅ Fence upgrade requested! Cost: %d rust blocks (full_price: %s)" % [cost, full_price])
+
+	# Check if player can afford it
+	if _inventory and _inventory.has_method("get_rust_block_count"):
+		var rust_count = _inventory.get_rust_block_count()
+		if rust_count < cost:
+			print("❌ Not enough rust blocks! Need %d, have %d" % [cost, rust_count])
+			return
+
+	# Deduct rust blocks
+	if _inventory and _inventory.has_method("spend_rust_blocks"):
+		_inventory.spend_rust_blocks(cost)
+		print("💰 Spent %d rust blocks" % cost)
+
+	# Upgrade fence in HomeBaseManager
+	if HomeBaseManager.has_method("upgrade_fence"):
+		HomeBaseManager.upgrade_fence(full_price, new_material_block_id)
+		print("🛡️ Fence upgraded!")
+	else:
+		print("❌ HomeBaseManager.upgrade_fence() not found!")
+
+
+func _show_blueprint_tutorial() -> void:
+	"""Show Michelle's tutorial about blueprint blocks (one-time only)"""
+	# Wait a moment for the shop modal to close
+	await get_tree().create_timer(0.5).timeout
+
+	var DialogueManager = get_node_or_null("/root/DialogueManager")
+	if not DialogueManager:
+		push_error("DialogueManager not found!")
+		return
+
+	# Michelle's portrait (human female NPC sprite)
+	var michelle_portrait = "res://assets/art/npc_sprites/michelle.png"
+
+	# Create tutorial dialogue
+	var tutorial_dialogue = {
+		"messages": [
+			{
+				"speaker": "npc",
+				"speaker_display": "Michelle",
+				"text": "Great choice! I've added a Blueprint Block to your inventory. It's the glowing rune marker block.",
+				"portrait_left": michelle_portrait,
+				"portrait_right": "",
+				"delay": 0
+			},
+			{
+				"speaker": "npc",
+				"speaker_display": "Michelle",
+				"text": "Here's how it works: Place the blueprint block wherever you want to build. Then right-click it to enter placement mode.",
+				"portrait_left": michelle_portrait,
+				"portrait_right": "",
+				"delay": 0
+			},
+			{
+				"speaker": "npc",
+				"speaker_display": "Michelle",
+				"text": "In placement mode, press R to rotate the structure, left-click to confirm placement, or Escape to cancel. If you cancel, you can mine the block back and try again!",
+				"portrait_left": michelle_portrait,
+				"portrait_right": "",
+				"delay": 0
+			},
+			{
+				"speaker": "npc",
+				"speaker_display": "Michelle",
+				"text": "Good luck with your new building! Come back anytime if you want to expand your settlement.",
+				"portrait_left": michelle_portrait,
+				"portrait_right": "",
+				"delay": 0
+			}
+		]
+	}
+
+	# Show the dialogue
+	DialogueManager.trigger_dynamic_dialogue(tutorial_dialogue)
+	print("Blueprint tutorial shown from Michelle!")
+
+
 func _open_blacksmith_trade(npc: Node) -> void:
 	"""Open blacksmith trade UI (TODO)"""
 	print("[NPC] Blacksmith trade coming soon!")
@@ -2059,6 +2523,32 @@ func _open_companion_swap_dialog(npc: Node) -> void:
 	"""Open companion swap dialog (TODO)"""
 	print("[NPC] Companion swap coming soon!")
 	# TODO: Implement companion swap modal
+
+
+func _player_has_keepers_charm() -> bool:
+	"""Check if player has Keeper's Charm in inventory"""
+	const KEEPERS_CHARM_ID = 42
+
+	if not _inventory:
+		return false
+
+	for slot in _inventory._slots:
+		if slot != null and slot.type == slot.TYPE_ITEM and slot.id == KEEPERS_CHARM_ID:
+			return true
+	return false
+
+
+func _give_keepers_charm_if_needed() -> void:
+	"""Give Keeper's Charm to player (called after special dialogue)"""
+	const KEEPERS_CHARM_ID = 42
+
+	if _player_has_keepers_charm():
+		return  # Already has it
+
+	# Give the charm
+	_give_item_to_player(KEEPERS_CHARM_ID, 1)
+	print("✨ Received: Keeper's Charm!")
+	print("💡 Use this to return home when in danger")
 
 
 func _handle_chest_interaction(chest_pos: Vector3) -> void:
@@ -2197,6 +2687,74 @@ func _show_compass_tutorial() -> void:
 	# Show the dialogue
 	DialogueManager.trigger_dynamic_dialogue(dynamic_dialogue)
 	print("Compass tutorial shown!")
+
+
+func _assign_blueprint_to_block(block_pos: Vector3i) -> void:
+	"""Assign a blueprint to a newly placed rune_marker block"""
+	# Check if player has any purchased blueprints
+	var player = get_parent()
+	if not player or not player.has_meta("blueprint_blocks"):
+		print("No blueprints to assign to this rune_marker block")
+		return
+
+	var blueprint_data = player.get_meta("blueprint_blocks")
+	if blueprint_data.is_empty():
+		print("No blueprints to assign to this rune_marker block")
+		return
+
+	# Find first unassigned blueprint
+	for blueprint_name in blueprint_data.keys():
+		var data = blueprint_data[blueprint_name]
+		if data.owned:
+			# Assign this blueprint to the block position
+			_blueprint_block_positions[block_pos] = blueprint_name
+			# Mark blueprint as no longer available
+			data.owned = false
+			print("✅ Assigned blueprint '%s' to rune_marker at %s" % [data.display_name, block_pos])
+			print("💡 Right-click the blueprint block to build the structure!")
+			return
+
+	print("No blueprints available to assign")
+
+
+func _handle_blueprint_block_interaction(block_pos: Vector3) -> void:
+	"""Called when player right-clicks on a rune_marker (blueprint block)"""
+	var block_pos_i = Vector3i(block_pos)
+
+	# Check if this specific block has a blueprint assigned
+	if not _blueprint_block_positions.has(block_pos_i):
+		print("This rune_marker has no blueprint assigned - it's just a regular decorative block")
+		return
+
+	var blueprint_name = _blueprint_block_positions[block_pos_i]
+
+	# Get the blueprint and enter placement mode
+	_place_blueprint_structure(blueprint_name, block_pos, block_pos_i)
+
+
+func _place_blueprint_structure(blueprint_name: String, block_pos: Vector3, block_pos_i: Vector3i) -> void:
+	"""Enter placement mode for a blueprint structure"""
+	# Get the blueprint
+	var blueprint = StructureBlueprintLibrary.get_blueprint(blueprint_name)
+	if not blueprint:
+		print("❌ Blueprint not found: %s" % blueprint_name)
+		return
+
+	print("═══════════════════════════════════════════════")
+	print("📐 PLACEMENT MODE: %s" % blueprint.display_name)
+	print("═══════════════════════════════════════════════")
+	print("  [R]         - Rotate structure (90° turns)")
+	print("  [Left Click] - Confirm placement")
+	print("  [ESC]        - Cancel (keeps blueprint block)")
+	print("═══════════════════════════════════════════════")
+
+	# Store blueprint block position for cleanup after placement
+	# We'll remove it and the position mapping when structure is successfully placed
+	if not has_meta("current_blueprint_block_pos"):
+		set_meta("current_blueprint_block_pos", block_pos_i)
+
+	# Enter placement mode
+	_enter_placement_mode(blueprint)
 
 
 func _create_chest_open_particles(chest_pos: Vector3) -> void:

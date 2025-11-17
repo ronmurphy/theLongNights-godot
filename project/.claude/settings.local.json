@@ -3,7 +3,9 @@
     "allow": [
       "Bash(git checkout:*)",
       "Bash(/tmp/terrain_52194c2.gd)",
-      "Bash(/tmp/terrain_476744b.gd)"
+      "Bash(/tmp/terrain_476744b.gd)",
+      "Bash(nul)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

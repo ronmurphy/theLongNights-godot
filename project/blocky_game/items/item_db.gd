@@ -182,6 +182,10 @@ func _init():
 		"name": "spear",
 		"behavior": "spear.gd"
 	})
+	_create_item({
+		"name": "keepers_charm",
+		"behavior": "keepers_charm.gd"
+	})
 
 
 func get_item(id: int) -> Item:

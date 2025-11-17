@@ -197,7 +197,15 @@ func _activate_ruin(key: String):
 		terrain.add_child(light)
 		stone.light_node = light
 	
-	# Spawn ruin sphere
+	# Spawn ruin sphere - ENSURE ONLY ONE SPHERE EXISTS
+	# First, check for any orphaned sphere nodes and remove them
+	var existing_spheres = terrain.get_children().filter(func(child):
+		return child.name == "RuinSphere" and child.position.distance_to(ruin.sphere.center) < 1.0
+	)
+	for orphan in existing_spheres:
+		print("⚠️ Found orphaned sphere at ruin, removing: ", orphan)
+		orphan.queue_free()
+
 	if not ruin.sphere_node or not is_instance_valid(ruin.sphere_node):
 		var sphere_mesh_instance = MeshInstance3D.new()
 		sphere_mesh_instance.name = "RuinSphere"
@@ -230,7 +238,7 @@ func _activate_ruin(key: String):
 		var material = StandardMaterial3D.new()
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		material.cull_mode = BaseMaterial3D.CULL_BACK  # Only visible from outside - prevents color tinting when inside
 		material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 		# TEMP DEBUG: Increase opacity to make sphere visible
 		var debug_opacity = min(ruin.sphere.opacity * 3.0, 0.5)  # 3x opacity, max 50%

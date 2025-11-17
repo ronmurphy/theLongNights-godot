@@ -99,6 +99,7 @@ func load_world() -> bool:
 		if "player_position" in data and typeof(data["player_position"]) == TYPE_ARRAY:
 			var pos = data["player_position"]
 			_world_data["player_position"] = Vector3(pos[0], pos[1], pos[2])
+			print("📂 Loaded player position: %s" % _world_data["player_position"])
 		if "game_time_hours" in data:
 			_world_data["game_time_hours"] = data["game_time_hours"]
 		if "game_time_days" in data:

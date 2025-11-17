@@ -339,7 +339,7 @@ func _add_ruin_sphere(ruin_position: Vector3, ruin_data: RuinRegistry.RuinData, 
 	var material = StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED  # No lighting affects it
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED  # Visible from inside and outside
+	material.cull_mode = BaseMaterial3D.CULL_BACK  # Only visible from outside - prevents color tinting when inside
 	material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED  # Don't block other objects
 
 	# Determine color and opacity based on ruin type

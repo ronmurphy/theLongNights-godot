@@ -140,6 +140,9 @@ func _save_game() -> void:
 
 	if player != null:
 		WorldManager.set_player_position(player.global_position)
+		print("💾 Saving player position: %s" % player.global_position)
+	else:
+		print("⚠️ WARNING: Could not find player node for saving position!")
 
 	# Save world config
 	WorldManager.save_world()

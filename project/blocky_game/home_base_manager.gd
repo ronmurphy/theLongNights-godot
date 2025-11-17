@@ -13,6 +13,13 @@ var home_base_ruin_id: String = ""  # If set at a ruin (optional)
 var home_structure_node: Node3D = null
 var home_structure_tier: int = 0  # 0=cave, 1=tent, 2=shack, 3=cabin, 4=lodge
 
+# Fence upgrade system
+var fence_material_block_id: int = -1  # Block type used for fence (-1 = default planks)
+var fence_positions: Array[Vector3i] = []  # All fence block positions
+var fence_refund_available: bool = false  # Whether fence was purchased with full price
+var fence_min_corner: Vector3i = Vector3i.ZERO  # Fence bounding box
+var fence_max_corner: Vector3i = Vector3i.ZERO
+
 # Structure tier thresholds
 const TIER_THRESHOLDS = {
 	0: 0,     # Cave: 0-49 blocks
@@ -399,6 +406,11 @@ func _build_homebase_fence(ruin: RuinRegistry.RuinData) -> void:
 	var ground_y = ruin_base.y
 	var gap_size = 5  # Leave 5-block gap around entrances
 
+	# Store fence boundaries for upgrades
+	fence_min_corner = min_corner
+	fence_max_corner = max_corner
+	fence_positions.clear()  # Clear old positions
+
 	# Build fence on all 4 sides
 	for y_offset in range(5):  # 5 blocks tall (NPCs can step 2 blocks high)
 		var y = ground_y + y_offset
@@ -408,6 +420,7 @@ func _build_homebase_fence(ruin: RuinRegistry.RuinData) -> void:
 			var pos = Vector3i(x, y, min_corner.z)
 			if not _is_near_entrance(pos, entrance_positions, gap_size):
 				voxel_tool.set_voxel(pos, planks_voxel_id)
+				fence_positions.append(pos)
 				blocks_placed += 1
 
 		# South side (max Z)
@@ -415,6 +428,7 @@ func _build_homebase_fence(ruin: RuinRegistry.RuinData) -> void:
 			var pos = Vector3i(x, y, max_corner.z)
 			if not _is_near_entrance(pos, entrance_positions, gap_size):
 				voxel_tool.set_voxel(pos, planks_voxel_id)
+				fence_positions.append(pos)
 				blocks_placed += 1
 
 		# West side (min X) - skip corners to avoid overlap
@@ -422,6 +436,7 @@ func _build_homebase_fence(ruin: RuinRegistry.RuinData) -> void:
 			var pos = Vector3i(min_corner.x, y, z)
 			if not _is_near_entrance(pos, entrance_positions, gap_size):
 				voxel_tool.set_voxel(pos, planks_voxel_id)
+				fence_positions.append(pos)
 				blocks_placed += 1
 
 		# East side (max X) - skip corners to avoid overlap
@@ -429,6 +444,7 @@ func _build_homebase_fence(ruin: RuinRegistry.RuinData) -> void:
 			var pos = Vector3i(max_corner.x, y, z)
 			if not _is_near_entrance(pos, entrance_positions, gap_size):
 				voxel_tool.set_voxel(pos, planks_voxel_id)
+				fence_positions.append(pos)
 				blocks_placed += 1
 
 	print("✓ Fence complete! Placed %d planks blocks" % blocks_placed)
@@ -441,6 +457,81 @@ func _is_near_entrance(pos: Vector3i, entrance_positions: Array, gap_size: int) 
 		if distance <= gap_size:
 			return true
 	return false
+
+
+func upgrade_fence(full_price: bool, new_material_block_id: int) -> void:
+	"""Upgrade fence to new material
+	Args:
+		full_price: If true, player paid full price and gets refund for old material
+		new_material_block_id: Block ID of new fence material
+	"""
+	if not has_home_base:
+		push_error("HomeBaseManager: Cannot upgrade fence - no home base set")
+		return
+
+	if fence_positions.is_empty():
+		push_error("HomeBaseManager: Cannot upgrade fence - no fence exists")
+		return
+
+	if not _game:
+		push_error("HomeBaseManager: Cannot upgrade fence - game reference not set")
+		return
+
+	# Get terrain and blocks references
+	var terrain = _game.get_node_or_null("VoxelTerrain")
+	if not terrain:
+		push_error("HomeBaseManager: Cannot upgrade fence - terrain not found")
+		return
+
+	var blocks_node = _game.get_node_or_null("Blocks")
+	if not blocks_node:
+		push_error("HomeBaseManager: Cannot upgrade fence - blocks node not found")
+		return
+
+	# Get new material block
+	var new_block = blocks_node.get_block(new_material_block_id)
+	if not new_block:
+		push_error("HomeBaseManager: Cannot upgrade fence - new material block not found")
+		return
+
+	var new_voxel_id = new_block.base_info.voxels[0]
+
+	# Get voxel tool
+	var voxel_tool = terrain.get_voxel_tool()
+	voxel_tool.channel = VoxelBuffer.CHANNEL_TYPE
+
+	print("🔨 Upgrading fence to %s..." % new_block.base_info.name)
+
+	# Calculate refund if applicable
+	var refund_count = 0
+	if fence_refund_available:
+		refund_count = fence_positions.size()
+		print("💰 Refunding %d blocks from previous fence" % refund_count)
+
+		# Give refund to player
+		var player = get_tree().get_first_node_in_group("player")
+		if player:
+			var inventory = player.get_node_or_null("Inventory")
+			if inventory and inventory.has_method("add_rust_blocks"):
+				inventory.add_rust_blocks(refund_count)
+				print("✅ Added %d rust blocks to inventory" % refund_count)
+
+	# Remove old fence blocks
+	for pos in fence_positions:
+		voxel_tool.set_voxel(pos, 0)  # Set to air
+
+	# Place new fence blocks
+	var blocks_placed = 0
+	for pos in fence_positions:
+		voxel_tool.set_voxel(pos, new_voxel_id)
+		blocks_placed += 1
+
+	# Update fence data
+	fence_material_block_id = new_material_block_id
+	fence_refund_available = full_price
+
+	print("✓ Fence upgrade complete! Placed %d %s blocks" % [blocks_placed, new_block.base_info.name])
+	print("  Refund available: %s" % fence_refund_available)
 
 
 func _detect_actual_ruin_size(ruin_base: Vector3i, voxel_tool: VoxelTool) -> Vector3i:
@@ -796,8 +887,29 @@ func save_to_dict() -> Dictionary:
 		"home_structure_tier": home_structure_tier,
 		"homebase_set_day": homebase_set_day,
 		"npcs_to_spawn_index": npcs_to_spawn_index,
+		"fence_material_block_id": fence_material_block_id,
+		"fence_refund_available": fence_refund_available,
+		"fence_min_corner": {
+			"x": fence_min_corner.x,
+			"y": fence_min_corner.y,
+			"z": fence_min_corner.z
+		},
+		"fence_max_corner": {
+			"x": fence_max_corner.x,
+			"y": fence_max_corner.y,
+			"z": fence_max_corner.z
+		},
+		"fence_positions": [],
 		"spawned_npcs": []
 	}
+
+	# Save fence positions (convert Vector3i to dictionary)
+	for pos in fence_positions:
+		save_data["fence_positions"].append({
+			"x": pos.x,
+			"y": pos.y,
+			"z": pos.z
+		})
 
 	# Save spawned NPC data
 	for npc in spawned_npcs:
@@ -851,6 +963,31 @@ func load_from_dict(data: Dictionary):
 		npcs_to_spawn_index = data.npcs_to_spawn_index
 	else:
 		npcs_to_spawn_index = 0  # Default for old saves
+
+	# Load fence data
+	if data.has("fence_material_block_id"):
+		fence_material_block_id = data.fence_material_block_id
+	else:
+		fence_material_block_id = -1  # Default
+
+	if data.has("fence_refund_available"):
+		fence_refund_available = data.fence_refund_available
+	else:
+		fence_refund_available = false  # Default
+
+	if data.has("fence_min_corner"):
+		var corner = data.fence_min_corner
+		fence_min_corner = Vector3i(corner.x, corner.y, corner.z)
+
+	if data.has("fence_max_corner"):
+		var corner = data.fence_max_corner
+		fence_max_corner = Vector3i(corner.x, corner.y, corner.z)
+
+	if data.has("fence_positions"):
+		fence_positions.clear()
+		for pos_data in data.fence_positions:
+			fence_positions.append(Vector3i(pos_data.x, pos_data.y, pos_data.z))
+		print("🛡️ Restored %d fence blocks" % fence_positions.size())
 
 	# Respawn structure if we had a home base
 	if has_home_base:

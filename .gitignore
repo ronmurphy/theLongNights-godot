@@ -6,4 +6,5 @@ debug_data/
 *.vxrm
 *.sqlite
 *.exe
-*.pck
+*.pcknul
+project/nul

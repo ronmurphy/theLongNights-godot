@@ -219,6 +219,7 @@ func _ready():
 
 		# Spawn player at saved position (or default)
 		var spawn_pos = WorldManager.get_player_position()
+		print("Spawning player at saved position: %s" % spawn_pos)
 		_spawn_character(SERVER_PEER_ID, spawn_pos)
 
 		# Spawn initial crashed ruin near spawn (wait for terrain to generate first)

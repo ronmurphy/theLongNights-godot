@@ -1196,9 +1196,9 @@ func _populate_items():
 	if not _item_db:
 		return
 
-	# Define weapon/item IDs (exclude food IDs 13-39)
+	# Define weapon/item IDs (exclude food IDs 13-39, Keeper's Charm ID 42)
 	var weapon_ids = range(0, 13)  # IDs 0-12: rocket_launcher through tree_feller
-	var misc_item_ids = [40, 41]  # light_orb, spear
+	var misc_item_ids = [40, 41]  # light_orb, spear (excludes 42 = Keeper's Charm)
 	var all_item_ids = weapon_ids + misc_item_ids
 
 	# Create buttons for each item
@@ -1372,9 +1372,9 @@ func _populate_player_items():
 	if not _player_grid_container or not _inventory or not _item_db:
 		return
 
-	# Define weapon/item IDs (exclude food)
+	# Define weapon/item IDs (exclude food, Keeper's Charm)
 	var weapon_ids = range(0, 13)  # IDs 0-12
-	var misc_item_ids = [40, 41]  # light_orb, spear
+	var misc_item_ids = [40, 41]  # light_orb, spear (excludes 42 = Keeper's Charm)
 	var all_item_ids = weapon_ids + misc_item_ids
 
 	# Collect all items from inventory slots
