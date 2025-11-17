@@ -92,10 +92,10 @@ func _update_sun_position(hour: int) -> void:
 
 	# Convert hour to rotation (0-24 hours -> 0-360 degrees)
 	var hour_fraction = float(hour) / 24.0
-	var rotation_radians = hour_fraction * TAU  # TAU = 2π = full circle
 
-	# Offset so that hour 6 (dawn) starts with sun rising
-	rotation_radians += PI * 0.75  # Offset to align with 6am = sunrise
+	# Calculate sun position with correct offset
+	# Negative rotation + offset ensures hour 6 = 0° (horizon), hour 12 = -90° (overhead)
+	var rotation_radians = -(hour_fraction * TAU) + (PI / 2)
 
 	# Rotate sun around X axis (makes it rise and set)
 	sun_light.rotation.x = rotation_radians
