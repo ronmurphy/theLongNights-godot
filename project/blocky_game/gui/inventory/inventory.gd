@@ -9,6 +9,7 @@ const HOTBAR_HEIGHT = 1
 const BENTO_SLOTS = 6
 
 const InventoryItem = preload("../../player/inventory_item.gd")
+const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
 
 @onready var _bag_container = $CC/PC/VB/Bag
 @onready var _hotbar_container = $CC/PC/VB/Hotbar
@@ -70,6 +71,9 @@ func _ready():
 			_slot_views[slot_idx] = slot
 			slot_idx += 1
 
+	# Update companion info panel as well (name, role, HP, stats)
+	_update_companion_panel()
+
 	# Init bento box slots
 	_bento_slots.resize(BENTO_SLOTS)
 	_bento_slot_views.resize(BENTO_SLOTS)
@@ -85,6 +89,13 @@ func _ready():
 
 	# Initialize companion weapon slot with their default weapon
 	call_deferred("_initialize_companion_default_weapon")
+
+	# Connect to roster swaps so the UI updates when companion swaps (PartyUI uses the same signal)
+	if CompanionManager and not CompanionManager.companion_swapped.is_connected(_on_companion_roster_swapped):
+		CompanionManager.companion_swapped.connect(_on_companion_roster_swapped)
+
+	# Ensure initial companion panel is populated
+	_update_companion_panel()
 
 
 static func _make_item(type, id):
@@ -884,6 +895,7 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 
 	# Avatar (reuse party UI avatar) - made clickable for food consumption
 	var avatar_bg = Panel.new()
+	avatar_bg.name = "AvatarBG"
 	avatar_bg.custom_minimum_size = Vector2(128, 128)  # Bigger avatar, less squished
 
 	var avatar_style = StyleBoxFlat.new()
@@ -982,6 +994,56 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 		accessory_slot.pressed.connect(_on_accessory_slot_pressed)
 		_companion_accessory_slot_view = accessory_slot
 		accessory_vbox.add_child(accessory_slot)
+		# Keep a reference to accessory view for later updates
+		_companion_accessory_slot_view = accessory_slot
+
+		# Companion info area (details that don't fit in Party UI)
+		var info_vbox = VBoxContainer.new()
+		info_vbox.name = "InfoVBox"
+		info_vbox.add_theme_constant_override("separation", 4)
+
+		var name_label = Label.new()
+		name_label.name = "NameLabel"
+		name_label.add_theme_font_size_override("font_size", 12)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		info_vbox.add_child(name_label)
+
+		var role_label = Label.new()
+		role_label.name = "RoleLabel"
+		role_label.add_theme_font_size_override("font_size", 10)
+		role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		info_vbox.add_child(role_label)
+
+		var title_label = Label.new()
+		title_label.name = "TitleLabel"
+		title_label.visible = false
+		info_vbox.add_child(title_label)
+
+		var stat_hbox = HBoxContainer.new()
+		stat_hbox.name = "StatsHBox"
+		stat_hbox.add_theme_constant_override("separation", 6)
+
+		var hp_label = Label.new()
+		hp_label.name = "HPLabel"
+		hp_label.add_theme_font_size_override("font_size", 10)
+		stat_hbox.add_child(hp_label)
+
+		var atk_label = Label.new()
+		atk_label.name = "ATKLabel"
+		atk_label.add_theme_font_size_override("font_size", 10)
+		stat_hbox.add_child(atk_label)
+
+		var def_label = Label.new()
+		def_label.name = "DEFLabel"
+		def_label.add_theme_font_size_override("font_size", 10)
+		stat_hbox.add_child(def_label)
+
+		info_vbox.add_child(stat_hbox)
+
+		# Show extra info: companion name, role, title, and stats
+		info_vbox.visible = true
+
+		content_container.add_child(info_vbox)
 		
 		slots_hbox.add_child(accessory_vbox)
 		
@@ -1154,6 +1216,113 @@ func _on_accessory_slot_pressed():
 			_dragged_slot = -997  # Special ID for accessory slot
 			_dragged_item_view.get_display().set_item(_companion_accessory_slot)
 			_dragged_item_view.start()
+func _on_companion_roster_swapped(index: int) -> void:
+	"""Called when player swaps companions in the roster; refresh inventory UI."""
+	_update_companion_panel()
+
+func _update_companion_panel() -> void:
+	"""Refresh the companion paper-doll area with name, role, HP, ATK, DEF, and avatar."""
+	if not _companion_equipment_panel:
+		return
+	# Only update the companion avatar sprite — other party UI updates are handled separately.
+	var avatar_texture = _companion_equipment_panel.get_node_or_null("AvatarBG/AvatarTexture")
+	if avatar_texture:
+		# Use the 'ready' pose to match Party UI where possible
+		var race = CompanionManager.companion_race
+		var gender = CompanionManager.companion_gender
+		var avatar_path = CharacterQuiz.get_avatar_path(race, gender, "ready")
+		if ResourceLoader.exists(avatar_path):
+			avatar_texture.texture = load(avatar_path)
+
+	# Update InfoVBox now that it's visible
+	var info_vbox = _companion_equipment_panel.get_node_or_null("InfoVBox")
+	if info_vbox:
+		var name_label = info_vbox.get_node_or_null("NameLabel")
+		var role_label = info_vbox.get_node_or_null("RoleLabel")
+		var title_label = info_vbox.get_node_or_null("TitleLabel")
+		var hp_label = info_vbox.get_node_or_null("HPLabel")
+		var atk_label = info_vbox.get_node_or_null("ATKLabel")
+		var def_label = info_vbox.get_node_or_null("DEFLabel")
+
+		var active = null
+		if CompanionManager and CompanionManager.using_roster_system:
+			active = CompanionManager.get_active_companion()
+
+		# Name & role
+		if name_label:
+			name_label.text = active.companion_name if active != null else CompanionManager.get_companion_name()
+		if role_label:
+			var r = active.role if active != null else CompanionManager.companion_role
+			role_label.text = "[%s]" % CharacterQuiz.get_role_name(r)
+
+		# Title
+		if title_label:
+			var te = ""
+			var tt = ""
+			if active != null:
+				te = active.title_emoji
+				tt = active.active_title
+			else:
+				te = CompanionManager.saved_title_emoji
+				tt = CompanionManager.saved_title
+			if tt != "":
+				title_label.text = "%s %s" % [te, tt]
+				title_label.visible = true
+			else:
+				title_label.text = ""
+				title_label.visible = false
+
+		# HP + stats
+		if hp_label:
+			var current_hp = CompanionManager.get_companion_max_hp()
+			var max_hp = CompanionManager.get_companion_max_hp()
+			var comps = get_tree().get_nodes_in_group("companions")
+			if comps.size() > 0:
+				var comp_node = comps[0]
+				if comp_node and typeof(comp_node.current_hp) in [TYPE_INT, TYPE_FLOAT]:
+					current_hp = comp_node.current_hp
+					var comp_max = comp_node.get("max_hp")
+					if comp_max != null:
+						max_hp = comp_max
+			if max_hp == 0:
+				max_hp = CompanionManager.get_companion_max_hp()
+			hp_label.text = "%d/%d HP" % [current_hp, max_hp]
+
+		if atk_label:
+			atk_label.text = "ATK: +%d" % CompanionManager.get_companion_attack_bonus()
+
+		if def_label:
+			def_label.text = "DEF: %d" % CompanionManager.get_companion_defense()
+
+	# Update weapon and accessory slots (use roster data if present, otherwise use legacy saved values)
+	var active = null
+	if CompanionManager and CompanionManager.using_roster_system:
+		active = CompanionManager.get_active_companion()
+
+	# Weapon
+	if active != null and active.equipped_weapon_id >= 0:
+		_companion_weapon_slot = _make_item(InventoryItem.TYPE_ITEM, active.equipped_weapon_id)
+		if _companion_weapon_slot_view:
+			_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+	else:
+		if CompanionManager and CompanionManager.equipped_weapon_id >= 0:
+			_companion_weapon_slot = _make_item(InventoryItem.TYPE_ITEM, CompanionManager.equipped_weapon_id)
+			if _companion_weapon_slot_view:
+				_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+			else:
+				# No saved weapon; initialize default
+				_initialize_companion_default_weapon()
+
+	# Accessory
+	if active != null and active.equipped_accessory_id >= 0:
+		_companion_accessory_slot = _make_item(InventoryItem.TYPE_ITEM, active.equipped_accessory_id)
+		if _companion_accessory_slot_view:
+			_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+	else:
+		if CompanionManager and CompanionManager.saved_accessory_id >= 0:
+			_companion_accessory_slot = _make_item(InventoryItem.TYPE_ITEM, CompanionManager.saved_accessory_id)
+			if _companion_accessory_slot_view:
+				_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
 
 
 func _is_equip_power(power_name: String) -> bool:

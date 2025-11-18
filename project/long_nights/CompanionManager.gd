@@ -1,4 +1,5 @@
 extends Node
+signal companion_swapped(index)
 ## CompanionManager - Singleton that manages companion data and spawning
 ## Determines companion race/role based on player's quiz choices
 ## Now supports multiple companions with roster system!
@@ -388,8 +389,49 @@ func swap_to_companion(index: int) -> bool:
 	# Mark new as active
 	active_companion_index = index
 	companion_roster[index].is_active = true
+
+	# Update legacy single-companion fields so other systems (PartyUI, entity spawn)
+	# continue to work unchanged. This keeps compatibility with existing code.
+	var active = companion_roster[index]
+	companion_race = active.race
+	companion_gender = active.gender
+	companion_role = active.role
+	companion_name = active.companion_name
+
+	# Update voice defaults for the new companion selection
+	_update_voice_defaults()
+
+	# Persist change
+	save_to_file()
+
+	# Emit signal so UI/other systems can respond to the swap
+	emit_signal("companion_swapped", index)
 	
 	print("🔄 Swapped to: %s" % companion_roster[index].companion_name)
+	return true
+
+
+func remove_companion_from_roster(index: int) -> bool:
+	"""Remove a companion from the roster by index. Returns true on success."""
+	if index < 0 or index >= companion_roster.size():
+		push_error("CompanionManager: Invalid companion index %d" % index)
+		return false
+
+	var removed = companion_roster[index]
+
+	# Remove the entry
+	companion_roster.remove_at(index)
+
+	# Adjust active index if needed
+	if active_companion_index >= companion_roster.size():
+		active_companion_index = max(0, companion_roster.size() - 1)
+
+	# If roster is now empty, reset roster flag
+	if companion_roster.is_empty():
+		using_roster_system = false
+
+	print("🗑️ Removed from roster: %s" % removed.companion_name)
+	save_to_file()
 	return true
 
 

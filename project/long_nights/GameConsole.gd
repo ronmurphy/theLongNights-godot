@@ -360,6 +360,8 @@ func _cmd_help(_args: Array) -> void:
 	add_output("[color=cyan]Companion Roster:[/color]")
 	add_output("  [color=yellow]roster[/color] - Show all companions in roster")
 	add_output("  [color=yellow]roster add <race> <gender> <role> <name>[/color] - Add companion to roster")
+	add_output("  [color=yellow]roster swap <index>[/color] - Swap active companion to roster index")
+	add_output("  [color=yellow]roster remove <index>[/color] - Remove companion from roster")
 	add_output("    Example: roster add dwarf male tank Thorin")
 	add_output("")
 	add_output("[color=cyan]World Modification:[/color]")
@@ -1526,6 +1528,44 @@ func _cmd_roster(args: Array) -> void:
 				add_output("  [color=lime]🏕️ %s has appeared at your home base![/color]" % name)
 			else:
 				add_output("  [color=yellow]💡 They'll appear when you set a home base with: homebase set[/color]")
+
+		"swap":
+			# Swap active companion by roster index
+			if args.size() < 2:
+				add_output("[color=yellow]Usage: roster swap <index>[/color]")
+				return
+			var idx = args[1].to_int()
+			if not CompanionManager.swap_to_companion(idx):
+				add_output("[color=red]Failed to swap to companion %d[/color]" % idx)
+				return
+			# Despawn existing live companions
+			var live = get_tree().get_nodes_in_group("companions")
+			for node in live:
+				node.queue_free()
+			# Spawn new companion in-world
+			var game = get_node_or_null("/root/Main/Game")
+			if game and game.has_method("_spawn_companion"):
+				game._spawn_companion()
+			# Update benched NPCs at home base
+			if HomeBaseManager and HomeBaseManager.has_method("_relocate_benched_companions"):
+				HomeBaseManager._relocate_benched_companions()
+			CompanionManager.save_to_file()
+			add_output("[color=lime]Swapped active companion to roster index %d[/color]" % idx)
+
+		"remove":
+			# Remove a companion from the roster (bench at home removed)
+			if args.size() < 2:
+				add_output("[color=yellow]Usage: roster remove <index>[/color]")
+				return
+			var idx2 = args[1].to_int()
+			var name = CompanionManager.companion_roster[idx2].companion_name if idx2 >= 0 and idx2 < CompanionManager.companion_roster.size() else "(unknown)"
+			if CompanionManager.remove_companion_from_roster(idx2):
+				add_output("[color=lime]Removed %s from roster[/color]" % name)
+				# Refresh home NPCs
+				if HomeBaseManager and HomeBaseManager.has_method("_relocate_benched_companions"):
+					HomeBaseManager._relocate_benched_companions()
+			else:
+				add_output("[color=red]Failed to remove companion at index %d[/color]" % idx2)
 		
 		_:
 			add_output("[color=red]Unknown subcommand: %s[/color]" % subcmd)

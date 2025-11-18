@@ -60,6 +60,9 @@ func _ready() -> void:
 	# Connect to inventory equipment changes
 	call_deferred("_connect_to_inventory")
 
+	# Connect roster updates to refresh UI when active companion swaps
+	call_deferred("_connect_roster_signal")
+
 	print("PartyUI: Ready")
 
 
@@ -751,3 +754,73 @@ func update_companion_title(emoji: String, title: String):
 		title_label.text = ""
 		title_label.visible = false
 		title_label.tooltip_text = ""
+
+
+func _connect_roster_signal() -> void:
+	if CompanionManager:
+		# Connect only once using a Callable. GDScript signals use callables for is_connected
+		if not CompanionManager.companion_swapped.is_connected(_on_companion_swapped):
+			CompanionManager.companion_swapped.connect(_on_companion_swapped)
+
+
+func _on_companion_swapped(index: int) -> void:
+	# Update the companion UI with all relevant data whenever a roster swap occurs.
+	# This updates the sprite, name, role, HP, weapon, title, and behavior label.
+	var active = CompanionManager.get_active_companion() if CompanionManager and CompanionManager.using_roster_system else null
+
+	# Get base race/role info from either roster active or from manager's legacy fields
+	var race = active.race if active != null else CompanionManager.companion_race
+	var role = active.role if active != null else CompanionManager.companion_role
+	var comp_name = active.companion_name if active != null else CompanionManager.get_companion_name()
+
+	# Avatar update
+	var gender = CompanionManager.companion_gender
+	var avatar_path = CharacterQuiz.get_avatar_path(race, gender, "ready")
+	var avatar_texture_rect = companion_ui.get_node_or_null("AvatarBG/AvatarTexture")
+	if avatar_texture_rect and ResourceLoader.exists(avatar_path):
+		avatar_texture_rect.texture = load(avatar_path)
+
+	# Name and role
+	var name_label = companion_ui.get_node_or_null("InfoVBox/NameLabel")
+	if name_label:
+		name_label.text = comp_name
+
+	var role_label = companion_ui.get_node_or_null("InfoVBox/RoleLabel")
+	if role_label:
+		role_label.text = "[%s]" % CharacterQuiz.get_role_name(role)
+
+	# HP: prefer reading live companion entity if present, otherwise set to max
+	var current = CompanionManager.get_companion_max_hp()
+	var maximum = CompanionManager.get_companion_max_hp()
+	var comps = get_tree().get_nodes_in_group("companions")
+	if comps.size() > 0:
+		var comp_node = comps[0]
+		if comp_node and typeof(comp_node.current_hp) in [TYPE_INT, TYPE_FLOAT]:
+			current = comp_node.current_hp
+			# Try to read max_hp safely without using has_member (not on Node3D)
+			var comp_max = comp_node.get("max_hp")
+			if comp_max != null:
+				maximum = comp_max
+
+	update_companion_hp(current, maximum)
+
+	# Update weapon icon and accessory via existing method
+	_update_companion_weapon()
+
+	# Title from roster or legacy saved title
+	var title_emoji = ""
+	var title_text = ""
+	if active != null:
+		title_emoji = active.title_emoji
+		title_text = active.active_title
+	else:
+		title_emoji = CompanionManager.saved_title_emoji
+		title_text = CompanionManager.saved_title
+	update_companion_title(title_emoji, title_text)
+
+	# Behavior mode (roster -> CompanionData.behavior_mode or saved behavior)
+	var behavior_mode = active.behavior_mode if active != null else CompanionManager.saved_behavior_mode
+	update_companion_behavior(behavior_mode)
+
+	# Refresh hunt timer if hunting
+	_update_hunt_timer()
