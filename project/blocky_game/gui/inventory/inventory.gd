@@ -1105,8 +1105,9 @@ func _load_avatar_for_panel(avatar_texture: TextureRect, is_player: bool):
 		if sprite_path != "" and ResourceLoader.exists(sprite_path):
 			avatar_texture.texture = load(sprite_path)
 	else:
-		# Load companion avatar from CompanionManager
-		var sprite_path = CompanionManager.get_avatar_path()
+		# Load companion avatar using roster-aware helper (preferred) to avoid
+		# mismatches with PartyUI.
+		var sprite_path = CompanionManager.get_active_avatar_path()
 		if sprite_path != "" and ResourceLoader.exists(sprite_path):
 			avatar_texture.texture = load(sprite_path)
 
@@ -1296,7 +1297,8 @@ func _update_companion_panel() -> void:
 		if active != null:
 			race = active.race
 			gender = active.gender
-		var avatar_path = CharacterQuiz.get_avatar_path(race, gender, "ready")
+		# Use roster-aware avatar helper so Inventory and PartyUI pick the same sprite
+		var avatar_path = CompanionManager.get_active_avatar_path("ready")
 		print("Inventory: companion avatar path=%s (race=%s gender=%s)" % [avatar_path, race, gender])
 		var avatar_exists = ResourceLoader.exists(avatar_path)
 		print("Inventory: ResourceLoader.exists(%s) = %s" % [avatar_path, avatar_exists])

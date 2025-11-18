@@ -193,6 +193,21 @@ func get_avatar_path(state: String = "") -> String:
 	return CharacterQuiz.get_avatar_path(companion_race, companion_gender, state)
 
 
+## Get avatar path for the active companion (handles legacy fallback)
+func get_active_avatar_path(state: String = "") -> String:
+	"""Return the avatar path for the currently active companion.
+
+	If the roster system is enabled and an active roster entry is present,
+	this returns the avatar path built from the active CompanioData's
+	race/gender. Otherwise, fallback to the legacy `get_avatar_path()`.
+	"""
+	var active = get_active_companion() if using_roster_system else null
+	if active != null:
+		return CharacterQuiz.get_avatar_path(active.race, active.gender, state)
+	# Fall back to legacy single-companion fields
+	return get_avatar_path(state)
+
+
 ## Get display name
 func get_companion_name() -> String:
 	return companion_name if companion_name != "" else CharacterQuiz.get_default_name(companion_race, companion_gender, true)

@@ -422,7 +422,8 @@ func add_companion(companion_name: String, race: String, role: String, hp: int, 
 	if CompanionManager and CompanionManager.using_roster_system:
 		active = CompanionManager.get_active_companion()
 	var gender = active.gender if active != null else CompanionManager.companion_gender
-	var avatar_path = CharacterQuiz.get_avatar_path(race, gender, "ready")
+	# Prefer roster-aware helper so this matches Inventory's avatar
+	var avatar_path = CompanionManager.get_active_avatar_path("ready")
 	var avatar_texture_rect = companion_ui.get_node("AvatarBG/AvatarTexture")
 	if avatar_texture_rect:
 		var texture = load(avatar_path)
@@ -603,12 +604,12 @@ func _update_companion_avatar_for_jump() -> void:
 	elif _companion_is_running:
 		pose = "run"
 
-	var avatar_path = CharacterQuiz.get_avatar_path(race, gender, pose)
+	var avatar_path = CompanionManager.get_active_avatar_path(pose)
 
 	# Fallback to "ready" if run sprite doesn't exist
 	if pose == "run" and not ResourceLoader.exists(avatar_path):
 		pose = "ready"
-		avatar_path = CharacterQuiz.get_avatar_path(race, gender, pose)
+		avatar_path = CompanionManager.get_active_avatar_path(pose)
 
 	var avatar_texture_rect = companion_ui.get_node("AvatarBG/AvatarTexture")
 
@@ -814,7 +815,7 @@ func _on_companion_swapped(index: int) -> void:
 	# Avatar update
 	# 'active' already computed above
 	var gender = active.gender if active != null else CompanionManager.companion_gender
-	var avatar_path = CharacterQuiz.get_avatar_path(race, gender, "ready")
+	var avatar_path = CompanionManager.get_active_avatar_path("ready")
 	var avatar_texture_rect = companion_ui.get_node_or_null("AvatarBG/AvatarTexture")
 	if avatar_texture_rect and ResourceLoader.exists(avatar_path):
 		avatar_texture_rect.texture = load(avatar_path)

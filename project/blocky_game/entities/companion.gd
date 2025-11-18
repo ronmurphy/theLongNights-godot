@@ -113,7 +113,9 @@ func _ready():
 	set_collision_box(Vector3(0.8, 1.6, 0.8))
 
 	# Get sprite paths based on race/gender (front, back, and jumping)
-	var sprite_path = CompanionManager.get_avatar_path()
+	# Use roster-aware avatar helper to ensure the spawned companion's sprites
+	# match the roster active values when the roster system is enabled.
+	var sprite_path = CompanionManager.get_active_avatar_path()
 	if sprite_path != "":
 		_front_sprite_path = sprite_path
 		# Generate back sprite path by inserting "_back" before .png
