@@ -35,6 +35,8 @@ var _companion_weapon_slot_view = null
 var _companion_accessory_slot_view = null  # UI view for accessory slot
 var _player_equipment_panel = null
 var _companion_equipment_panel = null
+# Robust companion panel update flag
+var _pending_companion_update := false
 
 # Loadout management for creative/survival mode switching
 var _backed_up_inventory: Array = []  # Backup of survival mode inventory
@@ -1228,6 +1230,8 @@ func _on_accessory_slot_pressed():
 func _on_companion_roster_swapped(index: int) -> void:
 	"""Called when player swaps companions in the roster; refresh inventory UI."""
 	print("Inventory: companion swap signal received -> index=%d" % index)
+	# Set pending update flag so we only update after companion is spawned
+	_pending_companion_update = true
 	# Update right away and schedule follow-ups to ensure the spawned Companion
 	# and any delayed state changes are picked up by the UI.
 	_update_companion_panel()
@@ -1253,11 +1257,19 @@ func _on_companion_spawned(index: int) -> void:
 			print("Inventory: roster active after spawn: name=%s, race=%s, weapon=%d" % [active.companion_name, active.race, active.equipped_weapon_id])
 			var path = CharacterQuiz.get_avatar_path(active.race, active.gender, "ready")
 			print("Inventory: avatar path after spawn = %s" % path)
-	# Immediately reflect the new live entity
-	_update_companion_panel()
-	call_deferred("_update_companion_panel")
-	await get_tree().create_timer(0.12).timeout
-	_update_companion_panel()
+	# Only update if pending flag is set (robust against race conditions)
+	if _pending_companion_update:
+		_update_companion_panel()
+		call_deferred("_update_companion_panel")
+		await get_tree().create_timer(0.12).timeout
+		_update_companion_panel()
+		_pending_companion_update = false
+	else:
+		# Fallback: still update if not pending, for legacy cases
+		_update_companion_panel()
+		call_deferred("_update_companion_panel")
+		await get_tree().create_timer(0.12).timeout
+		_update_companion_panel()
 
 func _update_companion_panel() -> void:
 	"""Refresh the companion paper-doll area with name, role, HP, ATK, DEF, and avatar."""
@@ -1270,36 +1282,60 @@ func _update_companion_panel() -> void:
 		else:
 			print("Inventory: CompanionEquipment not found, can't update panel")
 			return
-	# Only update the companion avatar sprite — other party UI updates are handled separately.
-	var avatar_texture = _companion_equipment_panel.get_node_or_null("AvatarBG/AvatarTexture")
-	if avatar_texture:
-		# Use the 'ready' pose to match Party UI where possible
-		# Prefer roster 'active' companion race/gender when available
+	print("Inventory: Updating companion panel - _companion_equipment_panel valid: %s" % (_companion_equipment_panel != null))
+	# Traverse to content_container first
+	var content_container = null
+	for child in _companion_equipment_panel.get_children():
+		if child is Container:
+			# Heuristic: look for the first container with AvatarBG and InfoVBox children
+			if child.find_child("AvatarBG", true, false) and child.find_child("InfoVBox", true, false):
+				content_container = child
+				break
+	if not content_container:
+		print("Inventory: content_container not found in CompanionEquipment panel")
+		return
+	# Now look for AvatarBG/AvatarTexture and InfoVBox inside content_container
+	var avatar_bg = content_container.find_child("AvatarBG", true, false)
+	var avatar_texture = null
+	if avatar_bg:
+		for child in avatar_bg.get_children():
+			if child is TextureRect and child.name == "AvatarTexture":
+				avatar_texture = child
+				break
+	print("Inventory: AvatarBG node: %s" % (avatar_bg != null))
+	print("Inventory: AvatarTexture node: %s" % (avatar_texture != null))
+	if avatar_texture and avatar_texture is TextureRect:
 		var active = null
 		if CompanionManager and CompanionManager.using_roster_system:
 			active = CompanionManager.get_active_companion()
-
 		var race = CompanionManager.companion_race
 		var gender = CompanionManager.companion_gender
-		# Prefer roster 'active' companion race/gender when available
 		if active != null:
 			race = active.race
 			gender = active.gender
 		var avatar_path = CharacterQuiz.get_avatar_path(race, gender, "ready")
 		print("Inventory: companion avatar path=%s (race=%s gender=%s)" % [avatar_path, race, gender])
-		if ResourceLoader.exists(avatar_path):
-			avatar_texture.texture = load(avatar_path)
+		var avatar_exists = ResourceLoader.exists(avatar_path)
+		print("Inventory: ResourceLoader.exists(%s) = %s" % [avatar_path, avatar_exists])
+		if avatar_exists:
+			var loaded_texture = load(avatar_path)
+			print("Inventory: loaded texture: %s" % (loaded_texture != null))
+			avatar_texture.texture = loaded_texture
 			print("Inventory: avatar texture set for %s" % race)
-
-	# Update InfoVBox now that it's visible
-	var info_vbox = _companion_equipment_panel.get_node_or_null("InfoVBox")
+		else:
+			print("Inventory: Avatar texture path does not exist: %s" % avatar_path)
+	elif avatar_texture:
+		print("Inventory: AvatarTexture node is not a TextureRect! Type: %s" % typeof(avatar_texture))
+	var info_vbox = content_container.find_child("InfoVBox", true, false)
+	print("Inventory: InfoVBox node: %s" % (info_vbox != null))
 	if info_vbox:
-		var name_label = info_vbox.get_node_or_null("NameLabel")
-		var role_label = info_vbox.get_node_or_null("RoleLabel")
-		var title_label = info_vbox.get_node_or_null("TitleLabel")
-		var hp_label = info_vbox.get_node_or_null("HPLabel")
-		var atk_label = info_vbox.get_node_or_null("ATKLabel")
-		var def_label = info_vbox.get_node_or_null("DEFLabel")
+		var name_label = info_vbox.find_child("NameLabel", true, false)
+		var role_label = info_vbox.find_child("RoleLabel", true, false)
+		var title_label = info_vbox.find_child("TitleLabel", true, false)
+		var hp_label = info_vbox.find_child("HPLabel", true, false)
+		var atk_label = info_vbox.find_child("ATKLabel", true, false)
+		var def_label = info_vbox.find_child("DEFLabel", true, false)
+		print("Inventory: NameLabel: %s, RoleLabel: %s, TitleLabel: %s, HPLabel: %s, ATKLabel: %s, DEFLabel: %s" % [name_label != null, role_label != null, title_label != null, hp_label != null, atk_label != null, def_label != null])
 
 		var active = null
 		if CompanionManager and CompanionManager.using_roster_system:

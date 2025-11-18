@@ -8,3 +8,4 @@ debug_data/
 *.exe
 *.pcknul
 project/nul
+project/_nul
