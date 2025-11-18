@@ -1993,7 +1993,10 @@ func _handle_npc_interaction(npc: Node) -> void:
 					"text": greeting,
 					"portrait_left": portrait_path,
 					"portrait_right": "",
-					"delay": 0
+						"delay": 0,
+						"voice_mode": npc.npc_voice_mode,
+						"voice_speed": npc.npc_voice_speed,
+						"voice_pitch": npc.npc_voice_pitch
 				}
 			]
 		}

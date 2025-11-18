@@ -319,6 +319,8 @@ func _cmd_help(_args: Array) -> void:
 	add_output("")
 	add_output("[color=cyan]Dialogue Commands:[/color]")
 	add_output("  [color=yellow]dialogue <id>[/color] - Trigger a dialogue (or 'dlg' for short)")
+	add_output("  [color=yellow]dialogue test new[/color] - Trigger a demo for new dialogue features (SFX, choices)")
+	add_output("  [color=yellow]dialogue test voice <speed>[/color] - Trigger AC-style voice demo at given speed (1.0 = normal)")
 	add_output("  [color=yellow]dialogue reset[/color] - Reset dialogue progress")
 	add_output("  [color=yellow]testhunt success/failure[/color] - Test hunt return dialogue")
 	add_output("")
@@ -855,6 +857,39 @@ func _cmd_dialogue(args: Array) -> void:
 		return
 
 	var dialogue_id = args[0].to_lower()
+
+	# Special demo command: "dialogue test new" to show new dialogue features
+	if dialogue_id == "test" and args.size() > 1 and args[1].to_lower() == "new":
+		# Trigger a dynamic demo — use an existing dialogue with sfx and choices if available
+		var demo_id = "zara_keepers_charm"
+		var success = DialogueManager.trigger_dialogue(demo_id)
+		if success:
+			add_output("[color=lime]Triggered demo dialogue: %s[/color]" % demo_id)
+		else:
+			# If the dialogue is already marked as seen (once-only) or otherwise blocked,
+			# fallback to showing it dynamically (does not mark as seen)
+			if DialogueManager.dialogue_data.has(demo_id):
+				DialogueManager.trigger_dynamic_dialogue(DialogueManager.dialogue_data[demo_id])
+				add_output("[color=lime]Demo dialogue triggered as dynamic version (already seen)[/color]")
+			else:
+				add_output("[color=red]Failed to trigger demo dialogue: %s[/color]" % demo_id)
+		return
+
+	# Special demo - animalese voice test: dialogue test voice <speed>
+	if dialogue_id == "test" and args.size() > 1 and args[1].to_lower() == "voice":
+		var speed = 1.0
+		if args.size() > 2:
+			speed = float(args[2])
+		# Build a small demo using AC voice
+		var demo = {
+			"id":"console_demo_voice",
+			"messages":[
+				{"speaker":"npc","speaker_display":"Console Demo","text":"This is a quick demo of animalese voice at speed %.2f" % speed,"voice_mode":"animalese","voice_speed":speed,"voice_pitch":3.5,"delay":1000}
+			]
+		}
+		DialogueManager.trigger_dynamic_dialogue(demo)
+		add_output("[color=lime]Triggered dynamic animalese demo (speed=%.2f)[/color]" % speed)
+		return
 
 	if dialogue_id == "reset":
 		DialogueManager.reset_progress()

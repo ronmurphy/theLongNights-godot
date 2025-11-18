@@ -144,27 +144,26 @@ func _prepare_messages(raw_messages: Array) -> Array:
 	var prepared = []
 
 	for msg in raw_messages:
-		var speaker = msg.get("speaker", "narrator")
-		var mood = msg.get("mood", "normal")
-		var text = msg.get("text", "")
-		var delay = msg.get("delay", 0)
+		# duplicate the original message so we preserve any extra fields (sfx, choices, etc)
+		var entry = msg.duplicate()
+		var speaker = entry.get("speaker", "narrator")
+		var mood = entry.get("mood", "normal")
+		var text = entry.get("text", "")
+		var delay = entry.get("delay", 0)
 
 		# Get character info for portraits
-		var left_path = msg.get("portrait_left", "")  # Check if portrait already provided
-		var right_path = msg.get("portrait_right", "")  # Check if portrait already provided
-		var speaker_display = msg.get("speaker_display", "")  # Check if name already provided
+		var left_path = entry.get("portrait_left", "")
+		var right_path = entry.get("portrait_right", "")
+		var speaker_display = entry.get("speaker_display", "")
 
-		# Only auto-generate if not already provided
 		if left_path == "" and right_path == "" and speaker_display == "":
 			if speaker == "companion":
-				# Get companion info from CompanionManager
 				var race = CompanionManager.companion_race
 				var gender = CompanionManager.companion_gender
 				left_path = _get_portrait_path(race, gender, mood)
 				speaker_display = CompanionManager.get_companion_name()
 
 			elif speaker == "player":
-				# Get player info from PlayerData
 				var race = PlayerData.race
 				var gender = PlayerData.gender
 				right_path = _get_portrait_path(race, gender, mood)
@@ -175,20 +174,81 @@ func _prepare_messages(raw_messages: Array) -> Array:
 				speaker_display = "Narrator"
 
 			else:
-				# Custom NPC - use speaker name as display
 				speaker_display = speaker
 
 		# Substitute variables in text
 		text = _substitute_variables(text)
 
-		prepared.append({
-			"speaker": speaker,
-			"speaker_display": speaker_display,
-			"text": text,
-			"delay": delay,
-			"portrait_left": left_path,
-			"portrait_right": right_path
-		})
+		# Default voice per speaker (demo/placeholder)
+		if not entry.has("voice") or entry.get("voice", "") == "":
+			if speaker == "npc":
+				entry["voice"] = "res://assets/sfx/Ghost.ogg"
+			elif speaker == "companion":
+				entry["voice"] = "res://assets/sfx/CatMeow.ogg"
+
+		# Ensure keys exist and update with auto-generated ones
+		entry["speaker_display"] = speaker_display
+		entry["text"] = text
+		entry["delay"] = delay
+		entry["portrait_left"] = left_path
+		entry["portrait_right"] = right_path
+
+		# Voice defaults. If a voice_mode wasn't supplied, use animalese for NPCs and companion.
+		if not entry.has("voice_mode") or entry.get("voice_mode", "") == "":
+			if speaker == "npc" or speaker == "companion":
+				entry["voice_mode"] = "animalese"
+			else:
+				entry["voice_mode"] = "loop"
+
+		# Set voice pitch/speed from CompanionManager or fallback
+		if not entry.has("voice_speed") or entry.get("voice_speed", 0) == 0:
+			if speaker == "companion":
+				entry["voice_speed"] = CompanionManager.companion_voice_speed
+			else:
+				entry["voice_speed"] = entry.get("voice_speed", 1.0)
+
+		if not entry.has("voice_pitch") or entry.get("voice_pitch", 0) == 0:
+			if speaker == "companion":
+				entry["voice_pitch"] = CompanionManager.companion_voice_pitch
+			else:
+				entry["voice_pitch"] = entry.get("voice_pitch", 3.5)
+
+		# Small per-name voice presets for specific characters (deep / light voices)
+		# Name voice presets - edit these to tune bass (lower pitch = deeper voice).
+		# The values are applied to ACVoicebox.base_pitch which controls voice pitch.
+		# Typical natural ranges: 2.0 - 4.5 (lower = more bass / deeper)
+		var name_voice_presets = {
+			"daniels": {"voice_pitch": 2.0, "voice_speed": 0.85},
+			"mahan": {"voice_pitch": 2.6, "voice_speed": 0.85},
+			"conner": {"voice_pitch": 2.9, "voice_speed": 0.95}
+		}
+
+		# If we have a speaker_display that matches a preset, apply it
+		var display_lower = (entry.get("speaker_display", "")).to_lower()
+		if name_voice_presets.has(display_lower):
+			var p = name_voice_presets[display_lower]
+			if p.has("voice_pitch"):
+				entry["voice_pitch"] = p["voice_pitch"]
+			if p.has("voice_speed"):
+				entry["voice_speed"] = p["voice_speed"]
+
+		# Companion portrait: companions use player avatar art (left side), NOT npc_sprites.
+		# This ensures player & companion portraits share the same avatar style.
+		if speaker == "companion":
+			var companion_name = CompanionManager.get_companion_name()
+			# Priority: specific companion avatar (player_avatars/<name>.png) -> player_avatars/<race>_<gender>_mood.png -> fallback to existing left_path
+			var custom_player_avatar = "res://assets/art/player_avatars/%s.png" % companion_name
+			if ResourceLoader.exists(custom_player_avatar):
+				entry["portrait_left"] = custom_player_avatar
+			else:
+				var race = CompanionManager.companion_race
+				var gender = CompanionManager.companion_gender
+				var avatar_path = _get_portrait_path(race, gender, mood)
+				if ResourceLoader.exists(avatar_path):
+					entry["portrait_left"] = avatar_path
+			# else fallback to player avatar path already set above
+
+		prepared.append(entry)
 
 	return prepared
 
@@ -232,6 +292,7 @@ func _create_dialogue_ui() -> void:
 
 	# Connect signals
 	dialogue_ui.dialogue_closed.connect(_on_dialogue_closed)
+	dialogue_ui.choice_selected.connect(_on_dialogue_choice_selected)
 
 	# Add to scene tree
 	get_tree().root.add_child(dialogue_ui)
@@ -243,6 +304,16 @@ func _create_dialogue_ui() -> void:
 func _on_dialogue_closed() -> void:
 	# Emit signal (could pass dialogue_id if we tracked it)
 	dialogue_ended.emit("")
+
+
+## Choice handling
+func _on_dialogue_choice_selected(choice: Dictionary) -> void:
+	# Emit a signal or optionally trigger a follow-up dialogue if specified
+	print("[DialogueManager] Choice selected:", choice)
+	# If the choice specifies a next dialogue, trigger it
+	if choice.has("next_dialogue") and choice["next_dialogue"] != "":
+		trigger_dialogue(choice["next_dialogue"])
+
 
 
 ## Check if a dialogue has been seen

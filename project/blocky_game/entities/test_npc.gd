@@ -14,6 +14,9 @@ var npc_display_name: String = "NPC"
 # Job type and dialogue
 var npc_job: String = "companion"  # "companion", "cook", "power_shop", "food_merchant", "merchant", "town_manager", "ruinkeeper"
 var npc_dialogue_id: String = ""  # Dialogue ID to trigger when interacted with
+var npc_voice_mode: String = "animalese" # 'animalese' for AC-style, 'loop' for single SFX
+var npc_voice_speed: float = 1.0
+var npc_voice_pitch: float = 3.5
 
 # Sprite direction tracking (like companion)
 var _front_sprite_path: String = ""
@@ -56,6 +59,12 @@ func initialize(race: String, gender: String, color: Color, display_name: String
 	entity_name = display_name
 	npc_job = job
 	npc_dialogue_id = dialogue_id
+
+	# Default voice settings per job if not provided
+	if job == "ruinkeeper":
+		npc_voice_mode = "animalese"
+		npc_voice_speed = 1.0
+		npc_voice_pitch = 3.5
 
 	# Auto-generate dialogue ID if not provided
 	if npc_dialogue_id == "":

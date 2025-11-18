@@ -31,6 +31,19 @@ var saved_accessory_id: int = -1
 var saved_title: String = ""
 var saved_title_emoji: String = ""
 
+# Voice settings for companion (used by dialogue system)
+var companion_voice_speed: float = 1.0
+var companion_voice_pitch: float = 3.5
+
+func _update_voice_defaults() -> void:
+	# Make male companions slightly deeper than female
+	if companion_gender == "male":
+		companion_voice_pitch = 2.8
+		companion_voice_speed = 0.95
+	else:
+		companion_voice_pitch = 3.6
+		companion_voice_speed = 1.0
+
 # ============================================================================
 # NEW COMPANION ROSTER SYSTEM
 # ============================================================================
@@ -120,6 +133,9 @@ func set_companion_from_player() -> void:
 
 	# Set companion name based on race and gender
 	companion_name = CharacterQuiz.get_default_name(companion_race, companion_gender, true)
+
+	# Update voice defaults after choosing companion
+	_update_voice_defaults()
 
 	print("CompanionManager: Companion will be %s - %s %s (to complement %s %s)" % [
 		companion_name, companion_race, companion_role, PlayerData.race, PlayerData.role

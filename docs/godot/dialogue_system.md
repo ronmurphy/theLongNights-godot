@@ -273,6 +273,45 @@ func _on_player_spawned():
         DialogueManager.trigger_dialogue("game_start")
 ```
 
+---
+
+## Animalese / AC-style Voice (ACVoicebox)
+
+We ported a compact AC-style voicebox (based on the MIT-licensed ACVoicebox project) to play short phoneme samples in rapid sequence, producing a familiar "Animal Crossing" chattery voice. This can be used as a low-effort placeholder voice for NPCs, companions, or test builds.
+
+How it works:
+- The `ACVoicebox.gd` script maps characters and common digraphs (e.g. `th`, `sh`) to tiny WAV samples located in `res://assets/sounds/`.
+- Call `ACVoiceBox.play_string("Hello world!")` and it will emit `characters_sounded(characters)` for each phoneme as it plays. `DialogueUI` uses those events to reveal characters in sync with the voice.
+- `voice_speed` controls timing/tempo and `voice_pitch` adjusts pitch. We added `CompanionManager.companion_voice_speed`/`companion_voice_pitch` and NPC-level `npc_voice_speed` and `npc_voice_pitch` so speeds can vary by character.
+
+How to enable for a message / JSON entry:
+- Add these keys to a message in any dialogue JSON entry:
+
+```json
+{
+  "speaker": "npc",
+  "text": "Hello!",
+  "voice_mode": "animalese",
+  "voice_speed": 1.1,
+  "voice_pitch": 3.4
+}
+```
+
+If `voice_mode` is absent, the system sets a default: NPCs and companions get `animalese` automatically for a chattery effect. You can force `voice_mode: "loop"` if you only want a looping ambient SFX via `voice` (existing behavior).
+
+Testing in-console:
+- `dialogue test voice <speed>` — quick dynamic demo where `<speed>` is a float multiplier; e.g. `dialogue test voice 1.5`.
+
+Notes & tips:
+- The short WAV phonemes are small; we recommend keeping them in `res://assets/sounds/` under the filenames `a.wav`, `b.wav`, `th.wav`, `sh.wav`, `blank.wav`, `longblank.wav` and so on.
+- To vary a character's voice across lines, set different `voice_speed` / `voice_pitch` values per message in either JSON or from code (e.g., per NPC on dynamic dialogue creation).
+ - The per-character presets for pitch/speed are currently defined in `long_nights/DialogueManager.gd` in the `name_voice_presets` dictionary. Lower `voice_pitch` values produce deeper voices (more bass). Example presets include `daniels`, `mahan`, and `conner`.
+
+Tip: For more accurate pitch control without changing playback speed, add an `AudioEffectPitchShift` to your SFX bus and use that to shift by semitones. This prevents the chattery speed from changing when you lower pitch (useful for deep voices).
+- Companion portraits: Companions (and the player) use `res://assets/art/player_avatars/` assets. When `DialogueManager` prepares messages for the `companion` speaker it first checks for a named player avatar like `res://assets/art/player_avatars/CompanionName.png` and then falls back to `res://assets/art/player_avatars/<race>_<gender>[_<mood>].png`. This keeps companion avatars consistent with your avatar art and sized for the left-side portrait area.
+- If you want to change pitch without affecting tempo, attach an `AudioEffectPitchShift` to the Master bus (or SFX bus) and adjust pitch there rather than relying on playback rate.
+
+
 ### Loading Multiple Dialogue Files
 ```gdscript
 func _ready():
