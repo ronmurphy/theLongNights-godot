@@ -758,7 +758,7 @@ func update_companion_title(emoji: String, title: String):
 
 func _connect_roster_signal() -> void:
 	if CompanionManager:
-		# Connect only once using a Callable. GDScript signals use callables for is_connected
+		# Connect only once (pass the method name directly to connect/is_connected)
 		if not CompanionManager.companion_swapped.is_connected(_on_companion_swapped):
 			CompanionManager.companion_swapped.connect(_on_companion_swapped)
 
@@ -824,3 +824,8 @@ func _on_companion_swapped(index: int) -> void:
 
 	# Refresh hunt timer if hunting
 	_update_hunt_timer()
+
+	# Also update inventory companion panel (ensure inventory stays in sync)
+	var inventory = _get_inventory()
+	if inventory and inventory.has_method("_update_companion_panel"):
+		inventory.call_deferred("_update_companion_panel")

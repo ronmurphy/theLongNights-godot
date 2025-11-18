@@ -94,6 +94,10 @@ func _ready():
 	if CompanionManager and not CompanionManager.companion_swapped.is_connected(_on_companion_roster_swapped):
 		CompanionManager.companion_swapped.connect(_on_companion_roster_swapped)
 
+	# Also listen for actual Companion spawn to refresh UI exactly when companion is present
+	if CompanionManager and not CompanionManager.companion_spawned.is_connected(_on_companion_spawned):
+		CompanionManager.companion_spawned.connect(_on_companion_spawned)
+
 	# Ensure initial companion panel is populated
 	_update_companion_panel()
 
@@ -245,6 +249,9 @@ func _update_views():
 			var slot = container.get_child(i)
 			slot.get_display().set_item(_slots[slot_idx])
 			slot_idx += 1
+	
+	# Refresh companion panel after basic views update
+	_update_companion_panel()
 
 
 func get_hotbar_slot_count() -> int:
@@ -343,6 +350,8 @@ func _notification(what: int):
 
 		if visible:
 			_update_views()
+			# Ensure companion panel is in sync when inventory becomes visible
+			call_deferred("_update_companion_panel")
 
 			_previous_mouse_mode = Input.get_mouse_mode()
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -1218,21 +1227,69 @@ func _on_accessory_slot_pressed():
 			_dragged_item_view.start()
 func _on_companion_roster_swapped(index: int) -> void:
 	"""Called when player swaps companions in the roster; refresh inventory UI."""
+	print("Inventory: companion swap signal received -> index=%d" % index)
+	# Update right away and schedule follow-ups to ensure the spawned Companion
+	# and any delayed state changes are picked up by the UI.
+	_update_companion_panel()
+	call_deferred("_update_companion_panel")
+	call_deferred("_update_companion_panel")
+
+	# Also schedule a couple of short timer-based refreshes in case the spawn
+	# happens later in the frame pipeline. This is robust against race
+	# conditions observed where the swap signal arrives slightly before the
+	# Companion node is added to the scene.
+	# NOTE: Using await/get_tree().create_timer allows the UI to re-check after
+	# a few frames without creating a permanent Timer node.
+	await get_tree().create_timer(0.05).timeout
+	_update_companion_panel()
+
+
+func _on_companion_spawned(index: int) -> void:
+	print("Inventory: companion_spawned signal -> index=%d" % index)
+	# Show roster active entry for debugging; should now be updated by _sync_roster_from_scene
+	if CompanionManager and CompanionManager.using_roster_system:
+		var active = CompanionManager.get_active_companion()
+		if active:
+			print("Inventory: roster active after spawn: name=%s, race=%s, weapon=%d" % [active.companion_name, active.race, active.equipped_weapon_id])
+			var path = CharacterQuiz.get_avatar_path(active.race, active.gender, "ready")
+			print("Inventory: avatar path after spawn = %s" % path)
+	# Immediately reflect the new live entity
+	_update_companion_panel()
+	call_deferred("_update_companion_panel")
+	await get_tree().create_timer(0.12).timeout
 	_update_companion_panel()
 
 func _update_companion_panel() -> void:
 	"""Refresh the companion paper-doll area with name, role, HP, ATK, DEF, and avatar."""
 	if not _companion_equipment_panel:
-		return
+		# Try to locate the panel in the scene tree if it wasn't created yet
+		var found = get_tree().get_root().find_node("CompanionEquipment", true, false)
+		if found:
+			_companion_equipment_panel = found
+			print("Inventory: found CompanionEquipment node at runtime")
+		else:
+			print("Inventory: CompanionEquipment not found, can't update panel")
+			return
 	# Only update the companion avatar sprite — other party UI updates are handled separately.
 	var avatar_texture = _companion_equipment_panel.get_node_or_null("AvatarBG/AvatarTexture")
 	if avatar_texture:
 		# Use the 'ready' pose to match Party UI where possible
+		# Prefer roster 'active' companion race/gender when available
+		var active = null
+		if CompanionManager and CompanionManager.using_roster_system:
+			active = CompanionManager.get_active_companion()
+
 		var race = CompanionManager.companion_race
 		var gender = CompanionManager.companion_gender
+		# Prefer roster 'active' companion race/gender when available
+		if active != null:
+			race = active.race
+			gender = active.gender
 		var avatar_path = CharacterQuiz.get_avatar_path(race, gender, "ready")
+		print("Inventory: companion avatar path=%s (race=%s gender=%s)" % [avatar_path, race, gender])
 		if ResourceLoader.exists(avatar_path):
 			avatar_texture.texture = load(avatar_path)
+			print("Inventory: avatar texture set for %s" % race)
 
 	# Update InfoVBox now that it's visible
 	var info_vbox = _companion_equipment_panel.get_node_or_null("InfoVBox")
@@ -1247,6 +1304,14 @@ func _update_companion_panel() -> void:
 		var active = null
 		if CompanionManager and CompanionManager.using_roster_system:
 			active = CompanionManager.get_active_companion()
+		# If active is still null, ensure we fall back to legacy companion
+		if active == null:
+			print("Inventory: no roster active companion. Falling back to legacy values.")
+
+		# Debug output
+		print("Inventory: Updating companion panel. using_roster_system=%s" % CompanionManager.using_roster_system)
+		var a_name = active.companion_name if active != null else CompanionManager.get_companion_name()
+		print("Inventory: active companion name=%s" % a_name)
 
 		# Name & role
 		if name_label:
@@ -1302,6 +1367,7 @@ func _update_companion_panel() -> void:
 	# Weapon
 	if active != null and active.equipped_weapon_id >= 0:
 		_companion_weapon_slot = _make_item(InventoryItem.TYPE_ITEM, active.equipped_weapon_id)
+		print("Inventory: equipped weapon from roster: %d" % active.equipped_weapon_id)
 		if _companion_weapon_slot_view:
 			_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
 	else:
@@ -1312,6 +1378,7 @@ func _update_companion_panel() -> void:
 			else:
 				# No saved weapon; initialize default
 				_initialize_companion_default_weapon()
+				print("Inventory: initialized default companion weapon")
 
 	# Accessory
 	if active != null and active.equipped_accessory_id >= 0:
@@ -1320,6 +1387,7 @@ func _update_companion_panel() -> void:
 			_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
 	else:
 		if CompanionManager and CompanionManager.saved_accessory_id >= 0:
+			print("Inventory: loaded legacy accessory %d" % CompanionManager.saved_accessory_id)
 			_companion_accessory_slot = _make_item(InventoryItem.TYPE_ITEM, CompanionManager.saved_accessory_id)
 			if _companion_accessory_slot_view:
 				_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)

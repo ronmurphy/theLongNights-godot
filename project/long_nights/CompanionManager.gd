@@ -1,5 +1,6 @@
 extends Node
 signal companion_swapped(index)
+signal companion_spawned(index)
 ## CompanionManager - Singleton that manages companion data and spawning
 ## Determines companion race/role based on player's quiz choices
 ## Now supports multiple companions with roster system!

@@ -140,9 +140,18 @@ func _ready():
 	
 	# Check for title synergies after equipment is loaded
 	call_deferred("_check_for_synergy_titles")
+
+	# Helper: after initial equip/title is set, push current live data back into
+	# CompanionManager roster—this keeps inventory & PartyUI in sync quickly.
 	
 	# Connect to inventory equipment changes
 	call_deferred("_connect_to_inventory")
+
+	# If using roster system, update the active roster entry from this spawned entity
+	# so UI and persistence reflect any live equip/title changes. Do this deferred
+	# so other setup has a chance to complete.
+	if CompanionManager and CompanionManager.using_roster_system:
+		call_deferred("_sync_roster_from_scene")
 
 	# Find player
 	_find_player()
@@ -163,6 +172,10 @@ func _ready():
 	])
 	print("  Speed multiplier: %.2fx (Race: %s)" % [speed_multiplier, CompanionManager.companion_race])
 
+	# CompanionManager will emit companion_spawned after sync; this guarantees
+	# the roster entry reflects live entity state before UIs react. See
+	# _sync_roster_from_scene() for the actual signal emission.
+
 
 func _get_inventory():
 	"""Helper to find inventory in scene tree"""
@@ -170,6 +183,19 @@ func _get_inventory():
 	if not inventory and _player:
 		inventory = _player.get_node_or_null("Inventory")
 	return inventory
+
+
+func _sync_roster_from_scene() -> void:
+	if CompanionManager and CompanionManager.using_roster_system:
+		print("Companion: Syncing live entity state to roster for %s" % entity_name)
+		CompanionManager.update_active_companion_from_scene(self)
+		# Let inventory update after roster sync
+		var inv = _get_inventory()
+		if inv and inv.has_method("_update_companion_panel"):
+			inv.call_deferred("_update_companion_panel")
+		# Emit spawn signal with the active index - done here to ensure
+		# that the roster saved values match the live entity before UIs update
+		CompanionManager.emit_signal("companion_spawned", CompanionManager.active_companion_index)
 
 
 func _load_weapon():
