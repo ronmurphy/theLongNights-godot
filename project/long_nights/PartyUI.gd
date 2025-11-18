@@ -63,7 +63,27 @@ func _ready() -> void:
 	# Connect roster updates to refresh UI when active companion swaps
 	call_deferred("_connect_roster_signal")
 
+	# Force full companion info refresh on game start (continue/load)
+	call_deferred("_refresh_companion_info_on_start")
+
 	print("PartyUI: Ready")
+# Force PartyUI companion info refresh on game start
+func _refresh_companion_info_on_start() -> void:
+	# Wait a moment to let CompanionManager load roster/save data
+	await get_tree().create_timer(0.25).timeout
+	if not companion_ui:
+		return
+
+	if CompanionManager:
+		# If roster is in use, use its active index
+		if CompanionManager.using_roster_system:
+			var idx = CompanionManager.active_companion_index
+			print("PartyUI: initial roster active index=%d" % idx)
+			_on_companion_swapped(idx)
+			return
+
+		# Fallback: single companion legacy values still available
+		_on_companion_swapped(-1)
 
 
 func _create_ui() -> void:
@@ -398,7 +418,11 @@ func add_companion(companion_name: String, race: String, role: String, hp: int, 
 	companion_ui.visible = true
 
 	# Update avatar
-	var avatar_path = CharacterQuiz.get_avatar_path(race, "female", "ready")  # Companion gender
+	var active = null
+	if CompanionManager and CompanionManager.using_roster_system:
+		active = CompanionManager.get_active_companion()
+	var gender = active.gender if active != null else CompanionManager.companion_gender
+	var avatar_path = CharacterQuiz.get_avatar_path(race, gender, "ready")
 	var avatar_texture_rect = companion_ui.get_node("AvatarBG/AvatarTexture")
 	if avatar_texture_rect:
 		var texture = load(avatar_path)
@@ -563,8 +587,13 @@ func _update_companion_avatar_for_jump() -> void:
 	if not companion_ui or not companion_ui.visible:
 		return
 
-	var race = CompanionManager.race
-	var gender = CompanionManager.gender
+	# Prefer roster active values like other UIs (Inventory uses this too)
+	var active = null
+	if CompanionManager and CompanionManager.using_roster_system:
+		active = CompanionManager.get_active_companion()
+
+	var race = active.race if active != null else CompanionManager.companion_race
+	var gender = active.gender if active != null else CompanionManager.companion_gender
 
 	# Prioritize: jumping > running > ready
 	# NOTE: Running sprites currently only available for human_male and elf_female
@@ -645,13 +674,19 @@ func _update_companion_weapon() -> void:
 func _get_companion_default_weapon_id() -> int:
 	"""Get the default weapon ID for companion's race"""
 	# Map race to default weapon ID (from item_db.gd)
-	match CompanionManager.companion_race:
+	var active = null
+	if CompanionManager and CompanionManager.using_roster_system:
+		active = CompanionManager.get_active_companion()
+	var race = active.race if active != null else CompanionManager.companion_race
+	var gender = active.gender if active != null else CompanionManager.companion_gender
+
+	match race:
 		"dwarf":
 			return 7  # stone_hammer
 		"elf":
 			return 9  # crossbow
 		"goblin":
-			if CompanionManager.companion_gender == "female":
+			if gender == "female":
 				return 5  # throwing_knives
 			else:
 				return 0  # rocket_launcher
@@ -766,15 +801,19 @@ func _connect_roster_signal() -> void:
 func _on_companion_swapped(index: int) -> void:
 	# Update the companion UI with all relevant data whenever a roster swap occurs.
 	# This updates the sprite, name, role, HP, weapon, title, and behavior label.
-	var active = CompanionManager.get_active_companion() if CompanionManager and CompanionManager.using_roster_system else null
+	var active = null
+	if CompanionManager and CompanionManager.using_roster_system:
+		active = CompanionManager.get_active_companion()
 
 	# Get base race/role info from either roster active or from manager's legacy fields
 	var race = active.race if active != null else CompanionManager.companion_race
 	var role = active.role if active != null else CompanionManager.companion_role
 	var comp_name = active.companion_name if active != null else CompanionManager.get_companion_name()
 
+	print("PartyUI: companion_swapped -> index=%d" % index)
 	# Avatar update
-	var gender = CompanionManager.companion_gender
+	# 'active' already computed above
+	var gender = active.gender if active != null else CompanionManager.companion_gender
 	var avatar_path = CharacterQuiz.get_avatar_path(race, gender, "ready")
 	var avatar_texture_rect = companion_ui.get_node_or_null("AvatarBG/AvatarTexture")
 	if avatar_texture_rect and ResourceLoader.exists(avatar_path):

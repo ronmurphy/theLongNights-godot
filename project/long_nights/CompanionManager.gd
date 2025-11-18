@@ -1,6 +1,5 @@
 extends Node
 signal companion_swapped(index)
-signal companion_spawned(index)
 ## CompanionManager - Singleton that manages companion data and spawning
 ## Determines companion race/role based on player's quiz choices
 ## Now supports multiple companions with roster system!
@@ -477,3 +476,28 @@ func load_roster_from_dict(data: Dictionary) -> void:
 			companion_roster.append(comp)
 		
 		print("CompanionManager: Loaded %d companions from roster" % companion_roster.size())
+
+		# If a roster is loaded, make the active roster selection reflect
+		# in the legacy fields so older systems (spawn, PartyUI) continue
+		# to work as expected and show the last active companion.
+		if using_roster_system and not companion_roster.is_empty():
+			# Clamp active index
+			if active_companion_index < 0 or active_companion_index >= companion_roster.size():
+				active_companion_index = 0
+			var active = get_active_companion()
+			if active:
+				companion_race = active.race
+				companion_gender = active.gender
+				companion_role = active.role
+				companion_name = active.companion_name
+				# Restore saved equipment/title for compatibility
+				equipped_weapon_id = active.equipped_weapon_id
+				saved_accessory_id = active.equipped_accessory_id
+				saved_title = active.active_title
+				saved_title_emoji = active.title_emoji
+				saved_behavior_mode = active.behavior_mode
+				# Recompute voice defaults
+				_update_voice_defaults()
+				print("CompanionManager: Active roster synced to legacy fields -> %s" % companion_name)
+			# Let UI systems refresh now the roster is loaded
+			emit_signal("companion_swapped", active_companion_index)

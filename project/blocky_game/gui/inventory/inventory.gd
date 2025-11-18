@@ -36,6 +36,7 @@ var _companion_accessory_slot_view = null  # UI view for accessory slot
 var _player_equipment_panel = null
 var _companion_equipment_panel = null
 # Robust companion panel update flag
+## This flag used earlier in an experimental flow; keep for backward compatibility
 var _pending_companion_update := false
 
 # Loadout management for creative/survival mode switching
@@ -97,10 +98,14 @@ func _ready():
 		CompanionManager.companion_swapped.connect(_on_companion_roster_swapped)
 
 	# Also listen for actual Companion spawn to refresh UI exactly when companion is present
-	if CompanionManager and not CompanionManager.companion_spawned.is_connected(_on_companion_spawned):
-		CompanionManager.companion_spawned.connect(_on_companion_spawned)
+	# (Deprecated: companion_spawned signal removed in this patch)
 
 	# Ensure initial companion panel is populated
+	_update_companion_panel()
+
+	# Re-run a short deferred companion panel refresh to ensure roster-loaded values
+	# are reflected (covers cases where companion data is loaded after UI creation)
+	await get_tree().create_timer(0.2).timeout
 	_update_companion_panel()
 
 
@@ -1230,8 +1235,7 @@ func _on_accessory_slot_pressed():
 func _on_companion_roster_swapped(index: int) -> void:
 	"""Called when player swaps companions in the roster; refresh inventory UI."""
 	print("Inventory: companion swap signal received -> index=%d" % index)
-	# Set pending update flag so we only update after companion is spawned
-	_pending_companion_update = true
+	# Schedule immediate and deferred updates to ensure the new companion shows up
 	# Update right away and schedule follow-ups to ensure the spawned Companion
 	# and any delayed state changes are picked up by the UI.
 	_update_companion_panel()
@@ -1248,28 +1252,7 @@ func _on_companion_roster_swapped(index: int) -> void:
 	_update_companion_panel()
 
 
-func _on_companion_spawned(index: int) -> void:
-	print("Inventory: companion_spawned signal -> index=%d" % index)
-	# Show roster active entry for debugging; should now be updated by _sync_roster_from_scene
-	if CompanionManager and CompanionManager.using_roster_system:
-		var active = CompanionManager.get_active_companion()
-		if active:
-			print("Inventory: roster active after spawn: name=%s, race=%s, weapon=%d" % [active.companion_name, active.race, active.equipped_weapon_id])
-			var path = CharacterQuiz.get_avatar_path(active.race, active.gender, "ready")
-			print("Inventory: avatar path after spawn = %s" % path)
-	# Only update if pending flag is set (robust against race conditions)
-	if _pending_companion_update:
-		_update_companion_panel()
-		call_deferred("_update_companion_panel")
-		await get_tree().create_timer(0.12).timeout
-		_update_companion_panel()
-		_pending_companion_update = false
-	else:
-		# Fallback: still update if not pending, for legacy cases
-		_update_companion_panel()
-		call_deferred("_update_companion_panel")
-		await get_tree().create_timer(0.12).timeout
-		_update_companion_panel()
+# _on_companion_spawned was removed during revert - inventory listens only to companion_swapped
 
 func _update_companion_panel() -> void:
 	"""Refresh the companion paper-doll area with name, role, HP, ATK, DEF, and avatar."""

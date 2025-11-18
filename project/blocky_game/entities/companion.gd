@@ -193,9 +193,7 @@ func _sync_roster_from_scene() -> void:
 		var inv = _get_inventory()
 		if inv and inv.has_method("_update_companion_panel"):
 			inv.call_deferred("_update_companion_panel")
-		# Emit spawn signal with the active index - done here to ensure
-		# that the roster saved values match the live entity before UIs update
-		CompanionManager.emit_signal("companion_spawned", CompanionManager.active_companion_index)
+		# companion_spawned emission removed (reverted)
 
 
 func _load_weapon():
