@@ -40,7 +40,6 @@ func _ready():
 	bob_frequency = 1.2  # Faster bob (more aggressive)
 
 	_sprite = _create_sprite("res://assets/art/entities/rust_golem_ready.png", 0.005)
-	_create_health_bar()
 	_find_best_target()
 
 	print("Rust Golem spawned (UNDERGROUND FLYING) at: ", global_position)

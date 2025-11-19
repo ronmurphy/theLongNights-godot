@@ -37,8 +37,6 @@ func _ready():
 	# Create sprite
 	_sprite = _create_sprite("res://assets/art/entities/rat_ready_pose_enhanced.png", 0.0025)
 
-	# Create health bar
-	_create_health_bar()
 
 	# Set collision box size for rat (smaller than default)
 	set_collision_box(Vector3(0.4, 0.4, 0.4))

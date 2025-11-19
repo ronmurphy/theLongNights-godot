@@ -31,7 +31,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/urban_predator_ready_pose_enhanced.png", 0.003)
-	_create_health_bar()
 	set_collision_box(Vector3(0.6, 1.0, 0.6))
 	_find_best_target()
 

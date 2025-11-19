@@ -34,7 +34,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/angry_ghost_ready_pose_enhanced.png", 0.0025)
-	_create_health_bar()
 	_find_best_target()
 
 

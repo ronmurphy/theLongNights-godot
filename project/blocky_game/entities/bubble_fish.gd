@@ -32,7 +32,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/bubble_fish_ready_pose_enhanced.png", 0.003)
-	_create_health_bar()
 	_find_best_target()
 
 

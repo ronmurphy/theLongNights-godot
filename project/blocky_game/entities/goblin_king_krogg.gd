@@ -34,7 +34,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/goblin_king_krogg_ready_pose_enhanced.png", 0.005)  # Large boss sprite
-	_create_health_bar()
 	set_collision_box(Vector3(1.0, 1.5, 1.0))
 	_find_best_target()
 

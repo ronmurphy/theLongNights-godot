@@ -33,7 +33,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/mechanical_spider_ready_pose_enhanced.png", 0.0035)
-	_create_health_bar()
 	set_collision_box(Vector3(1.2, 0.6, 1.2))  # Wide spider body
 	_find_best_target()
 

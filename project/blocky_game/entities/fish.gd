@@ -42,7 +42,6 @@ func _ready():
 	_sprite = _create_sprite("res://assets/art/animals/fish.png", 0.002)
 
 	# No health bar for small fish
-	# _create_health_bar()
 
 	# Start swimming
 	_start_swimming()
