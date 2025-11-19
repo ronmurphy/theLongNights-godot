@@ -46,8 +46,6 @@ func _ready():
 	# Create sprite (start with rest pose)
 	_sprite = _create_sprite("res://assets/art/animals/rabbit_rest.png", 0.003)
 
-	# Create health bar
-	_create_health_bar()
 
 	# Set collision box size for rabbit (small)
 	set_collision_box(Vector3(0.3, 0.3, 0.3))

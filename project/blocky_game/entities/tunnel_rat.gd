@@ -31,7 +31,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/tunnel_rat_ready_pose_enhanced.png", 0.0025)
-	_create_health_bar()
 	set_collision_box(Vector3(0.5, 0.5, 0.5))
 	_find_best_target()
 

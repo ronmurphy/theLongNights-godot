@@ -38,7 +38,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/abyss_golem_ready.png", 0.004)
-	_create_health_bar()
 	set_collision_box(Vector3(1.0, 1.8, 1.0))  # Larger than normal enemies
 	_find_best_target()
 

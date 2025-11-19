@@ -31,7 +31,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/zombie_brute_ready_pose_enhanced.png", 0.0035)  # Larger sprite
-	_create_health_bar()
 	set_collision_box(Vector3(0.8, 1.5, 0.8))  # Big tank
 	_find_best_target()
 

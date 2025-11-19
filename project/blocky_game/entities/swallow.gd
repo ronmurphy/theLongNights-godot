@@ -52,7 +52,6 @@ func _ready():
 	_sprite = _create_sprite("res://assets/art/animals/birdA_1.png", 0.002)
 
 	# No health bar for peaceful animals
-	# _create_health_bar()
 
 	# Start flying
 	_start_flying()

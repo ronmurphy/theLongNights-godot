@@ -33,7 +33,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/scolopendra_spawn_ready_pose_enhanced.png", 0.0035)
-	_create_health_bar()
 	set_collision_box(Vector3(1.0, 0.8, 1.0))  # Long segmented body
 	_find_best_target()
 

@@ -40,7 +40,6 @@ func _ready():
 	bob_frequency = 0.8  # Slow bob (massive construct)
 
 	_sprite = _create_sprite("res://assets/art/entities/sky_golem_ready_pose_enhanced.png", 0.005)
-	_create_health_bar()
 	# Note: Flying entities don't use collision boxes like ground entities
 	_find_best_target()
 

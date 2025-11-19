@@ -45,7 +45,6 @@ func _ready():
 	_sprite = _create_sprite("res://assets/art/animals/catR_sit.png", 0.003)
 
 	# No health bar for peaceful animals
-	# _create_health_bar()
 
 	# Set collision box size for cat (small)
 	set_collision_box(Vector3(0.25, 0.4, 0.25))

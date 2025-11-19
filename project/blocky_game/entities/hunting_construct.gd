@@ -36,7 +36,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/hunting_construct_ready_pose_enhanced.png", 0.004)
-	_create_health_bar()
 	set_collision_box(Vector3(0.8, 1.6, 0.8))
 	_find_best_target()
 

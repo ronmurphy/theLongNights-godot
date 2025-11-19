@@ -42,7 +42,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/lich_lord_morteus_ready_pose_enhanced.png", 0.006)  # Massive boss sprite
-	_create_health_bar()
 	_find_best_target()
 
 	print("💀 BOSS FIGHT: Lich Lord Morteus has risen!")

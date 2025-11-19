@@ -31,7 +31,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/iron_golem_ready_pose_enhanced.png", 0.005)  # Very large sprite
-	_create_health_bar()
 	set_collision_box(Vector3(1.5, 2.5, 1.5))  # Massive construct
 	_find_best_target()
 

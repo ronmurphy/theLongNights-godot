@@ -33,7 +33,6 @@ func _ready():
 	super._ready()
 
 	_sprite = _create_sprite("res://assets/art/entities/kraken_spawn_ready_pose_enhanced.png", 0.006)  # Massive sprite
-	_create_health_bar()
 	set_collision_box(Vector3(2.0, 2.0, 2.0))  # Huge creature
 	_find_best_target()
 
