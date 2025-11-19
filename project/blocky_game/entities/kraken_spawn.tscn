@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://kraken_spawn_001"]
+
+[ext_resource type="Script" path="res://blocky_game/entities/kraken_spawn.gd" id="1"]
+
+[node name="KrakenSpawn" type="Node3D"]
+script = ExtResource("1")

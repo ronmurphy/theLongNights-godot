@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://scatterer_001"]
+
+[ext_resource type="Script" path="res://blocky_game/entities/scatterer.gd" id="1"]
+
+[node name="Scatterer" type="Node3D"]
+script = ExtResource("1")
