@@ -23,6 +23,7 @@ var _front_sprite_path: String = ""
 var _back_sprite_path: String = ""
 var _current_sprite_is_front: bool = true
 var _sprite_height_scale: float = 1.0  # Store scale to preserve when swapping
+var _health_bar: Node3D = null  # Health bar for neutral NPC
 const MIN_SPEED_FOR_DIRECTION = 0.5  # Minimum speed to consider direction
 
 # Wander AI
