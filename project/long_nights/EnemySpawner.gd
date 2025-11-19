@@ -1,20 +1,21 @@
 extends Node
 
-## EnemySpawner - Spawns enemies based on time of day with tier-based blood moon progression
+## EnemySpawner - Spawns enemies based on time of day with tier-based week progression
 ##
 ## SPAWN RATES:
-## - Day: 15% chance every 2 minutes (Tiers 1-2 only)
-## - Night: Every 30-60 seconds (Tiers 1-3 only)
-## - Blood Moon: Every 10-20 seconds (ALL unlocked tiers)
+## - Day: 15% chance every 2 minutes
+## - Night: Every 30-60 seconds
+## - Blood Moon: Every 10-20 seconds (extra intense)
+## - Undervoid Areas: 2x spawn rate multiplier
 ##
-## TIER UNLOCKING (Blood Moon Progression):
-## - 1st blood moon: Tier 1 unlocked
-## - 2nd blood moon: Tier 2 unlocked
-## - 3rd blood moon: Tier 3 unlocked
-## - 4th blood moon: Tier 4 unlocked (Blood Moon ONLY)
-## - 5th blood moon: Tier 5 unlocked (Blood Moon ONLY)
+## TIER UNLOCKING (Week Progression):
+## - Week 1: Tier 1 only
+## - Week 2: Tiers 1-2 (mixed)
+## - Week 3: Tiers 1-3 (mixed)
+## - Week 4: Tiers 1-4 (mixed)
+## - Week 5+: Tiers 1-5 (mixed)
 ##
-## Tiers 4-5 are BLOOD MOON EXCLUSIVE - only spawn during blood moons!
+## Enemies spawn at any Y height based on unlocked tiers!
 
 const GroundEntity = preload("res://blocky_game/entities/ground_entity.gd")
 
@@ -33,6 +34,10 @@ const CAVE_SPAWN_MAX = 90.0  # Max 90 seconds in caves
 
 const SPAWN_DISTANCE_MIN = 20.0  # Don't spawn too close
 const SPAWN_DISTANCE_MAX = 40.0  # Don't spawn too far
+
+## Undervoid spawn multiplier
+const UNDERVOID_PROXIMITY_RADIUS = 50.0  # Within 50 blocks of structure
+const UNDERVOID_SPAWN_MULTIPLIER = 2.0  # 2x spawn rate
 
 ## Entity data path
 const ENTITIES_JSON_PATH = "res://assets/art/entities/entities.json"
@@ -76,11 +81,15 @@ func _ready():
 	TimeManager.hour_changed.connect(_on_hour_changed)
 	TimeManager.bloodmoon_started.connect(_on_bloodmoon_started)
 	TimeManager.bloodmoon_ended.connect(_on_bloodmoon_ended)
+	TimeManager.week_completed.connect(_on_week_completed)
+
+	# Set initial tier based on current week
+	_update_tier_from_week()
 
 	# Set initial interval
 	_update_spawn_interval()
 
-	print("🎯 EnemySpawner initialized with %d enemies across %d tiers" % [_count_total_enemies(), max_unlocked_tier])
+	print("🎯 EnemySpawner initialized with %d enemies across %d tiers (Week %d)" % [_count_total_enemies(), max_unlocked_tier, TimeManager.current_week])
 
 
 func _load_enemies_from_json():
@@ -131,7 +140,13 @@ func _count_total_enemies() -> int:
 
 
 func _process(delta: float):
-	spawn_timer += delta
+	# Check if in undervoid area for spawn rate multiplier
+	var player = get_tree().get_first_node_in_group("player")
+	var spawn_multiplier = 1.0
+	if player:
+		spawn_multiplier = _get_spawn_multiplier(player.global_position)
+
+	spawn_timer += delta * spawn_multiplier
 
 	if spawn_timer >= current_spawn_interval:
 		spawn_timer = 0.0
@@ -192,30 +207,17 @@ func _get_random_spawn_position(player_pos: Vector3) -> Vector3:
 
 
 func _pick_enemy_from_unlocked_tiers() -> String:
-	"""Pick an enemy from unlocked tiers based on time of day"""
-	# Determine max tier based on time of day
-	var max_tier_for_time: int
-
-	if is_bloodmoon:
-		# Blood moon: All unlocked tiers (1 to max_unlocked_tier)
-		max_tier_for_time = max_unlocked_tier
-	elif is_night:
-		# Night: Up to tier 3 (but capped by unlocked tiers)
-		max_tier_for_time = min(3, max_unlocked_tier)
-	else:
-		# Day: Only tiers 1-2 (but capped by unlocked tiers)
-		max_tier_for_time = min(2, max_unlocked_tier)
-
-	# Build pool of enemies from available tiers
+	"""Pick an enemy from all unlocked tiers (week-based progression)"""
+	# Build pool of enemies from all available tiers (no time-of-day restrictions)
 	var available_enemies := []
 
-	for tier in range(1, max_tier_for_time + 1):
+	for tier in range(1, max_unlocked_tier + 1):
 		if tier in enemies_by_tier:
 			available_enemies.append_array(enemies_by_tier[tier])
 
 	# If no enemies available (shouldn't happen), return empty
 	if available_enemies.is_empty():
-		push_warning("EnemySpawner: No enemies available for tiers 1-%d" % max_tier_for_time)
+		push_warning("EnemySpawner: No enemies available for tiers 1-%d" % max_unlocked_tier)
 		return ""
 
 	# Pick random enemy from pool
@@ -289,27 +291,22 @@ func _on_hour_changed(hour: int):
 	if is_night != was_night:
 		_update_spawn_interval()
 		if is_night:
-			var night_max_tier = min(3, max_unlocked_tier)
-			print("🌙 Night falls - enemies become more active (spawning from tiers 1-%d)" % night_max_tier)
+			print("🌙 Night falls - enemies become more active (tiers 1-%d)" % max_unlocked_tier)
 		else:
-			var day_max_tier = min(2, max_unlocked_tier)
-			print("☀️ Day breaks - weaker enemies spawn (tiers 1-%d only)" % day_max_tier)
+			print("☀️ Day breaks - spawn rate slows (tiers 1-%d)" % max_unlocked_tier)
 
 
 func _on_bloodmoon_started():
 	"""Called when blood moon starts"""
 	is_bloodmoon = true
 
-	# Increment blood moon count in WorldManager
+	# Increment blood moon count in WorldManager (for tracking/achievements)
 	WorldManager.increment_blood_moon_count()
 	var blood_moon_count = WorldManager.get_blood_moon_count()
 
-	# Unlock next tier (capped at tier 5)
-	max_unlocked_tier = min(blood_moon_count, 5)
-
 	_update_spawn_interval()
 
-	print("🩸 BLOOD MOON #%d - Tier %d UNLOCKED! Enemy spawning intensifies!" % [blood_moon_count, max_unlocked_tier])
+	print("🩸 BLOOD MOON #%d! Enemy spawning intensifies! (Tier %d unlocked from Week %d)" % [blood_moon_count, max_unlocked_tier, TimeManager.current_week])
 
 	# Show which enemies are now available
 	var available_count = 0
@@ -323,6 +320,39 @@ func _on_bloodmoon_ended():
 	is_bloodmoon = false
 	_update_spawn_interval()
 	print("✅ Blood moon ended - Spawn rate returns to normal (Tier %d still unlocked)" % max_unlocked_tier)
+
+
+func _on_week_completed():
+	"""Called when a new week begins - unlock next tier"""
+	_update_tier_from_week()
+
+	var available_count = 0
+	for tier in range(1, max_unlocked_tier + 1):
+		available_count += enemies_by_tier[tier].size()
+
+	print("📅 Week %d begins - Tier %d UNLOCKED! %d enemies now available" % [TimeManager.current_week, max_unlocked_tier, available_count])
+
+
+func _update_tier_from_week():
+	"""Update max unlocked tier based on current week"""
+	# Week 1: Tier 1, Week 2: Tier 2, etc. (capped at tier 5)
+	max_unlocked_tier = min(TimeManager.current_week, 5)
+
+
+func _get_spawn_multiplier(position: Vector3) -> float:
+	"""Get spawn rate multiplier based on location (2x in undervoid areas)"""
+	# Check if near any undervoid structure
+	var undervoid_registry = get_node_or_null("/root/UndervoidRegistry")
+	if not undervoid_registry:
+		return 1.0
+
+	var nearest_structure = undervoid_registry.get_nearest_structure(position)
+	if nearest_structure:
+		var distance = position.distance_to(nearest_structure.position)
+		if distance < UNDERVOID_PROXIMITY_RADIUS:
+			return UNDERVOID_SPAWN_MULTIPLIER
+
+	return 1.0
 
 
 ## ============================================================================

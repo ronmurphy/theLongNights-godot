@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://wraith_001"]
+
+[ext_resource type="Script" path="res://blocky_game/entities/wraith.gd" id="1"]
+
+[node name="Wraith" type="Node3D"]
+script = ExtResource("1")

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://corrupted_citizen_001"]
+
+[ext_resource type="Script" path="res://blocky_game/entities/corrupted_citizen.gd" id="1"]
+
+[node name="CorruptedCitizen" type="Node3D"]
+script = ExtResource("1")
