@@ -40,7 +40,7 @@ func initialize(start_pos: Vector3, target_pos: Vector3, shooter = null):
 	_shooter = shooter
 
 	# Use shooter's damage if available
-	if shooter and shooter.has("attack_damage"):
+	if shooter and "attack_damage" in shooter:
 		damage = shooter.attack_damage
 
 	var direction = (target_pos - start_pos).normalized()
