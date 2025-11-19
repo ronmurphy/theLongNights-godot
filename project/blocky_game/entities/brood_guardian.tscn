@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://brood_guardian_001"]
-
-[ext_resource type="Script" path="res://blocky_game/entities/brood_guardian.gd" id="1"]
-
-[node name="BroodGuardian" type="Node3D"]
-script = ExtResource("1")
