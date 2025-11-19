@@ -23,7 +23,6 @@ enum Team {
 var current_hp: int = 10
 var is_alive: bool = true
 var _sprite: Sprite3D = null
-var _health_bar: Node3D = null
 var _regen_timer: float = 0.0  # For 1 HP per 3 minutes
 const REGEN_INTERVAL: float = 180.0  # 3 minutes in seconds
 
@@ -73,10 +72,6 @@ func take_damage(amount: int, from: Node = null) -> void:
 
 	took_damage.emit(actual_damage, from)
 
-	# Update health bar
-	if _health_bar:
-		_update_health_bar()
-
 	# Blood spray particle effect on damage
 	_spawn_blood_spray()
 	
@@ -100,10 +95,6 @@ func heal(amount: int) -> void:
 
 	healed.emit(amount)
 
-	# Update health bar
-	if _health_bar:
-		_update_health_bar()
-
 
 ## Kill this entity
 func die() -> void:
@@ -117,10 +108,6 @@ func die() -> void:
 
 	# Check for blood moon sky ruin drops
 	_check_bloodmoon_sky_drops()
-
-	# Hide health bar immediately
-	if _health_bar:
-		_health_bar.visible = false
 
 	# Play death animation/effect (override in subclasses)
 	_on_death()
@@ -198,44 +185,53 @@ func _death_effect_low() -> void:
 func _spawn_blood_spray() -> void:
 	if not _sprite:
 		return
-	
+
 	# Create particle effect
 	var particles = GPUParticles3D.new()
 	add_child(particles)
-	
-	# Position at sprite location
+
+	# Position at sprite center (billboard center)
 	particles.global_position = _sprite.global_position
-	
-	# Configure particle material for blood spray
+
+	# Configure particle material for sphere burst effect (like 3D fireworks)
 	var material = ParticleProcessMaterial.new()
 	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	material.emission_sphere_radius = 0.3
-	material.direction = Vector3(0, 0.5, 0)  # Slight upward spray
-	material.spread = 60.0  # Wide spread for spray effect
-	material.initial_velocity_min = 1.5
-	material.initial_velocity_max = 3.0
-	material.gravity = Vector3(0, -8.0, 0)  # Faster fall than death particles
-	material.scale_min = 0.05
-	material.scale_max = 0.15
-	
-	# Red color for blood (with slight variation)
-	material.color = Color(0.8, 0.1, 0.1, 1.0)
+	material.emission_sphere_radius = 0.2  # Tight center point
+	material.direction = Vector3(0, 1, 0)  # Default direction (not really used with 180 spread)
+	material.spread = 180.0  # Full sphere burst - 360 degree visibility
+	material.initial_velocity_min = 2.5
+	material.initial_velocity_max = 4.0
+	material.gravity = Vector3(0, -5.0, 0)  # Moderate gravity for arc effect
+	material.scale_min = 0.3  # Much larger particles for visibility
+	material.scale_max = 0.5
+
+	# Bright red color for blood - highly visible
+	material.color = Color(0.9, 0.1, 0.1, 1.0)
 	material.color_ramp = _create_blood_fade_gradient()
-	
+
 	particles.process_material = material
-	particles.amount = 15  # Less particles than death effect
-	particles.lifetime = 1.5  # Increased from 0.6 for better visibility
+	particles.amount = 25  # More particles for better sphere burst effect
+	particles.lifetime = 0.8  # Short burst
 	particles.one_shot = true
-	particles.explosiveness = 1.0
-	
-	# Create simple quad mesh for particles
+	particles.explosiveness = 1.0  # Instant burst
+
+	# Create larger quad mesh for particles with unshaded material
 	var quad_mesh = QuadMesh.new()
-	quad_mesh.size = Vector2(0.15, 0.15)
+	quad_mesh.size = Vector2(0.4, 0.4)  # Larger mesh for visibility
+
+	# Make particle material unshaded and emissive for better visibility
+	var particle_mat = StandardMaterial3D.new()
+	particle_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	particle_mat.vertex_color_use_as_albedo = true  # Use particle color
+	particle_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	particle_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	quad_mesh.material = particle_mat
+
 	particles.draw_pass_1 = quad_mesh
-	
+
 	# Emit particles
 	particles.emitting = true
-	
+
 	# Clean up particles after they're done
 	await get_tree().create_timer(particles.lifetime + 0.5).timeout
 	particles.queue_free()
@@ -447,53 +443,6 @@ func _create_sprite(texture_path: String, pixel_size: float = 0.0025) -> Sprite3
 	return _sprite
 
 
-## Create a health bar above the entity
-func _create_health_bar() -> void:
-	# Only create health bars for enemies
-	if team != Team.ENEMY:
-		return
-
-	_health_bar = Node3D.new()
-	_health_bar.position = Vector3(0, 2.0, 0)  # Above entity
-	add_child(_health_bar)
-
-	# Background bar (red) - Using BoxMesh to prevent visual separation at angles
-	var bg_bar = MeshInstance3D.new()
-	var bg_mesh = BoxMesh.new()
-	bg_mesh.size = Vector3(1.0, 0.1, 0.02)
-	bg_bar.mesh = bg_mesh
-
-	var bg_mat = StandardMaterial3D.new()
-	bg_mat.albedo_color = Color(0.3, 0.0, 0.0)
-	bg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	bg_bar.material_override = bg_mat
-	_health_bar.add_child(bg_bar)
-
-	# Foreground bar (green) - this will scale with HP
-	var fg_bar = MeshInstance3D.new()
-	fg_bar.name = "HealthBarFill"
-	var fg_mesh = BoxMesh.new()
-	fg_mesh.size = Vector3(1.0, 0.1, 0.03)
-	fg_bar.mesh = fg_mesh
-	fg_bar.position = Vector3(0, 0, -0.02)  # Slightly in front
-
-	var fg_mat = StandardMaterial3D.new()
-	fg_mat.albedo_color = Color(0.0, 0.8, 0.0)
-	fg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	fg_bar.material_override = fg_mat
-	_health_bar.add_child(fg_bar)
-
-
-## Update health bar fill based on current HP
-func _update_health_bar() -> void:
-	if not _health_bar:
-		return
-
-	var fill = _health_bar.get_node_or_null("HealthBarFill")
-	if fill:
-		var hp_percent = float(current_hp) / float(max_hp)
-		fill.scale.x = hp_percent
-		fill.position.x = -(1.0 - hp_percent) * 0.5  # Center the bar
 
 
 ## Load entity data from entities.json
