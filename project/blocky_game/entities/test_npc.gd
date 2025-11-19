@@ -80,6 +80,8 @@ func initialize(race: String, gender: String, color: Color, display_name: String
 	# Create sprite AFTER race/gender are set
 	_create_sprite()
 
+	# Create health bar for neutral NPC
+	_create_health_bar()
 
 	# Apply race-based height scaling
 	_apply_race_height_scaling(race)
@@ -228,6 +230,7 @@ func _create_sprite(_texture_path: String = "", pixel_size: float = 0.004) -> Sp
 	return _sprite
 
 
+func _create_health_bar():
 	"""Create simple health bar above NPC"""
 	_health_bar = Node3D.new()
 	_health_bar.position = Vector3(0, 2.2, 0)  # Above head (will be scaled by race height)
