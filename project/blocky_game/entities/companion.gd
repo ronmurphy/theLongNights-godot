@@ -118,7 +118,6 @@ func _ready():
 	var sprite_path = CompanionManager.get_active_avatar_path()
 	if sprite_path != "":
 		_front_sprite_path = sprite_path
-		create_billboard_shadow(_front_sprite_path)
 		# Generate back sprite path by inserting "_back" before .png
 		_back_sprite_path = sprite_path.get_basename() + "_back.png"
 		# Generate jumping sprite paths

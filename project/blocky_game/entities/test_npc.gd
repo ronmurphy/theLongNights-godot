@@ -222,7 +222,10 @@ func _create_sprite(_texture_path: String = "", pixel_size: float = 0.004) -> Sp
 	
 	# Apply initial scale (will be set properly in _apply_race_height_scaling)
 	_sprite.scale = Vector3(1.0, 1.0, 1.0)
-	
+
+	# Enable shadow casting (same approach as player_avatar.gd)
+	_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+
 	add_child(_sprite)
 	return _sprite
 
