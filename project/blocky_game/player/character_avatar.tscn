@@ -25,7 +25,7 @@ far = 500.0
 script = ExtResource("2")
 sensitivity = 0.3
 
-[node name="Interaction" type="Node" parent="."]
+[node name="avatar_interaction" type="Node" parent="."]
 script = ExtResource("3")
 
 [node name="crosshair" type="Sprite2D" parent="."]
