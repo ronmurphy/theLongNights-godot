@@ -15,6 +15,7 @@ var _current_target: Node = null
 var _attack_timer := 0.0
 var _retarget_timer := 0.0
 const RETARGET_INTERVAL := 1.5
+const BOW_DRAW_TIME := 0.4  # Crossbow-style reload time
 
 
 func _ready():
@@ -107,13 +108,27 @@ func _process(delta: float):
 
 
 func _perform_ranged_attack():
+	"""Crossbow-style attack: Draw animation, then fire bone arrow"""
 	if _current_target == null:
 		return
 
 	var target_name = _current_target.get("entity_name") if _current_target.has_method("get") else "target"
-	print("💀 %s shoots bone arrow at %s!" % [entity_name, target_name])
 
-	# Create arrow projectile
+	# Show drawing/aiming animation first
+	if _sprite:
+		var attack_texture = load("res://assets/art/entities/skeleton_archer_attack_pose_enhanced.png")
+		if attack_texture:
+			_sprite.texture = attack_texture
+
+	# Wait for crossbow reload/aim time
+	await get_tree().create_timer(BOW_DRAW_TIME).timeout
+
+	if not is_alive or not is_instance_valid(_current_target):
+		return
+
+	print("💀 %s fires bone crossbow bolt at %s!" % [entity_name, target_name])
+
+	# Fire bone arrow projectile
 	var arrow = Node3D.new()
 	arrow.set_script(BoneArrow)
 
@@ -123,7 +138,7 @@ func _perform_ranged_attack():
 
 		var shoot_pos = global_position + Vector3(0, 1.0, 0)
 
-		# Simple prediction
+		# Precise crossbow prediction
 		var target_velocity = Vector3.ZERO
 		if _current_target.has_method("get_velocity"):
 			target_velocity = _current_target.get_velocity()
@@ -134,12 +149,9 @@ func _perform_ranged_attack():
 
 		arrow.initialize(shoot_pos, target_shoot_pos, self)
 
-	if _sprite:
-		var attack_texture = load("res://assets/art/entities/skeleton_archer_attack_pose_enhanced.png")
-		if attack_texture:
-			_sprite.texture = attack_texture
-			await get_tree().create_timer(0.4).timeout
-			if _sprite and is_alive:
-				var ready_texture = load("res://assets/art/entities/skeleton_archer_ready_pose_enhanced.png")
-				if ready_texture:
-					_sprite.texture = ready_texture
+	# Return to ready pose
+	if _sprite and is_alive:
+		await get_tree().create_timer(0.2).timeout
+		var ready_texture = load("res://assets/art/entities/skeleton_archer_ready_pose_enhanced.png")
+		if ready_texture:
+			_sprite.texture = ready_texture
