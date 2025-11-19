@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://xch1p2ohj5fm"
-path="res://.godot/imported/Slash_model.glb-1fec85ffe5b1e6752ec2c435e3018570.scn"
+path="res://.godot/imported/Slash_model.glb-ff1b6489f3f291d2ffaf13e8755b4da6.scn"
 
 [deps]
 
-source_file="res://Asset/Slash_model.glb"
-dest_files=["res://.godot/imported/Slash_model.glb-1fec85ffe5b1e6752ec2c435e3018570.scn"]
+source_file="res://examples-slash/tutorial-2/Asset/Slash_model.glb"
+dest_files=["res://.godot/imported/Slash_model.glb-ff1b6489f3f291d2ffaf13e8755b4da6.scn"]
 
 [params]
 

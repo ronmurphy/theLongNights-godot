@@ -2,22 +2,24 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cme1ywy71eydg"
-path="res://.godot/imported/muzzle_02.png-c1ddc2efc97af58bc7b6de9384fe3012.ctex"
+uid="uid://cigvrt8sye2gm"
+path="res://.godot/imported/muzzle_02.png-25332193b03b1d79c9b7d94ff5bc357c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Asset/Texture/muzzle_02.png"
-dest_files=["res://.godot/imported/muzzle_02.png-c1ddc2efc97af58bc7b6de9384fe3012.ctex"]
+source_file="res://examples-slash/tutorial_1/Asset/Texture/muzzle_02.png"
+dest_files=["res://.godot/imported/muzzle_02.png-25332193b03b1d79c9b7d94ff5bc357c.ctex"]
 
 [params]
 
 compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
@@ -25,6 +27,10 @@ mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
+process/channel_remap/red=0
+process/channel_remap/green=1
+process/channel_remap/blue=2
+process/channel_remap/alpha=3
 process/fix_alpha_border=true
 process/premult_alpha=false
 process/normal_map_invert_y=false

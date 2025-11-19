@@ -4,20 +4,21 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://c0hr00peoli8r"
-path="res://.godot/imported/Slash_model.glb-1fec85ffe5b1e6752ec2c435e3018570.scn"
+valid=false
 
 [deps]
 
-source_file="res://Asset/Slash_model.glb"
-dest_files=["res://.godot/imported/Slash_model.glb-1fec85ffe5b1e6752ec2c435e3018570.scn"]
+source_file="res://examples-slash/tutorial_1/Asset/Slash_model.glb"
 
 [params]
 
 nodes/root_type=""
 nodes/root_name=""
+nodes/root_script=null
 nodes/apply_root_scale=true
 nodes/root_scale=1.0
 nodes/import_as_skeleton_bones=false
+nodes/use_name_suffixes=true
 nodes/use_node_type_suffixes=true
 meshes/ensure_tangents=true
 meshes/generate_lods=true
@@ -32,6 +33,9 @@ animation/trimming=false
 animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
+materials/extract=0
+materials/extract_format=0
+materials/extract_path=""
 _subresources={
 "meshes": {
 "Slash_model_Cylinder": {
