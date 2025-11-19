@@ -457,33 +457,31 @@ func _create_health_bar() -> void:
 	_health_bar.position = Vector3(0, 2.0, 0)  # Above entity
 	add_child(_health_bar)
 
-	# Background bar (red)
-	var bg_quad = MeshInstance3D.new()
-	var bg_mesh = QuadMesh.new()
-	bg_mesh.size = Vector2(1.0, 0.1)
-	bg_quad.mesh = bg_mesh
+	# Background bar (red) - Using BoxMesh to prevent visual separation at angles
+	var bg_bar = MeshInstance3D.new()
+	var bg_mesh = BoxMesh.new()
+	bg_mesh.size = Vector3(1.0, 0.1, 0.02)
+	bg_bar.mesh = bg_mesh
 
 	var bg_mat = StandardMaterial3D.new()
 	bg_mat.albedo_color = Color(0.3, 0.0, 0.0)
 	bg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	bg_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	bg_quad.material_override = bg_mat
-	_health_bar.add_child(bg_quad)
+	bg_bar.material_override = bg_mat
+	_health_bar.add_child(bg_bar)
 
 	# Foreground bar (green) - this will scale with HP
-	var fg_quad = MeshInstance3D.new()
-	fg_quad.name = "HealthBarFill"
-	var fg_mesh = QuadMesh.new()
-	fg_mesh.size = Vector2(1.0, 0.1)
-	fg_quad.mesh = fg_mesh
-	fg_quad.position = Vector3(0, 0, -0.01)  # Slightly in front
+	var fg_bar = MeshInstance3D.new()
+	fg_bar.name = "HealthBarFill"
+	var fg_mesh = BoxMesh.new()
+	fg_mesh.size = Vector3(1.0, 0.1, 0.03)
+	fg_bar.mesh = fg_mesh
+	fg_bar.position = Vector3(0, 0, -0.02)  # Slightly in front
 
 	var fg_mat = StandardMaterial3D.new()
 	fg_mat.albedo_color = Color(0.0, 0.8, 0.0)
 	fg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	fg_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	fg_quad.material_override = fg_mat
-	_health_bar.add_child(fg_quad)
+	fg_bar.material_override = fg_mat
+	_health_bar.add_child(fg_bar)
 
 
 ## Update health bar fill based on current HP

@@ -252,7 +252,9 @@ func _spawn_enemy(enemy_key: String, spawn_pos: Vector3):
 
 	# Find ground position for ground entities
 	if entity is GroundEntity:
-		entity.global_position = entity.find_ground_position(spawn_pos, 15.0)
+		var ground_pos = entity.find_ground_position(spawn_pos, 15.0)
+		ground_pos.y += 3.0  # Raise by 3 blocks to prevent spawning underground
+		entity.global_position = ground_pos
 	else:
 		# Flying entities spawn in air
 		entity.global_position = spawn_pos
