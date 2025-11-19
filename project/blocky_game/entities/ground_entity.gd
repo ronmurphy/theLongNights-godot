@@ -114,3 +114,20 @@ func find_ground_position(start_pos: Vector3, max_distance: float = 10.0) -> Vec
 		return Vector3(hit.position) + Vector3(0.5, 1.0, 0.5)
 
 	return start_pos
+
+
+func create_billboard_shadow(texture_path: String, shadow_scale: Vector3 = Vector3(1.2, 1.2, 1.2)) -> void:
+	var shadow_mesh = QuadMesh.new()
+	shadow_mesh.size = Vector2(1, 1)
+	var shadow_instance = MeshInstance3D.new()
+	shadow_instance.mesh = shadow_mesh
+	shadow_instance.scale = shadow_scale
+	shadow_instance.position = Vector3(0, 0.01, 0) # Slightly above ground
+	var shadow_material = StandardMaterial3D.new()
+	shadow_material.albedo_texture = load(texture_path)
+	shadow_material.albedo_color = Color(0, 0, 0, 0.5) # Black, semi-transparent
+	shadow_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	shadow_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	shadow_instance.material_override = shadow_material
+	shadow_instance.cast_shadow = MeshInstance3D.SHADOW_CASTING_SETTING_ON
+	add_child(shadow_instance)

@@ -14,6 +14,7 @@ var _bob_time := 0.0
 
 func _ready():
 	super._ready()
+	# Derived classes should call create_billboard_shadow() after sprite is set
 
 
 ## Call this in _process to apply bobbing effect
@@ -57,3 +58,20 @@ func move_toward_target(delta: float, target_pos: Vector3, speed: float, maintai
 		var bob_offset = get_bob_offset()
 		var target_y = target_pos.y + float_height + bob_offset
 		global_position.y = lerp(global_position.y, target_y, delta * 3.0)
+
+
+func create_billboard_shadow(texture_path: String, shadow_scale: Vector3 = Vector3(1.2, 1.2, 1.2)) -> void:
+	var shadow_mesh = QuadMesh.new()
+	shadow_mesh.size = Vector2(1, 1)
+	var shadow_instance = MeshInstance3D.new()
+	shadow_instance.mesh = shadow_mesh
+	shadow_instance.scale = shadow_scale
+	shadow_instance.position = Vector3(0, 0.01, 0)
+	var shadow_material = StandardMaterial3D.new()
+	shadow_material.albedo_texture = load(texture_path)
+	shadow_material.albedo_color = Color(0, 0, 0, 0.5)
+	shadow_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	shadow_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	shadow_instance.material_override = shadow_material
+	shadow_instance.cast_shadow = MeshInstance3D.SHADOW_CASTING_SETTING_ON
+	add_child(shadow_instance)
