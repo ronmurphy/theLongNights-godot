@@ -440,6 +440,9 @@ func _create_sprite(texture_path: String, pixel_size: float = 0.0025) -> Sprite3
 	else:
 		push_error("EntityBase: Failed to load texture: " + texture_path)
 
+	# Enable shadow casting (same approach as player_avatar.gd)
+	_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+
 	add_child(_sprite)
 	return _sprite
 
