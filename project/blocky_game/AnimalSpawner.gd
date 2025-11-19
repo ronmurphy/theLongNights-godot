@@ -131,8 +131,9 @@ func _try_spawn_animal():
 		if animal.has_signal("died"):
 			animal.died.connect(_on_animal_died)
 
-		# Handle fish spawning - show fishing icon
+		# Handle fish spawning - show fishing icon and mark as fishing_available
 		if habitat_type == "water" and animal_name == "fish":
+			animal.set_meta("fishing_available", true)
 			_on_fish_spawned(animal, player)
 
 		print("%s Spawned %s at %s (total: %d)" % [emoji, animal_name, spawn_pos, _active_animals])
@@ -189,7 +190,7 @@ func _get_flying_spawn_position(player_pos: Vector3) -> Vector3:
 
 
 func _get_water_spawn_position(player_pos: Vector3) -> Vector3:
-	"""Get a spawn position in water around the player"""
+	"""Get a spawn position in water around the player (first try 5-block cube like GameConsole)"""
 	var terrain = get_node_or_null("/root/Main/Game/VoxelTerrain")
 	if not terrain:
 		return Vector3.ZERO
@@ -208,28 +209,28 @@ func _get_water_spawn_position(player_pos: Vector3) -> Vector3:
 
 	var water_voxels = water_block.base_info.voxels
 
-	# Try up to 20 times to find a water position
+	# First, check directly at and near player position for water (5-block cube)
+	for y_offset in range(-5, 5):
+		for x_offset in range(-5, 5):
+			for z_offset in range(-5, 5):
+				var check_pos = player_pos + Vector3(x_offset, y_offset, z_offset)
+				var voxel_pos = check_pos.floor()
+				var voxel_id = vt.get_voxel(voxel_pos)
+				if voxel_id in water_voxels:
+					return Vector3(voxel_pos) + Vector3(0.5, 0.5, 0.5)
+
+	# If not found, fall back to random search
 	for i in range(20):
-		# Random angle around player
 		var angle = randf() * TAU
 		var distance = randf_range(SPAWN_DISTANCE_MIN, SPAWN_DISTANCE_MAX)
-
-		# Calculate horizontal position
 		var offset = Vector3(cos(angle) * distance, 0, sin(angle) * distance)
 		var test_pos = player_pos + offset
-
-		# Search up and down for water (check 20 blocks above and below)
 		for y_offset in range(-20, 20):
 			var check_pos = test_pos + Vector3(0, y_offset, 0)
 			var voxel_pos = check_pos.floor()
 			var voxel_id = vt.get_voxel(voxel_pos)
-
-			# Found water!
 			if voxel_id in water_voxels:
-				# Spawn in middle of water block
 				return Vector3(voxel_pos) + Vector3(0.5, 0.5, 0.5)
-
-	# Failed to find water
 	return Vector3.ZERO
 
 

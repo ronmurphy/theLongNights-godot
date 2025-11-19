@@ -474,7 +474,7 @@ func _physics_process(delta: float):
 			is_facing_back = dot > 0
 			_player_avatar.force_sprite_direction(is_facing_back)
 		else:
-			# Normal first-person: avatar is in shadow-only mode (invisible)
+			# Normal first-person: avatar is in shadow-only mode (invisible sprite, visible shadow)
 			# Still update sprite direction for when we switch to charview
 			var cam_forward = -_head.global_transform.basis.z
 			_player_avatar.update_sprite_direction(_velocity, cam_forward)
@@ -1252,3 +1252,19 @@ func set_input_enabled(enabled: bool) -> void:
 		print("[CharacterController] Input enabled")
 	else:
 		print("[CharacterController] Input disabled")
+
+
+# --- Fish interaction stubs for AnimalSpawner compatibility ---
+func set_nearby_fish(fish: Node3D) -> void:
+	var avatar_interaction = get_node_or_null("avatar_interaction")
+	if avatar_interaction and avatar_interaction.has_method("set_nearby_fish"):
+		avatar_interaction.set_nearby_fish(fish)
+	else:
+		print("[WARN] set_nearby_fish: avatar_interaction node or method missing")
+
+func clear_nearby_fish() -> void:
+	var avatar_interaction = get_node_or_null("avatar_interaction")
+	if avatar_interaction and avatar_interaction.has_method("clear_nearby_fish"):
+		avatar_interaction.clear_nearby_fish()
+	else:
+		print("[WARN] clear_nearby_fish: avatar_interaction node or method missing")
