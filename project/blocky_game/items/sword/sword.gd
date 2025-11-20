@@ -39,8 +39,8 @@ func _use(trans: Transform3D, inv_item_or_count):
 		# Direct hit on entity
 		_slash_attack(target_entity, origin, inv_item_or_count)
 	else:
-		# Slash at air (show slash effect)
-		var slash_pos = origin + direction * 2.5
+		# Slash at air (show slash effect) - close to player, within melee range
+		var slash_pos = origin + direction * 1.0
 		_spawn_slash_effect(slash_pos, direction)
 
 	print("Sword slash! Stack bonus: +", stack_count, " damage")
@@ -120,56 +120,17 @@ func _slash_attack(entity: Node, attacker_pos: Vector3, inv_item_or_count):
 
 
 func _spawn_slash_effect(pos: Vector3, direction: Vector3):
-	# Create slash effect quad with shader
-	var mesh_inst = MeshInstance3D.new()
-	var quad = QuadMesh.new()
-	quad.size = Vector2(2.5, 2.5)  # Larger slash than machete
-	mesh_inst.mesh = quad
-
-	# Load and configure slash shader
-	var material = ShaderMaterial.new()
-	material.shader = load("res://blocky_game/items/slash_effect.gdshader")
-
-	# Create noise texture
-	var noise_texture = NoiseTexture2D.new()
-	var noise = FastNoiseLite.new()
-	noise.noise_type = FastNoiseLite.TYPE_CELLULAR
-	noise.cellular_distance_function = FastNoiseLite.DISTANCE_MANHATTAN
-	noise.frequency = 0.05
-	noise_texture.noise = noise
-	noise_texture.seamless = true
-	noise_texture.width = 512
-	noise_texture.height = 128
-
-	material.set_shader_parameter("base_noise", noise_texture)
-	material.set_shader_parameter("slash_color", Color(1.0, 0.9, 0.7, 1.0))  # Golden slash
-	material.set_shader_parameter("emission_strength", 2.5)
-	material.set_shader_parameter("time_scale", 3.5)  # Slightly slower, heavier slash
-
-	mesh_inst.material_override = material
-
-	# Add to scene first (required before setting global_transform)
-	get_node("/root/Main/Game").add_child(mesh_inst)
-
-	# Position and orient the slash
-	mesh_inst.global_position = pos + Vector3(0, 1.0, 0)  # Chest height
-
-	# Orient slash diagonally - tilted 45 degrees, horizontal swing
-	# The slash should sweep across horizontally, tilted like a sword slash
-	var forward = direction.normalized()
-	var right = forward.cross(Vector3.UP).normalized()
-	if right.length() < 0.1:  # Handle vertical direction edge case
-		right = Vector3.RIGHT
-
-	# Tilt the slash 45 degrees (diagonal sword swing)
-	var up_tilted = (Vector3.UP + right).normalized()
-	var forward_adjusted = right.cross(up_tilted).normalized()
-
-	mesh_inst.global_transform.basis = Basis(right, up_tilted, -forward_adjusted)
-
-	# Auto-delete after animation
-	await get_tree().create_timer(0.28).timeout  # Slightly longer animation
-	mesh_inst.queue_free()
+	# Spawn spatial slash effect using the new system (replaces old canvas-warped effect)
+	SlashEffectSpawner.spawn_slash(
+		get_node("/root/Main/Game"),
+		pos,  # Already at correct height from camera/entity position
+		direction,
+		Color(1.0, 0.9, 0.7, 1.0),  # Golden slash
+		0.28,  # Duration
+		8.0,   # Intensity (slightly brighter than default)
+		4.0,   # Speed (controls animation rate)
+		3.0    # Scale (much larger for visibility)
+	)
 
 
 func _lightning_chain(origin: Vector3, chain_damage: int, primary_target: Node):

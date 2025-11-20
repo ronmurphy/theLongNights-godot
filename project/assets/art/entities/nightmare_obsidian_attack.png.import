@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://ckthu60ynwjnh"
+=======
+uid="uid://b7v3diskgjlf5"
+>>>>>>> claude/fix-entity-shadows-01Jn2f69QaPCPNx7sRELmwDP
 path="res://.godot/imported/nightmare_obsidian_attack.png-7a1945ad92d566408d69d596c7831938.ctex"
 metadata={
 "vram_texture": false

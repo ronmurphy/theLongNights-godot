@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://bd3h7u5b0i7c2"
+=======
+uid="uid://quehgnd62xjb"
+>>>>>>> claude/fix-entity-shadows-01Jn2f69QaPCPNx7sRELmwDP
 path="res://.godot/imported/nightmare_attack_purple.png-759113ca26c859c9ec7b22d1fe47c997.ctex"
 metadata={
 "vram_texture": false

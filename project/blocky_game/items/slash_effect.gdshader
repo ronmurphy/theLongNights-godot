@@ -1,3 +1,13 @@
+// ============================================================
+// DEPRECATED - DO NOT USE
+// ============================================================
+// This shader has been replaced by spatial_slash_effect.gdshader
+// which uses a proper 3D mesh model instead of a canvas-warped QuadMesh.
+//
+// Use SlashEffectSpawner.spawn_slash() instead.
+// Deprecated: 2025-11-19
+// ============================================================
+
 shader_type spatial;
 render_mode blend_add, depth_draw_never, cull_disabled, unshaded;
 

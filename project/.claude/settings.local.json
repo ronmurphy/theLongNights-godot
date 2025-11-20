@@ -8,7 +8,8 @@
       "Bash(find:*)",
       "Bash(godot --script res://blocky_game/long_nights/GameConsole.gd -c 2:*)",
       "Bash(git log:*)",
-      "WebFetch(domain:godotshaders.com)"
+      "WebFetch(domain:godotshaders.com)",
+      "Bash(/home/brad/Documents/Godot/godot.linuxbsd.editor.x86_64:*)"
     ],
     "deny": [],
     "ask": []

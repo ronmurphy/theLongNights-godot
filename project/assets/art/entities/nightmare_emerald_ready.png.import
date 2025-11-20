@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://c6oas1pjf3pbm"
+=======
+uid="uid://ckprdefqsw2a2"
+>>>>>>> claude/fix-entity-shadows-01Jn2f69QaPCPNx7sRELmwDP
 path="res://.godot/imported/nightmare_emerald_ready.png-f62d61ad1ec32fc6c961f5ece65c8d1f.ctex"
 metadata={
 "vram_texture": false
