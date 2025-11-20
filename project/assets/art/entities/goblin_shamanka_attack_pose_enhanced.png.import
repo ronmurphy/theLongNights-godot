@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://168ogs7cyu6j"
-path="res://.godot/imported/nightmare_ready.png-af5e89e44906cde16cc26cdfec05b4d1.ctex"
+uid="uid://c28athgy6h21g"
+path="res://.godot/imported/goblin_shamanka_attack_pose_enhanced.png-8c2b0a72c971dd5b0b3925a3a36498d1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/entities/nightmare_ready.png"
-dest_files=["res://.godot/imported/nightmare_ready.png-af5e89e44906cde16cc26cdfec05b4d1.ctex"]
+source_file="res://assets/art/entities/goblin_shamanka_attack_pose_enhanced.png"
+dest_files=["res://.godot/imported/goblin_shamanka_attack_pose_enhanced.png-8c2b0a72c971dd5b0b3925a3a36498d1.ctex"]
 
 [params]
 

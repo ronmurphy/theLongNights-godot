@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://q2eub6kr0vbs"
-path="res://.godot/imported/nightmare.png-1c10fa60643149ef27f610ff196c156e.ctex"
+uid="uid://877lp1r8dvrb"
+path="res://.godot/imported/urban_predator_attack_pose_enhanced.png-761e2d425c45392da9a014d4b4dcb747.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/entities/nightmare.png"
-dest_files=["res://.godot/imported/nightmare.png-1c10fa60643149ef27f610ff196c156e.ctex"]
+source_file="res://assets/art/entities/urban_predator_attack_pose_enhanced.png"
+dest_files=["res://.godot/imported/urban_predator_attack_pose_enhanced.png-761e2d425c45392da9a014d4b4dcb747.ctex"]
 
 [params]
 
