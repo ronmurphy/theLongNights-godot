@@ -272,8 +272,8 @@ func _apply_enchant_outline(outline_color: Color, outline_color_2: Color) -> voi
 			_shader_material.shader = _enchant_shader
 
 		# Set shader parameters for gradient outline
-		_shader_material.set_shader_parameter("intensity", 50)
-		_shader_material.set_shader_parameter("precision", 0.01)
+		_shader_material.set_shader_parameter("intensity", 8)  # Lower to prevent overflow
+		_shader_material.set_shader_parameter("precision", 0.015)  # Increase for better outline at lower intensity
 		_shader_material.set_shader_parameter("flipColors", false)
 		_shader_material.set_shader_parameter("outline_color", outline_color)
 		_shader_material.set_shader_parameter("outline_color_2", outline_color_2)
