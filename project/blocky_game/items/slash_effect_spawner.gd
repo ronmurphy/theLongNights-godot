@@ -83,6 +83,11 @@ static func spawn_slash(
 	# Rotate 180 degrees around X to flip it vertically (fixes up/down inversion)
 	effect.rotate_object_local(Vector3(1, 0, 0), deg_to_rad(180))
 
+	# Add random diagonal angle for variety - each slash looks unique
+	# Randomly choose diagonal direction and angle
+	var random_angle = randf_range(-45.0, 45.0)  # Random angle between -45 and 45 degrees
+	effect.rotate_object_local(Vector3(0, 0, 1), deg_to_rad(random_angle))  # Rotate around forward axis
+
 	# Apply scale
 	effect.scale = Vector3(scale, scale, scale)
 
@@ -146,7 +151,7 @@ static func _configure_fire_slash(material: ShaderMaterial, color: Color, intens
 	material.set_shader_parameter("Gradient_Sharpness", 1.5)
 
 	# Offset for animation - increase to sweep more across the screen
-	material.set_shader_parameter("offset", Vector2(2, 0))
+	material.set_shader_parameter("offset", Vector2(0.5, 0))
 
 
 ## Add animator script to fire slash effect for speed parameter animation

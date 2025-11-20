@@ -39,8 +39,8 @@ func _use(trans: Transform3D, inv_item_or_count):
 		# Direct hit on entity
 		_slash_attack(target_entity, origin, inv_item_or_count)
 	else:
-		# Slash at air (show slash effect) - close to player, within melee range
-		var slash_pos = origin + direction * 1.0
+		# Slash at air (show slash effect) - very close to player for narrower appearance
+		var slash_pos = origin + direction * 0.6
 		_spawn_slash_effect(slash_pos, direction)
 
 	print("Sword slash! Stack bonus: +", stack_count, " damage")

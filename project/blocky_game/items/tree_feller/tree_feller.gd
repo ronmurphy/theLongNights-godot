@@ -46,8 +46,8 @@ func _use(trans: Transform3D, inv_item_or_count):
 			if player and player.has_method("activate_wind_dash"):
 				player.activate_wind_dash()
 	else:
-		# Slash at air (show slash effect) - close to player, within melee range
-		var slash_pos = origin + direction * 1.0
+		# Slash at air (show slash effect) - very close to player for narrower appearance
+		var slash_pos = origin + direction * 0.6
 		_spawn_slash_effect(slash_pos, direction)
 
 	print("Tree Feller cleave! Hit %d targets | Stack bonus: +%d damage" % [target_entities.size(), stack_count])
