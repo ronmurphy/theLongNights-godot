@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://nightmare_purple_001"]
+
+[ext_resource type="Script" path="res://blocky_game/entities/nightmare_purple.gd" id="1"]
+
+[node name="NightmarePurple" type="Node3D"]
+script = ExtResource("1")
