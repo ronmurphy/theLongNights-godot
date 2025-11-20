@@ -539,44 +539,44 @@ static func get_starting_equipment(race: String, gender: String, role: String) -
 	# Equipment table based on race + gender + role combinations
 	var equipment_table = {
 		# HUMAN
-		"human_male_tank": { "weapon_id": 11, "weapon_count": 3, "accessory_id": 1, "accessory_power": "stone_skin" },
-		"human_female_tank": { "weapon_id": 41, "weapon_count": 2, "accessory_id": 2, "accessory_power": "stone_skin" },
-		"human_male_wizard": { "weapon_id": 4, "weapon_count": 1, "accessory_id": 1, "accessory_power": "glide" },
-		"human_female_wizard": { "weapon_id": 5, "weapon_count": 2, "accessory_id": 2, "accessory_power": "flame_aura" },
-		"human_male_healer": { "weapon_id": 9, "weapon_count": 2, "accessory_id": 2, "accessory_power": "return" },
-		"human_female_healer": { "weapon_id": 10, "weapon_count": 1, "accessory_id": 1, "accessory_power": "moon_jump" },
-		"human_male_rogue": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 2, "accessory_power": "moon_jump" },
-		"human_female_rogue": { "weapon_id": 10, "weapon_count": 2, "accessory_id": 1, "accessory_power": "glide" },
+		"human_male_tank": { "weapon_id": 11, "weapon_count": 3, "weapon_power": "", "accessory_id": 1, "accessory_power": "stone_skin" },
+		"human_female_tank": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "stone_skin" },
+		"human_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
+		"human_female_wizard": { "weapon_id": 5, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "flame_aura" },
+		"human_male_healer": { "weapon_id": 9, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "return" },
+		"human_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "moon_jump" },
+		"human_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "moon_jump" },
+		"human_female_rogue": { "weapon_id": 10, "weapon_count": 2, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
 
 		# ELF
-		"elf_male_tank": { "weapon_id": 11, "weapon_count": 2, "accessory_id": 1, "accessory_power": "stone_skin" },
-		"elf_female_tank": { "weapon_id": 41, "weapon_count": 2, "accessory_id": 2, "accessory_power": "stone_skin" },
-		"elf_male_wizard": { "weapon_id": 3, "weapon_count": 1, "accessory_id": 1, "accessory_power": "flame_aura" },
-		"elf_female_wizard": { "weapon_id": 4, "weapon_count": 1, "accessory_id": 2, "accessory_power": "glide" },
-		"elf_male_healer": { "weapon_id": 41, "weapon_count": 2, "accessory_id": 2, "accessory_power": "return" },
-		"elf_female_healer": { "weapon_id": 10, "weapon_count": 1, "accessory_id": 1, "accessory_power": "glide" },
-		"elf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 2, "accessory_power": "moon_jump" },
-		"elf_female_rogue": { "weapon_id": 10, "weapon_count": 3, "accessory_id": 1, "accessory_power": "moon_jump" },
+		"elf_male_tank": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 1, "accessory_power": "stone_skin" },
+		"elf_female_tank": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "stone_skin" },
+		"elf_male_wizard": { "weapon_id": 3, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "flame_aura" },
+		"elf_female_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 2, "accessory_power": "glide" },
+		"elf_male_healer": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "return" },
+		"elf_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
+		"elf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "moon_jump" },
+		"elf_female_rogue": { "weapon_id": 10, "weapon_count": 3, "weapon_power": "", "accessory_id": 1, "accessory_power": "moon_jump" },
 
 		# DWARF
-		"dwarf_male_tank": { "weapon_id": 8, "weapon_count": 3, "accessory_id": 1, "accessory_power": "stone_skin" },
-		"dwarf_female_tank": { "weapon_id": 11, "weapon_count": 2, "accessory_id": 2, "accessory_power": "stone_skin" },
-		"dwarf_male_wizard": { "weapon_id": 4, "weapon_count": 1, "accessory_id": 1, "accessory_power": "flame_aura" },
-		"dwarf_female_wizard": { "weapon_id": 9, "weapon_count": 2, "accessory_id": 2, "accessory_power": "flame_aura" },
-		"dwarf_male_healer": { "weapon_id": 8, "weapon_count": 2, "accessory_id": 2, "accessory_power": "return" },
-		"dwarf_female_healer": { "weapon_id": 10, "weapon_count": 1, "accessory_id": 1, "accessory_power": "glide" },
-		"dwarf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 2, "accessory_power": "moon_jump" },
-		"dwarf_female_rogue": { "weapon_id": 11, "weapon_count": 2, "accessory_id": 1, "accessory_power": "moon_jump" },
+		"dwarf_male_tank": { "weapon_id": 8, "weapon_count": 3, "weapon_power": "", "accessory_id": 1, "accessory_power": "stone_skin" },
+		"dwarf_female_tank": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "stone_skin" },
+		"dwarf_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "flame_aura" },
+		"dwarf_female_wizard": { "weapon_id": 9, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "flame_aura" },
+		"dwarf_male_healer": { "weapon_id": 8, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "return" },
+		"dwarf_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
+		"dwarf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "moon_jump" },
+		"dwarf_female_rogue": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 1, "accessory_power": "moon_jump" },
 
 		# GOBLIN
-		"goblin_male_tank": { "weapon_id": 0, "weapon_count": 1, "accessory_id": 1, "accessory_power": "stone_skin" },
-		"goblin_female_tank": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 2, "accessory_power": "stone_skin" },
-		"goblin_male_wizard": { "weapon_id": 4, "weapon_count": 1, "accessory_id": 1, "accessory_power": "flame_aura" },
-		"goblin_female_wizard": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 2, "accessory_power": "flame_aura" },
-		"goblin_male_healer": { "weapon_id": 41, "weapon_count": 2, "accessory_id": 2, "accessory_power": "return" },
-		"goblin_female_healer": { "weapon_id": 5, "weapon_count": 2, "accessory_id": 1, "accessory_power": "glide" },
-		"goblin_male_rogue": { "weapon_id": 0, "weapon_count": 1, "accessory_id": 2, "accessory_power": "moon_jump" },
-		"goblin_female_rogue": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 1, "accessory_power": "moon_jump" },
+		"goblin_male_tank": { "weapon_id": 0, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "stone_skin" },
+		"goblin_female_tank": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "stone_skin" },
+		"goblin_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "flame_aura" },
+		"goblin_female_wizard": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "flame_aura" },
+		"goblin_male_healer": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "return" },
+		"goblin_female_healer": { "weapon_id": 5, "weapon_count": 2, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
+		"goblin_male_rogue": { "weapon_id": 0, "weapon_count": 1, "weapon_power": "", "accessory_id": 2, "accessory_power": "moon_jump" },
+		"goblin_female_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 1, "accessory_power": "moon_jump" },
 	}
 
 	if equipment_table.has(key):
@@ -584,7 +584,7 @@ static func get_starting_equipment(race: String, gender: String, role: String) -
 	else:
 		# Fallback: basic equipment
 		push_warning("CompanionManager: No equipment defined for %s, using fallback" % key)
-		return { "weapon_id": 9, "weapon_count": 1, "accessory_id": 2, "accessory_power": "glide" }
+		return { "weapon_id": 9, "weapon_count": 1, "weapon_power": "", "accessory_id": 2, "accessory_power": "glide" }
 
 
 func save_roster_to_dict() -> Dictionary:

@@ -30,7 +30,9 @@ var _roster_count_label: Label
 var _details_panel: Panel
 var _avatar_texture: TextureRect
 var _weapon_texture_display: TextureRect
+var _weapon_count_label: Label
 var _accessory_texture_display: TextureRect
+var _accessory_count_label: Label
 var _hp_bar: ProgressBar
 var _hp_label: Label
 var _atk_label: Label
@@ -50,6 +52,11 @@ var _main_panel: Panel
 
 # Reference nodes
 var _companion_manager: Node = null
+
+# Shader for powered items
+var _enchant_shader: Shader = preload("res://blocky_game/shaders/item_enchant_outline.gdshader")
+var _weapon_shader_material: ShaderMaterial = null
+var _accessory_shader_material: ShaderMaterial = null
 
 # Name pools for random generation
 var _name_pools = {
@@ -471,6 +478,24 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	weapon_slot.add_child(weapon_texture)
 	_weapon_texture_display = weapon_texture
 
+	# Add count label for stacked weapons
+	var weapon_count = Label.new()
+	weapon_count.text = ""
+	weapon_count.add_theme_font_size_override("font_size", 12)
+	weapon_count.add_theme_color_override("font_color", Color.WHITE)
+	weapon_count.add_theme_color_override("font_outline_color", Color.BLACK)
+	weapon_count.add_theme_constant_override("outline_size", 3)
+	weapon_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	weapon_count.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	weapon_count.anchor_right = 1.0
+	weapon_count.anchor_bottom = 1.0
+	weapon_count.offset_right = -2
+	weapon_count.offset_bottom = 0
+	weapon_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	weapon_count.visible = false
+	weapon_slot.add_child(weapon_count)
+	_weapon_count_label = weapon_count
+
 	# Accessory section - centered
 	var accessory_vbox = VBoxContainer.new()
 	accessory_vbox.add_theme_constant_override("separation", 4)
@@ -788,14 +813,15 @@ func _on_add_companion() -> void:
 	var equipment = CompanionManager.get_starting_equipment(race, gender, role)
 	comp.equipped_weapon_id = equipment.weapon_id
 	comp.equipped_weapon_count = equipment.weapon_count
+	comp.equipped_weapon_power = equipment.get("weapon_power", "")
 	comp.equipped_accessory_id = equipment.accessory_id
 	comp.equipped_accessory_power = equipment.accessory_power
-	print("🎁 %s starting equipment: weapon=%d (x%d), accessory=%d (%s)" % [
-		name_text, equipment.weapon_id, equipment.weapon_count,
+	print("🎁 %s starting equipment: weapon=%d (x%d) [%s], accessory=%d (%s)" % [
+		name_text, equipment.weapon_id, equipment.weapon_count, comp.equipped_weapon_power,
 		equipment.accessory_id, equipment.accessory_power
 	])
 	print("🔍 CompanionData after assignment:")
-	print("    weapon_id=%d, weapon_count=%d" % [comp.equipped_weapon_id, comp.equipped_weapon_count])
+	print("    weapon_id=%d, weapon_count=%d, weapon_power='%s'" % [comp.equipped_weapon_id, comp.equipped_weapon_count, comp.equipped_weapon_power])
 	print("    accessory_id=%d, accessory_power='%s'" % [comp.equipped_accessory_id, comp.equipped_accessory_power])
 
 	# Add to roster
@@ -910,22 +936,37 @@ func _on_remove_companion() -> void:
 
 
 func _load_equipped_item_textures(comp: Variant) -> void:
-	"""Load and display equipped weapon and accessory item textures"""
+	"""Load and display equipped weapon and accessory item textures with counts and power outlines"""
 	var item_db = get_node_or_null("/root/Main/Game/Items")
 	if not item_db:
 		_weapon_texture_display.texture = null
+		_weapon_texture_display.material = null
+		_weapon_count_label.visible = false
 		_accessory_texture_display.texture = null
+		_accessory_texture_display.material = null
 		return
 
-	# Clear textures first
+	# Clear textures and shaders first
 	_weapon_texture_display.texture = null
+	_weapon_texture_display.material = null
+	_weapon_count_label.visible = false
 	_accessory_texture_display.texture = null
+	_accessory_texture_display.material = null
 
 	# Load weapon texture based on companion's equipped weapon
 	if comp.equipped_weapon_id >= 0:
 		var weapon_item = item_db.get_item(comp.equipped_weapon_id)
 		if weapon_item and weapon_item.base_info and weapon_item.base_info.sprite:
 			_weapon_texture_display.texture = weapon_item.base_info.sprite
+
+			# Show count label if stacked
+			if comp.equipped_weapon_count > 1:
+				_weapon_count_label.text = str(comp.equipped_weapon_count)
+				_weapon_count_label.visible = true
+
+			# Apply power outline if weapon has a power
+			if comp.equipped_weapon_power != "":
+				_apply_shader_to_texture(_weapon_texture_display, comp.equipped_weapon_power, false)
 	else:
 		# Get default weapon for this race/role combo
 		var default_weapon_id = _get_default_weapon_for_companion(comp)
@@ -939,6 +980,10 @@ func _load_equipped_item_textures(comp: Variant) -> void:
 		var accessory_item = item_db.get_item(comp.equipped_accessory_id)
 		if accessory_item and accessory_item.base_info and accessory_item.base_info.sprite:
 			_accessory_texture_display.texture = accessory_item.base_info.sprite
+
+			# Apply power outline if accessory has a power
+			if comp.equipped_accessory_power != "":
+				_apply_shader_to_texture(_accessory_texture_display, comp.equipped_accessory_power, true)
 
 
 func _get_default_weapon_for_companion(comp: Variant) -> int:
@@ -956,6 +1001,38 @@ func _get_default_weapon_for_companion(comp: Variant) -> int:
 		"human":
 			return 8  # machete
 	return -1
+
+
+func _apply_shader_to_texture(texture_rect: TextureRect, power: String, is_equip_power: bool) -> void:
+	"""Apply enchantment outline shader to a texture rect based on power type"""
+	# Determine outline colors based on power type
+	var color1: Color
+	var color2: Color
+
+	if is_equip_power:
+		# Equip powers - gold to orange gradient 🛡️
+		color1 = Color(1.0, 0.9, 0.0, 1.0)
+		color2 = Color(1.0, 0.6, 0.0, 1.0)
+	else:
+		# Hotbar powers - purple to magenta gradient ⚔️
+		color1 = Color(0.6, 0.2, 1.0, 1.0)
+		color2 = Color(1.0, 0.2, 0.8, 1.0)
+
+	# Create shader material
+	var shader_mat = ShaderMaterial.new()
+	shader_mat.shader = _enchant_shader
+
+	# Set shader parameters
+	shader_mat.set_shader_parameter("intensity", 8)
+	shader_mat.set_shader_parameter("precision", 0.015)
+	shader_mat.set_shader_parameter("flipColors", false)
+	shader_mat.set_shader_parameter("outline_color", color1)
+	shader_mat.set_shader_parameter("outline_color_2", color2)
+	shader_mat.set_shader_parameter("use_outline_uv", false)
+	shader_mat.set_shader_parameter("useTexture", false)
+
+	# Apply shader to texture
+	texture_rect.material = shader_mat
 
 
 func _update_companion_stats(comp: Variant) -> void:
