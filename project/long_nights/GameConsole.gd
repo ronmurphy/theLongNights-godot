@@ -359,7 +359,8 @@ func _cmd_help(_args: Array) -> void:
 	add_output("")
 	add_output("[color=cyan]Companion Roster:[/color]")
 	add_output("  [color=yellow]roster[/color] - Show all companions in roster")
-	add_output("  [color=yellow]roster add <race> <gender> <role> <name>[/color] - Add companion to roster")
+	add_output("  [color=yellow]roster shop[/color] - Open recruitment UI modal (recommended)")
+	add_output("  [color=yellow]roster add <race> <gender> <role> <name>[/color] - Add companion (console mode)")
 	add_output("  [color=yellow]roster swap <index>[/color] - Swap active companion to roster index")
 	add_output("  [color=yellow]roster remove <index>[/color] - Remove companion from roster")
 	add_output("    Example: roster add dwarf male tank Thorin")
@@ -1482,6 +1483,39 @@ func _cmd_roster(args: Array) -> void:
 	var subcmd = args[0].to_lower()
 	
 	match subcmd:
+		"shop", "ui":
+			# Open companion recruitment modal
+			add_output("[color=lime]Opening companion recruitment interface...[/color]")
+
+			# Close console first
+			toggle_console()
+
+			# Load and create modal
+			var CompanionRosterModal = load("res://blocky_game/gui/CompanionRosterModal.gd")
+			var modal = CompanionRosterModal.new()
+
+			# Disable player input while modal is open
+			var player = get_tree().get_first_node_in_group("player")
+			if player and player.has_method("set_input_enabled"):
+				player.set_input_enabled(false)
+
+			# Get avatar interaction to disable hotbar scroll wheel
+			var avatar_interaction = player.get_node_or_null("Head/Interaction") if player else null
+			if avatar_interaction and avatar_interaction.has_method("set_cooking_modal_open"):
+				avatar_interaction.set_cooking_modal_open(true)
+
+			# Connect modal_closed signal to re-enable input
+			modal.modal_closed.connect(func():
+				if player and player.has_method("set_input_enabled"):
+					player.set_input_enabled(true)
+				# Re-enable hotbar scroll wheel
+				if avatar_interaction and avatar_interaction.has_method("set_cooking_modal_open"):
+					avatar_interaction.set_cooking_modal_open(false)
+			)
+
+			# Add to scene tree
+			get_tree().root.add_child(modal)
+
 		"add":
 			if args.size() < 5:
 				add_output("[color=red]Usage: roster add <race> <gender> <role> <name>[/color]")
@@ -1489,27 +1523,27 @@ func _cmd_roster(args: Array) -> void:
 				add_output("  Gender: male, female")
 				add_output("  Roles: healer, tank, rogue, wizard")
 				return
-			
+
 			var race = args[1].to_lower()
 			var gender = args[2].to_lower()
 			var role = args[3].to_lower()
 			var name = args[4]
-			
+
 			# Validate race
 			if not race in ["human", "elf", "dwarf", "goblin"]:
 				add_output("[color=red]Invalid race: %s[/color]" % race)
 				return
-			
+
 			# Validate gender
 			if not gender in ["male", "female"]:
 				add_output("[color=red]Invalid gender: %s[/color]" % gender)
 				return
-			
+
 			# Validate role
 			if not role in ["healer", "tank", "rogue", "wizard"]:
 				add_output("[color=red]Invalid role: %s[/color]" % role)
 				return
-			
+
 			# Create new companion
 			var comp = CompanionManager.CompanionData.new()
 			comp.companion_name = name
@@ -1517,11 +1551,11 @@ func _cmd_roster(args: Array) -> void:
 			comp.gender = gender
 			comp.role = role
 			comp.is_active = false  # Will be benched
-			
+
 			CompanionManager.add_companion_to_roster(comp)
 			add_output("[color=lime]✓ Added %s to roster![/color]" % name)
 			add_output("  %s %s %s will be waiting at your home base" % [gender.capitalize(), race.capitalize(), role.capitalize()])
-			
+
 			# Spawn as NPC at home base if home base is set
 			if HomeBaseManager.has_home_base:
 				HomeBaseManager.add_benched_companion_npc(comp)
@@ -1569,7 +1603,7 @@ func _cmd_roster(args: Array) -> void:
 		
 		_:
 			add_output("[color=red]Unknown subcommand: %s[/color]" % subcmd)
-			add_output("[color=yellow]Use: roster [add][/color]")
+			add_output("[color=yellow]Use: roster [shop|add|swap|remove][/color]")
 
 
 func _cmd_drain(args: Array) -> void:
