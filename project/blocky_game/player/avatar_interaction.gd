@@ -1228,6 +1228,11 @@ func _unhandled_input(event: InputEvent):
 
 	var ui_open = console_open or terrain_mapper_open or _portal_compass_modal_open or _cooking_modal_open or _fishing_mode
 
+	# Z key toggle disabled - using fire slash effect by default
+	# if event is InputEventKey and event.pressed and not event.echo:
+	# 	if event.keycode == KEY_Z:
+	# 		SlashEffectSpawner.toggle_effect_type()
+
 	if event is InputEventMouseButton:
 		match event.button_index:
 			MOUSE_BUTTON_LEFT:

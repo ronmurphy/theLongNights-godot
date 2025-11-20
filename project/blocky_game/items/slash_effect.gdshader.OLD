@@ -1,11 +1,14 @@
 // ============================================================
 // DEPRECATED - DO NOT USE
 // ============================================================
-// This shader has been replaced by spatial_slash_effect.gdshader
+// This shader has been replaced by the spatial_slash_effect.gdshader
 // which uses a proper 3D mesh model instead of a canvas-warped QuadMesh.
 //
+// This file is kept for reference and potential rollback only.
 // Use SlashEffectSpawner.spawn_slash() instead.
+//
 // Deprecated: 2025-11-19
+// Replaced by: res://blocky_game/items/spatial_slash_effect.gdshader
 // ============================================================
 
 shader_type spatial;
