@@ -1,47 +1,86 @@
 shader_type canvas_item;
+render_mode unshaded;
 
-// Enchantment outline shader for inventory items
-// Adapted from godotshaders.com colorful-outline
+// Advanced enchantment outline shader for inventory items
+// From godotshaders.com colorful-outline - supports gradient blending
 
-uniform float outline_width : hint_range(0.0, 10.0) = 2.0;
+uniform int intensity = 50;
+uniform float precision : hint_range(0,0.02) = 0.01;
+uniform bool flipColors = false;  // Flip coloring 90 degrees
+
+// Gradient between these two colors for outline
 uniform vec4 outline_color : source_color = vec4(1.0, 0.0, 1.0, 1.0);
-uniform float outline_alpha : hint_range(0.0, 1.0) = 0.8;
+uniform vec4 outline_color_2 : source_color = vec4(0.5, 0.0, 0.5, 1.0);
 
-void fragment() {
-	vec4 original_color = texture(TEXTURE, UV);
+uniform bool use_outline_uv = false;  // Use the outline_uv for coloring or not
+uniform bool useTexture = false;  // Use a texture for the coloring
+uniform sampler2D outlineTexture;  // Gradient texture (if using texture mode)
 
-	// If pixel is already opaque, keep it as-is
-	if (original_color.a > 0.1) {
-		COLOR = original_color;
-	} else {
-		// Check surrounding pixels for edges
-		vec2 texture_size = vec2(textureSize(TEXTURE, 0));
-		vec2 pixel_size = 1.0 / texture_size;
+varying vec2 o;
+varying vec2 f;
 
-		float outline = 0.0;
-		float search_range = outline_width;
+void vertex()
+{
+	// Expands the vertices so we have space to draw the outline if we were on the edge
+	o = VERTEX;
+	vec2 uv = (UV - 0.5);
+	VERTEX += uv * float(intensity);
+	f = VERTEX;
+}
 
-		// Sample surrounding pixels
-		for (float x = -search_range; x <= search_range; x += 1.0) {
-			for (float y = -search_range; y <= search_range; y += 1.0) {
-				if (x == 0.0 && y == 0.0) continue;
+void fragment()
+{
+	ivec2 t = textureSize(TEXTURE, 0);
+	vec2 regular_uv;
+	regular_uv.x = UV.x + (f.x - o.x)/float(t.x);
+	regular_uv.y = UV.y + (f.y - o.y)/float(t.y);
 
-				vec2 offset = vec2(x, y) * pixel_size;
-				float sample_alpha = texture(TEXTURE, UV + offset).a;
+	vec4 regular_color = texture(TEXTURE, regular_uv);
 
-				if (sample_alpha > 0.1) {
-					outline = 1.0;
-					break;
+	if((regular_uv.x < 0.0 || regular_uv.x > 1.0) || (regular_uv.y < 0.0 || regular_uv.y > 1.0) || regular_color.a <=0.25){
+		regular_color = vec4(0.0);
+	}
+
+	vec2 ps = TEXTURE_PIXEL_SIZE * float(intensity) * precision;
+
+	vec4 final_color = regular_color;
+	if (regular_color.a <= 0.0)
+	{
+		for(int x = -1; x <= 1; x += 1){
+			for(int y = -1; y <= 1; y += 1){
+
+				// Get the X and Y offset from this
+				if (x==0 && y==0)
+					continue;
+
+				vec2 outline_uv = regular_uv + vec2(float(x) * ps.x, float(y) * ps.y);
+
+				// Sample here, if we are out of bounds then fail
+				vec4 outline_sample = texture(TEXTURE, outline_uv);
+				if((outline_uv.x < 0.0 || outline_uv.x > 1.0) || (outline_uv.y < 0.0 || outline_uv.y > 1.0)){
+					// We aren't a real color
+					outline_sample = vec4(0);
+				}
+
+				vec2 final_uv = use_outline_uv ? outline_uv : UV;  // Get the UV we will be using
+
+				// Is our sample empty? Is there something nearby?
+				if(outline_sample.a > final_color.a){
+					if(!useTexture)  // If we're not using a texture
+					{
+						// Blend between two colors based on UV position
+						final_color = mix(outline_color, outline_color_2, flipColors ? final_uv.y : final_uv.x);
+					}
+					else
+					{
+						vec2 uv = flipColors ? vec2(final_uv.y, final_uv.x) : final_uv;
+						vec4 outline = texture(outlineTexture, uv);
+
+						final_color = outline;
+					}
 				}
 			}
-			if (outline > 0.0) break;
-		}
-
-		// Apply outline color if edge detected
-		if (outline > 0.0) {
-			COLOR = vec4(outline_color.rgb, outline_color.a * outline_alpha);
-		} else {
-			COLOR = vec4(0.0);
 		}
 	}
+	COLOR = final_color;
 }
