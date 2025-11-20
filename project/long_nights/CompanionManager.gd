@@ -392,15 +392,34 @@ func swap_to_companion(index: int) -> bool:
 	if index < 0 or index >= companion_roster.size():
 		push_error("CompanionManager: Invalid companion index %d" % index)
 		return false
-	
+
 	if index == active_companion_index:
 		print("CompanionManager: Companion already active")
 		return false
-	
-	# Mark old as inactive
+
+	# IMPORTANT: Save current companion's equipment from inventory BEFORE swapping
 	if active_companion_index < companion_roster.size():
-		companion_roster[active_companion_index].is_active = false
-	
+		var old_companion = companion_roster[active_companion_index]
+
+		# Get inventory reference
+		var inventory = Engine.get_main_loop().get_root().get_node_or_null("/root/Main/Game/CharacterAvatar/Inventory")
+		if inventory:
+			# Save current equipment back to the old companion's roster entry
+			if inventory._companion_weapon_slot != null:
+				old_companion.equipped_weapon_id = inventory._companion_weapon_slot.id
+				print("💾 Saved %s's weapon: %d" % [old_companion.companion_name, old_companion.equipped_weapon_id])
+			else:
+				old_companion.equipped_weapon_id = -1
+
+			if inventory._companion_accessory_slot != null:
+				old_companion.equipped_accessory_id = inventory._companion_accessory_slot.id
+				print("💾 Saved %s's accessory: %d" % [old_companion.companion_name, old_companion.equipped_accessory_id])
+			else:
+				old_companion.equipped_accessory_id = -1
+
+		# Mark old as inactive
+		old_companion.is_active = false
+
 	# Mark new as active
 	active_companion_index = index
 	companion_roster[index].is_active = true
@@ -412,6 +431,8 @@ func swap_to_companion(index: int) -> bool:
 	companion_gender = active.gender
 	companion_role = active.role
 	companion_name = active.companion_name
+	equipped_weapon_id = active.equipped_weapon_id
+	saved_accessory_id = active.equipped_accessory_id
 
 	# Update voice defaults for the new companion selection
 	_update_voice_defaults()
@@ -420,9 +441,14 @@ func swap_to_companion(index: int) -> bool:
 	save_to_file()
 
 	# Emit signal so UI/other systems can respond to the swap
+	# The inventory will load the new companion's equipment when it receives this signal
 	emit_signal("companion_swapped", index)
-	
-	print("🔄 Swapped to: %s" % companion_roster[index].companion_name)
+
+	print("🔄 Swapped to: %s (weapon: %d, accessory: %d)" % [
+		companion_roster[index].companion_name,
+		companion_roster[index].equipped_weapon_id,
+		companion_roster[index].equipped_accessory_id
+	])
 	return true
 
 
@@ -483,13 +509,15 @@ func load_roster_from_dict(data: Dictionary) -> void:
 	
 	if data.has("active_companion_index"):
 		active_companion_index = data.active_companion_index
-	
+		print("🔍 LOAD: active_companion_index from save = %d" % active_companion_index)
+
 	if data.has("roster"):
 		for comp_dict in data.roster:
 			var comp = CompanionData.new()
 			comp.from_dict(comp_dict)
 			companion_roster.append(comp)
-		
+			print("🔍 LOAD: Added companion '%s' (is_active: %s)" % [comp.companion_name, comp.is_active])
+
 		print("CompanionManager: Loaded %d companions from roster" % companion_roster.size())
 
 		# If a roster is loaded, make the active roster selection reflect
@@ -498,9 +526,11 @@ func load_roster_from_dict(data: Dictionary) -> void:
 		if using_roster_system and not companion_roster.is_empty():
 			# Clamp active index
 			if active_companion_index < 0 or active_companion_index >= companion_roster.size():
+				print("🔍 LOAD: Clamping active_companion_index from %d to 0" % active_companion_index)
 				active_companion_index = 0
 			var active = get_active_companion()
 			if active:
+				print("🔍 LOAD: Syncing legacy fields to active companion '%s' at index %d" % [active.companion_name, active_companion_index])
 				companion_race = active.race
 				companion_gender = active.gender
 				companion_role = active.role

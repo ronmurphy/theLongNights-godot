@@ -196,7 +196,7 @@ func _create_survival_loadout() -> void:
 
 	# Hotbar: machete in slot 0, torches in slot 8 (last hotbar slot)
 	var hotbar_begin_index := BAG_WIDTH * BAG_HEIGHT
-	_slots[hotbar_begin_index + 0] = _make_item(InventoryItem.TYPE_ITEM, 8)  # Machete (ID 8)
+	_slots[hotbar_begin_index + 0] = _make_item(InventoryItem.TYPE_ITEM, 9)  # Machete (ID 9, shifted by portal_compass insertion)
 	_slots[hotbar_begin_index + 8] = _make_item_with_count(InventoryItem.TYPE_ITEM, 6, 10)  # 10x torches (ID 6)
 
 	print("Survival loadout applied: machete + 10 torches")
@@ -326,16 +326,16 @@ func _get_companion_default_weapon_id() -> int:
 	"""Get the default weapon ID for companion's race"""
 	match CompanionManager.companion_race:
 		"dwarf":
-			return 7  # stone_hammer
+			return 8  # stone_hammer (ID shifted by portal_compass insertion)
 		"elf":
-			return 9  # crossbow
+			return 10  # crossbow (ID shifted by portal_compass insertion)
 		"goblin":
 			if CompanionManager.companion_gender == "female":
 				return 5  # throwing_knives
 			else:
 				return 0  # rocket_launcher
 		"human":
-			return 8  # machete
+			return 9  # machete (ID shifted by portal_compass insertion)
 	return -1
 
 
@@ -1397,31 +1397,76 @@ func _update_companion_panel() -> void:
 
 	# Weapon
 	if active != null and active.equipped_weapon_id >= 0:
-		_companion_weapon_slot = _make_item(InventoryItem.TYPE_ITEM, active.equipped_weapon_id)
-		print("Inventory: equipped weapon from roster: %d" % active.equipped_weapon_id)
-		if _companion_weapon_slot_view:
-			_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
-	else:
-		if CompanionManager and CompanionManager.equipped_weapon_id >= 0:
-			_companion_weapon_slot = _make_item(InventoryItem.TYPE_ITEM, CompanionManager.equipped_weapon_id)
+		# Validate that the item still exists (could have been sold)
+		if _validate_item_exists(active.equipped_weapon_id):
+			_companion_weapon_slot = _make_item(InventoryItem.TYPE_ITEM, active.equipped_weapon_id)
+			print("Inventory: equipped weapon from roster: %d" % active.equipped_weapon_id)
 			if _companion_weapon_slot_view:
 				_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+		else:
+			# Item was sold or no longer exists - fall back to default
+			print("Inventory: equipped weapon %d no longer exists, falling back to default" % active.equipped_weapon_id)
+			active.equipped_weapon_id = -1  # Reset in roster
+			_initialize_companion_default_weapon()
+	else:
+		if CompanionManager and CompanionManager.equipped_weapon_id >= 0:
+			if _validate_item_exists(CompanionManager.equipped_weapon_id):
+				_companion_weapon_slot = _make_item(InventoryItem.TYPE_ITEM, CompanionManager.equipped_weapon_id)
+				if _companion_weapon_slot_view:
+					_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
 			else:
-				# No saved weapon; initialize default
+				print("Inventory: legacy equipped weapon %d no longer exists, falling back to default" % CompanionManager.equipped_weapon_id)
+				CompanionManager.equipped_weapon_id = -1
 				_initialize_companion_default_weapon()
-				print("Inventory: initialized default companion weapon")
+		else:
+			# No saved weapon; initialize default
+			_initialize_companion_default_weapon()
+			print("Inventory: initialized default companion weapon")
 
 	# Accessory
 	if active != null and active.equipped_accessory_id >= 0:
-		_companion_accessory_slot = _make_item(InventoryItem.TYPE_ITEM, active.equipped_accessory_id)
-		if _companion_accessory_slot_view:
-			_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
-	else:
-		if CompanionManager and CompanionManager.saved_accessory_id >= 0:
-			print("Inventory: loaded legacy accessory %d" % CompanionManager.saved_accessory_id)
-			_companion_accessory_slot = _make_item(InventoryItem.TYPE_ITEM, CompanionManager.saved_accessory_id)
+		# Validate that the item still exists (could have been sold)
+		if _validate_item_exists(active.equipped_accessory_id):
+			_companion_accessory_slot = _make_item(InventoryItem.TYPE_ITEM, active.equipped_accessory_id)
 			if _companion_accessory_slot_view:
 				_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+		else:
+			# Item was sold or no longer exists - reset to none
+			print("Inventory: equipped accessory %d no longer exists, removing" % active.equipped_accessory_id)
+			active.equipped_accessory_id = -1  # Reset in roster
+			_companion_accessory_slot = null
+			if _companion_accessory_slot_view:
+				_companion_accessory_slot_view.get_display().set_item(null)
+	else:
+		# Companion has no accessory (either from roster or legacy)
+		if CompanionManager and CompanionManager.saved_accessory_id >= 0:
+			if _validate_item_exists(CompanionManager.saved_accessory_id):
+				print("Inventory: loaded legacy accessory %d" % CompanionManager.saved_accessory_id)
+				_companion_accessory_slot = _make_item(InventoryItem.TYPE_ITEM, CompanionManager.saved_accessory_id)
+				if _companion_accessory_slot_view:
+					_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+			else:
+				print("Inventory: legacy accessory %d no longer exists, removing" % CompanionManager.saved_accessory_id)
+				CompanionManager.saved_accessory_id = -1
+				_companion_accessory_slot = null
+				if _companion_accessory_slot_view:
+					_companion_accessory_slot_view.get_display().set_item(null)
+		else:
+			# No accessory at all - clear the slot
+			_companion_accessory_slot = null
+			if _companion_accessory_slot_view:
+				_companion_accessory_slot_view.get_display().set_item(null)
+
+
+func _validate_item_exists(item_id: int) -> bool:
+	"""Validate that an item ID exists in the item database"""
+	if item_id < 0:
+		return false
+	if not _item_db:
+		return false
+	# Try to get the item - if it fails, item doesn't exist
+	var item = _item_db.get_item(item_id)
+	return item != null
 
 
 func _is_equip_power(power_name: String) -> bool:

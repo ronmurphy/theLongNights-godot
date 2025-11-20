@@ -96,6 +96,15 @@ func _ready() -> void:
 	await get_tree().process_frame
 	print("🔍 After process_frame - Companion count: %d" % _companion_manager.get_companion_count())
 
+	# Initialize roster from legacy if needed (same as GameConsole does)
+	if not _companion_manager.using_roster_system:
+		print("🔄 Converting legacy companion to roster system...")
+		_companion_manager.initialize_roster_from_legacy()
+		# Save the converted roster immediately
+		_companion_manager.save_to_file()
+
+	print("🔍 After legacy conversion - Companion count: %d" % _companion_manager.get_companion_count())
+
 	# Build UI
 	_build_ui()
 	_populate_roster_list()
@@ -374,23 +383,29 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	_details_panel.add_theme_stylebox_override("panel", details_style)
 	right_vbox.add_child(_details_panel)
 
-	# Main 3-column layout
+	# Main 3-column layout with better spacing
 	var details_hbox = HBoxContainer.new()
 	details_hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	details_hbox.add_theme_constant_override("separation", 8)
+	details_hbox.add_theme_constant_override("separation", 12)
+	details_hbox.alignment = BoxContainer.ALIGNMENT_BEGIN
 	_details_panel.add_child(details_hbox)
 
 	# ============================================================
-	# COLUMN 1: Avatar (fills left side with aspect fill)
+	# COLUMN 1: Avatar (left column, top-center aligned)
 	# ============================================================
+	var col1_container = VBoxContainer.new()
+	col1_container.custom_minimum_size = Vector2(160, 0)
+	col1_container.add_theme_constant_override("separation", 0)
+	col1_container.alignment = BoxContainer.ALIGNMENT_BEGIN  # Top-aligned
+	details_hbox.add_child(col1_container)
+
 	var col1_margin = MarginContainer.new()
 	col1_margin.add_theme_constant_override("margin_left", 8)
 	col1_margin.add_theme_constant_override("margin_top", 8)
-	col1_margin.add_theme_constant_override("margin_right", 4)
+	col1_margin.add_theme_constant_override("margin_right", 8)
 	col1_margin.add_theme_constant_override("margin_bottom", 8)
-	col1_margin.custom_minimum_size = Vector2(140, 0)
 	col1_margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	details_hbox.add_child(col1_margin)
+	col1_container.add_child(col1_margin)
 
 	_avatar_texture = TextureRect.new()
 	_avatar_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -399,13 +414,22 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	col1_margin.add_child(_avatar_texture)
 
 	# ============================================================
-	# COLUMN 2: Equipment & Stats (center column, top-aligned)
+	# COLUMN 2: Equipment & Stats (center column, top-center aligned)
 	# ============================================================
+	var col2_container = VBoxContainer.new()
+	col2_container.custom_minimum_size = Vector2(140, 0)
+	col2_container.add_theme_constant_override("separation", 8)
+	col2_container.alignment = BoxContainer.ALIGNMENT_BEGIN  # Top-aligned
+	details_hbox.add_child(col2_container)
+
+	var col2_margin = MarginContainer.new()
+	col2_margin.add_theme_constant_override("margin_top", 8)
+	col2_margin.add_theme_constant_override("margin_bottom", 8)
+	col2_container.add_child(col2_margin)
+
 	var col2_vbox = VBoxContainer.new()
-	col2_vbox.add_theme_constant_override("separation", 6)
-	col2_vbox.custom_minimum_size = Vector2(100, 0)
-	col2_vbox.alignment = BoxContainer.ALIGNMENT_BEGIN  # Top-align like column 3
-	details_hbox.add_child(col2_vbox)
+	col2_vbox.add_theme_constant_override("separation", 8)
+	col2_margin.add_child(col2_vbox)
 
 	var equipment_label = Label.new()
 	equipment_label.text = "Equipment & Stats"
@@ -414,18 +438,20 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	equipment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col2_vbox.add_child(equipment_label)
 
-	# Weapon slot
-	var weapon_hbox = HBoxContainer.new()
-	weapon_hbox.add_theme_constant_override("separation", 4)
-	weapon_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	weapon_hbox.custom_minimum_size = Vector2(90, 0)
-	col2_vbox.add_child(weapon_hbox)
+	# Weapon section - centered
+	var weapon_vbox = VBoxContainer.new()
+	weapon_vbox.add_theme_constant_override("separation", 4)
+	col2_vbox.add_child(weapon_vbox)
 
 	var weapon_label = Label.new()
-	weapon_label.text = "Weapon:"
+	weapon_label.text = "Weapon"
 	weapon_label.add_theme_font_size_override("font_size", 10)
 	weapon_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
-	weapon_hbox.add_child(weapon_label)
+	weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	weapon_vbox.add_child(weapon_label)
+
+	var weapon_slot_center = CenterContainer.new()
+	weapon_vbox.add_child(weapon_slot_center)
 
 	var weapon_slot = Panel.new()
 	weapon_slot.custom_minimum_size = Vector2(40, 40)
@@ -434,7 +460,7 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	weapon_style.set_border_width_all(1)
 	weapon_style.border_color = Color(0.4, 0.3, 0.2, 1.0)
 	weapon_slot.add_theme_stylebox_override("panel", weapon_style)
-	weapon_hbox.add_child(weapon_slot)
+	weapon_slot_center.add_child(weapon_slot)
 
 	var weapon_texture = TextureRect.new()
 	weapon_texture.custom_minimum_size = Vector2(36, 36)
@@ -445,18 +471,20 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	weapon_slot.add_child(weapon_texture)
 	_weapon_texture_display = weapon_texture
 
-	# Accessory slot
-	var accessory_hbox = HBoxContainer.new()
-	accessory_hbox.add_theme_constant_override("separation", 4)
-	accessory_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	accessory_hbox.custom_minimum_size = Vector2(90, 0)
-	col2_vbox.add_child(accessory_hbox)
+	# Accessory section - centered
+	var accessory_vbox = VBoxContainer.new()
+	accessory_vbox.add_theme_constant_override("separation", 4)
+	col2_vbox.add_child(accessory_vbox)
 
 	var accessory_label = Label.new()
-	accessory_label.text = "Accessory:"
+	accessory_label.text = "Accessory"
 	accessory_label.add_theme_font_size_override("font_size", 10)
 	accessory_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
-	accessory_hbox.add_child(accessory_label)
+	accessory_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	accessory_vbox.add_child(accessory_label)
+
+	var accessory_slot_center = CenterContainer.new()
+	accessory_vbox.add_child(accessory_slot_center)
 
 	var accessory_slot = Panel.new()
 	accessory_slot.custom_minimum_size = Vector2(40, 40)
@@ -465,7 +493,7 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	accessory_style.set_border_width_all(1)
 	accessory_style.border_color = Color(0.4, 0.3, 0.2, 1.0)
 	accessory_slot.add_theme_stylebox_override("panel", accessory_style)
-	accessory_hbox.add_child(accessory_slot)
+	accessory_slot_center.add_child(accessory_slot)
 
 	var accessory_texture = TextureRect.new()
 	accessory_texture.custom_minimum_size = Vector2(36, 36)
@@ -476,16 +504,19 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	accessory_slot.add_child(accessory_texture)
 	_accessory_texture_display = accessory_texture
 
-	# HP Bar
+	# HP Bar - centered
+	var hp_center = CenterContainer.new()
+	col2_vbox.add_child(hp_center)
+
 	var hp_container = Control.new()
-	hp_container.custom_minimum_size = Vector2(0, 24)
-	col2_vbox.add_child(hp_container)
+	hp_container.custom_minimum_size = Vector2(100, 24)
+	hp_center.add_child(hp_container)
 
 	_hp_bar = ProgressBar.new()
 	_hp_bar.min_value = 0
 	_hp_bar.max_value = 100
 	_hp_bar.value = 100
-	_hp_bar.custom_minimum_size = Vector2(80, 18)
+	_hp_bar.custom_minimum_size = Vector2(100, 18)
 	_hp_bar.show_percentage = false
 	_hp_bar.add_theme_stylebox_override("fill", _create_hp_bar_style(Color.GREEN))
 	hp_container.add_child(_hp_bar)
@@ -499,16 +530,18 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	_hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_hp_label.position = Vector2(0, 0)
-	_hp_label.size = Vector2(80, 18)
+	_hp_label.size = Vector2(100, 18)
 	_hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hp_container.add_child(_hp_label)
 
-	# Stats
+	# Stats - centered
+	var stats_center = CenterContainer.new()
+	col2_vbox.add_child(stats_center)
+
 	var stats_hbox = HBoxContainer.new()
-	stats_hbox.add_theme_constant_override("separation", 2)
+	stats_hbox.add_theme_constant_override("separation", 8)
 	stats_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	stats_hbox.custom_minimum_size = Vector2(90, 0)
-	col2_vbox.add_child(stats_hbox)
+	stats_center.add_child(stats_hbox)
 
 	_atk_label = Label.new()
 	_atk_label.text = "ATK: +0"
@@ -523,19 +556,24 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	stats_hbox.add_child(_def_label)
 
 	# ============================================================
-	# COLUMN 3: Companion Info (right column, top-aligned)
+	# COLUMN 3: Companion Info (right column, top-center aligned)
 	# ============================================================
-	var col3_margin = MarginContainer.new()
-	col3_margin.add_theme_constant_override("margin_left", 4)
-	col3_margin.add_theme_constant_override("margin_top", 8)
-	col3_margin.add_theme_constant_override("margin_right", 8)
-	col3_margin.add_theme_constant_override("margin_bottom", 8)
-	col3_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	details_hbox.add_child(col3_margin)
+	var col3_container = VBoxContainer.new()
+	col3_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col3_container.add_theme_constant_override("separation", 0)
+	col3_container.alignment = BoxContainer.ALIGNMENT_BEGIN  # Top-aligned
+	details_hbox.add_child(col3_container)
 
-	# Info labels
+	var col3_margin = MarginContainer.new()
+	col3_margin.add_theme_constant_override("margin_top", 8)
+	col3_margin.add_theme_constant_override("margin_bottom", 8)
+	col3_margin.add_theme_constant_override("margin_left", 8)
+	col3_margin.add_theme_constant_override("margin_right", 8)
+	col3_container.add_child(col3_margin)
+
+	# Info labels - all centered
 	var info_vbox = VBoxContainer.new()
-	info_vbox.add_theme_constant_override("separation", 4)
+	info_vbox.add_theme_constant_override("separation", 6)
 	col3_margin.add_child(info_vbox)
 
 	_name_label = Label.new()
@@ -748,6 +786,15 @@ func _on_add_companion() -> void:
 
 	# Add to roster
 	_companion_manager.add_companion_to_roster(comp)
+
+	# Debug: Check active_companion_index before save
+	print("🔍 Before save - active_companion_index: %d, roster size: %d" % [_companion_manager.active_companion_index, _companion_manager.get_companion_count()])
+
+	# Save to file immediately so new companions persist
+	_companion_manager.save_to_file()
+
+	# Debug: Check after save
+	print("🔍 After save - active_companion_index: %d" % _companion_manager.active_companion_index)
 
 	# Spawn as NPC at home base if home base is set
 	var home_base = get_node_or_null("/root/HomeBaseManager")

@@ -683,16 +683,16 @@ func _get_companion_default_weapon_id() -> int:
 
 	match race:
 		"dwarf":
-			return 7  # stone_hammer
+			return 8  # stone_hammer (ID shifted by portal_compass insertion)
 		"elf":
-			return 9  # crossbow
+			return 10  # crossbow (ID shifted by portal_compass insertion)
 		"goblin":
 			if gender == "female":
 				return 5  # throwing_knives
 			else:
 				return 0  # rocket_launcher
 		"human":
-			return 8  # machete
+			return 9  # machete (ID shifted by portal_compass insertion)
 	return -1
 
 

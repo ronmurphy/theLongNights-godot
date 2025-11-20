@@ -1377,6 +1377,9 @@ func _populate_player_items():
 	var misc_item_ids = [40, 41]  # light_orb, spear (excludes 42 = Keeper's Charm)
 	var all_item_ids = weapon_ids + misc_item_ids
 
+	# Note: Equipped items are stored in separate slots (_player_weapon_slot, _companion_weapon_slot,
+	# _companion_accessory_slot) and are NOT in the _slots array, so they won't appear in the sell list
+
 	# Collect all items from inventory slots
 	var items_data = []  # [{item, slot_index, power_count}, ...]
 

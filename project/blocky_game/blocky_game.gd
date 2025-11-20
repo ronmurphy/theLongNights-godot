@@ -229,9 +229,8 @@ func _ready():
 			await ruin_spawner_node.spawn_ruin_near_spawn(Vector3i(3, 0, 3))
 			print("The Long Nights: Initial crashed ruin spawned")
 
-		# Set active companion to last in roster before spawning
-		if CompanionManager.using_roster_system and CompanionManager.companion_roster.size() > 0:
-			CompanionManager.swap_to_companion(CompanionManager.companion_roster.size() - 1)
+		# NOTE: Do NOT auto-swap companions here - respect the saved active_companion_index
+		# The CompanionManager.load_roster_from_dict() already restored the correct active companion
 		# Spawn companion and add to Party UI (after a brief delay so PartyUI is ready)
 		await get_tree().create_timer(0.5).timeout
 		_spawn_companion()

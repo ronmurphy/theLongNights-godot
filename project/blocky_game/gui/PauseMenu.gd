@@ -144,6 +144,13 @@ func _save_game() -> void:
 	else:
 		print("⚠️ WARNING: Could not find player node for saving position!")
 
+	# Sync live companion's equipment to roster before saving
+	var companions = get_tree().get_nodes_in_group("companions")
+	if companions.size() > 0 and CompanionManager.using_roster_system:
+		var companion = companions[0]
+		CompanionManager.update_active_companion_from_scene(companion)
+		print("💾 Synced companion equipment to roster before save")
+
 	# Save world config
 	WorldManager.save_world()
 
