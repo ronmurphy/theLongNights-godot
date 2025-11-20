@@ -77,7 +77,7 @@ func set_item(data: InventoryItem):
 		if _power_badge:
 			_power_badge.visible = false
 		# Remove outline for empty slots
-		_apply_enchant_outline(Color.TRANSPARENT)
+		_apply_enchant_outline(Color.TRANSPARENT, Color.TRANSPARENT)
 
 	elif data.type == InventoryItem.TYPE_BLOCK:
 		var block := _block_types.get_block(data.id)
@@ -109,7 +109,7 @@ func set_item(data: InventoryItem):
 			_power_badge.visible = false
 
 		# Blocks don't get enchantment outlines
-		_apply_enchant_outline(Color.TRANSPARENT)
+		_apply_enchant_outline(Color.TRANSPARENT, Color.TRANSPARENT)
 
 	elif data.type == InventoryItem.TYPE_ITEM:
 		var item := _item_db.get_item(data.id)
@@ -192,10 +192,10 @@ func set_item(data: InventoryItem):
 
 		# Apply enchantment outline based on power type
 		if all_powers.size() > 0:
-			var outline_color = _get_enchant_outline_color(all_powers)
-			_apply_enchant_outline(outline_color)
+			var outline_colors = _get_enchant_outline_colors(all_powers)
+			_apply_enchant_outline(outline_colors[0], outline_colors[1])
 		else:
-			_apply_enchant_outline(Color.TRANSPARENT)
+			_apply_enchant_outline(Color.TRANSPARENT, Color.TRANSPARENT)
 
 	else:
 		assert(false)
@@ -237,10 +237,10 @@ func _is_equip_power(power_name: String) -> bool:
 	return power_name in ["stone_skin", "moon_jump", "flame_aura", "glide", "return"]
 
 
-func _get_enchant_outline_color(all_powers: Array) -> Color:
-	"""Determine outline color based on power types"""
+func _get_enchant_outline_colors(all_powers: Array) -> Array:
+	"""Determine outline gradient colors based on power types - returns [color1, color2]"""
 	if all_powers.is_empty():
-		return Color.TRANSPARENT
+		return [Color.TRANSPARENT, Color.TRANSPARENT]
 
 	# Count power types
 	var hotbar_count = 0
@@ -251,30 +251,34 @@ func _get_enchant_outline_color(all_powers: Array) -> Color:
 		else:
 			hotbar_count += 1
 
-	# Return appropriate color
+	# Return appropriate gradient color pair
 	if hotbar_count > 0 and equip_count > 0:
-		# Mixed powers - cyan/electric blue
-		return Color(0.0, 0.8, 1.0, 1.0)
+		# Mixed powers - cyan to electric blue gradient ⚡
+		return [Color(0.3, 0.9, 1.0, 1.0), Color(0.0, 0.6, 1.0, 1.0)]
 	elif hotbar_count > 0:
-		# Hotbar powers only - purple/magenta
-		return Color(0.8, 0.2, 1.0, 1.0)
+		# Hotbar powers only - purple to magenta gradient ⚔️
+		return [Color(0.6, 0.2, 1.0, 1.0), Color(1.0, 0.2, 0.8, 1.0)]
 	else:
-		# Equip powers only - gold/yellow
-		return Color(1.0, 0.85, 0.0, 1.0)
+		# Equip powers only - gold to orange gradient 🛡️
+		return [Color(1.0, 0.9, 0.0, 1.0), Color(1.0, 0.6, 0.0, 1.0)]
 
 
-func _apply_enchant_outline(outline_color: Color) -> void:
-	"""Apply or remove enchantment outline shader"""
+func _apply_enchant_outline(outline_color: Color, outline_color_2: Color) -> void:
+	"""Apply or remove enchantment outline shader with gradient"""
 	if outline_color.a > 0.0:
 		# Create shader material if needed
 		if _shader_material == null:
 			_shader_material = ShaderMaterial.new()
 			_shader_material.shader = _enchant_shader
 
-		# Set shader parameters
-		_shader_material.set_shader_parameter("outline_width", 2.0)
+		# Set shader parameters for gradient outline
+		_shader_material.set_shader_parameter("intensity", 50)
+		_shader_material.set_shader_parameter("precision", 0.01)
+		_shader_material.set_shader_parameter("flipColors", false)
 		_shader_material.set_shader_parameter("outline_color", outline_color)
-		_shader_material.set_shader_parameter("outline_alpha", 0.8)
+		_shader_material.set_shader_parameter("outline_color_2", outline_color_2)
+		_shader_material.set_shader_parameter("use_outline_uv", false)
+		_shader_material.set_shader_parameter("useTexture", false)
 
 		# Apply shader
 		material = _shader_material
