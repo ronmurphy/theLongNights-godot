@@ -412,6 +412,8 @@ func _on_slot_pressed(idx: int):
 			dragged_item = _player_weapon_slot
 		elif _dragged_slot == -998:
 			dragged_item = _companion_weapon_slot
+		elif _dragged_slot == -997:
+			dragged_item = _companion_accessory_slot
 		elif _dragged_slot <= -100:
 			# From bento box
 			var source_bento_idx = -100 - _dragged_slot
@@ -433,6 +435,9 @@ func _on_slot_pressed(idx: int):
 				# Clear saved weapon
 				CompanionManager.equipped_weapon_id = -1
 				CompanionManager.save_to_file()
+			elif _dragged_slot == -997:
+				_companion_accessory_slot = null
+				_companion_accessory_slot_view.get_display().set_item(null)
 			elif _dragged_slot <= -100:
 				# Clear from bento box
 				var source_bento_idx = -100 - _dragged_slot
@@ -543,11 +548,7 @@ func _on_bento_slot_pressed(bento_idx: int):
 		if _dragged_slot >= 0:
 			# From regular inventory
 			dragged_item = _slots[_dragged_slot]
-		elif _dragged_slot <= -100:
-			# From another bento slot
-			var source_bento_idx = -100 - _dragged_slot
-			dragged_item = _bento_slots[source_bento_idx]
-		else:
+		elif _dragged_slot == -999 or _dragged_slot == -998 or _dragged_slot == -997:
 			# From equipment slot - cancel (can't put equipment in bento)
 			print("Cannot place equipment in bento box!")
 			if _dragged_slot == -999:
@@ -559,6 +560,10 @@ func _on_bento_slot_pressed(bento_idx: int):
 			_dragged_item_view.stop()
 			_dragged_slot = -1
 			return
+		elif _dragged_slot <= -100:
+			# From another bento slot
+			var source_bento_idx = -100 - _dragged_slot
+			dragged_item = _bento_slots[source_bento_idx]
 
 		# Check if it's a food item
 		if dragged_item != null and _is_food_item(dragged_item):
@@ -586,6 +591,12 @@ func _on_bento_slot_pressed(bento_idx: int):
 			# Return item to source
 			if _dragged_slot >= 0:
 				_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+			elif _dragged_slot == -999:
+				_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
+			elif _dragged_slot == -998:
+				_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+			elif _dragged_slot == -997:
+				_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
 			elif _dragged_slot <= -100:
 				var source_bento_idx = -100 - _dragged_slot
 				_bento_slot_views[source_bento_idx].get_display().set_item(_bento_slots[source_bento_idx])
@@ -602,14 +613,14 @@ func _on_avatar_clicked(is_player: bool):
 	var dragged_item = null
 	if _dragged_slot >= 0:
 		dragged_item = _slots[_dragged_slot]
-	elif _dragged_slot <= -100:
-		var source_bento_idx = -100 - _dragged_slot
-		dragged_item = _bento_slots[source_bento_idx]
-	else:
+	elif _dragged_slot == -999 or _dragged_slot == -998 or _dragged_slot == -997:
 		# Equipment slot - can't consume weapons/accessories
 		print("Cannot consume equipment!")
 		_cancel_drag()
 		return
+	elif _dragged_slot <= -100:
+		var source_bento_idx = -100 - _dragged_slot
+		dragged_item = _bento_slots[source_bento_idx]
 
 	# Check if it's a food item
 	if not _is_food_item(dragged_item):
