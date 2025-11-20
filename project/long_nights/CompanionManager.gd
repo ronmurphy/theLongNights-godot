@@ -57,6 +57,7 @@ class CompanionData:
 	var role: String = "healer"  # healer, tank, rogue, wizard
 	var equipped_weapon_id: int = -1
 	var equipped_weapon_count: int = 1  # Stack count for equipped weapon
+	var equipped_weapon_power: String = ""  # Skyshard power for weapon
 	var equipped_accessory_id: int = -1
 	var equipped_accessory_power: String = ""  # Skyshard power for accessory
 	var active_title: String = ""
@@ -74,6 +75,7 @@ class CompanionData:
 			"role": role,
 			"equipped_weapon_id": equipped_weapon_id,
 			"equipped_weapon_count": equipped_weapon_count,
+			"equipped_weapon_power": equipped_weapon_power,
 			"equipped_accessory_id": equipped_accessory_id,
 			"equipped_accessory_power": equipped_accessory_power,
 			"active_title": active_title,
@@ -91,6 +93,7 @@ class CompanionData:
 		if data.has("role"): role = data.role
 		if data.has("equipped_weapon_id"): equipped_weapon_id = data.equipped_weapon_id
 		if data.has("equipped_weapon_count"): equipped_weapon_count = data.equipped_weapon_count
+		if data.has("equipped_weapon_power"): equipped_weapon_power = data.equipped_weapon_power
 		if data.has("equipped_accessory_id"): equipped_accessory_id = data.equipped_accessory_id
 		if data.has("equipped_accessory_power"): equipped_accessory_power = data.equipped_accessory_power
 		if data.has("active_title"): active_title = data.active_title
@@ -414,10 +417,12 @@ func swap_to_companion(index: int) -> bool:
 			if inventory._companion_weapon_slot != null:
 				old_companion.equipped_weapon_id = inventory._companion_weapon_slot.id
 				old_companion.equipped_weapon_count = inventory._companion_weapon_slot.count
-				print("💾 Saved %s's weapon: %d (x%d)" % [old_companion.companion_name, old_companion.equipped_weapon_id, old_companion.equipped_weapon_count])
+				old_companion.equipped_weapon_power = inventory._companion_weapon_slot.skyshard_power
+				print("💾 Saved %s's weapon: %d (x%d) [%s]" % [old_companion.companion_name, old_companion.equipped_weapon_id, old_companion.equipped_weapon_count, old_companion.equipped_weapon_power])
 			else:
 				old_companion.equipped_weapon_id = -1
 				old_companion.equipped_weapon_count = 1
+				old_companion.equipped_weapon_power = ""
 
 			if inventory._companion_accessory_slot != null:
 				old_companion.equipped_accessory_id = inventory._companion_accessory_slot.id
@@ -497,9 +502,11 @@ func update_active_companion_from_scene(companion_node) -> void:
 		if companion_node._equipped_inv_item:
 			active.equipped_weapon_id = companion_node._equipped_inv_item.id
 			active.equipped_weapon_count = companion_node._equipped_inv_item.count
+			active.equipped_weapon_power = companion_node._equipped_inv_item.skyshard_power
 		else:
 			active.equipped_weapon_id = -1
 			active.equipped_weapon_count = 1
+			active.equipped_weapon_power = ""
 
 		if companion_node._equipped_accessory_item:
 			active.equipped_accessory_id = companion_node._equipped_accessory_item.id

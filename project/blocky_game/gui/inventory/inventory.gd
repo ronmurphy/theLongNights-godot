@@ -314,9 +314,10 @@ func _initialize_companion_default_weapon():
 		weapon_id = _get_companion_default_weapon_id()
 	
 	if weapon_id >= 0:
-		# Create an inventory item for the weapon
-		_companion_weapon_slot = _make_item(InventoryItem.TYPE_ITEM, weapon_id)
-		
+		# Create an inventory item for the weapon with saved count
+		var weapon_count = CompanionManager.equipped_weapon_count if CompanionManager.equipped_weapon_count > 0 else 1
+		_companion_weapon_slot = _make_item_with_count(InventoryItem.TYPE_ITEM, weapon_id, weapon_count)
+
 		# Update the visual display
 		if _companion_weapon_slot_view:
 			_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
@@ -1400,7 +1401,10 @@ func _update_companion_panel() -> void:
 		# Validate that the item still exists (could have been sold)
 		if _validate_item_exists(active.equipped_weapon_id):
 			_companion_weapon_slot = _make_item_with_count(InventoryItem.TYPE_ITEM, active.equipped_weapon_id, active.equipped_weapon_count)
-			print("🔍 Inventory: equipped weapon from roster: %d (x%d)" % [active.equipped_weapon_id, active.equipped_weapon_count])
+			# Set skyshard power if present
+			if active.equipped_weapon_power != "":
+				_companion_weapon_slot.skyshard_power = active.equipped_weapon_power
+			print("🔍 Inventory: equipped weapon from roster: %d (x%d) with power '%s'" % [active.equipped_weapon_id, active.equipped_weapon_count, active.equipped_weapon_power])
 			print("🔍   weapon_slot.id=%d, .count=%d, .skyshard_power='%s'" % [
 				_companion_weapon_slot.id, _companion_weapon_slot.count, _companion_weapon_slot.skyshard_power
 			])
