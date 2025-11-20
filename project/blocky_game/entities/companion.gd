@@ -277,11 +277,15 @@ func _load_accessory(accessory_id: int):
 		inv_item.type = InventoryItem.TYPE_ITEM
 		inv_item.id = accessory_id
 		inv_item.count = 1
-		inv_item.skyshard_power = ""  # Powers are loaded from inventory separately
-		
+		# Load power from CompanionManager if available
+		if CompanionManager and CompanionManager.saved_accessory_power != "":
+			inv_item.skyshard_power = CompanionManager.saved_accessory_power
+		else:
+			inv_item.skyshard_power = ""
+
 		# Store as equipped accessory
 		_equipped_accessory_item = inv_item
-		print("Companion loaded accessory: %s (ID: %d)" % [accessory_item.base_info.name, accessory_id])
+		print("Companion loaded accessory: %s (ID: %d) with power '%s'" % [accessory_item.base_info.name, accessory_id, inv_item.skyshard_power])
 	else:
 		push_warning("Companion: Could not load accessory ID %d" % accessory_id)
 

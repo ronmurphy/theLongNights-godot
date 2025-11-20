@@ -23,12 +23,14 @@ var companion_role: String = "healer"
 var companion_gender: String = "female"  # All companions are female for now
 var companion_name: String = ""  # Companion's personal name
 var equipped_weapon_id: int = -1  # -1 means use default weapon
+var equipped_weapon_power: String = ""  # Legacy field for weapon power
 
 # Saved state for companion persistence
 var saved_behavior_mode: String = "normal"
 var saved_position: Variant = null  # Array [x,y,z] or null
 var saved_guard_position: Variant = null  # Array [x,y,z] or null
 var saved_accessory_id: int = -1
+var saved_accessory_power: String = ""  # Legacy field for accessory power
 var saved_title: String = ""
 var saved_title_emoji: String = ""
 
@@ -447,11 +449,14 @@ func swap_to_companion(index: int) -> bool:
 	companion_role = active.role
 	companion_name = active.companion_name
 	equipped_weapon_id = active.equipped_weapon_id
+	equipped_weapon_power = active.equipped_weapon_power
 	saved_accessory_id = active.equipped_accessory_id
+	saved_accessory_power = active.equipped_accessory_power
 
 	print("🔍 Swap - Updated legacy fields from roster[%d]:" % index)
-	print("    equipped_weapon_id=%d, saved_accessory_id=%d" % [equipped_weapon_id, saved_accessory_id])
-	print("    roster weapon_count=%d, accessory_power='%s'" % [active.equipped_weapon_count, active.equipped_accessory_power])
+	print("    equipped_weapon_id=%d, weapon_power='%s'" % [equipped_weapon_id, equipped_weapon_power])
+	print("    saved_accessory_id=%d, accessory_power='%s'" % [saved_accessory_id, saved_accessory_power])
+	print("    roster weapon_count=%d" % active.equipped_weapon_count)
 
 	# Update voice defaults for the new companion selection
 	_update_voice_defaults()
@@ -632,7 +637,9 @@ func load_roster_from_dict(data: Dictionary) -> void:
 				companion_name = active.companion_name
 				# Restore saved equipment/title for compatibility
 				equipped_weapon_id = active.equipped_weapon_id
+				equipped_weapon_power = active.equipped_weapon_power
 				saved_accessory_id = active.equipped_accessory_id
+				saved_accessory_power = active.equipped_accessory_power
 				saved_title = active.active_title
 				saved_title_emoji = active.title_emoji
 				saved_behavior_mode = active.behavior_mode
