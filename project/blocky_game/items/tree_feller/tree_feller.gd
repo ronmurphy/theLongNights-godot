@@ -141,7 +141,8 @@ func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 		0.33,  # Duration (longest, heavy weapon)
 		9.0,   # Intensity (brightest)
 		3.5,   # Speed (slower for heavy feel)
-		3.5    # Scale (largest slash for heavy weapon)
+		3.5,   # Scale (largest slash for heavy weapon)
+		"res://assets/art/textures/slash_04.png"  # Tree Feller uses slash_04
 	)
 
 @rpc("any_peer", "call_remote", "reliable", 0)

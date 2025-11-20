@@ -129,7 +129,8 @@ func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 		0.28,  # Duration
 		8.0,   # Intensity (slightly brighter than default)
 		4.0,   # Speed (controls animation rate)
-		3.0    # Scale (much larger for visibility)
+		3.0,   # Scale (much larger for visibility)
+		"res://assets/art/textures/slash_01.png"  # Sword uses slash_01
 	)
 
 

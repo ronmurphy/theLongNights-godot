@@ -135,7 +135,8 @@ func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 		0.25,  # Duration (faster than sword)
 		7.0,   # Intensity
 		5.0,   # Speed (fast animation)
-		2.5    # Scale (large for visibility)
+		2.5,   # Scale (large for visibility)
+		"res://assets/art/textures/slash_02.png"  # Machete uses slash_02
 	)
 
 

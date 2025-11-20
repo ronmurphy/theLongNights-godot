@@ -176,7 +176,8 @@ func _spawn_thrust_effect(pos: Vector3, direction: Vector3):
 		0.2,   # Duration (fastest)
 		6.0,   # Intensity (slightly lower)
 		6.0,   # Speed (fastest animation)
-		2.0    # Scale (medium size)
+		2.0,   # Scale (medium size)
+		"res://assets/art/textures/slash_03.png"  # Spear uses slash_03
 	)
 
 
