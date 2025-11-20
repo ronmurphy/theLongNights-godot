@@ -404,7 +404,7 @@ func _on_slot_pressed(idx: int):
 		_dragged_item_view.start(_slots[idx])
 
 	else:
-		# Get the dragged item (could be from equipment slot OR bento box)
+		# Get the dragged item (could be from equipment slot, accessory slot, OR bento box)
 		var dragged_item = null
 		if _dragged_slot >= 0:
 			dragged_item = _slots[_dragged_slot]
@@ -438,6 +438,7 @@ func _on_slot_pressed(idx: int):
 			elif _dragged_slot == -997:
 				_companion_accessory_slot = null
 				_companion_accessory_slot_view.get_display().set_item(null)
+				_update_companion_accessory()
 			elif _dragged_slot <= -100:
 				# Clear from bento box
 				var source_bento_idx = -100 - _dragged_slot
@@ -520,11 +521,13 @@ func _on_slot_pressed(idx: int):
 					_slot_views[idx].get_display().set_item(_slots[idx])
 					emit_signal("changed")
 			else:
-				# Can't swap equipment slots with inventory - cancel drag
+				# Can't swap equipment/accessory slots with inventory - cancel drag
 				if _dragged_slot == -999:
 					_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
 				elif _dragged_slot == -998:
 					_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
+				elif _dragged_slot == -997:
+					_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
 				elif _dragged_slot >= 0:
 					_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
 				_dragged_slot = -1
