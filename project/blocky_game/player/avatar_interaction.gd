@@ -2063,6 +2063,9 @@ func _on_npc_dialogue_closed() -> void:
 		"companion":
 			_open_companion_swap_dialog(npc)
 
+		"guild_leader":
+			_open_companion_roster_modal()
+
 		_:
 			print("⚠️ Unknown NPC job type: %s" % job)
 
@@ -2176,6 +2179,21 @@ func _open_town_manager_shop(npc: Node) -> void:
 	modal.first_blueprint_tutorial_needed.connect(_show_blueprint_tutorial)
 
 	print("[NPC] Town Manager Shop opened! Browse structures and upgrades")
+
+
+func _open_companion_roster_modal() -> void:
+	"""Open Claude's Companion Roster Modal (recruitment & management)"""
+	print("[NPC] Opening Companion Recruitment Interface...")
+
+	# Load and create companion roster modal
+	var CompanionRosterModal = load("res://blocky_game/gui/CompanionRosterModal.gd")
+	var modal = CompanionRosterModal.new()
+
+	# Get game node
+	var game = get_node("/root/Main/Game")
+	game.add_child(modal)
+
+	print("[NPC] Companion Recruitment opened! Create and manage your companion roster")
 
 
 ## ===== STRUCTURE PLACEMENT SYSTEM =====

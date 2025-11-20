@@ -66,6 +66,7 @@ const NPC_TEMPLATES = [
 	{"name": "Daniels", "race": "human", "gender": "male", "job": "merchant", "color": Color(0.85, 0.75, 0.65)},
 	{"name": "Michelle", "race": "human", "gender": "female", "job": "town_manager", "color": Color(0.95, 0.85, 0.9)},
 	{"name": "Zara", "race": "elf", "gender": "female", "job": "ruinkeeper", "color": Color(0.95, 0.9, 1.0)},
+	{"name": "Claude", "race": "undervoid", "gender": "male", "job": "guild_leader", "color": Color(0.8, 0.7, 1.0)},
 ]
 
 
