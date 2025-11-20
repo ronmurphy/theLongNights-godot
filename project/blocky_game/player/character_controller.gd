@@ -512,6 +512,12 @@ func receive_position(_pos: Vector3):
 
 func start_grapple(pull_velocity: Vector3, duration: float, chain_line: Node3D = null, target_pos: Vector3 = Vector3.ZERO):
 	"""Called by grappling hook to initiate a grapple pull"""
+	# Clean up previous chain if it exists (in case player rapidly fires multiple grapples)
+	if _grapple_chain_line and is_instance_valid(_grapple_chain_line):
+		_grapple_chain_line.queue_free()
+		_grapple_chain_line = null
+		print("🔗 Removed previous grapple chain for new grapple")
+
 	_velocity = pull_velocity
 	_grappling = true
 	_grapple_time = duration
