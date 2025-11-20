@@ -272,9 +272,9 @@ func _apply_enchant_outline(outline_color: Color) -> void:
 			_shader_material.shader = _enchant_shader
 
 		# Set shader parameters
-		_shader_material.set_shader_parameter("outline_width", 2.0)
+		_shader_material.set_shader_parameter("outline_width", 3.5)
 		_shader_material.set_shader_parameter("outline_color", outline_color)
-		_shader_material.set_shader_parameter("outline_alpha", 0.8)
+		_shader_material.set_shader_parameter("outline_alpha", 0.9)
 
 		# Apply shader
 		material = _shader_material
