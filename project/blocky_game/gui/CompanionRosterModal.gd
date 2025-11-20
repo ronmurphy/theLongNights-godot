@@ -784,6 +784,20 @@ func _on_add_companion() -> void:
 	comp.role = role
 	comp.is_active = false
 
+	# Set starting equipment based on race + gender + role
+	var equipment = CompanionManager.get_starting_equipment(race, gender, role)
+	comp.equipped_weapon_id = equipment.weapon_id
+	comp.equipped_weapon_count = equipment.weapon_count
+	comp.equipped_accessory_id = equipment.accessory_id
+	comp.equipped_accessory_power = equipment.accessory_power
+	print("🎁 %s starting equipment: weapon=%d (x%d), accessory=%d (%s)" % [
+		name_text, equipment.weapon_id, equipment.weapon_count,
+		equipment.accessory_id, equipment.accessory_power
+	])
+	print("🔍 CompanionData after assignment:")
+	print("    weapon_id=%d, weapon_count=%d" % [comp.equipped_weapon_id, comp.equipped_weapon_count])
+	print("    accessory_id=%d, accessory_power='%s'" % [comp.equipped_accessory_id, comp.equipped_accessory_power])
+
 	# Add to roster
 	_companion_manager.add_companion_to_roster(comp)
 

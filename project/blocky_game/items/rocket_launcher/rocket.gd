@@ -43,7 +43,7 @@ func _physics_process(delta: float):
 
 func _explode(voxel_hit_pos: Vector3, explosion_pos: Vector3):
 	var mp := get_tree().get_multiplayer()
-	var total_damage = 50 + stack_bonus  # Base rocket damage + stack bonus
+	var total_damage = 15 + stack_bonus  # Base rocket damage (reduced from 50 to match rapid fire rate) + stack bonus
 	if mp.has_multiplayer_peer():
 		if mp.is_server():
 			_do_sphere_safe(voxel_hit_pos, 4.0)

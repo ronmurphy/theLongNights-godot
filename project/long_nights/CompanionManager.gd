@@ -56,14 +56,16 @@ class CompanionData:
 	var gender: String = "female"  # male, female (not used for ghost)
 	var role: String = "healer"  # healer, tank, rogue, wizard
 	var equipped_weapon_id: int = -1
+	var equipped_weapon_count: int = 1  # Stack count for equipped weapon
 	var equipped_accessory_id: int = -1
+	var equipped_accessory_power: String = ""  # Skyshard power for accessory
 	var active_title: String = ""
 	var title_emoji: String = ""
 	var behavior_mode: String = "normal"
 	var is_active: bool = false  # True = adventuring with player, False = at home base
 	var level: int = 1
 	var xp: int = 0
-	
+
 	func to_dict() -> Dictionary:
 		return {
 			"companion_name": companion_name,
@@ -71,7 +73,9 @@ class CompanionData:
 			"gender": gender,
 			"role": role,
 			"equipped_weapon_id": equipped_weapon_id,
+			"equipped_weapon_count": equipped_weapon_count,
 			"equipped_accessory_id": equipped_accessory_id,
+			"equipped_accessory_power": equipped_accessory_power,
 			"active_title": active_title,
 			"title_emoji": title_emoji,
 			"behavior_mode": behavior_mode,
@@ -79,14 +83,16 @@ class CompanionData:
 			"level": level,
 			"xp": xp
 		}
-	
+
 	func from_dict(data: Dictionary) -> void:
 		if data.has("companion_name"): companion_name = data.companion_name
 		if data.has("race"): race = data.race
 		if data.has("gender"): gender = data.gender
 		if data.has("role"): role = data.role
 		if data.has("equipped_weapon_id"): equipped_weapon_id = data.equipped_weapon_id
+		if data.has("equipped_weapon_count"): equipped_weapon_count = data.equipped_weapon_count
 		if data.has("equipped_accessory_id"): equipped_accessory_id = data.equipped_accessory_id
+		if data.has("equipped_accessory_power"): equipped_accessory_power = data.equipped_accessory_power
 		if data.has("active_title"): active_title = data.active_title
 		if data.has("title_emoji"): title_emoji = data.title_emoji
 		if data.has("behavior_mode"): behavior_mode = data.behavior_mode
@@ -407,15 +413,19 @@ func swap_to_companion(index: int) -> bool:
 			# Save current equipment back to the old companion's roster entry
 			if inventory._companion_weapon_slot != null:
 				old_companion.equipped_weapon_id = inventory._companion_weapon_slot.id
-				print("💾 Saved %s's weapon: %d" % [old_companion.companion_name, old_companion.equipped_weapon_id])
+				old_companion.equipped_weapon_count = inventory._companion_weapon_slot.count
+				print("💾 Saved %s's weapon: %d (x%d)" % [old_companion.companion_name, old_companion.equipped_weapon_id, old_companion.equipped_weapon_count])
 			else:
 				old_companion.equipped_weapon_id = -1
+				old_companion.equipped_weapon_count = 1
 
 			if inventory._companion_accessory_slot != null:
 				old_companion.equipped_accessory_id = inventory._companion_accessory_slot.id
-				print("💾 Saved %s's accessory: %d" % [old_companion.companion_name, old_companion.equipped_accessory_id])
+				old_companion.equipped_accessory_power = inventory._companion_accessory_slot.skyshard_power
+				print("💾 Saved %s's accessory: %d (%s)" % [old_companion.companion_name, old_companion.equipped_accessory_id, old_companion.equipped_accessory_power])
 			else:
 				old_companion.equipped_accessory_id = -1
+				old_companion.equipped_accessory_power = ""
 
 		# Mark old as inactive
 		old_companion.is_active = false
@@ -433,6 +443,10 @@ func swap_to_companion(index: int) -> bool:
 	companion_name = active.companion_name
 	equipped_weapon_id = active.equipped_weapon_id
 	saved_accessory_id = active.equipped_accessory_id
+
+	print("🔍 Swap - Updated legacy fields from roster[%d]:" % index)
+	print("    equipped_weapon_id=%d, saved_accessory_id=%d" % [equipped_weapon_id, saved_accessory_id])
+	print("    roster weapon_count=%d, accessory_power='%s'" % [active.equipped_weapon_count, active.equipped_accessory_power])
 
 	# Update voice defaults for the new companion selection
 	_update_voice_defaults()
@@ -480,11 +494,85 @@ func update_active_companion_from_scene(companion_node) -> void:
 	"""Update active companion data from the live companion node"""
 	var active = get_active_companion()
 	if active and companion_node:
-		active.equipped_weapon_id = companion_node._equipped_inv_item.id if companion_node._equipped_inv_item else -1
-		active.equipped_accessory_id = companion_node._equipped_accessory_item.id if companion_node._equipped_accessory_item else -1
+		if companion_node._equipped_inv_item:
+			active.equipped_weapon_id = companion_node._equipped_inv_item.id
+			active.equipped_weapon_count = companion_node._equipped_inv_item.count
+		else:
+			active.equipped_weapon_id = -1
+			active.equipped_weapon_count = 1
+
+		if companion_node._equipped_accessory_item:
+			active.equipped_accessory_id = companion_node._equipped_accessory_item.id
+			active.equipped_accessory_power = companion_node._equipped_accessory_item.skyshard_power
+		else:
+			active.equipped_accessory_id = -1
+			active.equipped_accessory_power = ""
+
 		active.active_title = companion_node.active_title
 		active.title_emoji = companion_node.title_emoji
 		active.behavior_mode = companion_node.support_mode
+
+
+## Get starting equipment for a companion based on race, gender, and role
+## Returns: { weapon_id: int, weapon_count: int, accessory_id: int, accessory_power: String }
+static func get_starting_equipment(race: String, gender: String, role: String) -> Dictionary:
+	# Item IDs:
+	# 0=rocket_launcher, 1=grappling_hook, 2=wind_walker_boots, 3=ice_bow, 4=fire_staff
+	# 5=throwing_knives, 8=stone_hammer, 9=machete, 10=crossbow, 11=sword, 41=spear
+
+	# EQUIP powers: stone_skin, moon_jump, flame_aura, glide, return
+
+	var key = "%s_%s_%s" % [race, gender, role]
+
+	# Equipment table based on race + gender + role combinations
+	var equipment_table = {
+		# HUMAN
+		"human_male_tank": { "weapon_id": 11, "weapon_count": 3, "accessory_id": 1, "accessory_power": "stone_skin" },
+		"human_female_tank": { "weapon_id": 41, "weapon_count": 2, "accessory_id": 2, "accessory_power": "stone_skin" },
+		"human_male_wizard": { "weapon_id": 4, "weapon_count": 1, "accessory_id": 1, "accessory_power": "glide" },
+		"human_female_wizard": { "weapon_id": 5, "weapon_count": 2, "accessory_id": 2, "accessory_power": "flame_aura" },
+		"human_male_healer": { "weapon_id": 9, "weapon_count": 2, "accessory_id": 2, "accessory_power": "return" },
+		"human_female_healer": { "weapon_id": 10, "weapon_count": 1, "accessory_id": 1, "accessory_power": "moon_jump" },
+		"human_male_rogue": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 2, "accessory_power": "moon_jump" },
+		"human_female_rogue": { "weapon_id": 10, "weapon_count": 2, "accessory_id": 1, "accessory_power": "glide" },
+
+		# ELF
+		"elf_male_tank": { "weapon_id": 11, "weapon_count": 2, "accessory_id": 1, "accessory_power": "stone_skin" },
+		"elf_female_tank": { "weapon_id": 41, "weapon_count": 2, "accessory_id": 2, "accessory_power": "stone_skin" },
+		"elf_male_wizard": { "weapon_id": 3, "weapon_count": 1, "accessory_id": 1, "accessory_power": "flame_aura" },
+		"elf_female_wizard": { "weapon_id": 4, "weapon_count": 1, "accessory_id": 2, "accessory_power": "glide" },
+		"elf_male_healer": { "weapon_id": 41, "weapon_count": 2, "accessory_id": 2, "accessory_power": "return" },
+		"elf_female_healer": { "weapon_id": 10, "weapon_count": 1, "accessory_id": 1, "accessory_power": "glide" },
+		"elf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 2, "accessory_power": "moon_jump" },
+		"elf_female_rogue": { "weapon_id": 10, "weapon_count": 3, "accessory_id": 1, "accessory_power": "moon_jump" },
+
+		# DWARF
+		"dwarf_male_tank": { "weapon_id": 8, "weapon_count": 3, "accessory_id": 1, "accessory_power": "stone_skin" },
+		"dwarf_female_tank": { "weapon_id": 11, "weapon_count": 2, "accessory_id": 2, "accessory_power": "stone_skin" },
+		"dwarf_male_wizard": { "weapon_id": 4, "weapon_count": 1, "accessory_id": 1, "accessory_power": "flame_aura" },
+		"dwarf_female_wizard": { "weapon_id": 9, "weapon_count": 2, "accessory_id": 2, "accessory_power": "flame_aura" },
+		"dwarf_male_healer": { "weapon_id": 8, "weapon_count": 2, "accessory_id": 2, "accessory_power": "return" },
+		"dwarf_female_healer": { "weapon_id": 10, "weapon_count": 1, "accessory_id": 1, "accessory_power": "glide" },
+		"dwarf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 2, "accessory_power": "moon_jump" },
+		"dwarf_female_rogue": { "weapon_id": 11, "weapon_count": 2, "accessory_id": 1, "accessory_power": "moon_jump" },
+
+		# GOBLIN
+		"goblin_male_tank": { "weapon_id": 0, "weapon_count": 1, "accessory_id": 1, "accessory_power": "stone_skin" },
+		"goblin_female_tank": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 2, "accessory_power": "stone_skin" },
+		"goblin_male_wizard": { "weapon_id": 4, "weapon_count": 1, "accessory_id": 1, "accessory_power": "flame_aura" },
+		"goblin_female_wizard": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 2, "accessory_power": "flame_aura" },
+		"goblin_male_healer": { "weapon_id": 41, "weapon_count": 2, "accessory_id": 2, "accessory_power": "return" },
+		"goblin_female_healer": { "weapon_id": 5, "weapon_count": 2, "accessory_id": 1, "accessory_power": "glide" },
+		"goblin_male_rogue": { "weapon_id": 0, "weapon_count": 1, "accessory_id": 2, "accessory_power": "moon_jump" },
+		"goblin_female_rogue": { "weapon_id": 5, "weapon_count": 3, "accessory_id": 1, "accessory_power": "moon_jump" },
+	}
+
+	if equipment_table.has(key):
+		return equipment_table[key]
+	else:
+		# Fallback: basic equipment
+		push_warning("CompanionManager: No equipment defined for %s, using fallback" % key)
+		return { "weapon_id": 9, "weapon_count": 1, "accessory_id": 2, "accessory_power": "glide" }
 
 
 func save_roster_to_dict() -> Dictionary:
