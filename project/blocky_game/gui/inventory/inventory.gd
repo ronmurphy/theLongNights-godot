@@ -305,18 +305,32 @@ func get_companion_equipped_weapon() -> InventoryItem:
 func _initialize_companion_default_weapon():
 	"""Initialize companion weapon slot with their default starting weapon or saved weapon"""
 	var weapon_id = -1
-	
+	var weapon_count = 1
+
+	# Check if using roster system
+	var active = null
+	if CompanionManager and CompanionManager.using_roster_system:
+		active = CompanionManager.get_active_companion()
+
 	# Try to load saved equipment first
-	if CompanionManager.equipped_weapon_id >= 0:
+	if active != null and active.equipped_weapon_id >= 0:
+		weapon_id = active.equipped_weapon_id
+		weapon_count = active.equipped_weapon_count if active.equipped_weapon_count > 0 else 1
+	elif CompanionManager.equipped_weapon_id >= 0:
 		weapon_id = CompanionManager.equipped_weapon_id
+		weapon_count = 1  # Legacy system doesn't have count
 	else:
 		# Get the companion's default weapon ID based on their race
 		weapon_id = _get_companion_default_weapon_id()
-	
+		weapon_count = 1
+
 	if weapon_id >= 0:
 		# Create an inventory item for the weapon with saved count
-		var weapon_count = CompanionManager.equipped_weapon_count if CompanionManager.equipped_weapon_count > 0 else 1
 		_companion_weapon_slot = _make_item_with_count(InventoryItem.TYPE_ITEM, weapon_id, weapon_count)
+
+		# Restore weapon power if using roster system
+		if active != null and active.equipped_weapon_power != "":
+			_companion_weapon_slot.skyshard_power = active.equipped_weapon_power
 
 		# Update the visual display
 		if _companion_weapon_slot_view:
