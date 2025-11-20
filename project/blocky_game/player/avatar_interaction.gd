@@ -2189,26 +2189,17 @@ func _open_companion_roster_modal() -> void:
 	var CompanionRosterModal = load("res://blocky_game/gui/CompanionRosterModal.gd")
 	var modal = CompanionRosterModal.new()
 
-	# Disable player input while modal is open
-	var player_controller = get_parent()
-	if player_controller and player_controller.has_method("set_input_enabled"):
-		player_controller.set_input_enabled(false)
+	# Get game node (like other NPC shops do)
+	var game = get_node("/root/Main/Game")
+	game.add_child(modal)
 
-	# Disable hotbar scroll wheel
-	if has_method("set_cooking_modal_open"):
-		set_cooking_modal_open(true)
+	# Set modal open flag (prevents player movement)
+	set_cooking_modal_open(true)
 
-	# Connect modal_closed signal to re-enable input
+	# Connect close signal
 	modal.modal_closed.connect(func():
-		if player_controller and player_controller.has_method("set_input_enabled"):
-			player_controller.set_input_enabled(true)
-		# Re-enable hotbar scroll wheel
-		if has_method("set_cooking_modal_open"):
-			set_cooking_modal_open(false)
+		set_cooking_modal_open(false)
 	)
-
-	# Add to root of scene tree (like GameConsole does)
-	get_tree().root.add_child(modal)
 
 	print("[NPC] Companion Recruitment opened! Create and manage your companion roster")
 

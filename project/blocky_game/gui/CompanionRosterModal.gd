@@ -79,12 +79,22 @@ const RIGHT_PANEL_WIDTH = 580
 
 
 func _ready() -> void:
-	# Get companion manager reference
-	_companion_manager = get_node_or_null("/root/CompanionManager")
+	# Get companion manager reference (it's an AutoLoad)
+	_companion_manager = CompanionManager
+	print("🔍 CompanionRosterModal._ready() - Getting CompanionManager (AutoLoad)")
+	print("   Found: %s" % (_companion_manager != null))
+	if _companion_manager:
+		print("   Companion count: %d" % _companion_manager.get_companion_count())
+		print("   Active companion index: %d" % _companion_manager.active_companion_index)
+
 	if not _companion_manager:
 		push_error("CompanionRosterModal: Could not find CompanionManager")
 		queue_free()
 		return
+
+	# Wait a frame for CompanionManager to finish initialization/conversion
+	await get_tree().process_frame
+	print("🔍 After process_frame - Companion count: %d" % _companion_manager.get_companion_count())
 
 	# Build UI
 	_build_ui()
@@ -590,6 +600,9 @@ func _build_right_column(parent: HBoxContainer) -> void:
 
 func _populate_roster_list() -> void:
 	"""Populate the roster list with current companions"""
+	print("📋 _populate_roster_list() called")
+	print("   _companion_manager: %s" % (_companion_manager != null))
+
 	# Clear existing buttons
 	for button in _companion_buttons:
 		if is_instance_valid(button):
@@ -597,9 +610,11 @@ func _populate_roster_list() -> void:
 	_companion_buttons.clear()
 
 	var count = _companion_manager.get_companion_count()
+	print("   Companion count: %d" % count)
 	_roster_count_label.text = "%d/12 Companions" % count
 
 	if count == 0:
+		print("   No companions found - showing empty message")
 		var empty_label = Label.new()
 		empty_label.text = "No companions yet"
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
