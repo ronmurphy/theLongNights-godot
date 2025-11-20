@@ -1231,8 +1231,7 @@ func _on_accessory_slot_pressed():
 		# Start dragging accessory if there is one
 		if _companion_accessory_slot != null:
 			_dragged_slot = -997  # Special ID for accessory slot
-			_dragged_item_view.get_display().set_item(_companion_accessory_slot)
-			_dragged_item_view.start()
+			_dragged_item_view.start(_companion_accessory_slot)
 func _on_companion_roster_swapped(index: int) -> void:
 	"""Called when player swaps companions in the roster; refresh inventory UI."""
 	print("Inventory: companion swap signal received -> index=%d" % index)
