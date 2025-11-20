@@ -190,6 +190,13 @@ func set_item(data: InventoryItem):
 			else:
 				_power_badge.visible = false
 
+		# Apply enchantment outline based on power type
+		if all_powers.size() > 0:
+			var outline_color = _get_enchant_outline_color(all_powers)
+			_apply_enchant_outline(outline_color)
+		else:
+			_apply_enchant_outline(Color.TRANSPARENT)
+
 	else:
 		assert(false)
 
