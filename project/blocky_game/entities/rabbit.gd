@@ -21,7 +21,6 @@ var _flee_timer := 0.0
 var _attacker: Node = null  # Who damaged us (flee away from them)
 var _hop_anim_timer := 0.0  # Animation timer for hop frames
 var _current_hop_frame := 1  # 1 or 2
-var _terrain: Node = null  # Reference to voxel terrain for edge detection
 
 const WANDER_INTERVAL_MIN = 2.0
 const WANDER_INTERVAL_MAX = 5.0
