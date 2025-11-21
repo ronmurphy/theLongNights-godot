@@ -229,26 +229,42 @@ func break_blocks_to_target(target: Node, max_distance: float = 3.0) -> void:
 	var vt = _terrain.get_voxel_tool()
 	vt.channel = VoxelBuffer.CHANNEL_TYPE
 
-	# Raycast from enemy to target
+	# Get direction to target
 	var direction = (target.global_position - global_position).normalized()
-	var distance = global_position.distance_to(target.global_position)
-	var raycast_dist = min(distance, max_distance)
 
-	# Check at multiple heights
+	# Check blocks in front of enemy in a 2x2x2 area
 	var blocks_broken = 0
-	for y_offset in [0.0, 0.5, 1.0]:
-		var ray_start = global_position + Vector3(0, y_offset, 0)
-		var hit = vt.raycast(ray_start, direction, raycast_dist)
+	var enemy_block_pos = Vector3i(
+		floor(global_position.x),
+		floor(global_position.y),
+		floor(global_position.z)
+	)
 
-		if hit != null:
-			var block_pos = Vector3i(hit.position)
-			var voxel_id = vt.get_voxel(block_pos)
+	# Check blocks directly in front and around the enemy
+	# This catches walls the enemy is pressed against
+	for x_offset in [-1, 0, 1]:
+		for y_offset in [0, 1]:  # Ground level and above
+			for z_offset in [-1, 0, 1]:
+				var check_pos = enemy_block_pos + Vector3i(x_offset, y_offset, z_offset)
 
-			# Destroy block if it's not air
-			if voxel_id != 0:
-				vt.set_voxel(block_pos, 0)
-				blocks_broken += 1
-				print("💥 %s SMASHED block at %s!" % [entity_name, block_pos])
+				# Skip the block the enemy is standing in
+				if x_offset == 0 and y_offset == 0 and z_offset == 0:
+					continue
+
+				# Check if this block is between enemy and target
+				var block_world_pos = Vector3(check_pos) + Vector3(0.5, 0.5, 0.5)
+				var to_block = (block_world_pos - global_position).normalized()
+				var to_target = direction
+
+				# If block is roughly in direction of target (dot product > 0.3)
+				if to_block.dot(to_target) > 0.3:
+					var voxel_id = vt.get_voxel(check_pos)
+
+					# Destroy block if it's not air
+					if voxel_id != 0:
+						vt.set_voxel(check_pos, 0)
+						blocks_broken += 1
+						print("💥 %s SMASHED block at %s!" % [entity_name, check_pos])
 
 	if blocks_broken > 0:
 		print("  🔨 %s destroyed %d blocks attacking through terrain!" % [entity_name, blocks_broken])
