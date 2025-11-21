@@ -1377,7 +1377,9 @@ func _populate_player_items():
 	# Define weapon/item IDs (exclude food, Keeper's Charm)
 	var weapon_ids = range(0, 13)  # IDs 0-12
 	var misc_item_ids = [40, 41]  # light_orb, spear (excludes 42 = Keeper's Charm)
-	var all_item_ids = weapon_ids + misc_item_ids
+	var shield_ids = [43, 44, 45]  # wood_shield, shield, shield_crusader
+	var ring_ids = [46]  # ring_of_thorns
+	var all_item_ids = weapon_ids + misc_item_ids + shield_ids + ring_ids
 
 	# Note: Equipped items are stored in separate slots (_player_weapon_slot, _companion_weapon_slot,
 	# _companion_accessory_slot) and are NOT in the _slots array, so they won't appear in the sell list
