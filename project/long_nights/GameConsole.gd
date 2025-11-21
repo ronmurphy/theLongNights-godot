@@ -563,7 +563,12 @@ func _cmd_give(args: Array) -> void:
 		"light_orb": 40,
 		"lightsphere": 40,
 		"orb": 40,
-		"spear": 41
+		"spear": 41,
+		"wood_shield": 43,
+		"shield": 44,
+		"shield_crusader": 45,
+		"ring_of_thorns": 46,
+		"ring": 46
 	}
 
 	if not item_map.has(item_name):

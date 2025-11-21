@@ -977,27 +977,37 @@ func _handle_item_shop_transaction():
 	if is_buy:
 		# BUY: Purchase shop item with rust blocks
 		var item_id = _selected_block_id
+		print("[Item Shop DEBUG] Buying item ID: %d" % item_id)
+
 		var item = _item_db.get_item(item_id)
 		if not item:
+			print("[Item Shop ERROR] Item ID %d not found in database!" % item_id)
+			_show_message("Error: Item not found!", Color.RED)
 			return
 
+		print("[Item Shop DEBUG] Item loaded: %s (ID: %d)" % [item.base_info.name, item_id])
 		var price = 10  # Base price for shop items (no powers)
 
 		# Check if player has enough rust blocks
 		var rust_count = _inventory.get_rust_block_count()
+		print("[Item Shop DEBUG] Price: %d, Player has: %d rust blocks" % [price, rust_count])
 		if rust_count < price:
 			_show_message("Not enough rust blocks! Need %d, have %d" % [price, rust_count], Color.RED)
 			return
 
 		# Spend rust blocks
+		print("[Item Shop DEBUG] Spending %d rust blocks..." % price)
 		if not _inventory.spend_rust_blocks(price):
+			print("[Item Shop ERROR] Failed to spend rust blocks!")
 			_show_message("Transaction failed!", Color.RED)
 			return
 
 		# Add item to inventory (find empty slot)
+		print("[Item Shop DEBUG] Looking for empty inventory slot...")
 		var added = false
 		for i in range(_inventory._slots.size()):
 			if _inventory._slots[i] == null:
+				print("[Item Shop DEBUG] Found empty slot at index %d, adding item..." % i)
 				var new_item = InventoryItem.new()
 				new_item.type = InventoryItem.TYPE_ITEM
 				new_item.id = item_id
@@ -1007,11 +1017,13 @@ func _handle_item_shop_transaction():
 				break
 
 		if not added:
+			print("[Item Shop ERROR] No empty slots! Inventory full.")
 			# Refund rust blocks if inventory full
 			_inventory.add_rust_blocks(price)
 			_show_message("Inventory full! Purchase cancelled.", Color.RED)
 			return
 
+		print("[Item Shop DEBUG] Item added to inventory, updating views...")
 		_inventory._update_views()
 		print("[Item Shop] ✅ Bought %s for %d rust blocks" % [item.base_info.name, price])
 		_show_message("✅ Bought %s for %d rust blocks!" % [item.base_info.name.replace("_", " ").capitalize(), price], Color.GREEN)
