@@ -66,6 +66,7 @@ const NPC_TEMPLATES = [
 	{"name": "Daniels", "race": "human", "gender": "male", "job": "merchant", "color": Color(0.85, 0.75, 0.65)},
 	{"name": "Michelle", "race": "human", "gender": "female", "job": "town_manager", "color": Color(0.95, 0.85, 0.9)},
 	{"name": "Zara", "race": "elf", "gender": "female", "job": "ruinkeeper", "color": Color(0.95, 0.9, 1.0)},
+	{"name": "Claude", "race": "undervoid", "gender": "male", "job": "guild_leader", "color": Color(0.8, 0.7, 1.0)},
 ]
 
 
@@ -668,6 +669,9 @@ func spawn_companion_npc(comp_data: CompanionManager.CompanionData, spawn_pos: V
 	var color = _get_role_color(comp_data.role)
 	npc.initialize(comp_data.race, comp_data.gender, color, comp_data.companion_name)
 	npc.add_to_group("benched_companions")
+
+	# Configure combat behavior with equipment data
+	npc.configure_as_benched_companion(comp_data.role, comp_data.equipped_weapon_id, comp_data.equipped_weapon_count)
 	
 	print("🏕️ Spawned benched companion: %s (%s %s %s) at %s" % [
 		comp_data.companion_name, comp_data.gender, comp_data.race, comp_data.role, npc.global_position

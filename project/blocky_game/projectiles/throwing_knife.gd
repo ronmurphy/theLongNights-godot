@@ -278,20 +278,10 @@ func _spawn_impact_sparkles(pos: Vector3):
 
 
 func _on_impact(hit_pos: Vector3):
-	"""Handle impact with target or block"""
+	"""Handle impact with target or block - knives only damage enemies, not terrain"""
 	print("Throwing knife impact at ", hit_pos)
 
-	if _terrain != null:
-		var vt = _terrain.get_voxel_tool()
-		vt.channel = VoxelBuffer.CHANNEL_TYPE
-
-		var block_pos = Vector3i(floor(hit_pos.x), floor(hit_pos.y), floor(hit_pos.z))
-		var voxel_id = vt.get_voxel(block_pos)
-
-		# Destroy block if it's not bedrock (bedrock is typically ID 0 or a specific ID)
-		# Assuming bedrock is voxel ID 0, we check if it's anything else
-		if voxel_id != 0:
-			vt.set_voxel(block_pos, 0)
-			print("Knife destroyed block at ", block_pos)
+	# Throwing knives no longer destroy blocks
+	# They only damage entities (handled in _check_entity_collision)
 
 	queue_free()

@@ -5,8 +5,15 @@ extends CanvasLayer
 var _pause_panel: Panel
 var _graphics_ui: Control
 var _is_paused := false
+var _click_sound: AudioStreamPlayer
 
 func _ready() -> void:
+	# Setup click sound
+	_click_sound = AudioStreamPlayer.new()
+	_click_sound.stream = load("res://assets/sfx/Select.ogg")
+	_click_sound.volume_db = -8.0
+	add_child(_click_sound)
+
 	_setup_ui()
 	process_mode = Node.PROCESS_MODE_ALWAYS  # Allow input when paused
 
@@ -66,6 +73,7 @@ func _setup_ui() -> void:
 	var resume_button = Button.new()
 	resume_button.text = "Resume (ESC)"
 	resume_button.custom_minimum_size = Vector2(0, 50)
+	resume_button.pressed.connect(_play_click_sound)
 	resume_button.pressed.connect(_on_resume_pressed)
 	vbox.add_child(resume_button)
 
@@ -73,6 +81,7 @@ func _setup_ui() -> void:
 	var save_button = Button.new()
 	save_button.text = "Save Game"
 	save_button.custom_minimum_size = Vector2(0, 50)
+	save_button.pressed.connect(_play_click_sound)
 	save_button.pressed.connect(_on_save_pressed)
 	vbox.add_child(save_button)
 
@@ -80,6 +89,7 @@ func _setup_ui() -> void:
 	var settings_button = Button.new()
 	settings_button.text = "Graphics Settings"
 	settings_button.custom_minimum_size = Vector2(0, 50)
+	settings_button.pressed.connect(_play_click_sound)
 	settings_button.pressed.connect(_on_graphics_settings_pressed)
 	vbox.add_child(settings_button)
 
@@ -87,6 +97,7 @@ func _setup_ui() -> void:
 	var quit_button = Button.new()
 	quit_button.text = "Save and Quit"
 	quit_button.custom_minimum_size = Vector2(0, 50)
+	quit_button.pressed.connect(_play_click_sound)
 	quit_button.pressed.connect(_on_save_and_quit_pressed)
 	vbox.add_child(quit_button)
 
@@ -109,13 +120,25 @@ func toggle_pause() -> void:
 	if _is_paused:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		# Check if inventory is open before restoring captured mode
+		var inventory = get_node_or_null("/root/Main/Game/Inventory")
+		if inventory and inventory.visible:
+			# Inventory is open, let it manage the mouse mode
+			pass
+		else:
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _on_graphics_settings_pressed() -> void:
 	# Show graphics settings modal
 	var graphics_ui = load("res://blocky_game/gui/GraphicsSettingsUI.gd").new()
 	add_child(graphics_ui)
 	graphics_ui.show_modal()
+
+func _play_click_sound() -> void:
+	"""Play UI click sound"""
+	if _click_sound:
+		_click_sound.play()
+
 
 func _on_resume_pressed() -> void:
 	toggle_pause()
@@ -143,6 +166,13 @@ func _save_game() -> void:
 		print("💾 Saving player position: %s" % player.global_position)
 	else:
 		print("⚠️ WARNING: Could not find player node for saving position!")
+
+	# Sync live companion's equipment to roster before saving
+	var companions = get_tree().get_nodes_in_group("companions")
+	if companions.size() > 0 and CompanionManager.using_roster_system:
+		var companion = companions[0]
+		CompanionManager.update_active_companion_from_scene(companion)
+		print("💾 Synced companion equipment to roster before save")
 
 	# Save world config
 	WorldManager.save_world()

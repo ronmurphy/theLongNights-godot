@@ -1,8 +1,11 @@
 extends GroundEntity
 
+const SimplePathfinding = preload("res://blocky_game/utils/simple_pathfinding.gd")
+
 ## Cat (Black) - Ambient peaceful animal
 ## Wanders, sits frequently, shows interest when player has fish
 ## Has 2 walk animation frames + 1 sit frame
+## Now includes edge detection to avoid falling off sky islands!
 
 enum State {
 	WANDERING,
@@ -18,6 +21,12 @@ var _walk_anim_timer := 0.0
 var _current_walk_frame := 1  # 1 or 2
 var _player: Node = null
 var _interest_check_timer := 0.0
+
+# Meow sound
+var _meow_sound: AudioStreamPlayer = null
+var _meow_timer := 0.0
+const MEOW_INTERVAL_MIN = 8.0  # Meow every 8-20 seconds
+const MEOW_INTERVAL_MAX = 20.0
 
 const WANDER_INTERVAL_MIN = 2.0
 const WANDER_INTERVAL_MAX = 4.0
@@ -44,6 +53,9 @@ func _ready():
 	# Call parent ready
 	super._ready()
 
+	# Get terrain reference for edge detection
+	_terrain = get_node_or_null("/root/Main/Game/VoxelTerrain")
+
 	# Create sprite (start with sit pose)
 	_sprite = _create_sprite("res://assets/art/animals/cat_sit.png", 0.003)
 
@@ -57,6 +69,13 @@ func _ready():
 
 	# Find player
 	_find_player()
+
+	# Setup meow sound
+	_meow_sound = AudioStreamPlayer.new()
+	_meow_sound.stream = load("res://assets/sfx/CatMeow.ogg")
+	_meow_sound.volume_db = -8.0
+	add_child(_meow_sound)
+	_meow_timer = randf_range(MEOW_INTERVAL_MIN, MEOW_INTERVAL_MAX)
 
 
 func _find_player():
@@ -77,6 +96,12 @@ func _process(delta: float):
 	if _interest_check_timer >= INTEREST_CHECK_INTERVAL:
 		_interest_check_timer = 0.0
 		_check_fish_interest()
+
+	# Random meow
+	_meow_timer -= delta
+	if _meow_timer <= 0 and _meow_sound:
+		_meow_sound.play()
+		_meow_timer = randf_range(MEOW_INTERVAL_MIN, MEOW_INTERVAL_MAX)
 
 	match _state:
 		State.WANDERING:
@@ -207,8 +232,20 @@ func _handle_interested(delta: float):
 
 func _start_new_wander():
 	_state = State.WANDERING
-	_wander_direction = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized()
 	_wander_timer = randf_range(WANDER_INTERVAL_MIN, WANDER_INTERVAL_MAX)
+
+	# Pick a safe direction (with edge detection for sky islands)
+	var safe_direction = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized()
+
+	# Try a few times to find a safe direction
+	for attempt in range(3):
+		if SimplePathfinding.is_safe_to_walk(global_position, safe_direction, _terrain, 2.0):
+			break  # Found a safe direction!
+
+		# Try another random direction
+		safe_direction = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized()
+
+	_wander_direction = safe_direction
 
 
 func _start_sitting():

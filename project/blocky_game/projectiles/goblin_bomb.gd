@@ -99,6 +99,39 @@ func _physics_process(delta: float):
 func _explode():
 	print("💣 Goblin bomb explodes at %s!" % global_position)
 
+	# Damage terrain in explosion radius
+	if _terrain != null:
+		var vt = _terrain.get_voxel_tool()
+		vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+		var center = Vector3i(
+			floor(global_position.x),
+			floor(global_position.y),
+			floor(global_position.z)
+		)
+
+		# Destroy blocks in a spherical area
+		var block_radius = int(explosion_radius)
+		var blocks_destroyed = 0
+
+		for x in range(-block_radius, block_radius + 1):
+			for y in range(-block_radius, block_radius + 1):
+				for z in range(-block_radius, block_radius + 1):
+					var offset = Vector3i(x, y, z)
+					var block_pos = center + offset
+
+					# Check if within spherical radius
+					var dist = Vector3(x, y, z).length()
+					if dist <= explosion_radius:
+						var voxel_id = vt.get_voxel(block_pos)
+						# Destroy block if it's not air (0)
+						if voxel_id != 0:
+							vt.set_voxel(block_pos, 0)
+							blocks_destroyed += 1
+
+		if blocks_destroyed > 0:
+			print("  💥 Explosion destroyed %d blocks!" % blocks_destroyed)
+
 	# Damage all nearby entities
 	var entities = get_tree().get_nodes_in_group("entities")
 

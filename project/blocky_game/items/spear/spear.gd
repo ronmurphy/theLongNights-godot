@@ -70,8 +70,8 @@ func _use_melee(origin: Vector3, direction: Vector3, stack_count: int, inv_item_
 		# Direct hit on entity
 		_thrust_attack(target_entity, origin, inv_item_or_count)
 	else:
-		# Thrust at air (show thrust effect) - close to player, within melee range
-		var thrust_pos = origin + direction * 1.0
+		# Thrust at air (show thrust effect) - very close to player for narrower appearance
+		var thrust_pos = origin + direction * 0.6
 		_spawn_thrust_effect(thrust_pos, direction)
 
 	print("Spear thrust! Stack bonus: +", stack_count, " damage")
@@ -176,7 +176,8 @@ func _spawn_thrust_effect(pos: Vector3, direction: Vector3):
 		0.2,   # Duration (fastest)
 		6.0,   # Intensity (slightly lower)
 		6.0,   # Speed (fastest animation)
-		2.0    # Scale (medium size)
+		2.0,   # Scale (medium size)
+		"res://assets/art/textures/slash_03.png"  # Spear uses slash_03
 	)
 
 

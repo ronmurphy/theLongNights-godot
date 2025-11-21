@@ -16,7 +16,7 @@ const SECONDS_PER_IN_GAME_HOUR = 75.0  # 30 min / 24 hours = 75 seconds per hour
 const HOURS_PER_DAY = 24
 const DAYS_PER_WEEK = 7
 const BLOODMOON_START_HOUR = 21  # 9 PM
-const BLOODMOON_END_HOUR = 2     # 2 AM (wraps to next day)
+const BLOODMOON_END_HOUR = 5     # 5 AM (near sunrise)
 
 # State variables
 var current_week: int = 1

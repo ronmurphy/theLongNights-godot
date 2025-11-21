@@ -102,6 +102,9 @@ func _perform_slam_attack():
 	var target_name = _current_target.get("entity_name") if _current_target.has_method("get") else "target"
 	print("🤖 %s SLAMS the ground for %d damage!" % [entity_name, attack_damage])
 
+	# GOLEM SMASH - Break 2 blocks at once!
+	break_blocks_to_target(_current_target, 4.0)  # Longer range, breaks more blocks
+
 	# Damage primary target
 	if _current_target.has_method("take_damage"):
 		_current_target.take_damage(attack_damage, self)

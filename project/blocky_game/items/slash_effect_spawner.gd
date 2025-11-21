@@ -50,6 +50,7 @@ static func get_current_effect_name() -> String:
 ##   intensity: Brightness/emission multiplier (default: 7.0)
 ##   speed: Animation speed multiplier (default: 0.2)
 ##   scale: Size multiplier for the effect (default: 1.0)
+##   texture_path: Path to slash texture (default: slash_01.png)
 ##
 ## Returns: The spawned effect node (in case you need to modify it further)
 static func spawn_slash(
@@ -60,7 +61,8 @@ static func spawn_slash(
 	duration: float = 0.3,
 	intensity: float = 7.0,
 	speed: float = 0.2,
-	scale: float = 1.0
+	scale: float = 1.0,
+	texture_path: String = "res://assets/art/textures/slash_01.png"
 ) -> Node3D:
 	# Choose the scene based on current effect type
 	var effect_scene = FIRE_SLASH_SCENE if current_effect_type == EffectType.FIRE_SLASH else SIMPLE_GLOW_SCENE
@@ -83,6 +85,11 @@ static func spawn_slash(
 	# Rotate 180 degrees around X to flip it vertically (fixes up/down inversion)
 	effect.rotate_object_local(Vector3(1, 0, 0), deg_to_rad(180))
 
+	# Add random diagonal angle for variety - each slash looks unique
+	# Randomly choose diagonal direction and angle
+	var random_angle = randf_range(-45.0, 45.0)  # Random angle between -45 and 45 degrees
+	effect.rotate_object_local(Vector3(0, 0, 1), deg_to_rad(random_angle))  # Rotate around forward axis
+
 	# Apply scale
 	effect.scale = Vector3(scale, scale, scale)
 
@@ -95,7 +102,7 @@ static func spawn_slash(
 	if current_effect_type == EffectType.SIMPLE_GLOW:
 		_configure_simple_glow(material, color, intensity, speed)
 	else:
-		_configure_fire_slash(material, color, intensity, speed, duration)
+		_configure_fire_slash(material, color, intensity, speed, duration, texture_path)
 		# Add animator script to fire slash for speed parameter animation
 		_add_fire_slash_animator(effect, speed)
 
@@ -113,7 +120,11 @@ static func _configure_simple_glow(material: ShaderMaterial, color: Color, inten
 
 
 ## Configure shader parameters for Fire Slash effect (Tutorial 1)
-static func _configure_fire_slash(material: ShaderMaterial, color: Color, intensity: float, speed: float, duration: float) -> void:
+static func _configure_fire_slash(material: ShaderMaterial, color: Color, intensity: float, speed: float, duration: float, texture_path: String) -> void:
+	# Load and set slash texture
+	var slash_texture = load(texture_path)
+	material.set_shader_parameter("Slash_Texture", slash_texture)
+
 	# Extract RGB for gradient colors (use the provided color as the bright color)
 	var bright_color = color.to_html(false)
 	var mid_color_vec = color * 0.6  # Darker mid tone
@@ -146,7 +157,7 @@ static func _configure_fire_slash(material: ShaderMaterial, color: Color, intens
 	material.set_shader_parameter("Gradient_Sharpness", 1.5)
 
 	# Offset for animation - increase to sweep more across the screen
-	material.set_shader_parameter("offset", Vector2(2, 0))
+	material.set_shader_parameter("offset", Vector2(0.5, 0))
 
 
 ## Add animator script to fire slash effect for speed parameter animation

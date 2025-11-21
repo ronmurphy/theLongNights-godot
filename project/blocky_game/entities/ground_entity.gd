@@ -6,6 +6,8 @@ class_name GroundEntity
 ## Used by: rats, goblins, zombies, etc.
 
 @export var gravity := 20.0
+@export var can_break_blocks := true  # Enemies can break blocks by default
+@export var block_break_cooldown := 2.0  # 2 seconds between block hits
 
 var _velocity := Vector3.ZERO
 var _grounded := false
@@ -13,6 +15,14 @@ var _box_mover := VoxelBoxMover.new()
 var _terrain: VoxelTerrain = null
 var _collision_size := Vector3(0.6, 0.6, 0.6)  # Default collision box size
 var _collision_offset := Vector3(-0.3, -0.3, -0.3)  # Centered collision box
+
+# Block breaking system
+var _block_damage: Dictionary = {}  # {Vector3i: int} - tracks hits per block
+var _block_break_timer := 0.0
+var _last_blocked_position := Vector3.ZERO
+var _blocked_frame_count := 0
+const HITS_TO_BREAK := 4  # Blocks need 4 hits to break
+const BLOCKED_FRAMES_THRESHOLD := 3  # Must be blocked for 3 frames before trying to break
 
 
 func _ready():
@@ -42,6 +52,10 @@ func apply_ground_movement(delta: float, velocity_input: Vector3) -> void:
 			_regen_timer = 0.0
 			heal(1)
 
+	# Update block break timer
+	if _block_break_timer > 0:
+		_block_break_timer -= delta
+
 	# Set horizontal velocity from input
 	_velocity.x = velocity_input.x
 	_velocity.z = velocity_input.z
@@ -57,9 +71,11 @@ func apply_ground_movement(delta: float, velocity_input: Vector3) -> void:
 	var vt := _terrain.get_voxel_tool()
 	if vt.is_area_editable(AABB(aabb.position + global_position, aabb.size)):
 		var prev_motion := motion
+		var desired_horizontal_motion := Vector3(prev_motion.x, 0, prev_motion.z)
 
 		# Get motion with collision detection
 		motion = _box_mover.get_motion(global_position, motion, aabb, _terrain)
+		var actual_horizontal_motion := Vector3(motion.x, 0, motion.z)
 
 		# Apply motion
 		global_translate(motion)
@@ -77,6 +93,20 @@ func apply_ground_movement(delta: float, velocity_input: Vector3) -> void:
 		# Started moving vertically (jumped or fell)
 		elif absf(motion.y) > 0.001:
 			_grounded = false
+
+		# BLOCK BREAKING LOGIC
+		# Check if enemy is blocked (wanted to move but couldn't)
+		if can_break_blocks and team == Team.ENEMY and desired_horizontal_motion.length() > 0.1:
+			var blocked = actual_horizontal_motion.length() < desired_horizontal_motion.length() * 0.3
+
+			if blocked:
+				_blocked_frame_count += 1
+
+				# After being blocked for several frames, try to break through
+				if _blocked_frame_count >= BLOCKED_FRAMES_THRESHOLD and _block_break_timer <= 0:
+					_try_break_blocking_block(desired_horizontal_motion.normalized())
+			else:
+				_blocked_frame_count = 0
 
 
 ## Check if entity is on the ground
@@ -131,3 +161,110 @@ func create_billboard_shadow(texture_path: String, shadow_scale: Vector3 = Vecto
 	shadow_instance.material_override = shadow_material
 	shadow_instance.cast_shadow = MeshInstance3D.SHADOW_CASTING_SETTING_ON
 	add_child(shadow_instance)
+
+
+## Try to break the block that's blocking this entity
+func _try_break_blocking_block(direction: Vector3) -> void:
+	if _terrain == null:
+		return
+
+	var vt = _terrain.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	# Raycast forward from entity position at multiple heights to find blocking blocks
+	var start_pos = global_position
+	var blocking_blocks: Array[Vector3i] = []
+
+	# Check at feet, waist, and head height
+	for y_offset in [0.0, 0.5, 1.0]:
+		var ray_start = start_pos + Vector3(0, y_offset, 0)
+		var hit = vt.raycast(ray_start, direction, 2.0)
+
+		if hit != null:
+			var block_pos = Vector3i(hit.position)
+			if not blocking_blocks.has(block_pos):
+				blocking_blocks.append(block_pos)
+
+	if blocking_blocks.is_empty():
+		return
+
+	# Hit all blocking blocks
+	for block_pos in blocking_blocks:
+		var voxel_id = vt.get_voxel(block_pos)
+
+		# Don't break air or already broken blocks
+		if voxel_id == 0:
+			continue
+
+		# Track damage to this block
+		if not _block_damage.has(block_pos):
+			_block_damage[block_pos] = 0
+
+		_block_damage[block_pos] += 1
+
+		print("🔨 %s damages block at %s (Hit %d/%d)" % [
+			entity_name, block_pos, _block_damage[block_pos], HITS_TO_BREAK
+		])
+
+		# Break block after enough hits
+		if _block_damage[block_pos] >= HITS_TO_BREAK:
+			vt.set_voxel(block_pos, 0)
+			_block_damage.erase(block_pos)
+			print("💥 %s BROKE THROUGH block at %s!" % [entity_name, block_pos])
+
+	# Reset cooldown
+	_block_break_timer = block_break_cooldown
+	_blocked_frame_count = 0
+
+
+## Instantly break blocks between enemy and target (used during attacks)
+## Much more aggressive than the gradual block-breaking system
+func break_blocks_to_target(target: Node, max_distance: float = 3.0) -> void:
+	if not can_break_blocks or team != Team.ENEMY or _terrain == null:
+		return
+
+	if target == null or not is_instance_valid(target):
+		return
+
+	var vt = _terrain.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	# Get direction to target
+	var direction = (target.global_position - global_position).normalized()
+
+	# Check blocks in front of enemy in a 2x2x2 area
+	var blocks_broken = 0
+	var enemy_block_pos = Vector3i(
+		floor(global_position.x),
+		floor(global_position.y),
+		floor(global_position.z)
+	)
+
+	# Check blocks directly in front and around the enemy
+	# This catches walls the enemy is pressed against
+	for x_offset in [-1, 0, 1]:
+		for y_offset in [0, 1]:  # Ground level and above
+			for z_offset in [-1, 0, 1]:
+				var check_pos = enemy_block_pos + Vector3i(x_offset, y_offset, z_offset)
+
+				# Skip the block the enemy is standing in
+				if x_offset == 0 and y_offset == 0 and z_offset == 0:
+					continue
+
+				# Check if this block is between enemy and target
+				var block_world_pos = Vector3(check_pos) + Vector3(0.5, 0.5, 0.5)
+				var to_block = (block_world_pos - global_position).normalized()
+				var to_target = direction
+
+				# If block is roughly in direction of target (dot product > 0.3)
+				if to_block.dot(to_target) > 0.3:
+					var voxel_id = vt.get_voxel(check_pos)
+
+					# Destroy block if it's not air
+					if voxel_id != 0:
+						vt.set_voxel(check_pos, 0)
+						blocks_broken += 1
+						print("💥 %s SMASHED block at %s!" % [entity_name, check_pos])
+
+	if blocks_broken > 0:
+		print("  🔨 %s destroyed %d blocks attacking through terrain!" % [entity_name, blocks_broken])

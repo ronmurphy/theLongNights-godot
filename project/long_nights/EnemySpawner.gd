@@ -178,18 +178,28 @@ func _try_spawn_enemy():
 		if randf() > DAY_SPAWN_CHANCE:
 			return  # 85% of the time, don't spawn during day
 
-	# Pick random spawn position around player
-	var spawn_pos = _get_random_spawn_position(player.global_position)
-	if spawn_pos == Vector3.ZERO:
-		return  # Failed to find valid position
+	# BLOODMOON SCALING: Spawn multiple enemies based on week!
+	var spawn_count = 1  # Default: spawn 1 enemy
+	if is_bloodmoon:
+		# Base count * week number (capped at week 10)
+		var week_multiplier = min(TimeManager.current_week, 10)
+		spawn_count = 1 * week_multiplier  # 1 enemy per week (1, 2, 3... up to 10)
+		print("🩸 BLOOD MOON WAVE: Spawning %d enemies (Week %d)" % [spawn_count, TimeManager.current_week])
 
-	# Pick enemy type based on unlocked tiers
-	var enemy_key = _pick_enemy_from_unlocked_tiers()
-	if enemy_key == "":
-		return
+	# Spawn the enemies
+	for i in range(spawn_count):
+		# Pick random spawn position around player
+		var spawn_pos = _get_random_spawn_position(player.global_position)
+		if spawn_pos == Vector3.ZERO:
+			continue  # Failed to find valid position, skip this one
 
-	# Spawn the enemy
-	_spawn_enemy(enemy_key, spawn_pos)
+		# Pick enemy type based on unlocked tiers
+		var enemy_key = _pick_enemy_from_unlocked_tiers()
+		if enemy_key == "":
+			continue
+
+		# Spawn the enemy
+		_spawn_enemy(enemy_key, spawn_pos)
 
 
 func _get_random_spawn_position(player_pos: Vector3) -> Vector3:

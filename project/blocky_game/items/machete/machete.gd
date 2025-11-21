@@ -38,8 +38,8 @@ func _use(trans: Transform3D, inv_item_or_count):
 		# Direct hit on entity
 		_slash_attack(target_entity, origin, inv_item_or_count)
 	else:
-		# Slash at air (show slash effect) - close to player, within melee range
-		var slash_pos = origin + direction * 1.0
+		# Slash at air (show slash effect) - very close to player for narrower appearance
+		var slash_pos = origin + direction * 0.6
 		_spawn_slash_effect(slash_pos, direction)
 
 	print("Machete slash! Stack bonus: +", stack_count, " damage")
@@ -135,7 +135,8 @@ func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 		0.25,  # Duration (faster than sword)
 		7.0,   # Intensity
 		5.0,   # Speed (fast animation)
-		2.5    # Scale (large for visibility)
+		2.5,   # Scale (large for visibility)
+		"res://assets/art/textures/slash_02.png"  # Machete uses slash_02
 	)
 
 

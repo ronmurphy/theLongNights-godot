@@ -1351,6 +1351,24 @@ func _is_target_in_range(target_pos: Vector3, inv_item) -> bool:
 
 
 func _place_single_block(pos: Vector3, block_id: int):
+	# Check if player is standing on or inside the block position
+	var player_pos = get_parent().global_position
+	var block_pos_floored = Vector3(floor(pos.x), floor(pos.y), floor(pos.z))
+
+	# Player occupies roughly 2 blocks vertically (feet at y, head at y+2)
+	# Check if block would be placed inside player's body
+	var player_feet_y = floor(player_pos.y)
+	var player_head_y = floor(player_pos.y + 1.8)
+	var block_y = block_pos_floored.y
+
+	# Check if block is at player's XZ position and within player's height range
+	var player_xz = Vector2(floor(player_pos.x), floor(player_pos.z))
+	var block_xz = Vector2(block_pos_floored.x, block_pos_floored.z)
+
+	if player_xz.distance_to(block_xz) < 1.0 and block_y >= player_feet_y and block_y <= player_head_y:
+		print("❌ Cannot place block - you're standing there!")
+		return
+
 	var look_dir := -_head.get_transform().basis.z
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():
@@ -2063,6 +2081,9 @@ func _on_npc_dialogue_closed() -> void:
 		"companion":
 			_open_companion_swap_dialog(npc)
 
+		"guild_leader":
+			_open_companion_roster_modal()
+
 		_:
 			print("⚠️ Unknown NPC job type: %s" % job)
 
@@ -2176,6 +2197,29 @@ func _open_town_manager_shop(npc: Node) -> void:
 	modal.first_blueprint_tutorial_needed.connect(_show_blueprint_tutorial)
 
 	print("[NPC] Town Manager Shop opened! Browse structures and upgrades")
+
+
+func _open_companion_roster_modal() -> void:
+	"""Open Claude's Companion Roster Modal (recruitment & management)"""
+	print("[NPC] Opening Companion Recruitment Interface...")
+
+	# Load and create companion roster modal
+	var CompanionRosterModal = load("res://blocky_game/gui/CompanionRosterModal.gd")
+	var modal = CompanionRosterModal.new()
+
+	# Get game node (like other NPC shops do)
+	var game = get_node("/root/Main/Game")
+	game.add_child(modal)
+
+	# Set modal open flag (prevents player movement)
+	set_cooking_modal_open(true)
+
+	# Connect close signal
+	modal.modal_closed.connect(func():
+		set_cooking_modal_open(false)
+	)
+
+	print("[NPC] Companion Recruitment opened! Create and manage your companion roster")
 
 
 ## ===== STRUCTURE PLACEMENT SYSTEM =====
