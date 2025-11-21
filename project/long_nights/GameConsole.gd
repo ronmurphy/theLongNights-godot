@@ -247,6 +247,7 @@ func _register_commands() -> void:
 	commands["blocks"] = _cmd_blocks
 	commands["shop"] = _cmd_shop
 	commands["npc"] = _cmd_npc
+	commands["npcreset"] = _cmd_npcreset
 	commands["homebase"] = _cmd_homebase
 	commands["home"] = _cmd_homebase  # Alias
 	commands["roster"] = _cmd_roster
@@ -345,6 +346,8 @@ func _cmd_help(_args: Array) -> void:
 	add_output("    Gender: male, female")
 	add_output("    Color: red, green, blue, yellow, etc. (tints clothing)")
 	add_output("    Example: npc human female green Angelica")
+	add_output("  [color=yellow]npcreset[/color] - Reset & spawn all 8 homebase NPCs instantly")
+	add_output("    Requires homebase to be set")
 	add_output("")
 	add_output("[color=cyan]Player & Camera:[/color]")
 	add_output("  [color=yellow]charview[/color] - Orbit camera around player to view character")
@@ -1855,3 +1858,73 @@ func _cmd_fish(_args: Array) -> void:
 			add_output("[color=orange]⚠️ Fish spawned but couldn't register with player[/color]")
 	else:
 		add_output("[color=red]Error: Game node not found[/color]")
+
+func _cmd_npcreset(_args: Array) -> void:
+	"""Reset and spawn all homebase NPCs instantly"""
+	if not HomeBaseManager.has_home_base:
+		add_output("[color=red]No home base set! Use 'homebase set' first.[/color]")
+		return
+
+	# Clear all existing homebase NPCs
+	var cleared_count = 0
+	for npc in HomeBaseManager.spawned_npcs.duplicate():
+		if is_instance_valid(npc):
+			npc.queue_free()
+			cleared_count += 1
+
+	HomeBaseManager.spawned_npcs.clear()
+
+	add_output("[color=yellow]🧹 Cleared %d existing NPCs[/color]" % cleared_count)
+
+	# Reset spawn index
+	HomeBaseManager.npcs_to_spawn_index = 0
+
+	# Spawn all NPCs from the template pool
+	var spawned = 0
+	for npc_template in HomeBaseManager.npc_spawn_pool:
+		if HomeBaseManager._game:
+			# Use the internal spawn method from HomeBaseManager
+			var spawn_pos = HomeBaseManager._find_npc_spawn_position()
+			if spawn_pos == Vector3.ZERO:
+				add_output("[color=orange]⚠️ Could not find spawn position for %s[/color]" % npc_template.name)
+				continue
+
+			# Create the NPC
+			var npc_scene = load("res://blocky_game/entities/npc.tscn")
+			if not npc_scene:
+				add_output("[color=red]Error: NPC scene not found![/color]")
+				return
+
+			var npc = npc_scene.instantiate()
+			HomeBaseManager._game.add_child(npc)
+			npc.global_position = spawn_pos
+
+			# Configure NPC
+			npc.entity_name = npc_template.name
+			npc.npc_race = npc_template.race
+			npc.npc_gender = npc_template.gender
+			npc.job = npc_template.job
+			npc.skin_color = npc_template.color
+
+			# Dialogue file
+			npc.dialogue_file = "res://dialogues/%s.json" % npc_template.name.to_lower()
+
+			# Add to tracking
+			npc.add_to_group("homebase_npcs")
+			HomeBaseManager.spawned_npcs.append(npc)
+			spawned += 1
+
+			add_output("[color=cyan]  ✓ Spawned %s (%s %s - %s)[/color]" % [
+				npc_template.name,
+				npc_template.race,
+				npc_template.gender,
+				npc_template.job
+			])
+		else:
+			add_output("[color=red]Error: Game reference not set in HomeBaseManager[/color]")
+			return
+
+	# Update spawn index to mark all as spawned
+	HomeBaseManager.npcs_to_spawn_index = HomeBaseManager.npc_spawn_pool.size()
+
+	add_output("[color=lime]✨ Successfully spawned all %d NPCs![/color]" % spawned)
