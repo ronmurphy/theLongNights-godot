@@ -3,10 +3,10 @@ extends GroundEntity
 ## Goblin Bomb Bard - Tier 2 RANGED Enemy
 ## Extremely dangerous with explosives, throws bombs from range
 
-@export var chase_distance := 25.0
+@export var chase_distance := 100.0  # X-RAY: Chases through walls from far away!
 @export var preferred_distance := 15.0
 @export var min_distance := 8.0
-@export var attack_range := 22.0
+@export var attack_range := 80.0  # Can bomb from much further!
 @export var attack_cooldown := 3.0
 
 const GoblinBomb = preload("res://blocky_game/projectiles/goblin_bomb.gd")

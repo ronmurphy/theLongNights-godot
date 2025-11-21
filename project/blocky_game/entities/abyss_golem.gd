@@ -4,10 +4,10 @@ extends GroundEntity
 ## First ranged enemy! Shoots purple void bolts at player and companions
 ## Guards Undervoid structures with devastating purple energy attacks
 
-@export var chase_distance := 25.0  # Long sight range
+@export var chase_distance := 120.0  # X-RAY: Void sense penetrates all!
 @export var preferred_distance := 10.0  # Ideal shooting distance
 @export var min_distance := 5.0  # Back away if closer than this
-@export var attack_range := 20.0  # Can shoot from far away
+@export var attack_range := 100.0  # Void bolts strike from afar!
 @export var attack_cooldown := 2.5  # Slower attack rate for ranged
 
 const VoidBolt = preload("res://blocky_game/projectiles/void_bolt.gd")
