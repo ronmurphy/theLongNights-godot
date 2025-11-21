@@ -51,6 +51,12 @@ var _void_fog_damage_timer := 0.0  # Timer for void_fog damage (5 damage per mov
 var _last_void_fog_position := Vector3i(999999, 999999, 999999)  # Track last fog position
 var _flame_aura_visual: MeshInstance3D = null  # Visual effect for flame aura
 
+## Ring of Thorns system
+var _thorn_orbs: Array[Node3D] = []  # The 3 orbiting thorns
+var _thorn_attack_timer := 0.0  # Timer for auto-attack (every 2 seconds)
+const THORN_ATTACK_INTERVAL = 2.0  # Seconds between auto-attacks
+const THORN_ATTACK_RANGE = 15.0  # Blocks to search for enemies
+
 ## Player avatar billboard
 var _player_avatar: PlayerAvatar = null
 var _show_avatar: bool = true # Toggle for testing (set to true to see billboard)
@@ -263,9 +269,12 @@ func _physics_process(delta: float):
 		var equipped_weapon = _get_equipped_weapon()
 		if equipped_weapon and equipped_weapon.has_power("flame_aura"):
 			_apply_flame_aura()
-	
+
 	# Update flame aura visual effect
 	_update_flame_aura_visual()
+
+	# Handle Ring of Thorns (orbiting projectiles that auto-attack)
+	_update_ring_of_thorns(delta)
 
 	# Handle void_fog damage (5 damage when moving to a new fog block)
 	if has_node(terrain):
@@ -1265,11 +1274,106 @@ func _update_flame_aura_visual() -> void:
 	"""Show/hide flame aura based on equipped items"""
 	var equipped_weapon = _get_equipped_weapon()
 	var has_flame_aura = equipped_weapon and equipped_weapon.has_power("flame_aura")
-	
+
 	if has_flame_aura and not _flame_aura_visual:
 		_create_flame_aura_visual()
 	elif not has_flame_aura and _flame_aura_visual:
 		_remove_flame_aura_visual()
+
+
+## Ring of Thorns system - Orbiting projectiles that auto-attack
+func _update_ring_of_thorns(delta: float) -> void:
+	"""Manage orbiting thorns when Ring of Thorns is equipped"""
+	var has_ring = _has_ring_of_thorns()
+
+	# Create thorns if ring is equipped and thorns don't exist
+	if has_ring and _thorn_orbs.is_empty():
+		_create_thorn_orbs()
+	# Remove thorns if ring is not equipped
+	elif not has_ring and not _thorn_orbs.is_empty():
+		_remove_thorn_orbs()
+
+	# Update attack timer and launch thorns at enemies
+	if has_ring and not _thorn_orbs.is_empty():
+		_thorn_attack_timer += delta
+		if _thorn_attack_timer >= THORN_ATTACK_INTERVAL:
+			_thorn_attack_timer = 0.0
+			_launch_thorn_at_nearest_enemy()
+
+
+func _has_ring_of_thorns() -> bool:
+	"""Check if player has Ring of Thorns as active item"""
+	if not _hotbar:
+		return false
+
+	var selected_item = _hotbar.get_selected_item()
+	if not selected_item:
+		return false
+
+	# Ring of Thorns is item ID 46
+	return selected_item.id == 46
+
+
+func _create_thorn_orbs() -> void:
+	"""Create 3 orbiting thorn projectiles"""
+	const Thorn = preload("res://blocky_game/projectiles/thorn.gd")
+
+	for i in range(3):
+		var thorn = Node3D.new()
+		thorn.set_script(Thorn)
+
+		# Set orbit parameters (after adding to scene so script is active)
+		add_child(thorn)
+		thorn.owner_entity = self
+		thorn.orbit_center = global_position
+		thorn.orbit_angle = (i * TAU / 3.0)  # Evenly space 3 thorns around circle
+		thorn.orbit_radius = 1.5
+
+		_thorn_orbs.append(thorn)
+
+	print("🌿 Ring of Thorns activated - 3 thorns orbiting!")
+
+
+func _remove_thorn_orbs() -> void:
+	"""Remove all thorn orbs"""
+	for thorn in _thorn_orbs:
+		if is_instance_valid(thorn):
+			thorn.queue_free()
+	_thorn_orbs.clear()
+	print("🌿 Ring of Thorns deactivated")
+
+
+func _launch_thorn_at_nearest_enemy() -> void:
+	"""Find nearest enemy and launch a thorn at it"""
+	# Refresh entity cache if needed
+	if _cached_entities.is_empty():
+		_refresh_entity_cache()
+
+	# Find nearest enemy within range
+	var nearest_enemy = null
+	var nearest_distance = THORN_ATTACK_RANGE
+
+	for entity in _cached_entities:
+		if not is_instance_valid(entity):
+			continue
+
+		# Skip if not an enemy
+		if "team" not in entity or entity.team != 2:  # 2 = ENEMY
+			continue
+
+		var distance = global_position.distance_to(entity.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_enemy = entity
+
+	# Launch a thorn if we found an enemy
+	if nearest_enemy and not _thorn_orbs.is_empty():
+		# Find first thorn in ORBITING mode
+		for thorn in _thorn_orbs:
+			if is_instance_valid(thorn) and thorn.mode == 0:  # 0 = ORBITING
+				thorn.launch_at_enemy(nearest_enemy)
+				print("🌿 Thorn launched at %s" % nearest_enemy.entity_name)
+				break
 
 
 ## Player death

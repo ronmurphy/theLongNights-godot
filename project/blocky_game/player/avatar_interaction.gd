@@ -2657,6 +2657,12 @@ func _handle_chest_interaction(chest_pos: Vector3) -> void:
 			loot_messages.append(str(compass_count) + "x Portal Compass")
 			print("Rare drop: Found ", compass_count, " Portal Compasses!")
 
+		# 5% chance to find Ring of Thorns (rare magical accessory)
+		if randf() < 0.05:
+			loot_items.append({"id": 46, "count": 1})  # ring_of_thorns
+			loot_messages.append("Ring of Thorns")
+			print("Rare drop: Found Ring of Thorns!")
+
 		# Always give a weapon/tool
 		var loot_table = [
 			{"id": 0, "name": "Rocket Launcher"},
