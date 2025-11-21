@@ -4,8 +4,6 @@ class_name SimplePathfinding
 ## Simple A* pathfinding for voxel terrain
 ## Optimized for performance with configurable search limits
 
-const VoxelBuffer = preload("res://addons/voxel/storage/voxel_buffer.gd")
-
 ## Maximum nodes to search before giving up (prevents performance spikes)
 const MAX_SEARCH_NODES = 300
 
