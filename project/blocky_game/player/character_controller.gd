@@ -1284,18 +1284,9 @@ func _update_flame_aura_visual() -> void:
 
 ## Ring of Thorns system - Orbiting projectiles that auto-attack
 func _update_ring_of_thorns(delta: float) -> void:
-	"""Manage orbiting thorns when Ring of Thorns is equipped"""
-	var has_ring = _has_ring_of_thorns()
-
-	# Create thorns if ring is equipped and thorns don't exist
-	if has_ring and _thorn_orbs.is_empty():
-		_create_thorn_orbs()
-	# Remove thorns if ring is not equipped
-	elif not has_ring and not _thorn_orbs.is_empty():
-		_remove_thorn_orbs()
-
-	# Update attack timer and launch thorns at enemies
-	if has_ring and not _thorn_orbs.is_empty():
+	"""Manage orbiting thorns when activated"""
+	# Update attack timer and launch thorns at enemies (only if active and thorns exist)
+	if _ring_of_thorns_active and not _thorn_orbs.is_empty():
 		_thorn_attack_timer += delta
 		if _thorn_attack_timer >= THORN_ATTACK_INTERVAL:
 			_thorn_attack_timer = 0.0
@@ -1316,6 +1307,25 @@ func _has_ring_of_thorns() -> bool:
 	if selected_item.id == 46:
 		print("[Ring DEBUG] Item 46 detected! Type: %d (0=BLOCK, 1=ITEM), Has ring: %s" % [selected_item.type, has_ring])
 	return has_ring
+
+
+## Toggle Ring of Thorns on/off (called by ring item's use() function)
+func toggle_ring_of_thorns() -> void:
+	"""Toggle the Ring of Thorns thorns on/off"""
+	print("🌿 toggle_ring_of_thorns() called - current state: %s" % _ring_of_thorns_active)
+
+	_ring_of_thorns_active = not _ring_of_thorns_active
+
+	if _ring_of_thorns_active:
+		# Activate thorns
+		if _thorn_orbs.is_empty():
+			_create_thorn_orbs()
+		print("🌿 Ring of Thorns ACTIVATED")
+	else:
+		# Deactivate thorns
+		if not _thorn_orbs.is_empty():
+			_remove_thorn_orbs()
+		print("🌿 Ring of Thorns DEACTIVATED")
 
 
 func _create_thorn_orbs() -> void:
