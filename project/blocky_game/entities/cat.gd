@@ -22,6 +22,12 @@ var _current_walk_frame := 1  # 1 or 2
 var _player: Node = null
 var _interest_check_timer := 0.0
 
+# Meow sound
+var _meow_sound: AudioStreamPlayer = null
+var _meow_timer := 0.0
+const MEOW_INTERVAL_MIN = 8.0  # Meow every 8-20 seconds
+const MEOW_INTERVAL_MAX = 20.0
+
 const WANDER_INTERVAL_MIN = 2.0
 const WANDER_INTERVAL_MAX = 4.0
 const SIT_DURATION_MIN = 3.0
@@ -64,6 +70,13 @@ func _ready():
 	# Find player
 	_find_player()
 
+	# Setup meow sound
+	_meow_sound = AudioStreamPlayer.new()
+	_meow_sound.stream = load("res://assets/sfx/CatMeow.ogg")
+	_meow_sound.volume_db = -8.0
+	add_child(_meow_sound)
+	_meow_timer = randf_range(MEOW_INTERVAL_MIN, MEOW_INTERVAL_MAX)
+
 
 func _find_player():
 	"""Find player in scene"""
@@ -83,6 +96,12 @@ func _process(delta: float):
 	if _interest_check_timer >= INTEREST_CHECK_INTERVAL:
 		_interest_check_timer = 0.0
 		_check_fish_interest()
+
+	# Random meow
+	_meow_timer -= delta
+	if _meow_timer <= 0 and _meow_sound:
+		_meow_sound.play()
+		_meow_timer = randf_range(MEOW_INTERVAL_MIN, MEOW_INTERVAL_MAX)
 
 	match _state:
 		State.WANDERING:
