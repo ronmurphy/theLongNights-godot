@@ -688,6 +688,25 @@ func _on_block_selected(block_id: int, button: Button):
 	print("[BlockSelector DEBUG] Item selected - ID: %d" % block_id)
 	_selected_block_id = block_id
 
+	# ITEMS mode: Clear player selection when shop item is clicked (buy mode)
+	if _shop_type == ShopType.ITEMS:
+		_selected_player_block_id = -1
+		if _selected_player_button and is_instance_valid(_selected_player_button):
+			var player_prev_style = StyleBoxFlat.new()
+			player_prev_style.bg_color = Color(0.15, 0.2, 0.25, 0.8)
+			player_prev_style.border_width_left = 2
+			player_prev_style.border_width_top = 2
+			player_prev_style.border_width_right = 2
+			player_prev_style.border_width_bottom = 2
+			player_prev_style.border_color = Color(0.3, 0.4, 0.5, 1.0)
+			player_prev_style.corner_radius_top_left = 4
+			player_prev_style.corner_radius_top_right = 4
+			player_prev_style.corner_radius_bottom_left = 4
+			player_prev_style.corner_radius_bottom_right = 4
+			_selected_player_button.add_theme_stylebox_override("normal", player_prev_style)
+		_selected_player_button = null
+		print("[BlockSelector DEBUG] Cleared player selection (entering BUY mode)")
+
 	# Remove highlight from previous button
 	if _selected_button and is_instance_valid(_selected_button):
 		var prev_style = StyleBoxFlat.new()
@@ -762,6 +781,25 @@ func _on_block_selected(block_id: int, button: Button):
 func _on_player_block_selected(block_id: int, button: Button, count: int):
 	"""Handle player block/item button click (shop mode only)"""
 	_selected_player_block_id = block_id
+
+	# ITEMS mode: Clear shop selection when player item is clicked (sell mode)
+	if _shop_type == ShopType.ITEMS:
+		_selected_block_id = -1
+		if _selected_button and is_instance_valid(_selected_button):
+			var shop_prev_style = StyleBoxFlat.new()
+			shop_prev_style.bg_color = Color(0.2, 0.15, 0.1, 0.8)
+			shop_prev_style.border_width_left = 2
+			shop_prev_style.border_width_top = 2
+			shop_prev_style.border_width_right = 2
+			shop_prev_style.border_width_bottom = 2
+			shop_prev_style.border_color = Color(0.4, 0.3, 0.2, 1.0)
+			shop_prev_style.corner_radius_top_left = 4
+			shop_prev_style.corner_radius_top_right = 4
+			shop_prev_style.corner_radius_bottom_left = 4
+			shop_prev_style.corner_radius_bottom_right = 4
+			_selected_button.add_theme_stylebox_override("normal", shop_prev_style)
+		_selected_button = null
+		print("[BlockSelector DEBUG] Cleared shop selection (entering SELL mode)")
 
 	# Remove highlight from previous button
 	if _selected_player_button and is_instance_valid(_selected_player_button):
