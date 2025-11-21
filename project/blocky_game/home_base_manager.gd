@@ -669,6 +669,9 @@ func spawn_companion_npc(comp_data: CompanionManager.CompanionData, spawn_pos: V
 	var color = _get_role_color(comp_data.role)
 	npc.initialize(comp_data.race, comp_data.gender, color, comp_data.companion_name)
 	npc.add_to_group("benched_companions")
+
+	# Configure combat behavior with equipment data
+	npc.configure_as_benched_companion(comp_data.role, comp_data.equipped_weapon_id, comp_data.equipped_weapon_count)
 	
 	print("🏕️ Spawned benched companion: %s (%s %s %s) at %s" % [
 		comp_data.companion_name, comp_data.gender, comp_data.race, comp_data.role, npc.global_position

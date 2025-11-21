@@ -74,9 +74,19 @@ var _favorite_animals: Array[String] = []  # e.g. ["bird", "fish", "rabbit"]
 const FAVORITE_WATCH_CHANCE = 0.7  # 70% chance to watch favorite
 const OTHER_WATCH_CHANCE = 0.3    # 30% chance to watch others
 
+# Benched Companion Combat (only for companions at base)
+var _is_benched_companion: bool = false
+var _companion_role: String = ""  # healer, tank, rogue, wizard
+var _equipped_weapon_id: int = -1
+var _equipped_weapon_count: int = 1
+var _attack_timer: float = 0.0
+var _current_target: Node = null
+const ATTACK_RANGE = 6.0  # Range to detect and attack enemies
+const ATTACK_INTERVAL = 1.5  # Seconds between attacks
+
 # References
 var _time_manager: Node = null
-var _ruin_manager: Node = null
+var _lamp_manager: Node = null
 
 
 func _ready():
@@ -92,7 +102,7 @@ func _ready():
 	# Get references to world systems
 	_time_manager = get_node_or_null("/root/TimeManager")
 	_terrain = get_node_or_null("/root/Main/Game/VoxelTerrain")
-	_ruin_manager = get_node_or_null("/root/Main/Game/RuinManager")
+	_lamp_manager = get_node_or_null("/root/LampManager")
 
 	# Randomize first wander direction
 	_pick_new_wander_direction()
@@ -140,6 +150,21 @@ func initialize(race: String, gender: String, color: Color, display_name: String
 	_assign_animal_preferences()
 
 	print("TestNPC: Initialized %s (%s %s) - Job: %s, Dialogue: %s, Likes: %s" % [display_name, race, gender, job, npc_dialogue_id, _favorite_animals])
+
+
+func configure_as_benched_companion(role: String, weapon_id: int, weapon_count: int):
+	"""Configure this NPC as a benched companion with combat abilities"""
+	_is_benched_companion = true
+	_companion_role = role
+	_equipped_weapon_id = weapon_id
+	_equipped_weapon_count = weapon_count
+
+	# Benched companions are defensive - they fight at night when enemies approach
+	team = Team.PLAYER  # Change from neutral to player team so they defend
+
+	print("TestNPC: %s configured as benched %s companion (weapon: %d x%d)" % [
+		npc_display_name, role, weapon_id, weapon_count
+	])
 
 
 func _load_stats_from_race(race: String):
@@ -340,6 +365,11 @@ func _process(delta):
 	_state_timer += delta
 	_wander_timer += delta
 	_path_recalculate_timer += delta
+	_attack_timer += delta
+
+	# Benched companions defend at night
+	if _is_benched_companion and _is_night_time():
+		_update_combat_behavior(delta)
 
 	# Check if we should change states
 	_update_behavior_state(delta)
@@ -584,16 +614,18 @@ func _is_night_time() -> bool:
 
 func _find_nearest_teleport_stone() -> Vector3:
 	"""Find the closest teleport stone position"""
-	if not _ruin_manager:
+	if not _lamp_manager:
 		return Vector3.ZERO
 
 	var nearest_pos = Vector3.ZERO
 	var nearest_distance = 99999.0
 
-	# Get all teleport stone positions from ruin manager
-	if _ruin_manager.teleport_stone_positions:
-		for ruin_index in _ruin_manager.teleport_stone_positions:
-			var stone_pos = _ruin_manager.teleport_stone_positions[ruin_index]
+	# Get all teleport stone positions from LampManager's ruins
+	for ruin_key in _lamp_manager.ruins.keys():
+		var ruin = _lamp_manager.ruins[ruin_key]
+		# Each ruin has multiple teleport stones
+		for stone in ruin.stones:
+			var stone_pos = stone.position
 			var distance = global_position.distance_to(stone_pos)
 
 			if distance < nearest_distance:
@@ -640,6 +672,66 @@ func _find_interesting_animal() -> Node:
 			return entity
 
 	return null
+
+
+func _update_combat_behavior(delta):
+	"""Benched companions defend the base at night when enemies approach"""
+	# Find nearest enemy
+	if _attack_timer < ATTACK_INTERVAL:
+		return  # Not ready to attack yet
+
+	var nearest_enemy = null
+	var nearest_distance = ATTACK_RANGE
+
+	# Check for enemies in range
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	for enemy in enemies:
+		if not is_instance_valid(enemy) or not enemy.is_alive:
+			continue
+
+		var distance = global_position.distance_to(enemy.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_enemy = enemy
+
+	# Attack if we found an enemy
+	if nearest_enemy:
+		_attack_enemy(nearest_enemy)
+		_attack_timer = 0.0
+	else:
+		_current_target = null
+
+
+func _attack_enemy(enemy: Node):
+	"""Attack an enemy with equipped or starting weapon"""
+	if not is_instance_valid(enemy):
+		return
+
+	_current_target = enemy
+
+	# Calculate damage based on weapon
+	var base_damage = attack_damage
+
+	# If equipped with a weapon, use its damage + stack bonus
+	if _equipped_weapon_id >= 0:
+		# Stack bonus: each extra weapon adds damage
+		base_damage += (_equipped_weapon_count - 1)
+
+	# Role-based damage modifiers
+	match _companion_role:
+		"rogue":
+			base_damage = int(base_damage * 1.3)  # +30% damage
+		"tank":
+			base_damage = int(base_damage * 0.8)  # -20% damage (defensive)
+		"wizard":
+			base_damage = int(base_damage * 1.2)  # +20% damage (magic)
+		"healer":
+			base_damage = int(base_damage * 0.9)  # -10% damage (support)
+
+	# Deal damage to enemy
+	if enemy.has_method("take_damage"):
+		enemy.take_damage(base_damage, self)
+		print("%s attacks %s for %d damage!" % [npc_display_name, enemy.name, base_damage])
 
 
 func _start_pathfinding(goal: Vector3):
