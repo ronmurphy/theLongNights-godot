@@ -52,6 +52,7 @@ var _last_void_fog_position := Vector3i(999999, 999999, 999999)  # Track last fo
 var _flame_aura_visual: MeshInstance3D = null  # Visual effect for flame aura
 
 ## Ring of Thorns system
+var _ring_of_thorns_active := false  # Toggle state for thorns
 var _thorn_orbs: Array[Node3D] = []  # The 3 orbiting thorns
 var _thorn_attack_timer := 0.0  # Timer for auto-attack (every 2 seconds)
 const THORN_ATTACK_INTERVAL = 2.0  # Seconds between auto-attacks
