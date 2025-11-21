@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bjpb0odxbknwc"
-path="res://.godot/imported/shield_crusader.png-88e14e03bb2e615f187bf5aa2c03d261.ctex"
+uid="uid://bofac2xo4c0et"
+path="res://.godot/imported/shield_sprite.png-f064e7c3b9814c0e70a6d1f7682aeae9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/items/shield_crusader/shield_crusader.png"
-dest_files=["res://.godot/imported/shield_crusader.png-88e14e03bb2e615f187bf5aa2c03d261.ctex"]
+source_file="res://blocky_game/items/shield/shield_sprite.png"
+dest_files=["res://.godot/imported/shield_sprite.png-f064e7c3b9814c0e70a6d1f7682aeae9.ctex"]
 
 [params]
 

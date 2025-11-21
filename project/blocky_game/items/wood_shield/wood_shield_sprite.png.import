@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://1aw0nu1j21qi"
-path="res://.godot/imported/shield.png-cbefb4edbb3d37a3c527c267de4ea9bc.ctex"
+uid="uid://e3n2m5aqi2in"
+path="res://.godot/imported/wood_shield_sprite.png-b507557e9079532a1aa6270ce7f6f049.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/items/shield/shield.png"
-dest_files=["res://.godot/imported/shield.png-cbefb4edbb3d37a3c527c267de4ea9bc.ctex"]
+source_file="res://blocky_game/items/wood_shield/wood_shield_sprite.png"
+dest_files=["res://.godot/imported/wood_shield_sprite.png-b507557e9079532a1aa6270ce7f6f049.ctex"]
 
 [params]
 
