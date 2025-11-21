@@ -58,6 +58,7 @@ const WAYPOINT_REACH_DISTANCE = 1.5  # How close to get to waypoint
 # Night behavior - seeking light
 var _target_teleport_stone: Vector3 = Vector3.ZERO
 var _at_teleport_stone: bool = false
+var _tried_finding_stone_this_night: bool = false  # Don't spam search
 const TELEPORT_STONE_DISTANCE = 3.0  # How close to consider "at" the stone
 
 # Animal watching
@@ -398,20 +399,33 @@ func _process(delta):
 func _update_behavior_state(delta):
 	"""Check if we should transition to a different behavior state"""
 
-	# Night/day cycle overrides other behaviors
+	# Night/day cycle overrides other behaviors (but only if teleport stones exist)
 	if _is_night_time():
-		# It's night - NPCs want to be near light
-		if _current_state != NPCState.SEEKING_LIGHT and _current_state != NPCState.AT_LIGHT:
-			# Start seeking the nearest teleport stone
+		# It's night - NPCs want to be near light (if available)
+		# Only try once per night to avoid spamming search
+		if _current_state != NPCState.SEEKING_LIGHT and _current_state != NPCState.AT_LIGHT and not _tried_finding_stone_this_night:
+			_tried_finding_stone_this_night = true
+
+			# Try to find the nearest teleport stone
 			var stone_pos = _find_nearest_teleport_stone()
 			if stone_pos != Vector3.ZERO:
+				# Found a stone - try to pathfind to it
 				_target_teleport_stone = stone_pos
 				_current_state = NPCState.SEEKING_LIGHT
 				_state_timer = 0.0
-				_start_pathfinding(_target_teleport_stone)
-				print("%s: Night time! Seeking light at teleport stone" % npc_display_name)
+				var path_found = _start_pathfinding(_target_teleport_stone)
+				if path_found:
+					print("%s: Night time! Seeking light at teleport stone" % npc_display_name)
+				else:
+					# Pathfinding failed - just wander at night instead
+					_current_state = NPCState.WANDERING
+					print("%s: No path to teleport stone, wandering at night instead" % npc_display_name)
+			else:
+				# No stone found - just wander at night
+				print("%s: No teleport stone nearby, wandering at night" % npc_display_name)
 	else:
 		# It's daytime - resume normal behaviors
+		_tried_finding_stone_this_night = false  # Reset for next night
 		if _current_state == NPCState.AT_LIGHT or _current_state == NPCState.SEEKING_LIGHT:
 			# Dawn has come - resume wandering
 			_current_state = NPCState.WANDERING
@@ -613,24 +627,35 @@ func _is_night_time() -> bool:
 
 
 func _find_nearest_teleport_stone() -> Vector3:
-	"""Find the closest teleport stone position"""
-	if not _lamp_manager:
+	"""Find the closest teleport stone block in the world"""
+	if not _terrain:
+		return Vector3.ZERO
+
+	const TELEPORT_STONE_ID = 35  # Block ID for teleport_stone
+	const SEARCH_RADIUS = 50  # Search within 50 blocks
+
+	var voxel_tool = _terrain.get_voxel_tool()
+	if not voxel_tool:
 		return Vector3.ZERO
 
 	var nearest_pos = Vector3.ZERO
 	var nearest_distance = 99999.0
+	var my_pos = Vector3i(global_position)
 
-	# Get all teleport stone positions from LampManager's ruins
-	for ruin_key in _lamp_manager.ruins.keys():
-		var ruin = _lamp_manager.ruins[ruin_key]
-		# Each ruin has multiple teleport stones
-		for stone in ruin.stones:
-			var stone_pos = stone.position
-			var distance = global_position.distance_to(stone_pos)
+	# Scan area around NPC for teleport stone blocks
+	for x in range(-SEARCH_RADIUS, SEARCH_RADIUS + 1, 2):  # Step by 2 for performance
+		for y in range(-20, 20, 2):  # Check vertical range
+			for z in range(-SEARCH_RADIUS, SEARCH_RADIUS + 1, 2):
+				var check_pos = my_pos + Vector3i(x, y, z)
+				var block_id = voxel_tool.get_voxel(check_pos)
 
-			if distance < nearest_distance:
-				nearest_distance = distance
-				nearest_pos = stone_pos
+				if block_id == TELEPORT_STONE_ID:
+					var world_pos = Vector3(check_pos) + Vector3(0.5, 0, 0.5)  # Center of block
+					var distance = global_position.distance_to(world_pos)
+
+					if distance < nearest_distance:
+						nearest_distance = distance
+						nearest_pos = world_pos
 
 	return nearest_pos
 
@@ -734,11 +759,11 @@ func _attack_enemy(enemy: Node):
 		print("%s attacks %s for %d damage!" % [npc_display_name, enemy.name, base_damage])
 
 
-func _start_pathfinding(goal: Vector3):
-	"""Start pathfinding to a goal position"""
+func _start_pathfinding(goal: Vector3) -> bool:
+	"""Start pathfinding to a goal position. Returns true if path found."""
 	if not _terrain:
 		_current_path = []
-		return
+		return false
 
 	# Use SimplePathfinding to find a path
 	_current_path = SimplePathfinding.find_path(global_position, goal, _terrain)
@@ -747,9 +772,11 @@ func _start_pathfinding(goal: Vector3):
 
 	if _current_path.is_empty():
 		print("%s: Could not find path to goal" % npc_display_name)
+		return false
 	else:
 		print("%s: Found path with %d waypoints" % [npc_display_name, _current_path.size()])
 		_current_state = NPCState.PATHFINDING
+		return true
 
 
 func _pick_new_wander_direction():
