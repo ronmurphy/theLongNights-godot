@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://de5yxrhyva3fr"
-path="res://.godot/imported/stone_hammer_sprite.png-9da1dc4a5387cddeea78f3f8946841ec.ctex"
+uid="uid://bjpb0odxbknwc"
+path="res://.godot/imported/shield_crusader.png-88e14e03bb2e615f187bf5aa2c03d261.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/items/stone_hammer/stone_hammer_sprite.png"
-dest_files=["res://.godot/imported/stone_hammer_sprite.png-9da1dc4a5387cddeea78f3f8946841ec.ctex"]
+source_file="res://blocky_game/items/shield_crusader/shield_crusader.png"
+dest_files=["res://.godot/imported/shield_crusader.png-88e14e03bb2e615f187bf5aa2c03d261.ctex"]
 
 [params]
 
