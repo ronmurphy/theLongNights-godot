@@ -1,10 +1,20 @@
 extends GroundEntity
 
 const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
+const SimplePathfinding = preload("res://blocky_game/utils/simple_pathfinding.gd")
 
-## TestNPC - Simple wandering NPC for testing
+## TestNPC - Intelligent wandering NPC with day/night behavior and animal interests
 ## Can be spawned with console: npc <race> <gender> <color> <name>
 ## Uses player avatar sprites with color tinting
+
+## NPC Behavior States
+enum NPCState {
+	WANDERING,        # Daytime exploration
+	SEEKING_LIGHT,    # Night - finding nearest teleport stone
+	AT_LIGHT,         # Night - idling near teleport stone
+	WATCHING_ANIMAL,  # Observing an interesting animal
+	PATHFINDING,      # Following a computed path
+}
 
 var npc_race: String = "human"
 var npc_gender: String = "female"
@@ -34,20 +44,60 @@ var _idle_time: float = 0.0
 var _is_idle: bool = false
 var _in_dialogue: bool = false  # Paused for player interaction (don't auto-resume)
 
+# Behavior State Machine
+var _current_state: NPCState = NPCState.WANDERING
+var _state_timer: float = 0.0
+
+# Pathfinding
+var _current_path: Array = []
+var _path_index: int = 0
+var _path_recalculate_timer: float = 0.0
+const PATH_RECALCULATE_INTERVAL = 3.0  # Recalculate every 3 seconds if needed
+const WAYPOINT_REACH_DISTANCE = 1.5  # How close to get to waypoint
+
+# Night behavior - seeking light
+var _target_teleport_stone: Vector3 = Vector3.ZERO
+var _at_teleport_stone: bool = false
+const TELEPORT_STONE_DISTANCE = 3.0  # How close to consider "at" the stone
+
+# Animal watching
+var _watching_animal: Node = null
+var _watch_timer: float = 0.0
+var _watch_duration: float = 0.0  # Random duration set when starting to watch
+const MIN_WATCH_TIME = 3.0
+const MAX_WATCH_TIME = 10.0
+const ANIMAL_WATCH_DISTANCE = 8.0  # How close to watch animals
+const ANIMAL_LOST_DISTANCE = 15.0  # Stop watching if animal gets too far
+
+# NPC Personality - Animal Preferences (set in initialize)
+var _favorite_animals: Array[String] = []  # e.g. ["bird", "fish", "rabbit"]
+const FAVORITE_WATCH_CHANCE = 0.7  # 70% chance to watch favorite
+const OTHER_WATCH_CHANCE = 0.3    # 30% chance to watch others
+
+# References
+var _time_manager: Node = null
+var _terrain: Node = null
+var _ruin_manager: Node = null
+
 
 func _ready():
 	super._ready()
-	
+
 	# Set team to neutral
 	team = Team.NEUTRAL
-	
+
 	# Add to neutral group so companions won't attack
 	add_to_group("neutral_entities")
 	add_to_group("npcs")
-	
+
+	# Get references to world systems
+	_time_manager = get_node_or_null("/root/TimeManager")
+	_terrain = get_node_or_null("/root/Main/Game/VoxelTerrain")
+	_ruin_manager = get_node_or_null("/root/Main/Game/RuinManager")
+
 	# Randomize first wander direction
 	_pick_new_wander_direction()
-	
+
 	# Note: Sprite and health bar are created in initialize() after race/gender are set
 
 
@@ -87,7 +137,10 @@ func initialize(race: String, gender: String, color: Color, display_name: String
 	# Apply race-based height scaling
 	_apply_race_height_scaling(race)
 
-	print("TestNPC: Initialized %s (%s %s) - Job: %s, Dialogue: %s" % [display_name, race, gender, job, npc_dialogue_id])
+	# Assign random animal preferences for personality
+	_assign_animal_preferences()
+
+	print("TestNPC: Initialized %s (%s %s) - Job: %s, Dialogue: %s, Likes: %s" % [display_name, race, gender, job, npc_dialogue_id, _favorite_animals])
 
 
 func _load_stats_from_race(race: String):
@@ -281,40 +334,331 @@ func _update_health_bar():
 
 
 func _process(delta):
-	if not is_alive:
+	if not is_alive or _in_dialogue:
 		return
-	
-	# Simple wander AI
-	_wander_timer += delta
 
+	# Update state timers
+	_state_timer += delta
+	_wander_timer += delta
+	_path_recalculate_timer += delta
+
+	# Check if we should change states
+	_update_behavior_state(delta)
+
+	# Process current state
+	match _current_state:
+		NPCState.WANDERING:
+			_process_wandering_state(delta)
+		NPCState.SEEKING_LIGHT:
+			_process_seeking_light_state(delta)
+		NPCState.AT_LIGHT:
+			_process_at_light_state(delta)
+		NPCState.WATCHING_ANIMAL:
+			_process_watching_animal_state(delta)
+		NPCState.PATHFINDING:
+			_process_pathfinding_state(delta)
+
+	# Update sprite direction based on movement relative to player
+	_update_sprite_direction()
+
+
+## ============================================================================
+## BEHAVIOR STATE MACHINE
+## ============================================================================
+
+func _update_behavior_state(delta):
+	"""Check if we should transition to a different behavior state"""
+
+	# Night/day cycle overrides other behaviors
+	if _is_night_time():
+		# It's night - NPCs want to be near light
+		if _current_state != NPCState.SEEKING_LIGHT and _current_state != NPCState.AT_LIGHT:
+			# Start seeking the nearest teleport stone
+			var stone_pos = _find_nearest_teleport_stone()
+			if stone_pos != Vector3.ZERO:
+				_target_teleport_stone = stone_pos
+				_current_state = NPCState.SEEKING_LIGHT
+				_state_timer = 0.0
+				_start_pathfinding(_target_teleport_stone)
+				print("%s: Night time! Seeking light at teleport stone" % npc_display_name)
+	else:
+		# It's daytime - resume normal behaviors
+		if _current_state == NPCState.AT_LIGHT or _current_state == NPCState.SEEKING_LIGHT:
+			# Dawn has come - resume wandering
+			_current_state = NPCState.WANDERING
+			_state_timer = 0.0
+			_at_teleport_stone = false
+			print("%s: Daytime! Resuming wandering" % npc_display_name)
+
+	# Check for interesting animals during daytime
+	if not _is_night_time() and _current_state == NPCState.WANDERING:
+		# Periodically check for animals (every 2 seconds to save performance)
+		if _state_timer > 2.0:
+			_state_timer = 0.0
+			var animal = _find_interesting_animal()
+			if animal:
+				_watching_animal = animal
+				_watch_timer = 0.0
+				_watch_duration = randf_range(MIN_WATCH_TIME, MAX_WATCH_TIME)
+				_current_state = NPCState.WATCHING_ANIMAL
+				print("%s: Ooh, a %s! *watches*" % [npc_display_name, animal.name])
+
+
+func _process_wandering_state(delta):
+	"""Normal daytime wandering behavior"""
 	if _is_idle:
 		_idle_time += delta
-		# Only auto-resume if not in dialogue
-		if _idle_time >= 2.0 and not _in_dialogue:
+		if _idle_time >= 2.0:
 			_is_idle = false
 			_idle_time = 0.0
 			_pick_new_wander_direction()
 	elif _wander_timer >= _wander_duration:
 		_wander_timer = 0.0
-		
+
 		# 30% chance to stop and idle
 		if randf() < 0.3:
 			_is_idle = true
 			_wander_direction = Vector3.ZERO
 		else:
 			_pick_new_wander_direction()
-	
+
 	# Apply movement
 	var velocity = _wander_direction * movement_speed
 	apply_ground_movement(delta, velocity)
-	
-	# Update sprite direction based on movement relative to player
-	_update_sprite_direction()
-	
+
 	# Face movement direction
 	if _wander_direction.length() > 0.1:
 		var look_direction = _wander_direction.normalized()
 		look_at(global_position + look_direction, Vector3.UP)
+
+
+func _process_seeking_light_state(delta):
+	"""Pathfinding to teleport stone at night"""
+	_current_state = NPCState.PATHFINDING
+	# Pathfinding state will handle the actual movement
+
+
+func _process_at_light_state(delta):
+	"""Idling near teleport stone at night"""
+	# Check if we're still close to the stone
+	var distance = global_position.distance_to(_target_teleport_stone)
+	if distance > TELEPORT_STONE_DISTANCE * 2.0:
+		# Drifted too far - go back
+		_current_state = NPCState.SEEKING_LIGHT
+		_start_pathfinding(_target_teleport_stone)
+		return
+
+	# Just idle - maybe face the stone
+	var look_direction = (_target_teleport_stone - global_position).normalized()
+	if look_direction.length() > 0.1:
+		look_at(global_position + look_direction, Vector3.UP)
+
+	# Stand still
+	apply_ground_movement(delta, Vector3.ZERO)
+
+
+func _process_watching_animal_state(delta):
+	"""Watching an interesting animal"""
+	_watch_timer += delta
+
+	# Check if animal is still valid and nearby
+	if not is_instance_valid(_watching_animal):
+		# Animal despawned - resume wandering
+		_current_state = NPCState.WANDERING
+		_watching_animal = null
+		return
+
+	var distance = global_position.distance_to(_watching_animal.global_position)
+
+	# Lost interest if too far or watched long enough
+	if distance > ANIMAL_LOST_DISTANCE or _watch_timer >= _watch_duration:
+		_current_state = NPCState.WANDERING
+		_watching_animal = null
+		print("%s: *stops watching*" % npc_display_name)
+		return
+
+	# Face the animal
+	var look_direction = (_watching_animal.global_position - global_position).normalized()
+	if look_direction.length() > 0.1:
+		look_at(global_position + look_direction, Vector3.UP)
+
+	# Stand still (maybe walk closer if too far?)
+	if distance > ANIMAL_WATCH_DISTANCE:
+		# Walk toward animal slowly
+		var move_direction = look_direction
+		var velocity = move_direction * movement_speed * 0.5  # Half speed
+		apply_ground_movement(delta, velocity)
+	else:
+		# Close enough - just watch
+		apply_ground_movement(delta, Vector3.ZERO)
+
+
+func _process_pathfinding_state(delta):
+	"""Following a computed path"""
+	if _current_path.is_empty():
+		# No path - check why we were pathfinding
+		if _is_night_time() and _target_teleport_stone != Vector3.ZERO:
+			# Try to recalculate path to stone
+			if _path_recalculate_timer > PATH_RECALCULATE_INTERVAL:
+				_start_pathfinding(_target_teleport_stone)
+		else:
+			# Give up pathfinding, resume wandering
+			_current_state = NPCState.WANDERING
+		return
+
+	# Follow the path
+	_follow_current_path(delta)
+
+
+func _follow_current_path(delta):
+	"""Move along the current path waypoints"""
+	if _path_index >= _current_path.size():
+		# Reached end of path!
+		_current_path = []
+		_path_index = 0
+
+		# Check if we reached our goal
+		if _target_teleport_stone != Vector3.ZERO:
+			var distance = global_position.distance_to(_target_teleport_stone)
+			if distance <= TELEPORT_STONE_DISTANCE:
+				# Reached the light!
+				_current_state = NPCState.AT_LIGHT
+				_at_teleport_stone = true
+				print("%s: Reached the light! *feels safe*" % npc_display_name)
+				return
+
+		# Didn't reach goal - try wandering or recalculate
+		if _is_night_time():
+			_current_state = NPCState.SEEKING_LIGHT
+		else:
+			_current_state = NPCState.WANDERING
+		return
+
+	# Get current waypoint
+	var waypoint = _current_path[_path_index]
+	var distance = global_position.distance_to(waypoint)
+
+	# Check if reached this waypoint
+	if distance < WAYPOINT_REACH_DISTANCE:
+		_path_index += 1
+		if _path_index >= _current_path.size():
+			return  # Will be handled next frame
+		waypoint = _current_path[_path_index]
+
+	# Move toward waypoint
+	var direction = (waypoint - global_position).normalized()
+	var velocity = direction * movement_speed
+	apply_ground_movement(delta, velocity)
+
+	# Face movement direction
+	if direction.length() > 0.1:
+		look_at(global_position + direction, Vector3.UP)
+
+
+## ============================================================================
+## UTILITY METHODS
+## ============================================================================
+
+func _assign_animal_preferences():
+	"""Randomly assign 1-2 favorite animal types for this NPC's personality"""
+	var all_animals = ["bird", "fish", "rabbit", "cat"]
+	var num_favorites = randi() % 2 + 1  # 1 or 2 favorites
+
+	for i in range(num_favorites):
+		if all_animals.size() > 0:
+			var random_index = randi() % all_animals.size()
+			var favorite = all_animals[random_index]
+			_favorite_animals.append(favorite)
+			all_animals.remove_at(random_index)
+
+
+func _is_night_time() -> bool:
+	"""Check if it's currently night time"""
+	if not _time_manager:
+		return false
+
+	var hour = _time_manager.current_hour
+
+	# Night is 7 PM (19:00) to 7 AM (7:00)
+	return hour >= 19 or hour < 7
+
+
+func _find_nearest_teleport_stone() -> Vector3:
+	"""Find the closest teleport stone position"""
+	if not _ruin_manager:
+		return Vector3.ZERO
+
+	var nearest_pos = Vector3.ZERO
+	var nearest_distance = 99999.0
+
+	# Get all teleport stone positions from ruin manager
+	if _ruin_manager.teleport_stone_positions:
+		for ruin_index in _ruin_manager.teleport_stone_positions:
+			var stone_pos = _ruin_manager.teleport_stone_positions[ruin_index]
+			var distance = global_position.distance_to(stone_pos)
+
+			if distance < nearest_distance:
+				nearest_distance = distance
+				nearest_pos = stone_pos
+
+	return nearest_pos
+
+
+func _find_interesting_animal() -> Node:
+	"""Look for nearby animals that might be interesting to watch"""
+	# Get all entities in the neutral group (includes animals)
+	var entities = get_tree().get_nodes_in_group("neutral_entities")
+
+	for entity in entities:
+		if not is_instance_valid(entity) or entity == self:
+			continue
+
+		# Check distance
+		var distance = global_position.distance_to(entity.global_position)
+		if distance > ANIMAL_WATCH_DISTANCE:
+			continue
+
+		# Determine animal type
+		var animal_type = ""
+		var entity_name = entity.name.to_lower()
+		if "swallow" in entity_name or "bluejay" in entity_name:
+			animal_type = "bird"
+		elif "fish" in entity_name:
+			animal_type = "fish"
+		elif "rabbit" in entity_name:
+			animal_type = "rabbit"
+		elif "cat" in entity_name:
+			animal_type = "cat"
+		else:
+			continue  # Not an animal we're interested in
+
+		# Check if we want to watch this animal
+		var watch_chance = OTHER_WATCH_CHANCE
+		if animal_type in _favorite_animals:
+			watch_chance = FAVORITE_WATCH_CHANCE
+
+		if randf() < watch_chance:
+			return entity
+
+	return null
+
+
+func _start_pathfinding(goal: Vector3):
+	"""Start pathfinding to a goal position"""
+	if not _terrain:
+		_current_path = []
+		return
+
+	# Use SimplePathfinding to find a path
+	_current_path = SimplePathfinding.find_path(global_position, goal, _terrain)
+	_path_index = 0
+	_path_recalculate_timer = 0.0
+
+	if _current_path.is_empty():
+		print("%s: Could not find path to goal" % npc_display_name)
+	else:
+		print("%s: Found path with %d waypoints" % [npc_display_name, _current_path.size()])
+		_current_state = NPCState.PATHFINDING
 
 
 func _pick_new_wander_direction():
