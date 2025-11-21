@@ -202,13 +202,17 @@ func select_slot(i: int):
 	
 	var item = _inventory.get_hotbar_slot_data(_hotbar_index)
 	if item != null:
+		print("[Hotbar DEBUG] Item type: %d (BLOCK=1, ITEM=2), ID: %d" % [item.type, item.id])
 		if item.type == InventoryItem.TYPE_BLOCK:
 			var block = _block_types.get_block(item.id)
 			print("Hotbar select block ", block.base_info.name)
-			
+
 		elif item.type == InventoryItem.TYPE_ITEM:
-			# TODO Item db
-			print("Hotbar select item ", item.id)
+			var item_obj = _item_db.get_item(item.id)
+			if item_obj:
+				print("Hotbar select item %d: %s" % [item.id, item_obj.base_info.name])
+			else:
+				print("Hotbar select item ", item.id)
 	
 	_selected_frame.get_parent().remove_child(_selected_frame)
 	var slot = _slot_container.get_child(i)
