@@ -1310,10 +1310,10 @@ func _has_ring_of_thorns() -> bool:
 	if not selected_item:
 		return false
 
-	# Ring of Thorns is item ID 46, TYPE_ITEM = 2
-	var has_ring = (selected_item.id == 46 and selected_item.type == 2)
+	# Ring of Thorns is item ID 46, TYPE_ITEM = 1
+	var has_ring = (selected_item.id == 46 and selected_item.type == 1)
 	if selected_item.id == 46:
-		print("[Ring DEBUG] Item 46 detected! Type: %d (1=BLOCK, 2=ITEM), Has ring: %s" % [selected_item.type, has_ring])
+		print("[Ring DEBUG] Item 46 detected! Type: %d (0=BLOCK, 1=ITEM), Has ring: %s" % [selected_item.type, has_ring])
 	return has_ring
 
 
