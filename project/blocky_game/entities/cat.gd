@@ -21,7 +21,6 @@ var _walk_anim_timer := 0.0
 var _current_walk_frame := 1  # 1 or 2
 var _player: Node = null
 var _interest_check_timer := 0.0
-var _terrain: Node = null  # Reference to voxel terrain for edge detection
 
 const WANDER_INTERVAL_MIN = 2.0
 const WANDER_INTERVAL_MAX = 4.0

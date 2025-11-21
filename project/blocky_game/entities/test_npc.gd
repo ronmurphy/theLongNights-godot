@@ -76,7 +76,6 @@ const OTHER_WATCH_CHANCE = 0.3    # 30% chance to watch others
 
 # References
 var _time_manager: Node = null
-var _terrain: Node = null
 var _ruin_manager: Node = null
 
 
