@@ -1351,6 +1351,24 @@ func _is_target_in_range(target_pos: Vector3, inv_item) -> bool:
 
 
 func _place_single_block(pos: Vector3, block_id: int):
+	# Check if player is standing on or inside the block position
+	var player_pos = get_parent().global_position
+	var block_pos_floored = Vector3(floor(pos.x), floor(pos.y), floor(pos.z))
+
+	# Player occupies roughly 2 blocks vertically (feet at y, head at y+2)
+	# Check if block would be placed inside player's body
+	var player_feet_y = floor(player_pos.y)
+	var player_head_y = floor(player_pos.y + 1.8)
+	var block_y = block_pos_floored.y
+
+	# Check if block is at player's XZ position and within player's height range
+	var player_xz = Vector2(floor(player_pos.x), floor(player_pos.z))
+	var block_xz = Vector2(block_pos_floored.x, block_pos_floored.z)
+
+	if player_xz.distance_to(block_xz) < 1.0 and block_y >= player_feet_y and block_y <= player_head_y:
+		print("❌ Cannot place block - you're standing there!")
+		return
+
 	var look_dir := -_head.get_transform().basis.z
 	var mp := get_tree().get_multiplayer()
 	if mp.has_multiplayer_peer() and not mp.is_server():

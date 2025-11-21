@@ -109,7 +109,13 @@ func toggle_pause() -> void:
 	if _is_paused:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		# Check if inventory is open before restoring captured mode
+		var inventory = get_node_or_null("/root/Main/Game/Inventory")
+		if inventory and inventory.visible:
+			# Inventory is open, let it manage the mouse mode
+			pass
+		else:
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _on_graphics_settings_pressed() -> void:
 	# Show graphics settings modal
