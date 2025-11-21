@@ -115,7 +115,7 @@ func _perform_howl():
 		var distance = global_position.distance_to(enemy.global_position)
 		if distance < 20.0:
 			# Apply speed buff
-			if enemy.has("movement_speed"):
+			if "movement_speed" in enemy:
 				enemy.movement_speed *= 1.3  # +30% speed
 				enemy.set_meta("pack_buff", true)
 				print("  🐺 %s buffed!" % enemy.get("entity_name"))

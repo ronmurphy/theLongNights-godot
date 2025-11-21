@@ -111,6 +111,9 @@ func _perform_attack():
 	var target_name = _current_target.get("entity_name") if _current_target.has_method("get") else "target"
 	print("%s attacks %s for %d damage!" % [entity_name, target_name, attack_damage])
 
+	# Break through blocks to reach target
+	break_blocks_to_target(_current_target, 2.0)
+
 	# Actually damage the target (player OR companion)
 	if _current_target.has_method("take_damage"):
 		_current_target.take_damage(attack_damage, self)

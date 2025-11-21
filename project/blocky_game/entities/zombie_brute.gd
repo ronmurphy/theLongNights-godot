@@ -116,6 +116,9 @@ func _perform_attack():
 	if _attack_sound:
 		_attack_sound.play()
 
+	# Break through blocks to reach target
+	break_blocks_to_target(_current_target, 2.0)
+
 	if _current_target.has_method("take_damage"):
 		_current_target.take_damage(attack_damage, self)
 

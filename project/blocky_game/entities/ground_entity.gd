@@ -215,3 +215,40 @@ func _try_break_blocking_block(direction: Vector3) -> void:
 	# Reset cooldown
 	_block_break_timer = block_break_cooldown
 	_blocked_frame_count = 0
+
+
+## Instantly break blocks between enemy and target (used during attacks)
+## Much more aggressive than the gradual block-breaking system
+func break_blocks_to_target(target: Node, max_distance: float = 3.0) -> void:
+	if not can_break_blocks or team != Team.ENEMY or _terrain == null:
+		return
+
+	if target == null or not is_instance_valid(target):
+		return
+
+	var vt = _terrain.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	# Raycast from enemy to target
+	var direction = (target.global_position - global_position).normalized()
+	var distance = global_position.distance_to(target.global_position)
+	var raycast_dist = min(distance, max_distance)
+
+	# Check at multiple heights
+	var blocks_broken = 0
+	for y_offset in [0.0, 0.5, 1.0]:
+		var ray_start = global_position + Vector3(0, y_offset, 0)
+		var hit = vt.raycast(ray_start, direction, raycast_dist)
+
+		if hit != null:
+			var block_pos = Vector3i(hit.position)
+			var voxel_id = vt.get_voxel(block_pos)
+
+			# Destroy block if it's not air
+			if voxel_id != 0:
+				vt.set_voxel(block_pos, 0)
+				blocks_broken += 1
+				print("💥 %s SMASHED block at %s!" % [entity_name, block_pos])
+
+	if blocks_broken > 0:
+		print("  🔨 %s destroyed %d blocks attacking through terrain!" % [entity_name, blocks_broken])

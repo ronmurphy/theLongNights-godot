@@ -105,7 +105,7 @@ func _perform_armor_break():
 	var armor_broken = _current_target.get_meta("armor_broken", false)
 	if not armor_broken:
 		# Apply armor break debuff (-5 defense)
-		if _current_target.has("defense"):
+		if "defense" in _current_target:
 			var old_defense = _current_target.defense
 			_current_target.defense = max(0, _current_target.defense - 5)
 			_current_target.set_meta("armor_broken", true)
