@@ -130,7 +130,10 @@ func _fire_single_fireball():
 	var fireball = Node3D.new()
 	fireball.set_script(Fireball)
 
-	# Position at nightmare's location
+	# Add to scene FIRST (before accessing properties)
+	get_tree().root.add_child(fireball)
+
+	# THEN position and configure
 	fireball.global_position = global_position
 
 	# Set projectile properties
@@ -142,8 +145,5 @@ func _fire_single_fireball():
 	# Aim at target with slight spread
 	var direction = ((_current_target.global_position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))) - global_position).normalized()
 	fireball.direction = direction
-
-	# Add to scene
-	get_tree().root.add_child(fireball)
 
 	print("  🔥 Fireball launched!")
