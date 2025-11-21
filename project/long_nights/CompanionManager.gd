@@ -539,44 +539,44 @@ static func get_starting_equipment(race: String, gender: String, role: String) -
 	# Equipment table based on race + gender + role combinations
 	var equipment_table = {
 		# HUMAN
-		"human_male_tank": { "weapon_id": 11, "weapon_count": 3, "weapon_power": "", "accessory_id": 1, "accessory_power": "stone_skin" },
-		"human_female_tank": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "stone_skin" },
+		"human_male_tank": { "weapon_id": 11, "weapon_count": 3, "weapon_power": "", "accessory_id": 64, "accessory_power": "stone_skin" },  # shield_crusader
+		"human_female_tank": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 64, "accessory_power": "stone_skin" },  # shield_crusader
 		"human_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
 		"human_female_wizard": { "weapon_id": 5, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "flame_aura" },
-		"human_male_healer": { "weapon_id": 9, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "return" },
-		"human_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "moon_jump" },
-		"human_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "moon_jump" },
+		"human_male_healer": { "weapon_id": 9, "weapon_count": 2, "weapon_power": "", "accessory_id": 64, "accessory_power": "return" },  # shield_crusader
+		"human_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 63, "accessory_power": "moon_jump" },  # shield
+		"human_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 63, "accessory_power": "moon_jump" },  # shield
 		"human_female_rogue": { "weapon_id": 10, "weapon_count": 2, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
 
 		# ELF
-		"elf_male_tank": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 1, "accessory_power": "stone_skin" },
-		"elf_female_tank": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "stone_skin" },
-		"elf_male_wizard": { "weapon_id": 3, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "flame_aura" },
+		"elf_male_tank": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 64, "accessory_power": "stone_skin" },  # shield_crusader
+		"elf_female_tank": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 64, "accessory_power": "stone_skin" },  # shield_crusader
+		"elf_male_wizard": { "weapon_id": 3, "weapon_count": 1, "weapon_power": "", "accessory_id": 62, "accessory_power": "flame_aura" },  # wood_shield
 		"elf_female_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 2, "accessory_power": "glide" },
-		"elf_male_healer": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "return" },
-		"elf_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
+		"elf_male_healer": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 63, "accessory_power": "return" },  # shield
+		"elf_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 64, "accessory_power": "glide" },  # shield_crusader
 		"elf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "moon_jump" },
-		"elf_female_rogue": { "weapon_id": 10, "weapon_count": 3, "weapon_power": "", "accessory_id": 1, "accessory_power": "moon_jump" },
+		"elf_female_rogue": { "weapon_id": 10, "weapon_count": 3, "weapon_power": "", "accessory_id": 62, "accessory_power": "moon_jump" },  # wood_shield
 
 		# DWARF
-		"dwarf_male_tank": { "weapon_id": 8, "weapon_count": 3, "weapon_power": "", "accessory_id": 1, "accessory_power": "stone_skin" },
-		"dwarf_female_tank": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "stone_skin" },
+		"dwarf_male_tank": { "weapon_id": 8, "weapon_count": 3, "weapon_power": "", "accessory_id": 64, "accessory_power": "stone_skin" },  # shield_crusader
+		"dwarf_female_tank": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 64, "accessory_power": "stone_skin" },  # shield_crusader
 		"dwarf_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "flame_aura" },
 		"dwarf_female_wizard": { "weapon_id": 9, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "flame_aura" },
-		"dwarf_male_healer": { "weapon_id": 8, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "return" },
-		"dwarf_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
-		"dwarf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "moon_jump" },
-		"dwarf_female_rogue": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 1, "accessory_power": "moon_jump" },
+		"dwarf_male_healer": { "weapon_id": 8, "weapon_count": 2, "weapon_power": "", "accessory_id": 63, "accessory_power": "return" },  # shield
+		"dwarf_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 64, "accessory_power": "glide" },  # shield_crusader
+		"dwarf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 62, "accessory_power": "moon_jump" },  # wood_shield
+		"dwarf_female_rogue": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 63, "accessory_power": "moon_jump" },  # shield
 
 		# GOBLIN
-		"goblin_male_tank": { "weapon_id": 0, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "stone_skin" },
-		"goblin_female_tank": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "stone_skin" },
-		"goblin_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "flame_aura" },
+		"goblin_male_tank": { "weapon_id": 0, "weapon_count": 1, "weapon_power": "", "accessory_id": 64, "accessory_power": "stone_skin" },  # shield_crusader
+		"goblin_female_tank": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 64, "accessory_power": "stone_skin" },  # shield_crusader
+		"goblin_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 62, "accessory_power": "flame_aura" },  # wood_shield
 		"goblin_female_wizard": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "flame_aura" },
-		"goblin_male_healer": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "return" },
-		"goblin_female_healer": { "weapon_id": 5, "weapon_count": 2, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
+		"goblin_male_healer": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 64, "accessory_power": "return" },  # shield_crusader
+		"goblin_female_healer": { "weapon_id": 5, "weapon_count": 2, "weapon_power": "", "accessory_id": 63, "accessory_power": "glide" },  # shield
 		"goblin_male_rogue": { "weapon_id": 0, "weapon_count": 1, "weapon_power": "", "accessory_id": 2, "accessory_power": "moon_jump" },
-		"goblin_female_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 1, "accessory_power": "moon_jump" },
+		"goblin_female_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 62, "accessory_power": "moon_jump" },  # wood_shield
 	}
 
 	if equipment_table.has(key):
