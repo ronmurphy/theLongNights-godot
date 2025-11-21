@@ -1,0 +1,271 @@
+# Adding New Items to The Long Nights
+
+This document outlines the complete process for adding new items to the game.
+
+## 1. Item Database Registration (REQUIRED)
+
+**File:** `project/blocky_game/items/item_db.gd`
+
+**Location:** Add at the END of the _init() function (around line 200+)
+
+**CRITICAL:** Always add new items at the END to preserve existing item IDs!
+
+```gdscript
+_create_item({
+    "name": "item_name",
+    "behavior": "item_name.gd"  # Script file name
+})
+```
+
+The item will automatically get the next sequential ID based on position in the list.
+
+## 2. Create Item Script
+
+**Location:** `project/blocky_game/items/[item_name]/[item_name].gd`
+
+**Template:**
+```gdscript
+extends "../item.gd"
+
+## Item description and functionality
+## Explain what the item does, how it works, any special mechanics
+
+# Add any constants for allowed roles, stats, etc.
+const ALLOWED_ROLES = ["wizard", "healer", "rogue", "elf", "tank"]
+
+# Add any custom properties or methods
+```
+
+## 3. Create Item Sprite
+
+**Location:** `project/blocky_game/items/[item_name]/[item_name]_sprite.png`
+
+**Requirements:**
+- PNG format
+- Square dimensions preferred (e.g., 32x32, 64x64, 128x128)
+- Transparent background for non-square items
+- Create matching `.import` file for Godot texture loading
+
+**Import File Template:** `[item_name]_sprite.png.import`
+```
+[remap]
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://[unique_id]"
+path="res://.godot/imported/[item_name]_sprite.png-[hash].ctex"
+
+[deps]
+source_file="res://blocky_game/items/[item_name]/[item_name]_sprite.png"
+dest_files=["res://.godot/imported/[item_name]_sprite.png-[hash].ctex"]
+
+[params]
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=false
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1
+```
+
+## 4. Add to Daniels' Shop (Optional)
+
+**File:** `project/blocky_game/gui/BlockSelectorModal.gd`
+
+**Function:** `_populate_shop_items()` (around line 1300-1350)
+
+Find the appropriate shop section:
+- **BLOCKS mode:** Building blocks and materials
+- **ITEMS mode:** Weapons, tools, accessories (lines 1330-1345)
+
+Add item ID to the items list:
+```gdscript
+# Example: Adding to ITEMS shop
+var items = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,  # Weapons
+    40, 41,  # Misc items
+    43, 44, 45,  # Shields
+    46,  # Ring of Thorns
+    [NEW_ITEM_ID]  # Add your item here
+]
+```
+
+**Price:** The default shop system uses rust blocks as currency. Price calculation is in `_on_transaction_confirmed()`.
+
+## 5. Add to Player Inventory Filter (for Shop Selling)
+
+**File:** `project/blocky_game/gui/BlockSelectorModal.gd`
+
+**Function:** `_populate_player_items()` (around line 1375-1390)
+
+Add item ID to the appropriate category:
+```gdscript
+# Define weapon/item IDs (exclude food, Keeper's Charm)
+var weapon_ids = range(0, 13)
+var misc_item_ids = [40, 41]
+var shield_ids = [43, 44, 45]
+var ring_ids = [46]
+var [category_ids] = [[NEW_ITEM_ID]]  # Add new category if needed
+
+var all_item_ids = weapon_ids + misc_item_ids + shield_ids + ring_ids + [category_ids]
+```
+
+## 6. Add to Chest Loot Tables (Optional)
+
+**File:** `project/blocky_game/player/avatar_interaction.gd`
+
+**Function:** `_open_normal_chest()` or `_open_desert_chest()` (around line 2650+)
+
+Add loot drop logic:
+```gdscript
+# Example: 5% chance to drop Ring of Thorns
+if randf() < 0.05:
+    loot_items.append({"id": 46, "count": 1})  # ring_of_thorns
+    loot_messages.append("Ring of Thorns")
+    print("Rare drop: Found Ring of Thorns!")
+```
+
+Drop rate guidelines:
+- Common items: 20-50% (0.2 - 0.5)
+- Uncommon: 10-20% (0.1 - 0.2)
+- Rare: 5-10% (0.05 - 0.1)
+- Very rare: 1-5% (0.01 - 0.05)
+
+## 7. Add to Console Commands (for Testing)
+
+**File:** `project/long_nights/GameConsole.gd`
+
+**Function:** `_give_item()` (around line 550-580)
+
+Add item to the item_map dictionary:
+```gdscript
+var item_map = {
+    # ... existing items ...
+    "ring_of_thorns": 46,
+    "ring": 46,  # Optional alias
+    "[item_name]": [ITEM_ID],
+    "[alias]": [ITEM_ID]  # Add aliases for easier console use
+}
+```
+
+**Usage:** `give [item_name]` or `give [alias]`
+
+## 8. Character Controller Integration (for Active Items)
+
+**File:** `project/blocky_game/player/character_controller.gd`
+
+If the item has special behavior when equipped as the active hotbar item:
+
+1. Add state variables (around line 54-60)
+2. Create update function called from `_process()` or `_physics_process()`
+3. Add detection function (check `_hotbar.get_selected_item().id == [ITEM_ID]`)
+4. Implement creation/cleanup functions for any visual effects or mechanics
+
+**Example: Ring of Thorns**
+```gdscript
+# State variables
+var _thorn_orbs: Array[Node3D] = []
+var _thorn_attack_timer := 0.0
+
+# Update function (called from _process)
+func _update_ring_of_thorns(delta: float) -> void:
+    var has_ring = _has_ring_of_thorns()
+    if has_ring and _thorn_orbs.is_empty():
+        _create_thorn_orbs()
+    elif not has_ring and not _thorn_orbs.is_empty():
+        _remove_thorn_orbs()
+
+# Detection function
+func _has_ring_of_thorns() -> bool:
+    if not _hotbar:
+        return false
+    var selected_item = _hotbar.get_selected_item()
+    if not selected_item:
+        return false
+    return selected_item.id == 46
+```
+
+## 9. Item ID Reference
+
+Current item IDs (as of latest build):
+- 0-12: Weapons (swords, bows, staffs)
+- 13-39: Consumables (food items)
+- 40: Keeper's Charm
+- 41: Torch
+- 42: (available)
+- 43: Wood Shield
+- 44: Shield
+- 45: Shield Crusader
+- 46: Ring of Thorns
+- 47+: Available for new items
+
+**CRITICAL:** Always add new items to the END of item_db.gd to get the next available ID!
+
+## 10. Item Categories
+
+- **Weapons:** Swords, bows, staffs (0-12)
+- **Consumables:** Food items that heal/buff (13-39)
+- **Tools:** Torches, utility items (40-41)
+- **Armor:** Shields, helmets, etc. (43-45)
+- **Accessories:** Rings, amulets, charms (46+)
+
+## 11. Testing Checklist
+
+- [ ] Item appears in item database
+- [ ] Item sprite loads correctly (check for missing .import file)
+- [ ] Item can be spawned with console `give` command
+- [ ] Item appears in inventory UI
+- [ ] Item can be selected in hotbar
+- [ ] Item appears in Daniels' shop (if added)
+- [ ] Item can be purchased from shop
+- [ ] Item can be sold to shop (if in _populate_player_items)
+- [ ] Item drops from chests (if added to loot tables)
+- [ ] Item special mechanics work when equipped (if applicable)
+- [ ] Test on different character classes/roles (if role-restricted)
+
+## 12. Common Issues
+
+**Item not appearing in inventory after purchase:**
+- Check both _selected_block_id and _selected_player_block_id aren't both set
+- Shop ITEMS mode should have only ONE selection active (buy XOR sell)
+- Use debug logging: `print("[DEBUG] Selected IDs: shop=%d, player=%d" % [_selected_block_id, _selected_player_block_id])`
+
+**Item sprite not showing:**
+- Missing .import file - create one using the template above
+- Wrong file path in .import file
+- Sprite file not in correct folder
+
+**Item has wrong ID:**
+- Item was inserted in middle of item_db.gd instead of end
+- Always add to END of list to preserve existing IDs
+
+**Item not in shop:**
+- Not added to _populate_shop_items() items array
+- Check shop mode (BLOCKS vs ITEMS)
+
+**Item can't be sold:**
+- Not added to _populate_player_items() filter arrays
+- Item excluded by category filter
+
+## 13. Documentation Standards
+
+When creating new items, document:
+- What the item does (functionality)
+- How to use it (hotbar, equipment slot, consumable, etc.)
+- Any special mechanics or synergies
+- Drop rates and rarity
+- Role/class restrictions (if any)
+- Damage/healing values
+- Cooldowns or timers
+
+Use clear code comments with `##` for documentation blocks that appear in Godot's help system.

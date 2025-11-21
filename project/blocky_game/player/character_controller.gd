@@ -1318,6 +1318,8 @@ func _create_thorn_orbs() -> void:
 	"""Create 3 orbiting thorn projectiles"""
 	const Thorn = preload("res://blocky_game/projectiles/thorn.gd")
 
+	print("🌿 Creating Ring of Thorns - spawning 3 thorns...")
+
 	for i in range(3):
 		var thorn = Node3D.new()
 		thorn.set_script(Thorn)
@@ -1331,7 +1333,11 @@ func _create_thorn_orbs() -> void:
 
 		_thorn_orbs.append(thorn)
 
+		print("  - Thorn %d created at position: %v" % [i + 1, thorn.global_position])
+
 	print("🌿 Ring of Thorns activated - 3 thorns orbiting!")
+	print("  - Total thorn count: %d" % _thorn_orbs.size())
+	print("  - Player position: %v" % global_position)
 
 
 func _remove_thorn_orbs() -> void:
