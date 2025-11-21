@@ -61,6 +61,7 @@ class CompanionData:
 	var equipped_weapon_count: int = 1  # Stack count for equipped weapon
 	var equipped_weapon_power: String = ""  # Skyshard power for weapon
 	var equipped_accessory_id: int = -1
+	var equipped_accessory_count: int = 1  # Stack count for equipped accessory
 	var equipped_accessory_power: String = ""  # Skyshard power for accessory
 	var active_title: String = ""
 	var title_emoji: String = ""
@@ -79,6 +80,7 @@ class CompanionData:
 			"equipped_weapon_count": equipped_weapon_count,
 			"equipped_weapon_power": equipped_weapon_power,
 			"equipped_accessory_id": equipped_accessory_id,
+			"equipped_accessory_count": equipped_accessory_count,
 			"equipped_accessory_power": equipped_accessory_power,
 			"active_title": active_title,
 			"title_emoji": title_emoji,
@@ -97,6 +99,7 @@ class CompanionData:
 		if data.has("equipped_weapon_count"): equipped_weapon_count = data.equipped_weapon_count
 		if data.has("equipped_weapon_power"): equipped_weapon_power = data.equipped_weapon_power
 		if data.has("equipped_accessory_id"): equipped_accessory_id = data.equipped_accessory_id
+		if data.has("equipped_accessory_count"): equipped_accessory_count = data.equipped_accessory_count
 		if data.has("equipped_accessory_power"): equipped_accessory_power = data.equipped_accessory_power
 		if data.has("active_title"): active_title = data.active_title
 		if data.has("title_emoji"): title_emoji = data.title_emoji
@@ -308,13 +311,18 @@ func load_from_file() -> bool:
 	if error != OK:
 		push_warning("CompanionManager: Failed to parse save file")
 		return false
-	
+
 	var save_data = json.data
 	if typeof(save_data) != TYPE_DICTIONARY:
 		return false
-	
+
 	# Check if this is a roster save
 	if save_data.has("roster") and save_data.has("using_roster_system"):
+		print("🔍 Loading roster from file...")
+		for comp_dict in save_data.get("roster", []):
+			print("  Raw dict from file: weapon_id=%s, weapon_count=%s" % [
+				comp_dict.get("equipped_weapon_id"), comp_dict.get("equipped_weapon_count")
+			])
 		load_roster_from_dict(save_data)
 		return true
 	
@@ -428,10 +436,12 @@ func swap_to_companion(index: int) -> bool:
 
 			if inventory._companion_accessory_slot != null:
 				old_companion.equipped_accessory_id = inventory._companion_accessory_slot.id
+				old_companion.equipped_accessory_count = inventory._companion_accessory_slot.count
 				old_companion.equipped_accessory_power = inventory._companion_accessory_slot.skyshard_power
-				print("💾 Saved %s's accessory: %d (%s)" % [old_companion.companion_name, old_companion.equipped_accessory_id, old_companion.equipped_accessory_power])
+				print("💾 Saved %s's accessory: %d (x%d) [%s]" % [old_companion.companion_name, old_companion.equipped_accessory_id, old_companion.equipped_accessory_count, old_companion.equipped_accessory_power])
 			else:
 				old_companion.equipped_accessory_id = -1
+				old_companion.equipped_accessory_count = 1
 				old_companion.equipped_accessory_power = ""
 
 		# Mark old as inactive
@@ -504,21 +514,21 @@ func update_active_companion_from_scene(companion_node) -> void:
 	"""Update active companion data from the live companion node"""
 	var active = get_active_companion()
 	if active and companion_node:
-		if companion_node._equipped_inv_item:
+		# Only update weapon if companion actually has one equipped
+		if companion_node._equipped_inv_item and companion_node._equipped_inv_item.id >= 0:
 			active.equipped_weapon_id = companion_node._equipped_inv_item.id
 			active.equipped_weapon_count = companion_node._equipped_inv_item.count
 			active.equipped_weapon_power = companion_node._equipped_inv_item.skyshard_power
-		else:
-			active.equipped_weapon_id = -1
-			active.equipped_weapon_count = 1
-			active.equipped_weapon_power = ""
+		# If companion doesn't have weapon set, DON'T overwrite the roster data
+		# This preserves equipment through save/load cycles
 
-		if companion_node._equipped_accessory_item:
+		# Only update accessory if companion actually has one equipped
+		if companion_node._equipped_accessory_item and companion_node._equipped_accessory_item.id >= 0:
 			active.equipped_accessory_id = companion_node._equipped_accessory_item.id
+			active.equipped_accessory_count = companion_node._equipped_accessory_item.count
 			active.equipped_accessory_power = companion_node._equipped_accessory_item.skyshard_power
-		else:
-			active.equipped_accessory_id = -1
-			active.equipped_accessory_power = ""
+		# If companion doesn't have accessory set, DON'T overwrite the roster data
+		# This preserves equipment through save/load cycles
 
 		active.active_title = companion_node.active_title
 		active.title_emoji = companion_node.title_emoji
@@ -539,44 +549,44 @@ static func get_starting_equipment(race: String, gender: String, role: String) -
 	# Equipment table based on race + gender + role combinations
 	var equipment_table = {
 		# HUMAN
-		"human_male_tank": { "weapon_id": 11, "weapon_count": 3, "weapon_power": "", "accessory_id": 45, "accessory_power": "stone_skin" },  # shield_crusader
-		"human_female_tank": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_power": "stone_skin" },  # shield_crusader
-		"human_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
-		"human_female_wizard": { "weapon_id": 5, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "flame_aura" },
-		"human_male_healer": { "weapon_id": 9, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_power": "return" },  # shield_crusader
-		"human_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 44, "accessory_power": "moon_jump" },  # shield
-		"human_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 44, "accessory_power": "moon_jump" },  # shield
-		"human_female_rogue": { "weapon_id": 10, "weapon_count": 2, "weapon_power": "", "accessory_id": 1, "accessory_power": "glide" },
+		"human_male_tank": { "weapon_id": 11, "weapon_count": 3, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "stone_skin" },  # shield_crusader
+		"human_female_tank": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "stone_skin" },  # shield_crusader
+		"human_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_count": 1, "accessory_power": "glide" },
+		"human_female_wizard": { "weapon_id": 5, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_count": 1, "accessory_power": "flame_aura" },
+		"human_male_healer": { "weapon_id": 9, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "return" },  # shield_crusader
+		"human_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 44, "accessory_count": 1, "accessory_power": "moon_jump" },  # shield
+		"human_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 44, "accessory_count": 1, "accessory_power": "moon_jump" },  # shield
+		"human_female_rogue": { "weapon_id": 10, "weapon_count": 2, "weapon_power": "", "accessory_id": 1, "accessory_count": 1, "accessory_power": "glide" },
 
 		# ELF
-		"elf_male_tank": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_power": "stone_skin" },  # shield_crusader
-		"elf_female_tank": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_power": "stone_skin" },  # shield_crusader
-		"elf_male_wizard": { "weapon_id": 3, "weapon_count": 1, "weapon_power": "", "accessory_id": 43, "accessory_power": "flame_aura" },  # wood_shield
-		"elf_female_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 2, "accessory_power": "glide" },
-		"elf_male_healer": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 44, "accessory_power": "return" },  # shield
-		"elf_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 45, "accessory_power": "glide" },  # shield_crusader
-		"elf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "moon_jump" },
-		"elf_female_rogue": { "weapon_id": 10, "weapon_count": 3, "weapon_power": "", "accessory_id": 43, "accessory_power": "moon_jump" },  # wood_shield
+		"elf_male_tank": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "stone_skin" },  # shield_crusader
+		"elf_female_tank": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "stone_skin" },  # shield_crusader
+		"elf_male_wizard": { "weapon_id": 3, "weapon_count": 1, "weapon_power": "", "accessory_id": 43, "accessory_count": 1, "accessory_power": "flame_aura" },  # wood_shield
+		"elf_female_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 2, "accessory_count": 1, "accessory_power": "glide" },
+		"elf_male_healer": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 44, "accessory_count": 1, "accessory_power": "return" },  # shield
+		"elf_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "glide" },  # shield_crusader
+		"elf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_count": 1, "accessory_power": "moon_jump" },
+		"elf_female_rogue": { "weapon_id": 10, "weapon_count": 3, "weapon_power": "", "accessory_id": 43, "accessory_count": 1, "accessory_power": "moon_jump" },  # wood_shield
 
 		# DWARF
-		"dwarf_male_tank": { "weapon_id": 8, "weapon_count": 3, "weapon_power": "", "accessory_id": 45, "accessory_power": "stone_skin" },  # shield_crusader
-		"dwarf_female_tank": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_power": "stone_skin" },  # shield_crusader
-		"dwarf_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_power": "flame_aura" },
-		"dwarf_female_wizard": { "weapon_id": 9, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_power": "flame_aura" },
-		"dwarf_male_healer": { "weapon_id": 8, "weapon_count": 2, "weapon_power": "", "accessory_id": 44, "accessory_power": "return" },  # shield
-		"dwarf_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 45, "accessory_power": "glide" },  # shield_crusader
-		"dwarf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 43, "accessory_power": "moon_jump" },  # wood_shield
-		"dwarf_female_rogue": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 44, "accessory_power": "moon_jump" },  # shield
+		"dwarf_male_tank": { "weapon_id": 8, "weapon_count": 3, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "stone_skin" },  # shield_crusader
+		"dwarf_female_tank": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "stone_skin" },  # shield_crusader
+		"dwarf_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 1, "accessory_count": 1, "accessory_power": "flame_aura" },
+		"dwarf_female_wizard": { "weapon_id": 9, "weapon_count": 2, "weapon_power": "", "accessory_id": 2, "accessory_count": 1, "accessory_power": "flame_aura" },
+		"dwarf_male_healer": { "weapon_id": 8, "weapon_count": 2, "weapon_power": "", "accessory_id": 44, "accessory_count": 1, "accessory_power": "return" },  # shield
+		"dwarf_female_healer": { "weapon_id": 10, "weapon_count": 1, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "glide" },  # shield_crusader
+		"dwarf_male_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 43, "accessory_count": 1, "accessory_power": "moon_jump" },  # wood_shield
+		"dwarf_female_rogue": { "weapon_id": 11, "weapon_count": 2, "weapon_power": "", "accessory_id": 44, "accessory_count": 1, "accessory_power": "moon_jump" },  # shield
 
 		# GOBLIN
-		"goblin_male_tank": { "weapon_id": 0, "weapon_count": 1, "weapon_power": "", "accessory_id": 45, "accessory_power": "stone_skin" },  # shield_crusader
-		"goblin_female_tank": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 45, "accessory_power": "stone_skin" },  # shield_crusader
-		"goblin_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 43, "accessory_power": "flame_aura" },  # wood_shield
-		"goblin_female_wizard": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_power": "flame_aura" },
-		"goblin_male_healer": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_power": "return" },  # shield_crusader
-		"goblin_female_healer": { "weapon_id": 5, "weapon_count": 2, "weapon_power": "", "accessory_id": 44, "accessory_power": "glide" },  # shield
-		"goblin_male_rogue": { "weapon_id": 0, "weapon_count": 1, "weapon_power": "", "accessory_id": 2, "accessory_power": "moon_jump" },
-		"goblin_female_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 43, "accessory_power": "moon_jump" },  # wood_shield
+		"goblin_male_tank": { "weapon_id": 0, "weapon_count": 1, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "stone_skin" },  # shield_crusader
+		"goblin_female_tank": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "stone_skin" },  # shield_crusader
+		"goblin_male_wizard": { "weapon_id": 4, "weapon_count": 1, "weapon_power": "", "accessory_id": 43, "accessory_count": 1, "accessory_power": "flame_aura" },  # wood_shield
+		"goblin_female_wizard": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 2, "accessory_count": 1, "accessory_power": "flame_aura" },
+		"goblin_male_healer": { "weapon_id": 41, "weapon_count": 2, "weapon_power": "", "accessory_id": 45, "accessory_count": 1, "accessory_power": "return" },  # shield_crusader
+		"goblin_female_healer": { "weapon_id": 5, "weapon_count": 2, "weapon_power": "", "accessory_id": 44, "accessory_count": 1, "accessory_power": "glide" },  # shield
+		"goblin_male_rogue": { "weapon_id": 0, "weapon_count": 1, "weapon_power": "", "accessory_id": 2, "accessory_count": 1, "accessory_power": "moon_jump" },
+		"goblin_female_rogue": { "weapon_id": 5, "weapon_count": 3, "weapon_power": "", "accessory_id": 43, "accessory_count": 1, "accessory_power": "moon_jump" },  # wood_shield
 	}
 
 	if equipment_table.has(key):
@@ -584,15 +594,20 @@ static func get_starting_equipment(race: String, gender: String, role: String) -
 	else:
 		# Fallback: basic equipment
 		push_warning("CompanionManager: No equipment defined for %s, using fallback" % key)
-		return { "weapon_id": 9, "weapon_count": 1, "weapon_power": "", "accessory_id": 2, "accessory_power": "glide" }
+		return { "weapon_id": 9, "weapon_count": 1, "weapon_power": "", "accessory_id": 2, "accessory_count": 1, "accessory_power": "glide" }
 
 
 func save_roster_to_dict() -> Dictionary:
 	"""Save entire roster to dictionary for world save"""
 	var roster_data = []
 	for comp in companion_roster:
-		roster_data.append(comp.to_dict())
-	
+		var comp_dict = comp.to_dict()
+		print("💾 Saving companion '%s': weapon_id=%d, weapon_count=%d, accessory_id=%d, accessory_count=%d" % [
+			comp.companion_name, comp.equipped_weapon_id, comp.equipped_weapon_count,
+			comp.equipped_accessory_id, comp.equipped_accessory_count
+		])
+		roster_data.append(comp_dict)
+
 	return {
 		"using_roster_system": using_roster_system,
 		"active_companion_index": active_companion_index,
@@ -616,7 +631,10 @@ func load_roster_from_dict(data: Dictionary) -> void:
 			var comp = CompanionData.new()
 			comp.from_dict(comp_dict)
 			companion_roster.append(comp)
-			print("🔍 LOAD: Added companion '%s' (is_active: %s)" % [comp.companion_name, comp.is_active])
+			print("🔍 LOAD: Added companion '%s': weapon_id=%d, weapon_count=%d, accessory_id=%d, accessory_count=%d (is_active: %s)" % [
+				comp.companion_name, comp.equipped_weapon_id, comp.equipped_weapon_count,
+				comp.equipped_accessory_id, comp.equipped_accessory_count, comp.is_active
+			])
 
 		print("CompanionManager: Loaded %d companions from roster" % companion_roster.size())
 

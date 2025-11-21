@@ -4,6 +4,8 @@ extends Control
 ## Supports companion creation with race/gender/role selection and roster management
 ## Opened via 'roster shop' console command or NPC interaction
 
+const CharacterQuiz = preload("res://long_nights/CharacterQuiz.gd")
+
 signal modal_closed
 signal companion_created(companion_data: Dictionary)
 
@@ -42,6 +44,7 @@ var _race_label: Label
 var _gender_label: Label
 var _role_label: Label
 var _level_label: Label
+var _speed_label: Label
 var _equip_button: Button
 var _remove_button: Button
 
@@ -529,6 +532,24 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	accessory_slot.add_child(accessory_texture)
 	_accessory_texture_display = accessory_texture
 
+	# Add count label for stacked accessories
+	var accessory_count = Label.new()
+	accessory_count.text = ""
+	accessory_count.add_theme_font_size_override("font_size", 12)
+	accessory_count.add_theme_color_override("font_color", Color.WHITE)
+	accessory_count.add_theme_color_override("font_outline_color", Color.BLACK)
+	accessory_count.add_theme_constant_override("outline_size", 3)
+	accessory_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	accessory_count.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	accessory_count.anchor_right = 1.0
+	accessory_count.anchor_bottom = 1.0
+	accessory_count.offset_right = -2
+	accessory_count.offset_bottom = 0
+	accessory_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	accessory_count.visible = false
+	accessory_slot.add_child(accessory_count)
+	_accessory_count_label = accessory_count
+
 	# HP Bar - centered
 	var hp_center = CenterContainer.new()
 	col2_vbox.add_child(hp_center)
@@ -635,6 +656,13 @@ func _build_right_column(parent: HBoxContainer) -> void:
 	_level_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
 	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	info_vbox.add_child(_level_label)
+
+	_speed_label = Label.new()
+	_speed_label.text = ""
+	_speed_label.add_theme_font_size_override("font_size", 10)
+	_speed_label.add_theme_color_override("font_color", Color(0.7, 0.9, 0.7))
+	_speed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info_vbox.add_child(_speed_label)
 
 	# Spacer
 	var spacer = Control.new()
@@ -750,6 +778,7 @@ func _update_details_panel(index: int) -> void:
 		_gender_label.text = ""
 		_role_label.text = ""
 		_level_label.text = ""
+		_speed_label.text = ""
 		_avatar_texture.texture = null
 		_weapon_texture_display.texture = null
 		_accessory_texture_display.texture = null
@@ -765,7 +794,12 @@ func _update_details_panel(index: int) -> void:
 	_race_label.text = "%s" % comp.race.capitalize()
 	_gender_label.text = "%s" % comp.gender.capitalize()
 	_role_label.text = "Role: %s" % comp.role.capitalize()
-	_level_label.text = "Level %d" % comp.level
+	_level_label.text = ""  # Legacy field, not used
+
+	# Update speed label
+	var speed_mult = CharacterQuiz.get_race_speed_multiplier(comp.race)
+	var speed_percent = int(speed_mult * 100)
+	_speed_label.text = "Speed: %d%%" % speed_percent
 
 	# Load avatar texture based on race/gender
 	var avatar_path = "res://assets/art/player_avatars/%s_%s.png" % [comp.race, comp.gender]
@@ -811,18 +845,19 @@ func _on_add_companion() -> void:
 
 	# Set starting equipment based on race + gender + role
 	var equipment = CompanionManager.get_starting_equipment(race, gender, role)
-	comp.equipped_weapon_id = equipment.weapon_id
-	comp.equipped_weapon_count = equipment.weapon_count
+	comp.equipped_weapon_id = equipment.get("weapon_id", -1)
+	comp.equipped_weapon_count = equipment.get("weapon_count", 1)
 	comp.equipped_weapon_power = equipment.get("weapon_power", "")
-	comp.equipped_accessory_id = equipment.accessory_id
-	comp.equipped_accessory_power = equipment.accessory_power
-	print("🎁 %s starting equipment: weapon=%d (x%d) [%s], accessory=%d (%s)" % [
-		name_text, equipment.weapon_id, equipment.weapon_count, comp.equipped_weapon_power,
-		equipment.accessory_id, equipment.accessory_power
+	comp.equipped_accessory_id = equipment.get("accessory_id", -1)
+	comp.equipped_accessory_count = equipment.get("accessory_count", 1)
+	comp.equipped_accessory_power = equipment.get("accessory_power", "")
+	print("🎁 %s starting equipment: weapon=%d (x%d) [%s], accessory=%d (x%d) [%s]" % [
+		name_text, comp.equipped_weapon_id, comp.equipped_weapon_count, comp.equipped_weapon_power,
+		comp.equipped_accessory_id, comp.equipped_accessory_count, comp.equipped_accessory_power
 	])
 	print("🔍 CompanionData after assignment:")
 	print("    weapon_id=%d, weapon_count=%d, weapon_power='%s'" % [comp.equipped_weapon_id, comp.equipped_weapon_count, comp.equipped_weapon_power])
-	print("    accessory_id=%d, accessory_power='%s'" % [comp.equipped_accessory_id, comp.equipped_accessory_power])
+	print("    accessory_id=%d, accessory_count=%d, accessory_power='%s'" % [comp.equipped_accessory_id, comp.equipped_accessory_count, comp.equipped_accessory_power])
 
 	# Add to roster
 	_companion_manager.add_companion_to_roster(comp)
@@ -981,6 +1016,11 @@ func _load_equipped_item_textures(comp: Variant) -> void:
 		if accessory_item and accessory_item.base_info and accessory_item.base_info.sprite:
 			_accessory_texture_display.texture = accessory_item.base_info.sprite
 
+			# Show count label if stacked
+			if comp.equipped_accessory_count > 1:
+				_accessory_count_label.text = str(comp.equipped_accessory_count)
+				_accessory_count_label.visible = true
+
 			# Apply power outline if accessory has a power
 			if comp.equipped_accessory_power != "":
 				_apply_shader_to_texture(_accessory_texture_display, comp.equipped_accessory_power, true)
@@ -1037,8 +1077,8 @@ func _apply_shader_to_texture(texture_rect: TextureRect, power: String, is_equip
 
 func _update_companion_stats(comp: Variant) -> void:
 	"""Update HP bar and stats display for companion"""
-	# Get HP values
-	var max_hp = _companion_manager.get_companion_max_hp()
+	# Get HP values based on companion's role
+	var max_hp = _get_companion_max_hp_by_role(comp.role)
 	var current_hp = max_hp  # Default to full HP
 
 	# Try to get actual HP from live companion in world
@@ -1069,12 +1109,42 @@ func _update_companion_stats(comp: Variant) -> void:
 	else:
 		_hp_label.text = "0/0 HP"
 
-	# Update stats
-	var atk_bonus = _companion_manager.get_companion_attack_bonus()
-	var defense = _companion_manager.get_companion_defense()
+	# Update stats based on companion's role
+	var atk_bonus = _get_companion_attack_bonus_by_role(comp.role)
+	var defense = _get_companion_defense_by_role(comp.role)
 
 	_atk_label.text = "ATK: +%d" % atk_bonus
 	_def_label.text = "DEF: %d" % defense
+
+
+func _get_companion_max_hp_by_role(role: String) -> int:
+	"""Get max HP for a companion based on their role"""
+	match role:
+		"tank": return 150
+		"wizard": return 80
+		"healer": return 100
+		"rogue": return 90
+		_: return 100
+
+
+func _get_companion_attack_bonus_by_role(role: String) -> int:
+	"""Get attack bonus for a companion based on their role"""
+	match role:
+		"tank": return 5
+		"wizard": return 15
+		"healer": return 0
+		"rogue": return 10
+		_: return 0
+
+
+func _get_companion_defense_by_role(role: String) -> int:
+	"""Get defense for a companion based on their role"""
+	match role:
+		"tank": return 20
+		"wizard": return 5
+		"healer": return 10
+		"rogue": return 8
+		_: return 10
 
 
 func _create_hp_bar_style(color: Color) -> StyleBoxFlat:

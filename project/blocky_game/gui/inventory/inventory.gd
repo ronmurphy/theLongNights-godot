@@ -1448,13 +1448,13 @@ func _update_companion_panel() -> void:
 	if active != null and active.equipped_accessory_id >= 0:
 		# Validate that the item still exists (could have been sold)
 		if _validate_item_exists(active.equipped_accessory_id):
-			_companion_accessory_slot = _make_item(InventoryItem.TYPE_ITEM, active.equipped_accessory_id)
+			_companion_accessory_slot = _make_item_with_count(InventoryItem.TYPE_ITEM, active.equipped_accessory_id, active.equipped_accessory_count)
 			# Set skyshard power if present
 			if active.equipped_accessory_power != "":
 				_companion_accessory_slot.skyshard_power = active.equipped_accessory_power
-				print("🔍 Inventory: equipped accessory from roster: %d with power %s" % [active.equipped_accessory_id, active.equipped_accessory_power])
-			print("🔍   accessory_slot.id=%d, .skyshard_power='%s'" % [
-				_companion_accessory_slot.id, _companion_accessory_slot.skyshard_power
+			print("🔍 Inventory: equipped accessory from roster: %d (x%d) with power '%s'" % [active.equipped_accessory_id, active.equipped_accessory_count, active.equipped_accessory_power])
+			print("🔍   accessory_slot.id=%d, .count=%d, .skyshard_power='%s'" % [
+				_companion_accessory_slot.id, _companion_accessory_slot.count, _companion_accessory_slot.skyshard_power
 			])
 			if _companion_accessory_slot_view:
 				_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
