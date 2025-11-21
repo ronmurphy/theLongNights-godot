@@ -4,8 +4,8 @@ extends FlyingEntity
 ## FLYING nightmare wreathed in golden flames
 ## Launches devastating fireball volleys
 
-@export var chase_distance := 35.0
-@export var attack_range := 15.0  # Ranged attacker
+@export var chase_distance := 100.0  # X-RAY: Nightmare hunts you relentlessly!
+@export var attack_range := 80.0  # Fireballs from afar!
 @export var attack_cooldown := 3.0
 @export var chase_speed := 7.0
 @export var fireball_count := 3  # Fires 3 fireballs in volley

@@ -3,10 +3,10 @@ extends GroundEntity
 ## Goblin Shamanka - Tier 3 RANGED Enemy
 ## Second-in-command to chieftain, specializes in dark anguish magic
 
-@export var chase_distance := 25.0
+@export var chase_distance := 100.0  # X-RAY: Chases through walls from far away!
 @export var preferred_distance := 14.0
 @export var min_distance := 8.0
-@export var attack_range := 20.0
+@export var attack_range := 80.0  # Can cast dark magic from much further!
 @export var attack_cooldown := 2.5
 
 const AnguishBolt = preload("res://blocky_game/projectiles/anguish_bolt.gd")

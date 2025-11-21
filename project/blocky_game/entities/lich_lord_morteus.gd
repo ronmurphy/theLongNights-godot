@@ -3,10 +3,10 @@ extends FlyingEntity
 ## Lich Lord Morteus - Tier 5 BOSS
 ## Master of undead magic, uses terrain and minions strategically
 
-@export var chase_distance := 35.0
+@export var chase_distance := 120.0  # X-RAY: Ancient evil sees all!
 @export var preferred_distance := 20.0
 @export var min_distance := 12.0
-@export var attack_range := 30.0
+@export var attack_range := 100.0  # Lich magic reaches far!
 @export var attack_cooldown := 2.5
 @export var chase_speed := 6.0
 
