@@ -1303,36 +1303,29 @@ func _has_ring_of_thorns() -> bool:
 		return false
 
 	# Ring of Thorns is item ID 46, TYPE_ITEM = 1
-	var has_ring = (selected_item.id == 46 and selected_item.type == 1)
-	if selected_item.id == 46:
-		print("[Ring DEBUG] Item 46 detected! Type: %d (0=BLOCK, 1=ITEM), Has ring: %s" % [selected_item.type, has_ring])
-	return has_ring
+	return (selected_item.id == 46 and selected_item.type == 1)
 
 
 ## Toggle Ring of Thorns on/off (called by ring item's use() function)
 func toggle_ring_of_thorns() -> void:
 	"""Toggle the Ring of Thorns thorns on/off"""
-	print("🌿 toggle_ring_of_thorns() called - current state: %s" % _ring_of_thorns_active)
-
 	_ring_of_thorns_active = not _ring_of_thorns_active
 
 	if _ring_of_thorns_active:
 		# Activate thorns
 		if _thorn_orbs.is_empty():
 			_create_thorn_orbs()
-		print("🌿 Ring of Thorns ACTIVATED")
+		print("🌿 Ring of Thorns activated")
 	else:
 		# Deactivate thorns
 		if not _thorn_orbs.is_empty():
 			_remove_thorn_orbs()
-		print("🌿 Ring of Thorns DEACTIVATED")
+		print("🌿 Ring of Thorns deactivated")
 
 
 func _create_thorn_orbs() -> void:
 	"""Create 3 orbiting thorn projectiles"""
 	const Thorn = preload("res://blocky_game/projectiles/thorn.gd")
-
-	print("🌿 Creating Ring of Thorns - spawning 3 thorns...")
 
 	for i in range(3):
 		var thorn = Node3D.new()
@@ -1347,12 +1340,6 @@ func _create_thorn_orbs() -> void:
 
 		_thorn_orbs.append(thorn)
 
-		print("  - Thorn %d created at position: %v" % [i + 1, thorn.global_position])
-
-	print("🌿 Ring of Thorns activated - 3 thorns orbiting!")
-	print("  - Total thorn count: %d" % _thorn_orbs.size())
-	print("  - Player position: %v" % global_position)
-
 
 func _remove_thorn_orbs() -> void:
 	"""Remove all thorn orbs"""
@@ -1360,7 +1347,6 @@ func _remove_thorn_orbs() -> void:
 		if is_instance_valid(thorn):
 			thorn.queue_free()
 	_thorn_orbs.clear()
-	print("🌿 Ring of Thorns deactivated")
 
 
 func _launch_thorn_at_nearest_enemy() -> void:
