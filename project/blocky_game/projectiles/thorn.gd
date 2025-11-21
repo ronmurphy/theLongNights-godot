@@ -31,7 +31,8 @@ func _ready():
 	# Create visual representation - green glowing sphere with spikes
 	var thorn_mesh = MeshInstance3D.new()
 	var sphere = SphereMesh.new()
-	sphere.radii = Vector3(0.15, 0.15, 0.15)
+	sphere.radius = 0.15
+	sphere.height = 0.3  # Diameter (2 * radius)
 	sphere.rings = 8
 	sphere.radial_segments = 8
 	thorn_mesh.mesh = sphere
