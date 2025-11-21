@@ -1199,7 +1199,9 @@ func _populate_items():
 	# Define weapon/item IDs (exclude food IDs 13-39, Keeper's Charm ID 42)
 	var weapon_ids = range(0, 13)  # IDs 0-12: rocket_launcher through tree_feller
 	var misc_item_ids = [40, 41]  # light_orb, spear (excludes 42 = Keeper's Charm)
-	var all_item_ids = weapon_ids + misc_item_ids
+	var shield_ids = [43, 44, 45]  # wood_shield, shield, shield_crusader
+	var ring_ids = [46]  # ring_of_thorns
+	var all_item_ids = weapon_ids + misc_item_ids + shield_ids + ring_ids
 
 	# Create buttons for each item
 	for item_id in all_item_ids:
