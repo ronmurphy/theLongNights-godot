@@ -5,8 +5,15 @@ extends CanvasLayer
 var _pause_panel: Panel
 var _graphics_ui: Control
 var _is_paused := false
+var _click_sound: AudioStreamPlayer
 
 func _ready() -> void:
+	# Setup click sound
+	_click_sound = AudioStreamPlayer.new()
+	_click_sound.stream = load("res://assets/sfx/Select.ogg")
+	_click_sound.volume_db = -8.0
+	add_child(_click_sound)
+
 	_setup_ui()
 	process_mode = Node.PROCESS_MODE_ALWAYS  # Allow input when paused
 
@@ -66,6 +73,7 @@ func _setup_ui() -> void:
 	var resume_button = Button.new()
 	resume_button.text = "Resume (ESC)"
 	resume_button.custom_minimum_size = Vector2(0, 50)
+	resume_button.pressed.connect(_play_click_sound)
 	resume_button.pressed.connect(_on_resume_pressed)
 	vbox.add_child(resume_button)
 
@@ -73,6 +81,7 @@ func _setup_ui() -> void:
 	var save_button = Button.new()
 	save_button.text = "Save Game"
 	save_button.custom_minimum_size = Vector2(0, 50)
+	save_button.pressed.connect(_play_click_sound)
 	save_button.pressed.connect(_on_save_pressed)
 	vbox.add_child(save_button)
 
@@ -80,6 +89,7 @@ func _setup_ui() -> void:
 	var settings_button = Button.new()
 	settings_button.text = "Graphics Settings"
 	settings_button.custom_minimum_size = Vector2(0, 50)
+	settings_button.pressed.connect(_play_click_sound)
 	settings_button.pressed.connect(_on_graphics_settings_pressed)
 	vbox.add_child(settings_button)
 
@@ -87,6 +97,7 @@ func _setup_ui() -> void:
 	var quit_button = Button.new()
 	quit_button.text = "Save and Quit"
 	quit_button.custom_minimum_size = Vector2(0, 50)
+	quit_button.pressed.connect(_play_click_sound)
 	quit_button.pressed.connect(_on_save_and_quit_pressed)
 	vbox.add_child(quit_button)
 
@@ -122,6 +133,12 @@ func _on_graphics_settings_pressed() -> void:
 	var graphics_ui = load("res://blocky_game/gui/GraphicsSettingsUI.gd").new()
 	add_child(graphics_ui)
 	graphics_ui.show_modal()
+
+func _play_click_sound() -> void:
+	"""Play UI click sound"""
+	if _click_sound:
+		_click_sound.play()
+
 
 func _on_resume_pressed() -> void:
 	toggle_pause()

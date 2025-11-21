@@ -26,6 +26,12 @@ var is_alive: bool = true
 var _regen_timer: float = 0.0  # For 1 HP per 3 minutes
 const REGEN_INTERVAL: float = 180.0  # 3 minutes in seconds
 
+# Low health warning system
+var _low_health_sound: AudioStreamPlayer = null
+var _low_health_15_played: bool = false
+var _low_health_10_played: bool = false
+var _low_health_5_played: bool = false
+
 var _velocity := Vector3()
 var _grounded := false
 var _head : Node3D = null
@@ -124,6 +130,12 @@ func _ready():
 	
 	# Create player avatar billboard (hidden by default for testing)
 	_create_player_avatar()
+
+	# Setup low health warning sound
+	_low_health_sound = AudioStreamPlayer.new()
+	_low_health_sound.stream = load("res://assets/sfx/Low health.ogg")
+	_low_health_sound.volume_db = -5.0
+	add_child(_low_health_sound)
 
 	# Apply graphics settings to voxel viewer and rendering
 	_apply_graphics_settings()
@@ -1123,6 +1135,21 @@ func take_damage(amount: int, from: Node = null) -> void:
 
 	print("Player took %d damage (HP: %d/%d)" % [actual_damage, current_hp, max_hp])
 
+	# Check for low health warnings (play once each at 15%, 10%, 5%)
+	var health_percent = (float(current_hp) / float(max_hp)) * 100.0
+	if health_percent <= 5.0 and not _low_health_5_played and _low_health_sound:
+		_low_health_sound.play()
+		_low_health_5_played = true
+		print("⚠️ CRITICAL HEALTH: 5%!")
+	elif health_percent <= 10.0 and not _low_health_10_played and _low_health_sound:
+		_low_health_sound.play()
+		_low_health_10_played = true
+		print("⚠️ LOW HEALTH: 10%!")
+	elif health_percent <= 15.0 and not _low_health_15_played and _low_health_sound:
+		_low_health_sound.play()
+		_low_health_15_played = true
+		print("⚠️ LOW HEALTH: 15%!")
+
 	# Check for death
 	if current_hp <= 0:
 		die()
@@ -1135,6 +1162,15 @@ func heal(amount: int) -> void:
 
 	current_hp += amount
 	current_hp = min(max_hp, current_hp)
+
+	# Reset low health warnings when healed above thresholds
+	var health_percent = (float(current_hp) / float(max_hp)) * 100.0
+	if health_percent > 15.0:
+		_low_health_15_played = false
+	if health_percent > 10.0:
+		_low_health_10_played = false
+	if health_percent > 5.0:
+		_low_health_5_played = false
 
 	hp_changed.emit(current_hp, max_hp)
 	print("Player healed %d HP (HP: %d/%d)" % [amount, current_hp, max_hp])

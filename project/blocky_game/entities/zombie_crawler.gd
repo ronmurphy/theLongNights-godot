@@ -12,6 +12,9 @@ var _attack_timer := 0.0
 var _retarget_timer := 0.0
 const RETARGET_INTERVAL := 2.0
 
+# Attack sound
+var _attack_sound: AudioStreamPlayer = null
+
 
 func _ready():
 	entity_id = "zombie_crawler"
@@ -33,6 +36,12 @@ func _ready():
 	_sprite = _create_sprite("res://assets/art/entities/zombie_crawler_ready_pose_enhanced.png", 0.0025)
 	set_collision_box(Vector3(0.5, 1.0, 0.5))
 	_find_best_target()
+
+	# Setup attack sound
+	_attack_sound = AudioStreamPlayer.new()
+	_attack_sound.stream = load("res://assets/sfx/Zombie Crawler.ogg")
+	_attack_sound.volume_db = -5.0
+	add_child(_attack_sound)
 
 
 func _find_best_target():
@@ -100,6 +109,10 @@ func _perform_attack():
 
 	var target_name = _current_target.get("entity_name") if _current_target.has_method("get") else "target"
 	print("🧟 %s bites %s for %d damage!" % [entity_name, target_name, attack_damage])
+
+	# Play attack sound
+	if _attack_sound:
+		_attack_sound.play()
 
 	if _current_target.has_method("take_damage"):
 		_current_target.take_damage(attack_damage, self)

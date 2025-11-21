@@ -22,6 +22,12 @@ var _weapon_item: Node = null  # Reference to weapon item for attacking
 var _equipped_inv_item = null  # Inventory item with skyshard powers (weapon)
 var _equipped_accessory_item = null  # Accessory inventory item (second equip slot)
 
+# Low health warning system
+var _low_health_sound: AudioStreamPlayer = null
+var _low_health_15_played: bool = false
+var _low_health_10_played: bool = false
+var _low_health_5_played: bool = false
+
 ## AI parameters - Base values (modified by behavior mode)
 const BASE_FOLLOW_DISTANCE = 5.0  # Base follow distance
 const BASE_ATTACK_RANGE = 40.0  # Base attack range
@@ -161,7 +167,13 @@ func _ready():
 	# Connect to player's attack signal if available
 	if _player and _player.has_signal("attacked_entity"):
 		_player.attacked_entity.connect(_on_player_attacked)
-	
+
+	# Setup low health warning sound
+	_low_health_sound = AudioStreamPlayer.new()
+	_low_health_sound.stream = load("res://assets/sfx/Low health.ogg")
+	_low_health_sound.volume_db = -5.0
+	add_child(_low_health_sound)
+
 	# Initialize behavior mode (shows in PartyUI)
 	call_deferred("_initialize_behavior_mode")
 
@@ -918,6 +930,21 @@ func take_damage(amount: int, from: Node = null) -> void:
 	
 	super.take_damage(amount, from)
 
+	# Check for low health warnings (play once each at 15%, 10%, 5%)
+	var health_percent = (float(current_hp) / float(max_hp)) * 100.0
+	if health_percent <= 5.0 and not _low_health_5_played and _low_health_sound:
+		_low_health_sound.play()
+		_low_health_5_played = true
+		print("⚠️ %s CRITICAL HEALTH: 5%%!" % entity_name)
+	elif health_percent <= 10.0 and not _low_health_10_played and _low_health_sound:
+		_low_health_sound.play()
+		_low_health_10_played = true
+		print("⚠️ %s LOW HEALTH: 10%%!" % entity_name)
+	elif health_percent <= 15.0 and not _low_health_15_played and _low_health_sound:
+		_low_health_sound.play()
+		_low_health_15_played = true
+		print("⚠️ %s LOW HEALTH: 15%%!" % entity_name)
+
 	# Emit signal for PartyUI to update
 	# TODO: Connect to PartyUI
 	_update_party_ui()
@@ -926,6 +953,16 @@ func take_damage(amount: int, from: Node = null) -> void:
 ## Heal and emit signal for UI update
 func heal(amount: int) -> void:
 	super.heal(amount)
+
+	# Reset low health warnings when healed above thresholds
+	var health_percent = (float(current_hp) / float(max_hp)) * 100.0
+	if health_percent > 15.0:
+		_low_health_15_played = false
+	if health_percent > 10.0:
+		_low_health_10_played = false
+	if health_percent > 5.0:
+		_low_health_5_played = false
+
 	_update_party_ui()
 
 
