@@ -685,6 +685,7 @@ func _populate_player_blocks():
 
 func _on_block_selected(block_id: int, button: Button):
 	"""Handle shop block/item button click"""
+	print("[BlockSelector DEBUG] Item selected - ID: %d" % block_id)
 	_selected_block_id = block_id
 
 	# Remove highlight from previous button
@@ -747,12 +748,15 @@ func _on_block_selected(block_id: int, button: Button):
 	# BLOCKS/FOOD: Enable only when both items selected (1:1 barter)
 	if _shop_type == ShopType.FREE:
 		_add_button.disabled = false
+		print("[BlockSelector DEBUG] Trade button enabled (FREE mode)")
 	elif _shop_type == ShopType.ITEMS:
 		# ITEMS mode: Enable if shop item selected (for buying)
 		_add_button.disabled = false
+		print("[BlockSelector DEBUG] Trade button enabled (ITEMS mode - ready to buy item %d)" % block_id)
 	else:
 		# BLOCKS/FOOD mode: Require both items selected
 		_add_button.disabled = (_selected_player_block_id < 0)
+		print("[BlockSelector DEBUG] Trade button state: %s (BARTER mode)" % ("disabled" if _add_button.disabled else "enabled"))
 
 
 func _on_player_block_selected(block_id: int, button: Button, count: int):
@@ -831,7 +835,13 @@ func _on_player_block_selected(block_id: int, button: Button, count: int):
 
 func _on_trade_blocks():
 	"""Handle trading blocks or items in shop mode"""
+	print("[BlockSelector DEBUG] ==== Trade button clicked! ====")
+	print("[BlockSelector DEBUG] Shop type: %d (1=BLOCKS, 2=ITEMS, 3=FOOD)" % _shop_type)
+	print("[BlockSelector DEBUG] Selected shop item ID: %d" % _selected_block_id)
+	print("[BlockSelector DEBUG] Selected player item ID: %d" % _selected_player_block_id)
+
 	if not _player or not _inventory:
+		print("[BlockSelector ERROR] Player or inventory is null!")
 		_show_message("Error: Could not access inventory!", Color.RED)
 		return
 
@@ -839,6 +849,7 @@ func _on_trade_blocks():
 
 	# ITEMS mode uses different logic (buy/sell with rust blocks)
 	if _shop_type == ShopType.ITEMS:
+		print("[BlockSelector DEBUG] Routing to item shop transaction handler...")
 		_handle_item_shop_transaction()
 		return
 
