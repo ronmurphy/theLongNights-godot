@@ -379,22 +379,18 @@ func _physics_process(_delta):
 				if has_cube == false:
 					pos = hit.position
 
-				# SPECIAL HANDLING: Terrain Expansion blocks - generate immediately without placement mode
+				# SPECIAL HANDLING: Construction Expansion - expands current ruin from center
 				if inv_item != null and inv_item.has_meta("terrain_expansion_type"):
 					var expansion_type = inv_item.get_meta("terrain_expansion_type")
-					print("🌍 Terrain Expansion detected: %s" % expansion_type)
+					print("🏗️ Construction Expansion detected: %s" % expansion_type)
 
-					# Calculate position 130 blocks from player in facing direction (avoid overlap)
+					# Get player position (for finding current ruin)
 					var player_pos = get_parent().global_position  # Player body position
-					var facing_dir = -_head.global_transform.basis.z  # Forward direction
-					facing_dir.y = 0  # Keep on same Y level
-					facing_dir = facing_dir.normalized()
-					var generation_pos = player_pos + (facing_dir * 130.0)  # 130 blocks away
 
-					print("📍 Generating at position: %s (130 blocks from player)" % generation_pos)
+					print("📍 Expanding ruin at player position: %s" % player_pos)
 
-					# Generate the platform immediately
-					_generate_terrain_expansion(generation_pos, expansion_type)
+					# Expand the current ruin
+					_expand_current_ruin(player_pos)
 
 					# Decrement block count in hotbar (but NOT in creative mode)
 					if not _creative_mode:
@@ -2555,9 +2551,9 @@ func _rotate_position_y(pos: Vector3i, degrees: int, size: Vector3i) -> Vector3i
 	return result
 
 
-func _generate_terrain_expansion(pos: Vector3, expansion_type: String) -> void:
-	"""Generate a terrain expansion platform directly from inventory item (no placement mode)"""
-	print("🌍 Generating %s terrain expansion at %s" % [expansion_type, pos])
+func _expand_current_ruin(player_pos: Vector3) -> void:
+	"""Expand the ruin the player is currently standing on"""
+	print("🏗️ Expanding current ruin from player position: %s" % player_pos)
 
 	# Load PlatformExpansion generator
 	var PlatformExpansion = load("res://blocky_game/PlatformExpansion.gd")
@@ -2572,34 +2568,16 @@ func _generate_terrain_expansion(pos: Vector3, expansion_type: String) -> void:
 	var blocks = get_node("/root/Main/Game/Blocks")
 	generator.initialize(terrain, blocks)
 
-	# Call appropriate generation function based on expansion type
-	var success = false
-	if expansion_type == "wilderness":
-		success = await generator.generate_wilderness_platform(pos)
-	elif expansion_type == "construction":
-		success = await generator.generate_flat_platform(pos)
-	elif expansion_type == "extraction":
-		success = await generator.generate_terrain_extraction(pos)
+	# Expand the ruin
+	var success = await generator.expand_ruin(player_pos)
 
 	# Clean up generator
 	generator.queue_free()
 
 	if success:
-		print("✅ Terrain expansion generated successfully!")
-
-		# Teleport player to the teleport stone on the new platform
-		var ruin_spawner = get_node("/root/Main/Game/RuinSpawner")
-		if ruin_spawner:
-			var teleport_stone_pos = ruin_spawner.get_teleport_stone_position(pos, "flat_platform_120x120")
-			if teleport_stone_pos != Vector3.ZERO:
-				print("🌀 Teleporting player to new platform at: %s" % teleport_stone_pos)
-				# Teleport the player (CharacterBody3D parent)
-				var player_body = get_parent()
-				if player_body:
-					player_body.global_position = teleport_stone_pos + Vector3(0, 1, 0)  # +1 to stand on top
-					print("✅ Player teleported to new expansion platform!")
+		print("✅ Ruin expansion successful!")
 	else:
-		print("❌ Failed to generate terrain expansion")
+		print("❌ Failed to expand ruin")
 
 
 func _on_structure_purchased(blueprint_name: String) -> void:
