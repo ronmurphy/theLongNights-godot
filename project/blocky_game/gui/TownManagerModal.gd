@@ -1000,6 +1000,16 @@ func _handle_structure_purchase():
 			item.type = InventoryItem.TYPE_BLOCK
 			item.id = block_id
 			item.count = 1
+
+			# For land expansions, set special metadata to trigger direct generation
+			if _selected_blueprint.category == "land_expansion":
+				if _selected_blueprint.name == "wilderness_expansion":
+					item.set_meta("terrain_expansion_type", "wilderness")
+				elif _selected_blueprint.name == "construction_platform":
+					item.set_meta("terrain_expansion_type", "construction")
+				elif _selected_blueprint.name == "terrain_extraction":
+					item.set_meta("terrain_expansion_type", "extraction")
+
 			inventory._slots[i] = item
 			added = true
 			break
@@ -1035,7 +1045,11 @@ func _handle_structure_purchase():
 			"owned": true
 		}
 
-	print("✅ Purchased %s blueprint! Place the blueprint block and right-click it to build." % _selected_blueprint.display_name)
+	# Different messages for terrain expansions vs regular structures
+	if _selected_blueprint.category == "land_expansion":
+		print("✅ Purchased %s! Right-click to place 10 blocks from where you're facing." % _selected_blueprint.display_name)
+	else:
+		print("✅ Purchased %s blueprint! Place the blueprint block and right-click it to build." % _selected_blueprint.display_name)
 
 	# Emit tutorial signal if this is the first blueprint
 	if is_first_blueprint:
