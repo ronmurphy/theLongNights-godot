@@ -968,7 +968,7 @@ func _create_flat_platform_120x120() -> RuinTemplate:
 	"""
 	A simple 120x120 flat platform for base expansion
 	Just 3 layers: 1 layer dirt bottom, 1 layer dirt middle, 1 layer grass top
-	No structures, no teleport stones - pure building space!
+	Has a teleport stone in the center for player to arrive at
 	"""
 	var blocks = []
 	var platform_size = 120
@@ -988,7 +988,12 @@ func _create_flat_platform_120x120() -> RuinTemplate:
 		for z in range(platform_size):
 			blocks.append({"pos": Vector3i(x, 2, z), "block_id": 2, "variant": 0})  # grass
 
-	print("Created flat_platform_120x120 with ", blocks.size(), " blocks (120x120x3)")
+	# Teleport stone in the center with safe landing platform
+	var center = int(platform_size / 2)
+	var teleport_pos = Vector3i(center, 3, center)
+	_create_safe_landing_platform(blocks, teleport_pos, 19)  # ruin_floor platform
+	blocks.append({"pos": teleport_pos, "block_id": 20, "variant": 0})  # teleport_stone
 
-	# No teleport stones - pass empty array
-	return RuinTemplate.new("flat_platform_120x120", Vector3i(120, 3, 120), blocks, [], 0.0)
+	print("Created flat_platform_120x120 with ", blocks.size(), " blocks (120x120x3) + teleport stone at center")
+
+	return RuinTemplate.new("flat_platform_120x120", Vector3i(120, 4, 120), blocks, teleport_pos, 0.0)

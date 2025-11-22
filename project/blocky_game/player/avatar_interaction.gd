@@ -384,14 +384,14 @@ func _physics_process(_delta):
 					var expansion_type = inv_item.get_meta("terrain_expansion_type")
 					print("🌍 Terrain Expansion detected: %s" % expansion_type)
 
-					# Calculate position 10 blocks from player in facing direction
+					# Calculate position 130 blocks from player in facing direction (avoid overlap)
 					var player_pos = get_parent().global_position  # Player body position
 					var facing_dir = -_head.global_transform.basis.z  # Forward direction
 					facing_dir.y = 0  # Keep on same Y level
 					facing_dir = facing_dir.normalized()
-					var generation_pos = player_pos + (facing_dir * 10.0)
+					var generation_pos = player_pos + (facing_dir * 130.0)  # 130 blocks away
 
-					print("📍 Generating at position: %s (10 blocks from player)" % generation_pos)
+					print("📍 Generating at position: %s (130 blocks from player)" % generation_pos)
 
 					# Generate the platform immediately
 					_generate_terrain_expansion(generation_pos, expansion_type)
@@ -2586,6 +2586,18 @@ func _generate_terrain_expansion(pos: Vector3, expansion_type: String) -> void:
 
 	if success:
 		print("✅ Terrain expansion generated successfully!")
+
+		# Teleport player to the teleport stone on the new platform
+		var ruin_spawner = get_node("/root/Main/Game/RuinSpawner")
+		if ruin_spawner:
+			var teleport_stone_pos = ruin_spawner.get_teleport_stone_position(pos, "flat_platform_120x120")
+			if teleport_stone_pos != Vector3.ZERO:
+				print("🌀 Teleporting player to new platform at: %s" % teleport_stone_pos)
+				# Teleport the player (CharacterBody3D parent)
+				var player_body = get_parent()
+				if player_body:
+					player_body.global_position = teleport_stone_pos + Vector3(0, 1, 0)  # +1 to stand on top
+					print("✅ Player teleported to new expansion platform!")
 	else:
 		print("❌ Failed to generate terrain expansion")
 
