@@ -62,16 +62,30 @@ func _find_ruin_at_position(pos: Vector3) -> RuinRegistry.RuinData:
 	"""Find which ruin contains the given position"""
 	var ruins = RuinRegistry.get_all_ruins()
 
+	print("🔍 Looking for ruin at player position: %s" % pos)
+	print("🔍 Total ruins registered: %d" % ruins.size())
+
 	for ruin in ruins:
 		var ruin_pos = ruin.position
 		var ruin_size = ruin.ruin_size
+
+		print("  📦 Checking ruin '%s': pos=%s, size=%s" % [ruin.ruin_name, ruin_pos, ruin_size])
+		print("     Bounds: X[%s to %s], Y[%s to %s], Z[%s to %s]" % [
+			ruin_pos.x, ruin_pos.x + ruin_size.x,
+			ruin_pos.y, ruin_pos.y + ruin_size.y,
+			ruin_pos.z, ruin_pos.z + ruin_size.z
+		])
 
 		# Check if position is within ruin bounds
 		if pos.x >= ruin_pos.x and pos.x < ruin_pos.x + ruin_size.x and \
 		   pos.z >= ruin_pos.z and pos.z < ruin_pos.z + ruin_size.z and \
 		   pos.y >= ruin_pos.y and pos.y < ruin_pos.y + ruin_size.y:
+			print("  ✅ Match found!")
 			return ruin
+		else:
+			print("  ❌ No match")
 
+	print("❌ No ruin found at position")
 	return null
 
 
