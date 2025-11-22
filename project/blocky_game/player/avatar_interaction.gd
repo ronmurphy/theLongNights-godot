@@ -2452,12 +2452,17 @@ func _place_structure_at_position(pos: Vector3) -> void:
 		var game = get_node("/root/Main/Game")
 		game.add_child(generator)
 
+		# Initialize generator with terrain and blocks references
+		var terrain = get_node("/root/Main/Game/VoxelTerrain")
+		var blocks = get_node("/root/Main/Game/Blocks")
+		generator.initialize(terrain, blocks)
+
 		# Call appropriate generation function based on blueprint name
 		var success = false
 		if _placement_blueprint.name == "wilderness_expansion":
 			success = await generator.generate_wilderness_platform(pos)
 		elif _placement_blueprint.name == "construction_platform":
-			success = await generator.generate_construction_platform(pos)
+			success = await generator.generate_flat_platform(pos)
 		elif _placement_blueprint.name == "terrain_extraction":
 			success = await generator.generate_terrain_extraction(pos)
 
