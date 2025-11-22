@@ -33,7 +33,9 @@ var _trail_sprites: Array[Sprite3D] = []
 func _ready():
 	# Create visual representation - rotating sword sprite
 	_sprite = Sprite3D.new()
-	_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED  # Disable billboard so we can orient it
+
+	# IMPORTANT: Disable billboard completely - use integer 0 to ensure it's disabled
+	_sprite.billboard = 0  # SpriteBase3D.BILLBOARD_DISABLED
 	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 
 	# Load sword sprite (using sword item sprite)
@@ -51,6 +53,9 @@ func _ready():
 	_sprite.rotation_degrees = Vector3(-60, 0, 0)  # Tilt back 60 degrees (90 - 30 = point forward at 30 degree angle)
 
 	add_child(_sprite)
+
+	# Debug: Verify billboard is actually disabled
+	print("⚔️ Blade sprite billboard mode: ", _sprite.billboard)
 
 	# Add point light for glow effect
 	var light = OmniLight3D.new()
