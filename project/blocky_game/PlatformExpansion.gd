@@ -34,9 +34,16 @@ func expand_ruin(player_pos: Vector3) -> bool:
 		push_error("❌ This ruin has already been expanded!")
 		return false
 
-	# Calculate new bounds (expand from center)
-	var original_pos = current_ruin.position
-	var original_size = current_ruin.ruin_size
+	# Detect the ACTUAL current platform size (not just registered structure size)
+	# This accounts for homebase fences and any existing expansions
+	print("🔍 Scanning terrain to detect actual platform size...")
+	var actual_platform = _detect_actual_platform_size(current_ruin)
+
+	print("📏 Registered size: %s, Actual platform detected: %s" % [current_ruin.ruin_size, actual_platform.size])
+
+	# Calculate new bounds (expand from current platform, not just structure)
+	var original_pos = actual_platform.position
+	var original_size = actual_platform.size
 	var new_pos = original_pos - Vector3(EXPANSION_AMOUNT, 0, EXPANSION_AMOUNT)
 	var new_size = original_size + Vector3i(EXPANSION_AMOUNT * 2, 0, EXPANSION_AMOUNT * 2)
 
@@ -58,35 +65,118 @@ func expand_ruin(player_pos: Vector3) -> bool:
 		return false
 
 
+func _detect_actual_platform_size(ruin: RuinRegistry.RuinData) -> Dictionary:
+	"""
+	Scan the terrain to detect the actual current platform size
+	This accounts for homebase fences and any existing expansions
+	Returns: {position: Vector3, size: Vector3i}
+	"""
+	var voxel_tool = _terrain.get_voxel_tool()
+	if not voxel_tool:
+		push_warning("Could not get voxel tool, using registered size")
+		return {"position": ruin.position, "size": ruin.ruin_size}
+
+	const GRASS_ID = 2
+	const DIRT_ID = 1
+	const MAX_SCAN_DISTANCE = 150  # Don't scan more than 150 blocks in each direction
+
+	# Start from ruin center
+	var ruin_center = ruin.position + Vector3(ruin.ruin_size) / 2.0
+	var scan_y = int(ruin.position.y)  # Scan at the bottom Y level of the ruin
+
+	# Scan in all 4 directions to find platform edges
+	var min_x = ruin_center.x
+	var max_x = ruin_center.x
+	var min_z = ruin_center.z
+	var max_z = ruin_center.z
+
+	# Scan East (+X)
+	for x_offset in range(1, MAX_SCAN_DISTANCE):
+		var check_pos = Vector3i(int(ruin_center.x) + x_offset, scan_y, int(ruin_center.z))
+		var voxel = voxel_tool.get_voxel(check_pos)
+		if voxel == GRASS_ID or voxel == DIRT_ID:
+			max_x = check_pos.x
+		else:
+			break
+
+	# Scan West (-X)
+	for x_offset in range(1, MAX_SCAN_DISTANCE):
+		var check_pos = Vector3i(int(ruin_center.x) - x_offset, scan_y, int(ruin_center.z))
+		var voxel = voxel_tool.get_voxel(check_pos)
+		if voxel == GRASS_ID or voxel == DIRT_ID:
+			min_x = check_pos.x
+		else:
+			break
+
+	# Scan South (+Z)
+	for z_offset in range(1, MAX_SCAN_DISTANCE):
+		var check_pos = Vector3i(int(ruin_center.x), scan_y, int(ruin_center.z) + z_offset)
+		var voxel = voxel_tool.get_voxel(check_pos)
+		if voxel == GRASS_ID or voxel == DIRT_ID:
+			max_z = check_pos.z
+		else:
+			break
+
+	# Scan North (-Z)
+	for z_offset in range(1, MAX_SCAN_DISTANCE):
+		var check_pos = Vector3i(int(ruin_center.x), scan_y, int(ruin_center.z) - z_offset)
+		var voxel = voxel_tool.get_voxel(check_pos)
+		if voxel == GRASS_ID or voxel == DIRT_ID:
+			min_z = check_pos.z
+		else:
+			break
+
+	# Calculate actual platform bounds
+	var actual_pos = Vector3(min_x, ruin.position.y, min_z)
+	var actual_size = Vector3i(int(max_x - min_x + 1), ruin.ruin_size.y, int(max_z - min_z + 1))
+
+	print("  Platform edges: X[%d to %d], Z[%d to %d]" % [min_x, max_x, min_z, max_z])
+
+	return {"position": actual_pos, "size": actual_size}
+
+
 func _find_ruin_at_position(pos: Vector3) -> RuinRegistry.RuinData:
-	"""Find which ruin contains the given position"""
+	"""Find the nearest ruin to the given position (within reasonable distance)"""
 	var ruins = RuinRegistry.get_all_ruins()
 
 	print("🔍 Looking for ruin at player position: %s" % pos)
 	print("🔍 Total ruins registered: %d" % ruins.size())
 
+	var nearest_ruin = null
+	var nearest_distance = INF
+	const MAX_SEARCH_DISTANCE = 100.0  # Player must be within 100 blocks horizontally
+
 	for ruin in ruins:
 		var ruin_pos = ruin.position
 		var ruin_size = ruin.ruin_size
 
-		print("  📦 Checking ruin '%s': pos=%s, size=%s" % [ruin.ruin_name, ruin_pos, ruin_size])
-		print("     Bounds: X[%s to %s], Y[%s to %s], Z[%s to %s]" % [
-			ruin_pos.x, ruin_pos.x + ruin_size.x,
-			ruin_pos.y, ruin_pos.y + ruin_size.y,
-			ruin_pos.z, ruin_pos.z + ruin_size.z
-		])
+		# Calculate ruin center (more accurate than corner)
+		var ruin_center = ruin_pos + Vector3(ruin_size) / 2.0
 
-		# Check if position is within ruin bounds
-		if pos.x >= ruin_pos.x and pos.x < ruin_pos.x + ruin_size.x and \
-		   pos.z >= ruin_pos.z and pos.z < ruin_pos.z + ruin_size.z and \
-		   pos.y >= ruin_pos.y and pos.y < ruin_pos.y + ruin_size.y:
-			print("  ✅ Match found!")
-			return ruin
-		else:
-			print("  ❌ No match")
+		# Calculate horizontal distance (ignore Y for now)
+		var horizontal_offset = Vector2(pos.x - ruin_center.x, pos.z - ruin_center.z)
+		var horizontal_distance = horizontal_offset.length()
 
-	print("❌ No ruin found at position")
-	return null
+		# Check if player is roughly at the same Y level (within ruin height + some tolerance)
+		var y_min = ruin_pos.y - 10  # Allow standing below ruin (on pyramid)
+		var y_max = ruin_pos.y + ruin_size.y + 50  # Allow standing well above ruin
+		var is_at_correct_height = pos.y >= y_min and pos.y <= y_max
+
+		print("  📦 Checking ruin '%s':" % ruin.ruin_name)
+		print("     Center: %s, Horizontal distance: %.1f blocks, Y check: %s" % [ruin_center, horizontal_distance, is_at_correct_height])
+
+		# If player is at the right height and closer than previous best match
+		if is_at_correct_height and horizontal_distance < nearest_distance and horizontal_distance <= MAX_SEARCH_DISTANCE:
+			nearest_ruin = ruin
+			nearest_distance = horizontal_distance
+			print("  ✅ New closest ruin! (distance: %.1f)" % horizontal_distance)
+
+	if nearest_ruin:
+		print("✅ Found nearest ruin: '%s' at distance %.1f blocks" % [nearest_ruin.ruin_name, nearest_distance])
+		return nearest_ruin
+	else:
+		print("❌ No ruin found within %d blocks" % MAX_SEARCH_DISTANCE)
+		return null
 
 
 func _expand_ruin_platform(original_pos: Vector3, original_size: Vector3i, new_pos: Vector3, new_size: Vector3i) -> bool:
