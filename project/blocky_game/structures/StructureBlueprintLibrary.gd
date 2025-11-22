@@ -298,19 +298,19 @@ func _register_underground_structures() -> void:
 
 
 func _register_land_expansions() -> void:
-	"""Register land expansion platforms (special - no templates, triggers platform generation)"""
+	"""Register land expansion structures (flat terrain lots)"""
 
-	# CONSTRUCTION EXPANSION - Expands existing ruin from center
-	var construction = StructureBlueprint.new(
-		"construction_expansion",
-		"Construction Expansion",
-		Vector3i(100, 3, 100),  # Adds 50 blocks in each direction (100 total)
-		"land_expansion",
-		"Expands current ruin +50 blocks each direction. Preserves structures. ONE TIME per ruin.",
-		400  # 400 rust blocks
+	# LAND LOT - 10×10 flat terrain (grass, 2 dirt, 1 stone)
+	var land_lot = StructureBlueprint.new(
+		"land_lot",
+		"Land Lot (10×10)",
+		Vector3i(10, 4, 10),  # 10×10 base, 4 layers tall
+		"terrain",
+		"Flat 10×10 land lot. Place multiple lots to expand your building area. Layers: grass, dirt, dirt, stone.",
+		100  # 100 rust blocks
 	)
-	# No template needed - handled by PlatformExpansion.gd
-	_blueprints["construction_expansion"] = construction
+	_build_land_lot_template(land_lot)
+	_blueprints["land_lot"] = land_lot
 
 
 ## ============================================================================
@@ -956,6 +956,31 @@ func _build_bunker_template(bp: StructureBlueprint) -> void:
 			bp.add_block(Vector3i(1, y, z), "stone")
 			bp.add_block(Vector3i(9, y, z), "stone")
 			bp.add_block(Vector3i(8, y, z), "stone")
+
+
+func _build_land_lot_template(bp: StructureBlueprint) -> void:
+	"""Build 10×10 land lot - Flat terrain with grass, dirt, and stone layers
+	4 layers: stone (bottom), dirt, dirt, grass (top)"""
+
+	# Layer 0: Stone (bottom foundation)
+	for x in range(10):
+		for z in range(10):
+			bp.add_block(Vector3i(x, 0, z), "stone")
+
+	# Layer 1: Dirt
+	for x in range(10):
+		for z in range(10):
+			bp.add_block(Vector3i(x, 1, z), "dirt")
+
+	# Layer 2: Dirt
+	for x in range(10):
+		for z in range(10):
+			bp.add_block(Vector3i(x, 2, z), "dirt")
+
+	# Layer 3: Grass (top surface)
+	for x in range(10):
+		for z in range(10):
+			bp.add_block(Vector3i(x, 3, z), "grass")
 
 
 ## ============================================================================

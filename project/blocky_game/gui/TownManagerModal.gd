@@ -432,9 +432,9 @@ func _populate_options_list():
 	expansion_header.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
 	_options_container.add_child(expansion_header)
 
-	# Add land expansion buttons
-	var expansion_blueprints = StructureBlueprintLibrary.get_blueprints_by_category("land_expansion")
-	for bp in expansion_blueprints:
+	# Add terrain/land lot buttons
+	var terrain_blueprints = StructureBlueprintLibrary.get_blueprints_by_category("terrain")
+	for bp in terrain_blueprints:
 		var btn = _create_expansion_button(bp)
 		_options_container.add_child(btn)
 
@@ -902,13 +902,9 @@ func _handle_structure_purchase():
 		print("❌ Inventory not found!")
 		return
 
-	# Check if this is a land expansion (special handling)
-	var is_expansion = _selected_blueprint.category == "land_expansion"
+	# All structures cost rust blocks
 	var actual_cost = _selected_blueprint.rust_block_cost
-
-	if is_expansion:
-		# Construction expansion always costs rust blocks
-		print("💰 %s costs %d rust blocks" % [_selected_blueprint.display_name, actual_cost])
+	print("💰 %s costs %d rust blocks" % [_selected_blueprint.display_name, actual_cost])
 
 	# Check if player can afford it
 	if _rust_count < actual_cost:
@@ -950,13 +946,8 @@ func _handle_structure_purchase():
 			item.id = block_id
 			item.count = 1
 
-			# For land expansions, set special metadata to trigger direct generation
-			if _selected_blueprint.category == "land_expansion":
-				if _selected_blueprint.name == "construction_expansion":
-					item.set_meta("terrain_expansion_type", "construction")
-					item.set_meta("custom_tooltip", "Construction Expansion (30 blocks each direction)")
-			# For regular structures, set custom tooltip with blueprint name
-			elif _selected_blueprint.category in ["homebase", "utility", "defensive", "production", "underground"]:
+			# Set custom tooltip with blueprint name for all structures
+			if _selected_blueprint.category in ["homebase", "utility", "defensive", "production", "underground", "terrain"]:
 				item.set_meta("custom_tooltip", _selected_blueprint.display_name + " Blueprint")
 
 			inventory._slots[i] = item
@@ -994,11 +985,8 @@ func _handle_structure_purchase():
 			"owned": true
 		}
 
-	# Different messages for terrain expansions vs regular structures
-	if _selected_blueprint.category == "land_expansion":
-		print("✅ Purchased %s! Right-click to place 10 blocks from where you're facing." % _selected_blueprint.display_name)
-	else:
-		print("✅ Purchased %s blueprint! Place the blueprint block and right-click it to build." % _selected_blueprint.display_name)
+	# Success message
+	print("✅ Purchased %s blueprint! Place the blueprint block and right-click it to build." % _selected_blueprint.display_name)
 
 	# Emit tutorial signal if this is the first blueprint
 	if is_first_blueprint:

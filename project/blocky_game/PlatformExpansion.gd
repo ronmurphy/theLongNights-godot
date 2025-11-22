@@ -39,14 +39,21 @@ func expand_ruin(player_pos: Vector3) -> bool:
 
 	# Expand 50 blocks in each direction from center
 	var expansion_half = EXPANSION_AMOUNT
+
+	# Player is standing ON grass, so grass is at player_pos.y - 1
+	# Platform layers are: dirt (y-3), dirt (y-2), grass (y-1)
+	# So base Y should be player_pos.y - 3 (bottom dirt layer)
+	var base_y = player_pos.y - 3
+
 	var new_pos = Vector3(
 		ruin_center.x - expansion_half,
-		player_pos.y - 1,  # Use player's Y position - 1 for ground level
+		base_y,
 		ruin_center.z - expansion_half
 	)
 	var new_size = Vector3i(EXPANSION_AMOUNT * 2, GROUND_LAYERS, EXPANSION_AMOUNT * 2)
 
 	print("📐 Expanding from ruin center: %s" % ruin_center)
+	print("📐 Player standing at Y=%d, grass at Y=%d, base dirt at Y=%d" % [player_pos.y, player_pos.y - 1, base_y])
 	print("📐 New platform: pos=%s, size=%s" % [new_pos, new_size])
 
 	# Perform the expansion
