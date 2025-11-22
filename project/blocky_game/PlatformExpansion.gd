@@ -34,9 +34,16 @@ func expand_ruin(player_pos: Vector3) -> bool:
 		push_error("❌ This ruin has already been expanded!")
 		return false
 
-	# Calculate new bounds (expand from center)
-	var original_pos = current_ruin.position
-	var original_size = current_ruin.ruin_size
+	# Detect the ACTUAL current platform size (not just registered structure size)
+	# This accounts for homebase fences and any existing expansions
+	print("🔍 Scanning terrain to detect actual platform size...")
+	var actual_platform = _detect_actual_platform_size(current_ruin)
+
+	print("📏 Registered size: %s, Actual platform detected: %s" % [current_ruin.ruin_size, actual_platform.size])
+
+	# Calculate new bounds (expand from current platform, not just structure)
+	var original_pos = actual_platform.position
+	var original_size = actual_platform.size
 	var new_pos = original_pos - Vector3(EXPANSION_AMOUNT, 0, EXPANSION_AMOUNT)
 	var new_size = original_size + Vector3i(EXPANSION_AMOUNT * 2, 0, EXPANSION_AMOUNT * 2)
 
@@ -56,6 +63,76 @@ func expand_ruin(player_pos: Vector3) -> bool:
 	else:
 		print("❌ Ruin expansion failed!")
 		return false
+
+
+func _detect_actual_platform_size(ruin: RuinRegistry.RuinData) -> Dictionary:
+	"""
+	Scan the terrain to detect the actual current platform size
+	This accounts for homebase fences and any existing expansions
+	Returns: {position: Vector3, size: Vector3i}
+	"""
+	var voxel_tool = _terrain.get_voxel_tool()
+	if not voxel_tool:
+		push_warning("Could not get voxel tool, using registered size")
+		return {"position": ruin.position, "size": ruin.ruin_size}
+
+	const GRASS_ID = 2
+	const DIRT_ID = 1
+	const MAX_SCAN_DISTANCE = 150  # Don't scan more than 150 blocks in each direction
+
+	# Start from ruin center
+	var ruin_center = ruin.position + Vector3(ruin.ruin_size) / 2.0
+	var scan_y = int(ruin.position.y)  # Scan at the bottom Y level of the ruin
+
+	# Scan in all 4 directions to find platform edges
+	var min_x = ruin_center.x
+	var max_x = ruin_center.x
+	var min_z = ruin_center.z
+	var max_z = ruin_center.z
+
+	# Scan East (+X)
+	for x_offset in range(1, MAX_SCAN_DISTANCE):
+		var check_pos = Vector3i(int(ruin_center.x) + x_offset, scan_y, int(ruin_center.z))
+		var voxel = voxel_tool.get_voxel(check_pos)
+		if voxel == GRASS_ID or voxel == DIRT_ID:
+			max_x = check_pos.x
+		else:
+			break
+
+	# Scan West (-X)
+	for x_offset in range(1, MAX_SCAN_DISTANCE):
+		var check_pos = Vector3i(int(ruin_center.x) - x_offset, scan_y, int(ruin_center.z))
+		var voxel = voxel_tool.get_voxel(check_pos)
+		if voxel == GRASS_ID or voxel == DIRT_ID:
+			min_x = check_pos.x
+		else:
+			break
+
+	# Scan South (+Z)
+	for z_offset in range(1, MAX_SCAN_DISTANCE):
+		var check_pos = Vector3i(int(ruin_center.x), scan_y, int(ruin_center.z) + z_offset)
+		var voxel = voxel_tool.get_voxel(check_pos)
+		if voxel == GRASS_ID or voxel == DIRT_ID:
+			max_z = check_pos.z
+		else:
+			break
+
+	# Scan North (-Z)
+	for z_offset in range(1, MAX_SCAN_DISTANCE):
+		var check_pos = Vector3i(int(ruin_center.x), scan_y, int(ruin_center.z) - z_offset)
+		var voxel = voxel_tool.get_voxel(check_pos)
+		if voxel == GRASS_ID or voxel == DIRT_ID:
+			min_z = check_pos.z
+		else:
+			break
+
+	# Calculate actual platform bounds
+	var actual_pos = Vector3(min_x, ruin.position.y, min_z)
+	var actual_size = Vector3i(int(max_x - min_x + 1), ruin.ruin_size.y, int(max_z - min_z + 1))
+
+	print("  Platform edges: X[%d to %d], Z[%d to %d]" % [min_x, max_x, min_z, max_z])
+
+	return {"position": actual_pos, "size": actual_size}
 
 
 func _find_ruin_at_position(pos: Vector3) -> RuinRegistry.RuinData:
