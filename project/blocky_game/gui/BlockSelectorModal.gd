@@ -1262,7 +1262,8 @@ func _populate_items():
 	var misc_item_ids = [40, 41]  # light_orb, spear (excludes 42 = Keeper's Charm)
 	var shield_ids = [43, 44, 45]  # wood_shield, shield, shield_crusader
 	var ring_ids = [46]  # ring_of_thorns
-	var all_item_ids = weapon_ids + misc_item_ids + shield_ids + ring_ids
+	var special_weapon_ids = [47]  # blade_of_pursuit
+	var all_item_ids = weapon_ids + misc_item_ids + shield_ids + ring_ids + special_weapon_ids
 
 	# Create buttons for each item
 	for item_id in all_item_ids:
@@ -1440,7 +1441,8 @@ func _populate_player_items():
 	var misc_item_ids = [40, 41]  # light_orb, spear (excludes 42 = Keeper's Charm)
 	var shield_ids = [43, 44, 45]  # wood_shield, shield, shield_crusader
 	var ring_ids = [46]  # ring_of_thorns
-	var all_item_ids = weapon_ids + misc_item_ids + shield_ids + ring_ids
+	var special_weapon_ids = [47]  # blade_of_pursuit
+	var all_item_ids = weapon_ids + misc_item_ids + shield_ids + ring_ids + special_weapon_ids
 
 	# Note: Equipped items are stored in separate slots (_player_weapon_slot, _companion_weapon_slot,
 	# _companion_accessory_slot) and are NOT in the _slots array, so they won't appear in the sell list

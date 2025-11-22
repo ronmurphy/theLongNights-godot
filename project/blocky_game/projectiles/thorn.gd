@@ -26,9 +26,7 @@ var orbit_speed := 2.0  # Radians per second
 var target_enemy = null
 
 func _ready():
-	print("    🌿 Thorn _ready() called - creating visual...")
-
-	# Create visual representation - green glowing sphere with spikes
+	# Create visual representation - green glowing sphere
 	var thorn_mesh = MeshInstance3D.new()
 	var sphere = SphereMesh.new()
 	sphere.radius = 0.15
@@ -47,16 +45,12 @@ func _ready():
 	thorn_mesh.material_override = mat
 	add_child(thorn_mesh)
 
-	print("    🌿 Thorn mesh created and added as child")
-
 	# Add green point light for glow effect
 	var light = OmniLight3D.new()
 	light.light_color = Color(0.3, 1.0, 0.3)
 	light.light_energy = 0.5
 	light.omni_range = 2.0
 	add_child(light)
-
-	print("    🌿 Thorn light created - visual complete!")
 
 func _process(delta: float):
 	match mode:
@@ -81,15 +75,10 @@ func _process_orbiting(delta: float):
 	)
 
 	# Position around owner
-	var new_position = owner_entity.global_position + offset
-	global_position = new_position
+	global_position = owner_entity.global_position + offset
 
 	# Rotate to face outward from orbit center
 	look_at(global_position + offset.normalized(), Vector3.UP)
-
-	# Debug: Print position every 60 frames (about once per second)
-	if Engine.get_process_frames() % 60 == 0:
-		print("    🌿 Thorn orbiting at: %v (visible: %s, children: %d)" % [global_position, visible, get_child_count()])
 
 func _process_attacking(delta: float):
 	if not is_instance_valid(target_enemy):

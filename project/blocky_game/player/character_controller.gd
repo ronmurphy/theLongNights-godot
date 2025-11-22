@@ -58,6 +58,10 @@ var _thorn_attack_timer := 0.0  # Timer for auto-attack (every 2 seconds)
 const THORN_ATTACK_INTERVAL = 2.0  # Seconds between auto-attacks
 const THORN_ATTACK_RANGE = 15.0  # Blocks to search for enemies
 
+## Blade of Pursuit system
+var _blade_of_pursuit_cooldown := 0.0  # Cooldown timer
+const BLADE_OF_PURSUIT_COOLDOWN = 3.0  # 3 second cooldown
+
 ## Player avatar billboard
 var _player_avatar: PlayerAvatar = null
 var _show_avatar: bool = true # Toggle for testing (set to true to see billboard)
@@ -276,6 +280,10 @@ func _physics_process(delta: float):
 
 	# Handle Ring of Thorns (orbiting projectiles that auto-attack)
 	_update_ring_of_thorns(delta)
+
+	# Handle Blade of Pursuit cooldown
+	if _blade_of_pursuit_cooldown > 0.0:
+		_blade_of_pursuit_cooldown -= delta
 
 	# Handle void_fog damage (5 damage when moving to a new fog block)
 	if has_node(terrain):
@@ -1303,36 +1311,29 @@ func _has_ring_of_thorns() -> bool:
 		return false
 
 	# Ring of Thorns is item ID 46, TYPE_ITEM = 1
-	var has_ring = (selected_item.id == 46 and selected_item.type == 1)
-	if selected_item.id == 46:
-		print("[Ring DEBUG] Item 46 detected! Type: %d (0=BLOCK, 1=ITEM), Has ring: %s" % [selected_item.type, has_ring])
-	return has_ring
+	return (selected_item.id == 46 and selected_item.type == 1)
 
 
 ## Toggle Ring of Thorns on/off (called by ring item's use() function)
 func toggle_ring_of_thorns() -> void:
 	"""Toggle the Ring of Thorns thorns on/off"""
-	print("🌿 toggle_ring_of_thorns() called - current state: %s" % _ring_of_thorns_active)
-
 	_ring_of_thorns_active = not _ring_of_thorns_active
 
 	if _ring_of_thorns_active:
 		# Activate thorns
 		if _thorn_orbs.is_empty():
 			_create_thorn_orbs()
-		print("🌿 Ring of Thorns ACTIVATED")
+		print("🌿 Ring of Thorns activated")
 	else:
 		# Deactivate thorns
 		if not _thorn_orbs.is_empty():
 			_remove_thorn_orbs()
-		print("🌿 Ring of Thorns DEACTIVATED")
+		print("🌿 Ring of Thorns deactivated")
 
 
 func _create_thorn_orbs() -> void:
 	"""Create 3 orbiting thorn projectiles"""
 	const Thorn = preload("res://blocky_game/projectiles/thorn.gd")
-
-	print("🌿 Creating Ring of Thorns - spawning 3 thorns...")
 
 	for i in range(3):
 		var thorn = Node3D.new()
@@ -1347,12 +1348,6 @@ func _create_thorn_orbs() -> void:
 
 		_thorn_orbs.append(thorn)
 
-		print("  - Thorn %d created at position: %v" % [i + 1, thorn.global_position])
-
-	print("🌿 Ring of Thorns activated - 3 thorns orbiting!")
-	print("  - Total thorn count: %d" % _thorn_orbs.size())
-	print("  - Player position: %v" % global_position)
-
 
 func _remove_thorn_orbs() -> void:
 	"""Remove all thorn orbs"""
@@ -1360,7 +1355,6 @@ func _remove_thorn_orbs() -> void:
 		if is_instance_valid(thorn):
 			thorn.queue_free()
 	_thorn_orbs.clear()
-	print("🌿 Ring of Thorns deactivated")
 
 
 func _launch_thorn_at_nearest_enemy() -> void:
@@ -1394,6 +1388,35 @@ func _launch_thorn_at_nearest_enemy() -> void:
 				thorn.launch_at_enemy(nearest_enemy)
 				print("🌿 Thorn launched at %s" % nearest_enemy.entity_name)
 				break
+
+
+## Blade of Pursuit system - Chain-attacking flying sword
+func is_blade_of_pursuit_ready() -> bool:
+	"""Check if Blade of Pursuit is off cooldown"""
+	return _blade_of_pursuit_cooldown <= 0.0
+
+
+func launch_blade_of_pursuit(start_pos: Vector3) -> void:
+	"""Launch the Blade of Pursuit at enemies"""
+	if _blade_of_pursuit_cooldown > 0.0:
+		return  # Still on cooldown
+
+	# Start cooldown
+	_blade_of_pursuit_cooldown = BLADE_OF_PURSUIT_COOLDOWN
+
+	# Create flying blade
+	const FlyingBlade = preload("res://blocky_game/projectiles/flying_blade.gd")
+	var blade = Node3D.new()
+	blade.set_script(FlyingBlade)
+
+	# Add to game scene (not as child of player)
+	var game = get_node("/root/Main/Game")
+	if game:
+		game.add_child(blade)
+		blade.initialize(start_pos, self)
+		print("⚔️ Blade of Pursuit launched!")
+	else:
+		blade.queue_free()
 
 
 ## Player death
