@@ -247,16 +247,30 @@ func _copy_terrain_volume(source_base: Vector3i, dest_base: Vector3i, voxel_tool
 
 
 func _generate_platform_base(spawn_pos: Vector3, is_wilderness: bool) -> bool:
-	"""Generate the platform base by placing blocks directly (no VoxelViewer needed)"""
+	"""Generate the platform base with optimized VoxelViewer for 160x160 area"""
 	if not _terrain:
 		push_error("PlatformExpansion: Terrain not initialized")
 		return false
 
-	print("Building platform directly (chunks will load as blocks are placed)...")
+	# FORCE CHUNK GENERATION: Create temporary VoxelViewer at center of platform
+	print("Creating VoxelViewer for 160x160 area...")
+	var temp_viewer = VoxelViewer.new()
+	# Position at CENTER of platform for optimal coverage
+	temp_viewer.position = spawn_pos + Vector3(PLATFORM_SIZE_BLOCKS / 2, 0, PLATFORM_SIZE_BLOCKS / 2)
+	temp_viewer.view_distance = 100  # 200-block diameter covers 160x160 + pyramid
+	temp_viewer.requires_visuals = false  # Don't need visuals, just chunks
+	temp_viewer.requires_collisions = false  # Don't need collisions either
+	_terrain.add_child(temp_viewer)
+
+	# Wait for chunks to generate
+	print("Waiting for chunks to load (2 seconds)...")
+	await get_tree().create_timer(2.0).timeout
+	print("Chunks loaded, building platform...")
 
 	# Get voxel tool
 	var voxel_tool = _terrain.get_voxel_tool()
 	if not voxel_tool:
+		temp_viewer.queue_free()
 		push_error("PlatformExpansion: Failed to get voxel tool")
 		return false
 
@@ -271,6 +285,9 @@ func _generate_platform_base(spawn_pos: Vector3, is_wilderness: bool) -> bool:
 
 	# Generate inverted pyramid support
 	var pyramid_blocks = _generate_inverted_pyramid(spawn_pos, voxel_tool)
+
+	# Clean up VoxelViewer
+	temp_viewer.queue_free()
 
 	print("Platform complete! Placed %d surface blocks + %d pyramid blocks" % [blocks_placed, pyramid_blocks])
 
