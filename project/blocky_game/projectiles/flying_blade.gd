@@ -33,7 +33,7 @@ var _trail_sprites: Array[Sprite3D] = []
 func _ready():
 	# Create visual representation - rotating sword sprite
 	_sprite = Sprite3D.new()
-	_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED  # Disable billboard so we can orient it
 	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 
 	# Load sword sprite (using sword item sprite)
@@ -44,6 +44,11 @@ func _ready():
 	# Make it glow and increase size for visibility
 	_sprite.modulate = Color(1.5, 1.5, 2.0, 1.0)  # Slight blue glow
 	_sprite.pixel_size = 0.05  # Increased from 0.02 for better visibility
+
+	# Orient sprite: Since the blade sprite points up-right in the texture,
+	# we need to rotate it to point forward and tilt back 30 degrees
+	# Sprite starts pointing up, so rotate to make it point forward
+	_sprite.rotation_degrees = Vector3(-60, 0, 0)  # Tilt back 60 degrees (90 - 30 = point forward at 30 degree angle)
 
 	add_child(_sprite)
 
@@ -66,9 +71,9 @@ func initialize(start_pos: Vector3, player: Node3D):
 
 
 func _process(delta: float):
-	# Rotate the sprite for visual effect
+	# Rotate the sprite around its local Z axis (roll) for spinning effect
 	if _sprite:
-		_sprite.rotate_y(_rotation_speed * delta)
+		_sprite.rotate_object_local(Vector3(0, 0, 1), _rotation_speed * delta)
 
 	# Update trail
 	_update_trail()
@@ -91,8 +96,10 @@ func _process_seeking(delta: float):
 	var direction = (current_target.global_position - global_position).normalized()
 	global_position += direction * speed * delta
 
-	# Point blade toward target
-	look_at(current_target.global_position, Vector3.UP)
+	# Point blade toward target (this orients the Node3D, sprite follows due to being a child)
+	# Use look_at to point the -Z axis toward the target
+	var target_position = current_target.global_position
+	look_at(target_position, Vector3.UP)
 
 	# Check if close enough to hit
 	var distance = global_position.distance_to(current_target.global_position)
@@ -110,6 +117,9 @@ func _process_returning(delta: float):
 	var target_pos = owner_entity.global_position + Vector3(0, 1, 0)  # Aim for chest height
 	var direction = (target_pos - global_position).normalized()
 	global_position += direction * speed * delta
+
+	# Point blade toward player while returning
+	look_at(target_pos, Vector3.UP)
 
 	# Check if close enough to player
 	var distance = global_position.distance_to(target_pos)
@@ -217,7 +227,7 @@ func _update_trail():
 		# Create new sprite if needed
 		if i >= _trail_sprites.size():
 			var trail_sprite = Sprite3D.new()
-			trail_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			trail_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED  # Trail uses billboard for simplicity
 			trail_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 			trail_sprite.texture = _sprite.texture
 			trail_sprite.pixel_size = 0.04
@@ -228,6 +238,10 @@ func _update_trail():
 		var trail_sprite = _trail_sprites[i]
 		if is_instance_valid(trail_sprite):
 			trail_sprite.global_position = _trail_points[i]
+			# Copy rotation from main blade for first few trail sprites
+			if i < 3:
+				trail_sprite.global_transform = global_transform
+				trail_sprite.global_position = _trail_points[i]  # Restore position after copying transform
 			# Fade based on distance from blade (older = more transparent)
 			var alpha = 1.0 - (float(i) / float(_trail_max_length))
 			trail_sprite.modulate = Color(0.7, 0.9, 1.2, alpha * 0.6)
