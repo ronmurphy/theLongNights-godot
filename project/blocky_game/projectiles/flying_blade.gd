@@ -47,10 +47,13 @@ func _ready():
 	_sprite.modulate = Color(1.5, 1.5, 2.0, 1.0)  # Slight blue glow
 	_sprite.pixel_size = 0.05  # Increased from 0.02 for better visibility
 
-	# Orient sprite: Since the blade sprite points up-right in the texture,
-	# we need to rotate it to point forward and tilt back 30 degrees
-	# Sprite starts pointing up, so rotate to make it point forward
-	_sprite.rotation_degrees = Vector3(-60, 0, 0)  # Tilt back 60 degrees (90 - 30 = point forward at 30 degree angle)
+	# Orient sprite: The blade texture points upper-right (~45 degrees from vertical)
+	# We need to:
+	# 1. Rotate 45 degrees around Z to make it point "up" in sprite space
+	# 2. Rotate 90 degrees around X to make it horizontal (pointing forward)
+	# 3. Then tilt back 30 degrees for the "flying" angle
+	# Combined: Rotate around X by -60, and around Z by 45
+	_sprite.rotation_degrees = Vector3(-60, 0, -135)  # X tilt + Z rotation to align blade direction
 
 	add_child(_sprite)
 
@@ -227,13 +230,13 @@ func _update_trail():
 			if is_instance_valid(old_sprite):
 				old_sprite.queue_free()
 
-	# Update trail sprites
+	# Update trail sprites - only update positions, not transforms to reduce visual clutter
 	for i in range(_trail_points.size()):
 		# Create new sprite if needed
 		if i >= _trail_sprites.size():
 			var trail_sprite = Sprite3D.new()
-			# Disable billboard completely for all trail sprites
-			trail_sprite.billboard = 0  # All trail sprites use manual orientation
+			# Trail sprites use billboard for simplicity and to avoid transform copying issues
+			trail_sprite.billboard = 1  # BaseMaterial3D.BILLBOARD_ENABLED
 			trail_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 			trail_sprite.texture = _sprite.texture
 			trail_sprite.pixel_size = 0.04
@@ -244,9 +247,6 @@ func _update_trail():
 		var trail_sprite = _trail_sprites[i]
 		if is_instance_valid(trail_sprite):
 			trail_sprite.global_position = _trail_points[i]
-			# Copy rotation from main blade for trail sprites
-			trail_sprite.global_transform = global_transform
-			trail_sprite.global_position = _trail_points[i]  # Restore position after copying transform
 			# Fade based on distance from blade (older = more transparent)
 			var alpha = 1.0 - (float(i) / float(_trail_max_length))
 			trail_sprite.modulate = Color(0.7, 0.9, 1.2, alpha * 0.6)
