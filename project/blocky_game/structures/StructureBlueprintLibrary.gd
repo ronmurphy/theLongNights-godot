@@ -300,41 +300,44 @@ func _register_underground_structures() -> void:
 func _register_land_expansions() -> void:
 	"""Register land expansion platforms (special - no templates, triggers platform generation)"""
 
-	# WILDERNESS EXPANSION - Natural terrain with hills and trees
-	var wilderness = StructureBlueprint.new(
-		"wilderness_expansion",
-		"Wilderness Expansion",
-		Vector3i(160, 10, 160),  # 10x10 chunks
-		"land_expansion",
-		"⚠️ PLACE ON EDGE OF HOMEBASE! Natural platform (160x160 blocks) with rolling hills and trees. Spawns 10 blocks away. First one FREE, then 500 rust blocks.",
-		500  # 500 rust blocks (after first free)
-	)
-	# No template needed - handled by PlatformExpansion.gd
-	_blueprints["wilderness_expansion"] = wilderness
+	# DISABLED - Terrain expansions are currently disabled
+	# TODO: Re-enable when system is working properly
 
-	# CONSTRUCTION PLATFORM - Flat building surface
-	var construction = StructureBlueprint.new(
-		"construction_platform",
-		"Construction Platform",
-		Vector3i(160, 10, 160),  # 10x10 chunks
-		"land_expansion",
-		"⚠️ PLACE ON EDGE OF HOMEBASE! Flat platform (160x160 blocks) for organized building. Spawns 10 blocks away. First one FREE, then 400 rust blocks.",
-		400  # 400 rust blocks (after first free)
-	)
-	# No template needed - handled by PlatformExpansion.gd
-	_blueprints["construction_platform"] = construction
+	## WILDERNESS EXPANSION - Natural terrain with hills and trees
+	#var wilderness = StructureBlueprint.new(
+		#"wilderness_expansion",
+		#"Wilderness Expansion",
+		#Vector3i(160, 10, 160),  # 10x10 chunks
+		#"land_expansion",
+		#"⚠️ PLACE ON EDGE OF HOMEBASE! Natural platform (160x160 blocks) with rolling hills and trees. Spawns 10 blocks away. First one FREE, then 500 rust blocks.",
+		#500  # 500 rust blocks (after first free)
+	#)
+	## No template needed - handled by PlatformExpansion.gd
+	#_blueprints["wilderness_expansion"] = wilderness
 
-	# TERRAIN EXTRACTION - Rips terrain from ground and lifts to sky (LORE ACCURATE!)
-	var extraction = StructureBlueprint.new(
-		"terrain_extraction",
-		"Terrain Extraction",
-		Vector3i(160, 20, 160),  # 10x10 chunks
-		"land_expansion",
-		"⚠️ PLACE ON EDGE OF HOMEBASE! Rips a 160x160x20 chunk of terrain from the ground beneath you and places it in the sky. LORE ACCURATE sky ruin creation! Spawns 10 blocks away. First one FREE ONLY!",
-		0  # Always FREE (one-time only)
-	)
-	# No template needed - handled by PlatformExpansion.gd
-	_blueprints["terrain_extraction"] = extraction
+	## CONSTRUCTION PLATFORM - Flat building surface
+	#var construction = StructureBlueprint.new(
+		#"construction_platform",
+		#"Construction Platform",
+		#Vector3i(160, 10, 160),  # 10x10 chunks
+		#"land_expansion",
+		#"⚠️ PLACE ON EDGE OF HOMEBASE! Flat platform (160x160 blocks) for organized building. Spawns 10 blocks away. First one FREE, then 400 rust blocks.",
+		#400  # 400 rust blocks (after first free)
+	#)
+	## No template needed - handled by PlatformExpansion.gd
+	#_blueprints["construction_platform"] = construction
+
+	## TERRAIN EXTRACTION - Rips terrain from ground and lifts to sky (LORE ACCURATE!)
+	#var extraction = StructureBlueprint.new(
+		#"terrain_extraction",
+		#"Terrain Extraction",
+		#Vector3i(160, 20, 160),  # 10x10 chunks
+		#"land_expansion",
+		#"⚠️ PLACE ON EDGE OF HOMEBASE! Rips a 160x160x20 chunk of terrain from the ground beneath you and places it in the sky. LORE ACCURATE sky ruin creation! Spawns 10 blocks away. First one FREE ONLY!",
+		#0  # Always FREE (one-time only)
+	#)
+	## No template needed - handled by PlatformExpansion.gd
+	#_blueprints["terrain_extraction"] = extraction
 
 
 ## ============================================================================
