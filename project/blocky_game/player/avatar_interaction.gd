@@ -2440,6 +2440,37 @@ func _place_structure_at_position(pos: Vector3) -> void:
 		# Clear the metadata
 		remove_meta("current_blueprint_block_pos")
 
+	# SPECIAL HANDLING: Land Expansion blueprints (generate terrain instead of placing voxels)
+	if _placement_blueprint.category == "land_expansion":
+		print("🌍 Generating land expansion: %s" % _placement_blueprint.display_name)
+
+		# Load PlatformExpansion generator
+		var PlatformExpansion = load("res://blocky_game/PlatformExpansion.gd")
+		var generator = PlatformExpansion.new()
+
+		# Add generator to scene tree temporarily (needed for async operations)
+		var game = get_node("/root/Main/Game")
+		game.add_child(generator)
+
+		# Call appropriate generation function based on blueprint name
+		var success = false
+		if _placement_blueprint.name == "wilderness_expansion":
+			success = await generator.generate_wilderness_platform(pos)
+		elif _placement_blueprint.name == "construction_platform":
+			success = await generator.generate_construction_platform(pos)
+		elif _placement_blueprint.name == "terrain_extraction":
+			success = await generator.generate_terrain_extraction(pos)
+
+		# Clean up generator
+		generator.queue_free()
+
+		if success:
+			print("✅ Land expansion '%s' generated successfully!" % _placement_blueprint.display_name)
+		else:
+			print("❌ Failed to generate land expansion '%s'" % _placement_blueprint.display_name)
+
+		return  # Skip normal voxel placement for land expansions
+
 	# Load voxel library
 	var voxel_library = load("res://blocky_game/blocks/voxel_library.tres")
 
@@ -2496,7 +2527,7 @@ func _rotate_position_y(pos: Vector3i, degrees: int, size: Vector3i) -> Vector3i
 
 
 func _on_structure_purchased(blueprint_name: String) -> void:
-	"""Handle structure blueprint purchase"""
+	"""Handle structure blueprint purchase (payment already handled by TownManagerModal)"""
 	print("✅ Purchased structure blueprint: %s" % blueprint_name)
 
 	# Get blueprint
@@ -2505,10 +2536,8 @@ func _on_structure_purchased(blueprint_name: String) -> void:
 		print("❌ Blueprint not found: %s" % blueprint_name)
 		return
 
-	# Deduct rust blocks from inventory
-	if _inventory and _inventory.has_method("spend_rust_blocks"):
-		_inventory.spend_rust_blocks(blueprint.rust_block_cost)
-		print("💰 Spent %d rust blocks" % blueprint.rust_block_cost)
+	# NOTE: Rust block payment already handled by TownManagerModal (including free claim logic)
+	# Do NOT deduct again here!
 
 	# Enter structure placement mode
 	_enter_placement_mode(blueprint)
