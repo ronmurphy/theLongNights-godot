@@ -34,8 +34,8 @@ func _ready():
 	# Create visual representation - rotating sword sprite
 	_sprite = Sprite3D.new()
 
-	# IMPORTANT: Disable billboard completely - use integer 0 to ensure it's disabled
-	_sprite.billboard = 0  # SpriteBase3D.BILLBOARD_DISABLED
+	# Use Y-axis billboard - sprite can rotate around Y to face camera but respects XZ orientation
+	_sprite.billboard = 2  # BaseMaterial3D.BILLBOARD_FIXED_Y
 	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 
 	# Load sword sprite (using sword item sprite)
@@ -47,17 +47,12 @@ func _ready():
 	_sprite.modulate = Color(1.5, 1.5, 2.0, 1.0)  # Slight blue glow
 	_sprite.pixel_size = 0.05  # Increased from 0.02 for better visibility
 
-	# Orient sprite: The blade texture points upper-right (~45 degrees from vertical)
-	# We need to:
-	# 1. Rotate 45 degrees around Z to make it point "up" in sprite space
-	# 2. Rotate 90 degrees around X to make it horizontal (pointing forward)
-	# 3. Then tilt back 30 degrees for the "flying" angle
-	# Combined: Rotate around X by -60, and around Z by 45
-	_sprite.rotation_degrees = Vector3(-60, 0, -135)  # X tilt + Z rotation to align blade direction
+	# With Y-billboard, the sprite will face camera but still tilt based on node orientation
+	# No manual rotation needed - the blade will orient based on look_at() calls
 
 	add_child(_sprite)
 
-	# Debug: Verify billboard is actually disabled
+	# Debug: Verify billboard mode
 	print("⚔️ Blade sprite billboard mode: ", _sprite.billboard)
 
 	# Add point light for glow effect
@@ -79,9 +74,7 @@ func initialize(start_pos: Vector3, player: Node3D):
 
 
 func _process(delta: float):
-	# Rotate the sprite around its local Z axis (roll) for spinning effect
-	if _sprite:
-		_sprite.rotate_object_local(Vector3(0, 0, 1), _rotation_speed * delta)
+	# Don't rotate sprite manually - let Y-billboard and look_at() handle orientation
 
 	# Update trail
 	_update_trail()
