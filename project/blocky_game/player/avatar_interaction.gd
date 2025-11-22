@@ -2669,6 +2669,12 @@ func _handle_chest_interaction(chest_pos: Vector3) -> void:
 			loot_messages.append("Blade of Pursuit")
 			print("Very rare drop: Found Blade of Pursuit!")
 
+		# 4% chance to find Ring of Teleportation (rare utility ring)
+		if randf() < 0.04:
+			loot_items.append({"id": 48, "count": 1})  # ring_of_teleportation
+			loot_messages.append("Ring of Teleportation")
+			print("Rare drop: Found Ring of Teleportation!")
+
 		# Always give a weapon/tool
 		var loot_table = [
 			{"id": 0, "name": "Rocket Launcher"},

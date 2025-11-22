@@ -62,6 +62,10 @@ const THORN_ATTACK_RANGE = 15.0  # Blocks to search for enemies
 var _blade_of_pursuit_cooldown := 0.0  # Cooldown timer
 const BLADE_OF_PURSUIT_COOLDOWN = 3.0  # 3 second cooldown
 
+## Ring of Teleportation system
+var _teleport_ring_cooldown := 0.0  # Cooldown timer
+const TELEPORT_RING_COOLDOWN = 30.0  # 30 second cooldown
+
 ## Player avatar billboard
 var _player_avatar: PlayerAvatar = null
 var _show_avatar: bool = true # Toggle for testing (set to true to see billboard)
@@ -284,6 +288,10 @@ func _physics_process(delta: float):
 	# Handle Blade of Pursuit cooldown
 	if _blade_of_pursuit_cooldown > 0.0:
 		_blade_of_pursuit_cooldown -= delta
+
+	# Handle Ring of Teleportation cooldown
+	if _teleport_ring_cooldown > 0.0:
+		_teleport_ring_cooldown -= delta
 
 	# Handle void_fog damage (5 damage when moving to a new fog block)
 	if has_node(terrain):
@@ -1417,6 +1425,53 @@ func launch_blade_of_pursuit(start_pos: Vector3) -> void:
 		print("⚔️ Blade of Pursuit launched!")
 	else:
 		blade.queue_free()
+
+
+## Ring of Teleportation system - Teleports player to targeted location
+func is_teleport_ring_ready() -> bool:
+	"""Check if Ring of Teleportation is off cooldown"""
+	return _teleport_ring_cooldown <= 0.0
+
+
+func get_teleport_ring_cooldown() -> float:
+	"""Get remaining cooldown time for Ring of Teleportation"""
+	return _teleport_ring_cooldown
+
+
+func teleport_to_target(trans: Transform3D) -> void:
+	"""Teleport player to targeted location via raycast"""
+	if _teleport_ring_cooldown > 0.0:
+		return  # Still on cooldown
+
+	# Get terrain for raycasting
+	if not has_node(terrain):
+		print("🔮 Cannot teleport - terrain not found!")
+		return
+
+	var terrain_node: VoxelTerrain = get_node(terrain)
+	var terrain_tool = terrain_node.get_voxel_tool()
+	terrain_tool.channel = VoxelBuffer.CHANNEL_TYPE
+
+	# Raycast from camera position in looking direction
+	var origin = trans.origin
+	var direction = -trans.basis.z.normalized()
+	var max_distance = 200.0  # Rendering distance range
+
+	var hit = terrain_tool.raycast(origin, direction, max_distance)
+
+	if hit != null:
+		# Found a block - teleport on top of it
+		var target_pos = Vector3(hit.position) + Vector3(0.5, 1.5, 0.5)  # Center + height for player
+
+		# Start cooldown
+		_teleport_ring_cooldown = TELEPORT_RING_COOLDOWN
+
+		# Teleport player
+		global_position = target_pos
+		print("🔮 Teleported to: %v" % target_pos)
+		print("🔮 Ring of Teleportation on cooldown for 30 seconds")
+	else:
+		print("🔮 No valid teleport target found! (looking at sky or beyond range)")
 
 
 ## Player death
