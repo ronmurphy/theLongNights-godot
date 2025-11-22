@@ -457,29 +457,8 @@ func _create_expansion_button(blueprint: StructureBlueprintLibrary.StructureBlue
 	var btn = Button.new()
 
 	# Check if player has claimed this type before
-	var player = get_tree().get_first_node_in_group("player")
-	var has_claimed_free = false
-
-	if player:
-		if blueprint.name == "wilderness_expansion":
-			has_claimed_free = player.get_meta("claimed_free_wilderness", false)
-		elif blueprint.name == "construction_platform":
-			has_claimed_free = player.get_meta("claimed_free_construction", false)
-		elif blueprint.name == "terrain_extraction":
-			has_claimed_free = player.get_meta("claimed_free_extraction", false)
-
-	# Determine cost text
-	var cost_text: String
-	if blueprint.name == "terrain_extraction":
-		# Terrain extraction is special - FREE but only once ever
-		if has_claimed_free:
-			cost_text = "CLAIMED (one-time only)"
-		else:
-			cost_text = "FREE (ONE TIME ONLY!)"
-	elif not has_claimed_free:
-		cost_text = "FREE (first time!)"
-	else:
-		cost_text = str(blueprint.rust_block_cost) + " rust"
+	# Construction expansion costs rust blocks (not free)
+	var cost_text = str(blueprint.rust_block_cost) + " rust"
 
 	btn.text = blueprint.display_name + " (" + cost_text + ")"
 	btn.custom_minimum_size = Vector2(0, 50)  # Taller for warning text
@@ -487,11 +466,6 @@ func _create_expansion_button(blueprint: StructureBlueprintLibrary.StructureBlue
 	btn.pressed.connect(_on_structure_selected.bind(blueprint))
 	btn.set_meta("blueprint", blueprint)
 	btn.set_meta("is_expansion", true)
-	btn.set_meta("has_claimed_free", has_claimed_free)
-
-	# Disable terrain extraction if already claimed (one-time only!)
-	if blueprint.name == "terrain_extraction" and has_claimed_free:
-		btn.disabled = true
 
 	_apply_list_button_style(btn)
 	return btn
@@ -933,24 +907,8 @@ func _handle_structure_purchase():
 	var actual_cost = _selected_blueprint.rust_block_cost
 
 	if is_expansion:
-		# Check if free claim available
-		var has_claimed_free = false
-		if _selected_blueprint.name == "wilderness_expansion":
-			has_claimed_free = player.get_meta("claimed_free_wilderness", false)
-		elif _selected_blueprint.name == "construction_platform":
-			has_claimed_free = player.get_meta("claimed_free_construction", false)
-		elif _selected_blueprint.name == "terrain_extraction":
-			has_claimed_free = player.get_meta("claimed_free_extraction", false)
-			# Terrain extraction is ALWAYS free, but only once
-			if has_claimed_free:
-				print("❌ You can only claim ONE Terrain Extraction (already used)!")
-				return
-			actual_cost = 0  # Always free
-
-		# First time is FREE (for wilderness and construction)
-		if not has_claimed_free and _selected_blueprint.name != "terrain_extraction":
-			actual_cost = 0
-			print("🎁 First %s is FREE!" % _selected_blueprint.display_name)
+		# Construction expansion always costs rust blocks
+		print("💰 %s costs %d rust blocks" % [_selected_blueprint.display_name, actual_cost])
 
 	# Check if player can afford it
 	if _rust_count < actual_cost:
@@ -961,15 +919,6 @@ func _handle_structure_purchase():
 	if actual_cost > 0:
 		if inventory.has_method("remove_rust_blocks"):
 			inventory.remove_rust_blocks(actual_cost)
-
-	# Mark free claim as used for expansions
-	if is_expansion and actual_cost == 0:
-		if _selected_blueprint.name == "wilderness_expansion":
-			player.set_meta("claimed_free_wilderness", true)
-		elif _selected_blueprint.name == "construction_platform":
-			player.set_meta("claimed_free_construction", true)
-		elif _selected_blueprint.name == "terrain_extraction":
-			player.set_meta("claimed_free_extraction", true)
 
 	# Get Blocks reference to find rune_marker
 	var game = get_tree().root.get_node_or_null("Main/Game")
@@ -1003,15 +952,9 @@ func _handle_structure_purchase():
 
 			# For land expansions, set special metadata to trigger direct generation
 			if _selected_blueprint.category == "land_expansion":
-				if _selected_blueprint.name == "wilderness_expansion":
-					item.set_meta("terrain_expansion_type", "wilderness")
-					item.set_meta("custom_tooltip", "Wilderness Ruin Terrain")
-				elif _selected_blueprint.name == "construction_platform":
+				if _selected_blueprint.name == "construction_expansion":
 					item.set_meta("terrain_expansion_type", "construction")
-					item.set_meta("custom_tooltip", "Flat Ruin Terrain")
-				elif _selected_blueprint.name == "terrain_extraction":
-					item.set_meta("terrain_expansion_type", "extraction")
-					item.set_meta("custom_tooltip", "Extracted Ruin Terrain")
+					item.set_meta("custom_tooltip", "Construction Expansion (30 blocks each direction)")
 			# For regular structures, set custom tooltip with blueprint name
 			elif _selected_blueprint.category in ["homebase", "utility", "defensive", "production", "underground"]:
 				item.set_meta("custom_tooltip", _selected_blueprint.display_name + " Blueprint")
