@@ -304,9 +304,9 @@ func _register_land_expansions() -> void:
 	var construction = StructureBlueprint.new(
 		"construction_expansion",
 		"Construction Expansion",
-		Vector3i(60, 3, 60),  # Adds 30 blocks in each direction (60 total)
+		Vector3i(100, 3, 100),  # Adds 50 blocks in each direction (100 total)
 		"land_expansion",
-		"Expands current ruin +30 blocks each direction. Preserves structures. ONE TIME per ruin.",
+		"Expands current ruin +50 blocks each direction. Preserves structures. ONE TIME per ruin.",
 		400  # 400 rust blocks
 	)
 	# No template needed - handled by PlatformExpansion.gd
