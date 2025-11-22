@@ -1435,6 +1435,26 @@ func launch_blade_of_pursuit(start_pos: Vector3) -> void:
 		blade.queue_free()
 
 
+## Boomerang system - Curved throwing weapon with auto-return
+func launch_boomerang(start_pos: Vector3, target_pos: Vector3) -> void:
+	"""Launch boomerang at target position"""
+	# No cooldown for boomerang - limited only by throw/return time
+
+	# Create boomerang
+	const BoomerangProjectile = preload("res://blocky_game/projectiles/boomerang.gd")
+	var boomerang = Node3D.new()
+	boomerang.set_script(BoomerangProjectile)
+
+	# Add to game scene (not as child of player)
+	var game = get_node("/root/Main/Game")
+	if game:
+		game.add_child(boomerang)
+		boomerang.initialize(start_pos, target_pos, self)
+		print("🪃 Boomerang launched!")
+	else:
+		boomerang.queue_free()
+
+
 ## Ring of Teleportation system - Teleports player to targeted location
 func is_teleport_ring_ready() -> bool:
 	"""Check if Ring of Teleportation is off cooldown"""

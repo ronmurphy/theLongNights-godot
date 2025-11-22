@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c2m8k4n9p6qwx"
-path="res://.godot/imported/ring_of_teleportation_sprite.png-d4e7f9a2b5c8d1e3f6a0b9c8d7e6f5a4.ctex"
+uid="uid://c2m8k4oap6qwx"
+path="res://.godot/imported/ring_of_teleportation_sprite.png-653ec7e264d7c67d8a9f354ac3a1057c.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://blocky_game/items/ring_of_teleportation/ring_of_teleportation_sprite.png"
-dest_files=["res://.godot/imported/ring_of_teleportation_sprite.png-d4e7f9a2b5c8d1e3f6a0b9c8d7e6f5a4.ctex"]
+dest_files=["res://.godot/imported/ring_of_teleportation_sprite.png-653ec7e264d7c67d8a9f354ac3a1057c.ctex"]
 
 [params]
 

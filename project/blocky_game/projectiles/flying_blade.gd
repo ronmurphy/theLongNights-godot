@@ -12,7 +12,7 @@ enum State {
 
 var state: State = State.SEEKING
 var speed := 25.0
-var damage := 15
+var damage := 35  # Rare drop magical weapon - strong damage per hit
 var owner_entity = null  # Player who launched the blade
 var max_chain_count := 5  # Maximum enemies to hit
 var search_range := 20.0  # Range to search for enemies
@@ -23,49 +23,117 @@ var current_target = null
 var return_position := Vector3.ZERO
 
 # Visual
-var _sprite: Sprite3D = null
-var _rotation_speed := 15.0  # Radians per second
-var _trail_points: Array[Vector3] = []
-var _trail_max_length := 15
-var _trail_sprites: Array[Sprite3D] = []
+var _blade_mesh: MeshInstance3D = null  # Main blade mesh for rotation
+var _rotation_speed := 3.0  # Radians per second for tumbling effect
 
 
 func _ready():
-	# Create visual representation - rotating sword sprite
-	_sprite = Sprite3D.new()
+	# Create visual representation - 3D fantasy sword mesh
 
-	# IMPORTANT: Disable billboard completely - use integer 0 to ensure it's disabled
-	_sprite.billboard = 0  # SpriteBase3D.BILLBOARD_DISABLED
-	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	# === BLADE ===
+	_blade_mesh = MeshInstance3D.new()
+	var blade_mesh = BoxMesh.new()
+	blade_mesh.size = Vector3(0.08, 1.0, 0.15)  # Wide, tall, thin
+	_blade_mesh.mesh = blade_mesh
+	# Position blade forward (along -Z axis) so tip points toward enemies
+	# Rotate 90 degrees around X to convert from vertical to horizontal
+	_blade_mesh.position = Vector3(0, 0, -0.5)  # Center pivot at hilt, blade points forward
+	_blade_mesh.rotation_degrees = Vector3(90, 0, 0)  # Rotate from vertical to horizontal
 
-	# Load sword sprite (using sword item sprite)
-	var texture_path = "res://blocky_game/items/sword/sword_sprite.png"
-	if ResourceLoader.exists(texture_path):
-		_sprite.texture = load(texture_path)
+	var blade_mat = StandardMaterial3D.new()
+	blade_mat.albedo_color = Color(0.8, 0.85, 1.0)  # Silver-blue
+	blade_mat.metallic = 0.95
+	blade_mat.roughness = 0.1
+	blade_mat.emission_enabled = true
+	blade_mat.emission = Color(0.6, 0.7, 1.2)  # Blue magical glow
+	blade_mat.emission_energy_multiplier = 3.0
+	_blade_mesh.material_override = blade_mat
+	add_child(_blade_mesh)
 
-	# Make it glow and increase size for visibility
-	_sprite.modulate = Color(1.5, 1.5, 2.0, 1.0)  # Slight blue glow
-	_sprite.pixel_size = 0.05  # Increased from 0.02 for better visibility
+	# === BLADE TIP (tapered point) ===
+	var tip = MeshInstance3D.new()
+	var tip_mesh = BoxMesh.new()
+	tip_mesh.size = Vector3(0.04, 0.2, 0.08)  # Narrower
+	tip.mesh = tip_mesh
+	tip.position = Vector3(0, 0, -1.1)  # At tip of blade (forward)
+	tip.rotation_degrees = Vector3(90, 0, 0)  # Match blade orientation
+	tip.scale = Vector3(1.0, 1.0, 0.5)  # Taper effect
+	tip.material_override = blade_mat  # Same material as blade
+	add_child(tip)
 
-	# Orient sprite: The blade texture points upper-right (~45 degrees from vertical)
-	# We need to:
-	# 1. Rotate 45 degrees around Z to make it point "up" in sprite space
-	# 2. Rotate 90 degrees around X to make it horizontal (pointing forward)
-	# 3. Then tilt back 30 degrees for the "flying" angle
-	# Combined: Rotate around X by -60, and around Z by 45
-	_sprite.rotation_degrees = Vector3(-60, 0, -135)  # X tilt + Z rotation to align blade direction
+	# === CROSSGUARD ===
+	var guard = MeshInstance3D.new()
+	var guard_mesh = BoxMesh.new()
+	guard_mesh.size = Vector3(0.4, 0.08, 0.08)  # Wide horizontal bar
+	guard.mesh = guard_mesh
+	guard.position = Vector3(0, 0, 0)  # At hilt (stays horizontal, perpendicular to blade)
 
-	add_child(_sprite)
+	var guard_mat = StandardMaterial3D.new()
+	guard_mat.albedo_color = Color(0.3, 0.25, 0.4)  # Dark purple
+	guard_mat.metallic = 0.8
+	guard_mat.roughness = 0.3
+	guard.material_override = guard_mat
+	add_child(guard)
 
-	# Debug: Verify billboard is actually disabled
-	print("⚔️ Blade sprite billboard mode: ", _sprite.billboard)
+	# === HANDLE ===
+	var handle = MeshInstance3D.new()
+	var handle_mesh = CylinderMesh.new()
+	handle_mesh.top_radius = 0.04
+	handle_mesh.bottom_radius = 0.05
+	handle_mesh.height = 0.3
+	handle.mesh = handle_mesh
+	handle.position = Vector3(0, 0, 0.15)  # Behind crossguard (positive Z)
+	handle.rotation_degrees = Vector3(0, 0, 0)  # Cylinder already along Y, but we need it along Z
+	# Actually rotate it to point along Z axis
+	handle.rotation_degrees = Vector3(90, 0, 90)  # Orient along Z axis (backward from blade)
 
-	# Add point light for glow effect
+	var handle_mat = StandardMaterial3D.new()
+	handle_mat.albedo_color = Color(0.2, 0.15, 0.3)  # Darker purple
+	handle_mat.roughness = 0.6
+	handle.material_override = handle_mat
+	add_child(handle)
+
+	# === POMMEL (end of handle) ===
+	var pommel = MeshInstance3D.new()
+	var pommel_mesh = SphereMesh.new()
+	pommel_mesh.radius = 0.06
+	pommel.mesh = pommel_mesh
+	pommel.position = Vector3(0, 0, 0.3)  # At end of handle (behind blade)
+	pommel.material_override = guard_mat  # Same as crossguard
+	add_child(pommel)
+
+	# === MAGICAL AURA (transparent overlay on blade) ===
+	var aura = MeshInstance3D.new()
+	var aura_mesh = BoxMesh.new()
+	aura_mesh.size = Vector3(0.15, 1.3, 0.2)  # Slightly larger than blade
+	aura.mesh = aura_mesh
+	aura.position = Vector3(0, 0, -0.15)  # Offset relative to blade (forward along Z)
+
+	var aura_mat = StandardMaterial3D.new()
+	aura_mat.albedo_color = Color(0.5, 0.6, 1.0, 0.3)  # Transparent blue
+	aura_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	aura_mat.emission_enabled = true
+	aura_mat.emission = Color(0.6, 0.7, 1.2)
+	aura_mat.emission_energy_multiplier = 4.0
+	aura_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	aura.material_override = aura_mat
+	_blade_mesh.add_child(aura)  # Child of blade so it inherits rotation and orientation
+
+	# Animate aura pulsing
+	var tween = get_tree().create_tween()
+	tween.set_loops()
+	tween.tween_property(aura, "scale", Vector3(1.2, 1.1, 1.2), 0.3)
+	tween.tween_property(aura, "scale", Vector3(0.9, 0.9, 0.9), 0.3)
+
+	# === LIGHT ===
 	var light = OmniLight3D.new()
-	light.light_color = Color(0.6, 0.6, 1.0)  # Blue-white
-	light.light_energy = 1.0
-	light.omni_range = 3.0
+	light.light_color = Color(0.6, 0.7, 1.0)  # Blue-white
+	light.light_energy = 2.0
+	light.omni_range = 4.0
+	light.shadow_enabled = false
 	add_child(light)
+
+	print("⚔️ Created 3D blade mesh with magical aura")
 
 
 func initialize(start_pos: Vector3, player: Node3D):
@@ -79,12 +147,9 @@ func initialize(start_pos: Vector3, player: Node3D):
 
 
 func _process(delta: float):
-	# Rotate the sprite around its local Z axis (roll) for spinning effect
-	if _sprite:
-		_sprite.rotate_object_local(Vector3(0, 0, 1), _rotation_speed * delta)
-
-	# Update trail
-	_update_trail()
+	# Tumble the entire blade for dynamic flight effect
+	# Rotate on a diagonal axis for realistic sword tumbling
+	rotate_object_local(Vector3(1, 0, 1).normalized(), _rotation_speed * delta)
 
 	match state:
 		State.SEEKING:
@@ -216,47 +281,6 @@ func _return_to_player():
 	print("⚔️ Blade returning to player (%d enemies hit)" % hit_enemies.size())
 
 
-func _update_trail():
-	"""Create a glowing trail effect behind the blade"""
-	# Add current position to trail
-	_trail_points.push_front(global_position)
-
-	# Limit trail length
-	if _trail_points.size() > _trail_max_length:
-		_trail_points.pop_back()
-		# Remove old sprite if it exists
-		if _trail_sprites.size() > _trail_max_length:
-			var old_sprite = _trail_sprites.pop_back()
-			if is_instance_valid(old_sprite):
-				old_sprite.queue_free()
-
-	# Update trail sprites - only update positions, not transforms to reduce visual clutter
-	for i in range(_trail_points.size()):
-		# Create new sprite if needed
-		if i >= _trail_sprites.size():
-			var trail_sprite = Sprite3D.new()
-			# Trail sprites use billboard for simplicity and to avoid transform copying issues
-			trail_sprite.billboard = 1  # BaseMaterial3D.BILLBOARD_ENABLED
-			trail_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-			trail_sprite.texture = _sprite.texture
-			trail_sprite.pixel_size = 0.04
-			get_parent().add_child(trail_sprite)
-			_trail_sprites.push_back(trail_sprite)
-
-		# Update sprite position and fade
-		var trail_sprite = _trail_sprites[i]
-		if is_instance_valid(trail_sprite):
-			trail_sprite.global_position = _trail_points[i]
-			# Fade based on distance from blade (older = more transparent)
-			var alpha = 1.0 - (float(i) / float(_trail_max_length))
-			trail_sprite.modulate = Color(0.7, 0.9, 1.2, alpha * 0.6)
-			trail_sprite.scale = Vector3.ONE * (1.0 - float(i) / float(_trail_max_length) * 0.5)
-
-
 func _cleanup_and_free():
-	"""Clean up trail sprites before freeing the blade"""
-	for trail_sprite in _trail_sprites:
-		if is_instance_valid(trail_sprite):
-			trail_sprite.queue_free()
-	_trail_sprites.clear()
+	"""Clean up and free the blade"""
 	queue_free()

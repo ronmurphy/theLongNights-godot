@@ -210,6 +210,10 @@ func _init():
 		"name": "ring_of_teleportation",
 		"behavior": "ring_of_teleportation.gd"
 	})
+	_create_item({
+		"name": "boomerang",
+		"behavior": "boomerang.gd"
+	})
 
 
 func get_item(id: int) -> Item:

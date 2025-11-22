@@ -572,7 +572,9 @@ func _cmd_give(args: Array) -> void:
 		"blade_of_pursuit": 47,
 		"blade": 47,
 		"ring_of_teleportation": 48,
-		"teleport_ring": 48
+		"teleport_ring": 48,
+		"teleportring": 48,
+		"boomerang": 49
 	}
 
 	if not item_map.has(item_name):
@@ -1778,8 +1780,8 @@ func _cmd_photo(_args: Array) -> void:
 	add_output("[color=cyan]📷 Photo mode enabled![/color]")
 	add_output("[color=yellow]Controls:[/color]")
 	add_output("  [color=white]Arrow Keys[/color] - Rotate camera")
-	add_output("  [color=white]Q/E[/color] - Zoom in/out")
-	add_output("  [color=white]F5[/color] - Take screenshot")
+	add_output("  [color=white]Q/R[/color] - Zoom in/out")
+	add_output("  [color=white]C[/color] - Take screenshot")
 	add_output("  [color=white]Esc or P[/color] - Exit photo mode")
 
 

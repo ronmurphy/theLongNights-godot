@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b7xnak2qr5vw0"
-path="res://.godot/imported/blade_of_pursuit_sprite.png-c90d6af59a45f8f05bba50a189ca59ec.ctex"
+uid="uid://cv27ku3g4qt2"
+path="res://.godot/imported/boomerang_sprite.png-5dde36a826d8a72ca7c2f416d409c735.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://blocky_game/items/blade_of_pursuit/blade_of_pursuit_sprite.png"
-dest_files=["res://.godot/imported/blade_of_pursuit_sprite.png-c90d6af59a45f8f05bba50a189ca59ec.ctex"]
+source_file="res://blocky_game/items/boomerang/boomerang_sprite.png"
+dest_files=["res://.godot/imported/boomerang_sprite.png-5dde36a826d8a72ca7c2f416d409c735.ctex"]
 
 [params]
 
