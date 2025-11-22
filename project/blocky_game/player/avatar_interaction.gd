@@ -378,7 +378,31 @@ func _physics_process(_delta):
 				var pos = hit.previous_position
 				if has_cube == false:
 					pos = hit.position
-				if _is_target_in_range(pos, inv_item) and _can_place_voxel_at(pos):
+
+				# SPECIAL HANDLING: Terrain Expansion blocks - generate immediately without placement mode
+				if inv_item != null and inv_item.has_meta("terrain_expansion_type"):
+					var expansion_type = inv_item.get_meta("terrain_expansion_type")
+					print("🌍 Terrain Expansion detected: %s" % expansion_type)
+
+					# Calculate position 10 blocks from player in facing direction
+					var player_pos = global_position
+					var facing_dir = -_head.global_transform.basis.z  # Forward direction
+					facing_dir.y = 0  # Keep on same Y level
+					facing_dir = facing_dir.normalized()
+					var generation_pos = player_pos + (facing_dir * 10.0)
+
+					print("📍 Generating at position: %s (10 blocks from player)" % generation_pos)
+
+					# Generate the platform immediately
+					_generate_terrain_expansion(generation_pos, expansion_type)
+
+					# Decrement block count in hotbar (but NOT in creative mode)
+					if not _creative_mode:
+						_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
+
+					_action_place = false  # Consume the action
+
+				elif _is_target_in_range(pos, inv_item) and _can_place_voxel_at(pos):
 					if inv_item != null and inv_item.count > 0:
 						_place_single_block(pos, inv_item.id)
 						print("Place voxel at ", pos)
@@ -2529,6 +2553,41 @@ func _rotate_position_y(pos: Vector3i, degrees: int, size: Vector3i) -> Vector3i
 			result = Vector3i(pos.z, pos.y, size.x - 1 - pos.x)
 
 	return result
+
+
+func _generate_terrain_expansion(pos: Vector3, expansion_type: String) -> void:
+	"""Generate a terrain expansion platform directly from inventory item (no placement mode)"""
+	print("🌍 Generating %s terrain expansion at %s" % [expansion_type, pos])
+
+	# Load PlatformExpansion generator
+	var PlatformExpansion = load("res://blocky_game/PlatformExpansion.gd")
+	var generator = PlatformExpansion.new()
+
+	# Add generator to scene tree temporarily (needed for async operations)
+	var game = get_node("/root/Main/Game")
+	game.add_child(generator)
+
+	# Initialize generator with terrain and blocks references
+	var terrain = get_node("/root/Main/Game/VoxelTerrain")
+	var blocks = get_node("/root/Main/Game/Blocks")
+	generator.initialize(terrain, blocks)
+
+	# Call appropriate generation function based on expansion type
+	var success = false
+	if expansion_type == "wilderness":
+		success = await generator.generate_wilderness_platform(pos)
+	elif expansion_type == "construction":
+		success = await generator.generate_flat_platform(pos)
+	elif expansion_type == "extraction":
+		success = await generator.generate_terrain_extraction(pos)
+
+	# Clean up generator
+	generator.queue_free()
+
+	if success:
+		print("✅ Terrain expansion generated successfully!")
+	else:
+		print("❌ Failed to generate terrain expansion")
 
 
 func _on_structure_purchased(blueprint_name: String) -> void:
