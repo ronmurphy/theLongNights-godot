@@ -1407,6 +1407,11 @@ func is_blade_of_pursuit_ready() -> bool:
 	return _blade_of_pursuit_cooldown <= 0.0
 
 
+func get_blade_of_pursuit_cooldown() -> float:
+	"""Get remaining cooldown time for Blade of Pursuit"""
+	return _blade_of_pursuit_cooldown
+
+
 func launch_blade_of_pursuit(start_pos: Vector3) -> void:
 	"""Launch the Blade of Pursuit at enemies"""
 	if _blade_of_pursuit_cooldown > 0.0:

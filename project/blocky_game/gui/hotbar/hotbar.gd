@@ -13,11 +13,19 @@ var _bento_slot_views := []  # 6 bento slot displays for HUD
 var _bento_left_panel : Panel = null  # Left 3 slots panel
 var _bento_right_panel : Panel = null  # Right 3 slots panel
 
+# Cooldown overlay system
+var _cooldown_overlays := {}  # Maps slot index -> {panel: ColorRect, label: Label}
+
 
 func _ready():
 	call_deferred("_update_views")
 	_create_mining_progress_bar()
 	_create_bento_hud()
+
+
+func _process(_delta: float):
+	"""Update cooldown overlays for items with cooldowns"""
+	_update_cooldown_overlays()
 
 
 func _create_mining_progress_bar():
@@ -251,3 +259,81 @@ func _on_Inventory_changed():
 func refresh_display():
 	"""Manually refresh hotbar display (called when loadouts are switched)"""
 	_update_views()
+
+
+func _update_cooldown_overlays():
+	"""Update cooldown visual overlays for items with cooldowns"""
+	# Get player to check cooldown status
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		return
+
+	# Check each hotbar slot
+	for i in _inventory.get_hotbar_slot_count():
+		var slot_data = _inventory.get_hotbar_slot_data(i)
+		if not slot_data:
+			# Remove overlay if it exists
+			if _cooldown_overlays.has(i):
+				_cooldown_overlays[i].panel.queue_free()
+				_cooldown_overlays.erase(i)
+			continue
+
+		# Check if this is an item with cooldown
+		var cooldown_time = 0.0
+		var item_name = ""
+
+		if slot_data.type == InventoryItem.TYPE_ITEM:
+			# Ring of Teleportation (ID 48)
+			if slot_data.id == 48:
+				if player.has_method("get_teleport_ring_cooldown"):
+					cooldown_time = player.get_teleport_ring_cooldown()
+					item_name = "Teleport"
+			# Blade of Pursuit (ID 47)
+			elif slot_data.id == 47:
+				if player.has_method("get_blade_of_pursuit_cooldown"):
+					cooldown_time = player.get_blade_of_pursuit_cooldown()
+					item_name = "Blade"
+
+		# Update or create overlay
+		if cooldown_time > 0:
+			_create_or_update_cooldown_overlay(i, cooldown_time, item_name)
+		else:
+			# Remove overlay if cooldown is done
+			if _cooldown_overlays.has(i):
+				_cooldown_overlays[i].panel.queue_free()
+				_cooldown_overlays.erase(i)
+
+
+func _create_or_update_cooldown_overlay(slot_index: int, cooldown_seconds: float, item_name: String):
+	"""Create or update cooldown overlay for a hotbar slot"""
+	var slot_view = _slot_container.get_child(slot_index)
+
+	if not _cooldown_overlays.has(slot_index):
+		# Create new overlay
+		var overlay_panel = ColorRect.new()
+		overlay_panel.color = Color(0, 0, 0, 0.7)  # Dark overlay
+		overlay_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		overlay_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+		overlay_panel.z_index = 10
+
+		# Create countdown label
+		var label = Label.new()
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.set_anchors_preset(Control.PRESET_FULL_RECT)
+		label.add_theme_font_size_override("font_size", 18)
+		label.add_theme_color_override("font_color", Color.WHITE)
+		label.add_theme_color_override("font_outline_color", Color.BLACK)
+		label.add_theme_constant_override("outline_size", 2)
+		overlay_panel.add_child(label)
+
+		slot_view.add_child(overlay_panel)
+
+		_cooldown_overlays[slot_index] = {
+			"panel": overlay_panel,
+			"label": label
+		}
+
+	# Update label text
+	var overlay = _cooldown_overlays[slot_index]
+	overlay.label.text = str(int(ceil(cooldown_seconds)))
