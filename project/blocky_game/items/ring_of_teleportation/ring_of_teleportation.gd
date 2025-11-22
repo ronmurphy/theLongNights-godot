@@ -20,7 +20,10 @@ func use(trans: Transform3D, inv_item_or_count = 1):
 		# Get remaining cooldown time
 		if player.has_method("get_teleport_ring_cooldown"):
 			var remaining = player.get_teleport_ring_cooldown()
-			print("🔮 Ring of Teleportation on cooldown! (%d seconds remaining)" % int(remaining))
+			print("🔮 ═══════════════════════════════════")
+			print("🔮 Ring on COOLDOWN!")
+			print("🔮 Wait %d more seconds" % int(ceil(remaining)))
+			print("🔮 ═══════════════════════════════════")
 		else:
 			print("🔮 Ring of Teleportation on cooldown!")
 		return

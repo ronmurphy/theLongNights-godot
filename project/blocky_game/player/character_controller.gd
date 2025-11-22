@@ -1388,14 +1388,17 @@ func _launch_thorn_at_nearest_enemy() -> void:
 			nearest_distance = distance
 			nearest_enemy = entity
 
-	# Launch a thorn if we found an enemy
+	# Launch ALL thorns if we found an enemy
 	if nearest_enemy and not _thorn_orbs.is_empty():
-		# Find first thorn in ORBITING mode
+		var thorns_launched = 0
+		# Launch all thorns in ORBITING mode at the same enemy
 		for thorn in _thorn_orbs:
 			if is_instance_valid(thorn) and thorn.mode == 0:  # 0 = ORBITING
 				thorn.launch_at_enemy(nearest_enemy)
-				print("🌿 Thorn launched at %s" % nearest_enemy.entity_name)
-				break
+				thorns_launched += 1
+
+		if thorns_launched > 0:
+			print("🌿 %d thorns launched at %s" % [thorns_launched, nearest_enemy.entity_name])
 
 
 ## Blade of Pursuit system - Chain-attacking flying sword
@@ -1468,8 +1471,10 @@ func teleport_to_target(trans: Transform3D) -> void:
 
 		# Teleport player
 		global_position = target_pos
-		print("🔮 Teleported to: %v" % target_pos)
-		print("🔮 Ring of Teleportation on cooldown for 30 seconds")
+		print("🔮 ═══════════════════════════════════")
+		print("🔮 TELEPORTED to: %v" % target_pos)
+		print("🔮 Ring on COOLDOWN for 30 seconds")
+		print("🔮 ═══════════════════════════════════")
 	else:
 		print("🔮 No valid teleport target found! (looking at sky or beyond range)")
 
