@@ -273,14 +273,15 @@ func _generate_platform_base(spawn_pos: Vector3, is_wilderness: bool) -> bool:
 	# FORCE CHUNK GENERATION: Create temporary VoxelViewer
 	print("Creating temporary VoxelViewer to generate chunks...")
 	var temp_viewer = VoxelViewer.new()
-	temp_viewer.position = spawn_pos
-	temp_viewer.view_distance = 64  # Large enough to cover 320x320 platform
+	temp_viewer.position = spawn_pos + Vector3(PLATFORM_SIZE_BLOCKS / 2, 0, PLATFORM_SIZE_BLOCKS / 2)  # Center of platform
+	temp_viewer.view_distance = 128  # Very large to ensure 320x320 area is loaded
 	temp_viewer.requires_visuals = true
 	temp_viewer.requires_collisions = true
 	_terrain.add_child(temp_viewer)
 
-	# Wait for chunks to generate
-	await get_tree().create_timer(3.0).timeout  # Longer wait for large area
+	# Wait longer for large area chunks to generate
+	print("Waiting for chunks to load (5 seconds)...")
+	await get_tree().create_timer(5.0).timeout
 	print("Chunks generated, building platform...")
 
 	# Get voxel tool
@@ -460,12 +461,18 @@ func _place_pine_tree(pos: Vector3i, voxel_tool: VoxelTool):
 
 
 func _place_birch_tree(pos: Vector3i, voxel_tool: VoxelTool):
-	"""Place a simple birch tree (4-6 blocks tall)"""
+	"""Place a simple birch tree (4-6 blocks tall) - falls back to pine if birch doesn't exist"""
 	var height = randi() % 3 + 4  # 4-6 blocks tall
 
-	# Trunk (use birch log if available, otherwise pine)
-	var log_id = BIRCH_LOG_Y_ID if _blocks.get_block(BIRCH_LOG_Y_ID) else LOG_Y_ID
-	var leaves_id = BIRCH_LEAVES_ID if _blocks.get_block(BIRCH_LEAVES_ID) else LEAVES_ID
+	# Check if birch blocks exist (safely check block count first)
+	var has_birch = false
+	if _blocks and _blocks.has_method("get_block_count"):
+		var block_count = _blocks.get_block_count()
+		has_birch = BIRCH_LOG_Y_ID < block_count and BIRCH_LEAVES_ID < block_count
+
+	# Use birch if available, otherwise pine
+	var log_id = BIRCH_LOG_Y_ID if has_birch else LOG_Y_ID
+	var leaves_id = BIRCH_LEAVES_ID if has_birch else LEAVES_ID
 
 	for y in range(height):
 		voxel_tool.set_voxel(Vector3i(pos.x, pos.y + y, pos.z), log_id)
