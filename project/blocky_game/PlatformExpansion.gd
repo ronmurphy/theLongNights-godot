@@ -134,35 +134,11 @@ func _generate_extracted_terrain(placement_pos: Vector3, spawn_pos: Vector3) -> 
 		return false
 
 	print("📍 Scanning ground beneath placement position...")
-
-	# FORCE CHUNK GENERATION at BOTH locations (ground source + sky destination)
-	print("Creating VoxelViewers for source (ground) and destination (sky)...")
-
-	# Viewer for ground source area
-	var source_viewer = VoxelViewer.new()
-	source_viewer.position = Vector3(placement_pos.x, 0, placement_pos.z)  # Ground level
-	source_viewer.view_distance = 64
-	source_viewer.requires_visuals = true
-	source_viewer.requires_collisions = true
-	_terrain.add_child(source_viewer)
-
-	# Viewer for sky destination
-	var dest_viewer = VoxelViewer.new()
-	dest_viewer.position = spawn_pos
-	dest_viewer.view_distance = 64
-	dest_viewer.requires_visuals = true
-	dest_viewer.requires_collisions = true
-	_terrain.add_child(dest_viewer)
-
-	# Wait for chunks to generate at both locations
-	await get_tree().create_timer(4.0).timeout  # Longer wait for both areas
-	print("Chunks loaded at source and destination...")
+	print("Building extracted terrain directly (chunks will load as needed)...")
 
 	# Get voxel tool
 	var voxel_tool = _terrain.get_voxel_tool()
 	if not voxel_tool:
-		source_viewer.queue_free()
-		dest_viewer.queue_free()
 		push_error("PlatformExpansion: Failed to get voxel tool")
 		return false
 
@@ -174,15 +150,13 @@ func _generate_extracted_terrain(placement_pos: Vector3, spawn_pos: Vector3) -> 
 	var lowest_ground_y = _find_lowest_ground_in_area(scan_base, voxel_tool)
 
 	if lowest_ground_y == -999:
-		source_viewer.queue_free()
-		dest_viewer.queue_free()
 		push_error("PlatformExpansion: Could not find ground")
 		return false
 
 	print("✓ Lowest ground point found at Y=%d" % lowest_ground_y)
 
 	# STEP 2: Copy 160x160x20 volume from ground
-	print("📋 Copying terrain... (this may take 5-10 seconds)")
+	print("📋 Copying terrain... (this may take a few seconds)")
 	var blocks_copied = _copy_terrain_volume(
 		Vector3i(scan_base.x, lowest_ground_y, scan_base.z),  # Source
 		Vector3i(spawn_pos),  # Destination
@@ -191,10 +165,6 @@ func _generate_extracted_terrain(placement_pos: Vector3, spawn_pos: Vector3) -> 
 
 	# STEP 3: Generate inverted pyramid support
 	var pyramid_blocks = _generate_inverted_pyramid(spawn_pos, voxel_tool)
-
-	# Clean up viewers
-	source_viewer.queue_free()
-	dest_viewer.queue_free()
 
 	print("🎉 Terrain extraction complete! Copied %d blocks + %d pyramid blocks" % [blocks_copied, pyramid_blocks])
 
@@ -277,29 +247,16 @@ func _copy_terrain_volume(source_base: Vector3i, dest_base: Vector3i, voxel_tool
 
 
 func _generate_platform_base(spawn_pos: Vector3, is_wilderness: bool) -> bool:
-	"""Generate the platform base with VoxelViewer trick"""
+	"""Generate the platform base by placing blocks directly (no VoxelViewer needed)"""
 	if not _terrain:
 		push_error("PlatformExpansion: Terrain not initialized")
 		return false
 
-	# FORCE CHUNK GENERATION: Create temporary VoxelViewer
-	print("Creating temporary VoxelViewer to generate chunks...")
-	var temp_viewer = VoxelViewer.new()
-	temp_viewer.position = spawn_pos + Vector3(PLATFORM_SIZE_BLOCKS / 2, 0, PLATFORM_SIZE_BLOCKS / 2)  # Center of platform
-	temp_viewer.view_distance = 64  # Enough to ensure 160x160 area is loaded
-	temp_viewer.requires_visuals = true
-	temp_viewer.requires_collisions = true
-	_terrain.add_child(temp_viewer)
-
-	# Wait for chunks to generate
-	print("Waiting for chunks to load (3 seconds)...")
-	await get_tree().create_timer(3.0).timeout
-	print("Chunks generated, building platform...")
+	print("Building platform directly (chunks will load as blocks are placed)...")
 
 	# Get voxel tool
 	var voxel_tool = _terrain.get_voxel_tool()
 	if not voxel_tool:
-		temp_viewer.queue_free()
 		push_error("PlatformExpansion: Failed to get voxel tool")
 		return false
 
@@ -314,9 +271,6 @@ func _generate_platform_base(spawn_pos: Vector3, is_wilderness: bool) -> bool:
 
 	# Generate inverted pyramid support
 	var pyramid_blocks = _generate_inverted_pyramid(spawn_pos, voxel_tool)
-
-	# Clean up VoxelViewer
-	temp_viewer.queue_free()
 
 	print("Platform complete! Placed %d surface blocks + %d pyramid blocks" % [blocks_placed, pyramid_blocks])
 
