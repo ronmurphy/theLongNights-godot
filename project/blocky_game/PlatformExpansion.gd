@@ -59,34 +59,47 @@ func expand_ruin(player_pos: Vector3) -> bool:
 
 
 func _find_ruin_at_position(pos: Vector3) -> RuinRegistry.RuinData:
-	"""Find which ruin contains the given position"""
+	"""Find the nearest ruin to the given position (within reasonable distance)"""
 	var ruins = RuinRegistry.get_all_ruins()
 
 	print("🔍 Looking for ruin at player position: %s" % pos)
 	print("🔍 Total ruins registered: %d" % ruins.size())
 
+	var nearest_ruin = null
+	var nearest_distance = INF
+	const MAX_SEARCH_DISTANCE = 100.0  # Player must be within 100 blocks horizontally
+
 	for ruin in ruins:
 		var ruin_pos = ruin.position
 		var ruin_size = ruin.ruin_size
 
-		print("  📦 Checking ruin '%s': pos=%s, size=%s" % [ruin.ruin_name, ruin_pos, ruin_size])
-		print("     Bounds: X[%s to %s], Y[%s to %s], Z[%s to %s]" % [
-			ruin_pos.x, ruin_pos.x + ruin_size.x,
-			ruin_pos.y, ruin_pos.y + ruin_size.y,
-			ruin_pos.z, ruin_pos.z + ruin_size.z
-		])
+		# Calculate ruin center (more accurate than corner)
+		var ruin_center = ruin_pos + Vector3(ruin_size) / 2.0
 
-		# Check if position is within ruin bounds
-		if pos.x >= ruin_pos.x and pos.x < ruin_pos.x + ruin_size.x and \
-		   pos.z >= ruin_pos.z and pos.z < ruin_pos.z + ruin_size.z and \
-		   pos.y >= ruin_pos.y and pos.y < ruin_pos.y + ruin_size.y:
-			print("  ✅ Match found!")
-			return ruin
-		else:
-			print("  ❌ No match")
+		# Calculate horizontal distance (ignore Y for now)
+		var horizontal_offset = Vector2(pos.x - ruin_center.x, pos.z - ruin_center.z)
+		var horizontal_distance = horizontal_offset.length()
 
-	print("❌ No ruin found at position")
-	return null
+		# Check if player is roughly at the same Y level (within ruin height + some tolerance)
+		var y_min = ruin_pos.y - 10  # Allow standing below ruin (on pyramid)
+		var y_max = ruin_pos.y + ruin_size.y + 50  # Allow standing well above ruin
+		var is_at_correct_height = pos.y >= y_min and pos.y <= y_max
+
+		print("  📦 Checking ruin '%s':" % ruin.ruin_name)
+		print("     Center: %s, Horizontal distance: %.1f blocks, Y check: %s" % [ruin_center, horizontal_distance, is_at_correct_height])
+
+		# If player is at the right height and closer than previous best match
+		if is_at_correct_height and horizontal_distance < nearest_distance and horizontal_distance <= MAX_SEARCH_DISTANCE:
+			nearest_ruin = ruin
+			nearest_distance = horizontal_distance
+			print("  ✅ New closest ruin! (distance: %.1f)" % horizontal_distance)
+
+	if nearest_ruin:
+		print("✅ Found nearest ruin: '%s' at distance %.1f blocks" % [nearest_ruin.ruin_name, nearest_distance])
+		return nearest_ruin
+	else:
+		print("❌ No ruin found within %d blocks" % MAX_SEARCH_DISTANCE)
+		return null
 
 
 func _expand_ruin_platform(original_pos: Vector3, original_size: Vector3i, new_pos: Vector3, new_size: Vector3i) -> bool:
