@@ -3,7 +3,7 @@ extends Node
 # Expands existing sky ruins from their center point
 # Preserves all structures, only adds blocks in air
 
-const EXPANSION_AMOUNT = 80  # Blocks to expand in each direction
+const EXPANSION_AMOUNT = 50  # Blocks to expand in each direction
 const GROUND_LAYERS = 3  # Number of ground layers (typically dirt+dirt+grass)
 
 var _terrain = null
@@ -34,106 +34,32 @@ func expand_ruin(player_pos: Vector3) -> bool:
 		push_error("❌ This ruin has already been expanded!")
 		return false
 
-	# Detect the ACTUAL current platform size (not just registered structure size)
-	# This accounts for homebase fences and any existing expansions
-	print("🔍 Scanning terrain to detect actual platform size...")
-	var actual_platform = _detect_actual_platform_size(current_ruin)
+	# Calculate ruin center
+	var ruin_center = current_ruin.position + Vector3(current_ruin.ruin_size) / 2.0
 
-	print("📏 Registered size: %s, Actual platform detected: %s" % [current_ruin.ruin_size, actual_platform.size])
+	# Expand 50 blocks in each direction from center
+	var expansion_half = EXPANSION_AMOUNT
+	var new_pos = Vector3(
+		ruin_center.x - expansion_half,
+		player_pos.y - 1,  # Use player's Y position - 1 for ground level
+		ruin_center.z - expansion_half
+	)
+	var new_size = Vector3i(EXPANSION_AMOUNT * 2, GROUND_LAYERS, EXPANSION_AMOUNT * 2)
 
-	# Calculate new bounds (expand from current platform, not just structure)
-	var original_pos = actual_platform.position
-	var original_size = actual_platform.size
-	var new_pos = original_pos - Vector3(EXPANSION_AMOUNT, 0, EXPANSION_AMOUNT)
-	var new_size = original_size + Vector3i(EXPANSION_AMOUNT * 2, 0, EXPANSION_AMOUNT * 2)
-
-	print("📐 Expansion: %s → %s (new size: %s)" % [original_pos, new_pos, new_size])
+	print("📐 Expanding from ruin center: %s" % ruin_center)
+	print("📐 New platform: pos=%s, size=%s" % [new_pos, new_size])
 
 	# Perform the expansion
-	var success = await _expand_ruin_platform(original_pos, original_size, new_pos, new_size)
+	var success = await _expand_ruin_platform(new_pos, new_size, player_pos)
 
 	if success:
 		# Mark as expanded in RuinRegistry
 		current_ruin.set_meta("has_been_expanded", true)
-		# Update size in registry
-		current_ruin.ruin_size = new_size
-		current_ruin.position = new_pos
 		print("✅ Ruin expansion complete!")
 		return true
 	else:
 		print("❌ Ruin expansion failed!")
 		return false
-
-
-func _detect_actual_platform_size(ruin: RuinRegistry.RuinData) -> Dictionary:
-	"""
-	Scan the terrain to detect the actual current platform size
-	This accounts for homebase fences and any existing expansions
-	Returns: {position: Vector3, size: Vector3i}
-	"""
-	var voxel_tool = _terrain.get_voxel_tool()
-	if not voxel_tool:
-		push_warning("Could not get voxel tool, using registered size")
-		return {"position": ruin.position, "size": ruin.ruin_size}
-
-	const GRASS_ID = 2
-	const DIRT_ID = 1
-	const MAX_SCAN_DISTANCE = 60  # Limit to 60 blocks - prevents detecting nearby platforms as one
-
-	# Start from ruin center
-	var ruin_center = ruin.position + Vector3(ruin.ruin_size) / 2.0
-	# Scan at grass level (ruin bottom + 2, since platforms are: dirt, dirt, grass)
-	var scan_y = int(ruin.position.y) + 2
-
-	# Scan in all 4 directions to find platform edges
-	var min_x = ruin_center.x
-	var max_x = ruin_center.x
-	var min_z = ruin_center.z
-	var max_z = ruin_center.z
-
-	# Scan East (+X)
-	for x_offset in range(1, MAX_SCAN_DISTANCE):
-		var check_pos = Vector3i(int(ruin_center.x) + x_offset, scan_y, int(ruin_center.z))
-		var voxel = voxel_tool.get_voxel(check_pos)
-		if voxel == GRASS_ID or voxel == DIRT_ID:
-			max_x = check_pos.x
-		else:
-			break
-
-	# Scan West (-X)
-	for x_offset in range(1, MAX_SCAN_DISTANCE):
-		var check_pos = Vector3i(int(ruin_center.x) - x_offset, scan_y, int(ruin_center.z))
-		var voxel = voxel_tool.get_voxel(check_pos)
-		if voxel == GRASS_ID or voxel == DIRT_ID:
-			min_x = check_pos.x
-		else:
-			break
-
-	# Scan South (+Z)
-	for z_offset in range(1, MAX_SCAN_DISTANCE):
-		var check_pos = Vector3i(int(ruin_center.x), scan_y, int(ruin_center.z) + z_offset)
-		var voxel = voxel_tool.get_voxel(check_pos)
-		if voxel == GRASS_ID or voxel == DIRT_ID:
-			max_z = check_pos.z
-		else:
-			break
-
-	# Scan North (-Z)
-	for z_offset in range(1, MAX_SCAN_DISTANCE):
-		var check_pos = Vector3i(int(ruin_center.x), scan_y, int(ruin_center.z) - z_offset)
-		var voxel = voxel_tool.get_voxel(check_pos)
-		if voxel == GRASS_ID or voxel == DIRT_ID:
-			min_z = check_pos.z
-		else:
-			break
-
-	# Calculate actual platform bounds
-	var actual_pos = Vector3(min_x, ruin.position.y, min_z)
-	var actual_size = Vector3i(int(max_x - min_x + 1), ruin.ruin_size.y, int(max_z - min_z + 1))
-
-	print("  Platform edges: X[%d to %d], Z[%d to %d]" % [min_x, max_x, min_z, max_z])
-
-	return {"position": actual_pos, "size": actual_size}
 
 
 func _find_ruin_at_position(pos: Vector3) -> RuinRegistry.RuinData:
@@ -180,8 +106,8 @@ func _find_ruin_at_position(pos: Vector3) -> RuinRegistry.RuinData:
 		return null
 
 
-func _expand_ruin_platform(original_pos: Vector3, original_size: Vector3i, new_pos: Vector3, new_size: Vector3i) -> bool:
-	"""Expand the ruin platform by adding blocks around the edges"""
+func _expand_ruin_platform(new_pos: Vector3, new_size: Vector3i, player_pos: Vector3) -> bool:
+	"""Expand the ruin platform by adding blocks in air around the center"""
 	if not _terrain:
 		push_error("Terrain not initialized")
 		return false
@@ -208,8 +134,8 @@ func _expand_ruin_platform(original_pos: Vector3, original_size: Vector3i, new_p
 		push_error("Failed to get voxel tool")
 		return false
 
-	# Place expansion blocks (only in AIR, only outside original bounds)
-	var blocks_placed = _place_expansion_blocks(voxel_tool, original_pos, original_size, new_pos, new_size)
+	# Place expansion blocks (only in AIR - preserves everything)
+	var blocks_placed = _place_expansion_blocks(voxel_tool, new_pos, new_size)
 
 	# Regenerate inverted pyramid with new size
 	print("Regenerating inverted pyramid for expanded ruin...")
@@ -222,8 +148,8 @@ func _expand_ruin_platform(original_pos: Vector3, original_size: Vector3i, new_p
 	return true
 
 
-func _place_expansion_blocks(voxel_tool: VoxelTool, original_pos: Vector3, original_size: Vector3i, new_pos: Vector3, new_size: Vector3i) -> int:
-	"""Place blocks in the expansion area (only in air, only outside original bounds)"""
+func _place_expansion_blocks(voxel_tool: VoxelTool, new_pos: Vector3, new_size: Vector3i) -> int:
+	"""Place blocks in the expansion area (only in air - preserves everything)"""
 	var blocks_placed = 0
 	var base_pos = Vector3i(new_pos)
 
@@ -232,8 +158,7 @@ func _place_expansion_blocks(voxel_tool: VoxelTool, original_pos: Vector3, origi
 	const DIRT_ID = 1
 	const AIR_ID = 0
 
-	# Determine ground layer structure from original ruin
-	var ground_y = int(original_pos.y)
+	var ground_y = int(new_pos.y)
 
 	# Place blocks layer by layer
 	for y in range(GROUND_LAYERS):
@@ -249,17 +174,11 @@ func _place_expansion_blocks(voxel_tool: VoxelTool, original_pos: Vector3, origi
 				var world_z = base_pos.z + z
 				var block_pos = Vector3i(world_x, current_y, world_z)
 
-				# Skip if this position is within the ORIGINAL bounds (preserve existing)
-				var is_in_original = \
-					world_x >= original_pos.x and world_x < original_pos.x + original_size.x and \
-					world_z >= original_pos.z and world_z < original_pos.z + original_size.z
-
-				if not is_in_original:
-					# Only place if it's air (don't overwrite anything)
-					var existing = voxel_tool.get_voxel(block_pos)
-					if existing == AIR_ID:
-						voxel_tool.set_voxel(block_pos, block_id)
-						blocks_placed += 1
+				# Only place if it's air (preserves all existing structures, land, fences, etc.)
+				var existing = voxel_tool.get_voxel(block_pos)
+				if existing == AIR_ID:
+					voxel_tool.set_voxel(block_pos, block_id)
+					blocks_placed += 1
 
 	return blocks_placed
 
