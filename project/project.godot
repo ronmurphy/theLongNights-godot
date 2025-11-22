@@ -40,6 +40,7 @@ DepthsEnemySpawner="*res://long_nights/DepthsEnemySpawner.gd"
 RuinRegistry="*res://blocky_game/ruins/RuinRegistry.gd"
 Powers="*res://long_nights/Powers.gd"
 LampManager="*res://long_nights/LampManager.gd"
+PushBlockManager="*res://blocky_game/PushBlockManager.gd"
 
 [display]
 

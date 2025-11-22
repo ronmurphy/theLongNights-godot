@@ -375,6 +375,13 @@ func _init():
 		"voxels": ["void_stone_bricks"],
 		"transparent": false
 	})
+	_create_block({
+		"name": "test",
+		"gui_model": "test.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["test"],
+		"transparent": false
+	})
 
 
 

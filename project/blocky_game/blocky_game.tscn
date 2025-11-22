@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://blocky_game/blocks/blocks.gd" id="12"]
 [ext_resource type="Script" path="res://blocky_game/items/item_db.gd" id="13"]
 [ext_resource type="Script" path="res://blocky_game/gui/PauseMenu.gd" id="14"]
+[ext_resource type="Script" path="res://blocky_game/PushBlockManager.gd" id="15"]
 
 [sub_resource type="PhysicalSkyMaterial" id="PhysicalSkyMaterial_ixhix"]
 ground_color = Color(0.14902, 0.0901961, 0.0745098, 1)
@@ -36,6 +37,9 @@ script = ExtResource("12")
 
 [node name="Items" type="Node" parent="."]
 script = ExtResource("13")
+
+[node name="PushBlockManager" type="Node" parent="."]
+script = ExtResource("15")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("2")

@@ -123,9 +123,12 @@ func initialize(start_pos: Vector3, target_pos: Vector3, player: Node3D):
 	print("🪃 Boomerang launched toward target at distance: ", distance)
 
 
+var _last_position := Vector3.ZERO  # Track last frame position for push direction
+
 func _physics_process(delta: float):
 	# Store old position before moving
 	var old_position = global_position
+	_last_position = old_position
 
 	# Advance along curve
 	_flight_progress += CURVE_SPEED * delta
@@ -151,6 +154,9 @@ func _physics_process(delta: float):
 	# Check for enemy collisions and deal per-frame damage
 	_check_enemy_collisions()
 
+	# Check for push block collisions
+	_check_push_block_collisions()
+
 	# Clear frame tracking
 	_entities_damaged_this_frame.clear()
 
@@ -166,8 +172,15 @@ func _process_outbound(delta: float):
 	var new_pos = _evaluate_bezier(_outbound_curve_points, _flight_progress)
 
 	# Check for terrain collision before moving
-	if _check_terrain_collision(global_position, new_pos):
-		# Hit terrain! Bounce back immediately
+	var terrain_hit = _check_terrain_collision_point(global_position, new_pos)
+	if terrain_hit:
+		# Check if we hit a push_block
+		if _is_push_block_voxel(terrain_hit):
+			_on_hit_push_block_voxel(terrain_hit)
+			_start_return()  # Bounce back after pushing
+			return
+
+		# Hit normal terrain! Bounce back immediately
 		_start_return()
 		return
 
@@ -198,7 +211,12 @@ func _process_returning(delta: float):
 	var new_pos = _evaluate_bezier(_return_curve_points, _flight_progress)
 
 	# Check for terrain collision
-	if _check_terrain_collision(global_position, new_pos):
+	var terrain_hit = _check_terrain_collision_point(global_position, new_pos)
+	if terrain_hit:
+		# Check if we hit a push_block
+		if _is_push_block_voxel(terrain_hit):
+			_on_hit_push_block_voxel(terrain_hit)
+
 		# Hit terrain while returning - just go directly to player
 		var to_player = (player_pos - global_position).normalized()
 		global_position += to_player * 25.0 * delta
@@ -251,8 +269,13 @@ func _evaluate_bezier(points: Array, t: float) -> Vector3:
 
 func _check_terrain_collision(from_pos: Vector3, to_pos: Vector3) -> bool:
 	"""Check if movement from from_pos to to_pos hits terrain"""
+	return _check_terrain_collision_point(from_pos, to_pos) != null
+
+
+func _check_terrain_collision_point(from_pos: Vector3, to_pos: Vector3):
+	"""Check if movement from from_pos to to_pos hits terrain, return hit position"""
 	if _terrain == null:
-		return false
+		return null
 
 	var vt = _terrain.get_voxel_tool()
 	vt.channel = VoxelBuffer.CHANNEL_TYPE
@@ -264,9 +287,70 @@ func _check_terrain_collision(from_pos: Vector3, to_pos: Vector3) -> bool:
 	var hit = vt.raycast(from_pos, direction, distance + 0.5)
 	if hit != null:
 		print("🪃 Boomerang hit terrain!")
-		return true
+		return Vector3(hit.position)
 
-	return false
+	return null
+
+
+func _is_push_block_voxel(voxel_pos: Vector3) -> bool:
+	"""Check if the voxel at this position is a push_block"""
+	if not _terrain:
+		return false
+
+	var vt = _terrain.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	var voxel_id = vt.get_voxel(voxel_pos)
+	if voxel_id == 0:
+		return false
+
+	# Get block type
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	if not blocks_node:
+		return false
+
+	var block = blocks_node.get_block(voxel_id)
+	return block and block.base_info.name == "push_block"
+
+
+func _on_hit_push_block_voxel(voxel_pos: Vector3):
+	"""Hit a push_block voxel - find or create entity and push it"""
+	# Find existing push block entity at this position
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+	var block_entity = null
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check if entity is at this voxel position
+		var entity_voxel_pos = Vector3i(
+			int(floor(block.global_position.x + 0.5)),
+			int(floor(block.global_position.y + 0.5)),
+			int(floor(block.global_position.z + 0.5))
+		)
+
+		if entity_voxel_pos == Vector3i(voxel_pos):
+			block_entity = block
+			break
+
+	# If no entity exists, try to spawn one
+	if not block_entity:
+		var manager = get_node_or_null("/root/PushBlockManager")
+		if manager and manager.has_method("create_push_block_at"):
+			manager.create_push_block_at(Vector3i(voxel_pos))
+			# Entity will be pushed next time boomerang passes through
+
+	# Push the block if we found it
+	if block_entity and block_entity.has_method("apply_impulse"):
+		# Calculate push direction
+		var travel_direction = (_last_position - global_position).normalized()
+		if travel_direction.length_squared() < 0.001:
+			travel_direction = Vector3.FORWARD
+		var impulse = travel_direction * 2.0  # Stronger push on direct hit
+
+		block_entity.apply_impulse(impulse)
+		print("🪃 Boomerang pushed block!")
 
 
 func _check_enemy_collisions():
@@ -296,3 +380,29 @@ func _check_enemy_collisions():
 			if entity.has_method("take_damage"):
 				entity.take_damage(DAMAGE_PER_FRAME, owner_entity)
 				_entities_damaged_this_frame.append(entity)
+
+
+func _check_push_block_collisions():
+	"""Check for push blocks within hit radius and apply per-frame pushing force"""
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check distance
+		var distance = global_position.distance_to(block.global_position)
+		if distance <= HIT_RADIUS:
+			# Inside hitbox - push the block!
+			# Calculate push direction based on boomerang's movement
+			var travel_direction = (global_position - _last_position).normalized()
+			if travel_direction.length_squared() < 0.001:
+				travel_direction = Vector3.FORWARD  # Fallback if not moving
+			var impulse = travel_direction * 0.5  # Gentle continuous push per frame
+
+			if block.has_method("apply_impulse"):
+				block.apply_impulse(impulse)
+				# Only print once per block to avoid spam
+				if not block in _entities_damaged_this_frame:
+					print("🎯 Boomerang pushing block")
+					_entities_damaged_this_frame.append(block)  # Reuse entity tracking for blocks too

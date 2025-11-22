@@ -179,6 +179,9 @@ func _process_seeking(delta: float):
 	if distance < 0.8:
 		_hit_enemy(current_target)
 
+	# Also check for push block collisions while seeking
+	_check_push_block_collision(delta)
+
 
 func _process_returning(delta: float):
 	"""Fly back to player"""
@@ -284,3 +287,38 @@ func _return_to_player():
 func _cleanup_and_free():
 	"""Clean up and free the blade"""
 	queue_free()
+
+
+func _check_push_block_collision(delta: float):
+	"""Check if blade hit a push block and apply momentum"""
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check distance
+		var distance = global_position.distance_to(block.global_position)
+		if distance < 1.0:  # Hit radius
+			# Calculate impulse based on blade's direction and speed
+			var direction = (block.global_position - global_position).normalized()
+			var impulse = direction * speed * 0.15  # Blade pushes hard (high speed projectile)
+
+			if block.has_method("apply_impulse"):
+				block.apply_impulse(impulse)
+				print("⚔️ Blade slashed through push block!")
+
+				# Spawn slash effect at block
+				SlashEffectSpawner.spawn_slash(
+					get_node("/root/Main/Game"),
+					block.global_position,
+					direction,
+					Color(0.7, 0.9, 1.2, 1.0),  # Bright blue slash
+					0.25,
+					9.0,
+					6.0,
+					2.0,
+					"res://assets/art/textures/slash_01.png"
+				)
+
+			# Blade continues flying (doesn't stop for blocks)

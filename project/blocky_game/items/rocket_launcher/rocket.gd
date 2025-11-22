@@ -35,7 +35,12 @@ func _physics_process(delta: float):
 	
 	var hit = _terrain_tool.raycast(trans.origin, _direction, crossed_distance)
 	if hit != null:
-		_explode(hit.position, trans.origin)
+		# Check if we hit a push_block - push it WITHOUT exploding
+		if _is_push_block_voxel(Vector3(hit.position)):
+			_push_block_without_exploding(Vector3(hit.position))
+		else:
+			# Normal explosion
+			_explode(hit.position, trans.origin)
 	else:
 		trans.origin += motion
 		global_transform = trans
@@ -48,6 +53,7 @@ func _explode(voxel_hit_pos: Vector3, explosion_pos: Vector3):
 		if mp.is_server():
 			_do_sphere_safe(voxel_hit_pos, 4.0)
 			_damage_nearby_entities(explosion_pos, 6.0, total_damage)  # 6 block radius, damage with stack bonus
+			_push_nearby_blocks(explosion_pos, 6.0)  # Push blocks in 6 block radius
 			rpc(&"receive_explode", explosion_pos)
 			_create_explosion_vfx(explosion_pos)
 			queue_free()
@@ -57,6 +63,7 @@ func _explode(voxel_hit_pos: Vector3, explosion_pos: Vector3):
 	else:
 		_do_sphere_safe(voxel_hit_pos, 4.0)
 		_damage_nearby_entities(explosion_pos, 6.0, total_damage)  # 6 block radius, damage with stack bonus
+		_push_nearby_blocks(explosion_pos, 6.0)  # Push blocks in 6 block radius
 		_create_explosion_vfx(explosion_pos)
 		queue_free()
 
@@ -128,3 +135,80 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int) -> voi
 			# Apply damage (could scale with distance)
 			var scaled_damage = int(damage * (1.0 - (distance / radius)))
 			entity.take_damage(scaled_damage, self)
+
+
+func _is_push_block_voxel(voxel_pos: Vector3) -> bool:
+	"""Check if the voxel at this position is a push_block"""
+	var voxel_id = _terrain_tool.get_voxel(voxel_pos)
+	if voxel_id == 0:
+		return false
+
+	# Get block type
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	if not blocks_node:
+		return false
+
+	var block = blocks_node.get_block(voxel_id)
+	return block and block.base_info.name == "push_block"
+
+
+func _push_block_without_exploding(voxel_pos: Vector3):
+	"""Push a push_block without exploding (preserve puzzle room)"""
+	# Find existing push block entity at this position
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+	var block_entity = null
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check if entity is at this voxel position
+		var entity_voxel_pos = Vector3i(
+			int(floor(block.global_position.x + 0.5)),
+			int(floor(block.global_position.y + 0.5)),
+			int(floor(block.global_position.z + 0.5))
+		)
+
+		if entity_voxel_pos == Vector3i(voxel_pos):
+			block_entity = block
+			break
+
+	# If no entity exists, try to spawn one
+	if not block_entity:
+		var manager = get_node_or_null("/root/PushBlockManager")
+		if manager and manager.has_method("create_push_block_at"):
+			manager.create_push_block_at(Vector3i(voxel_pos))
+
+	# Push the block if we found it (or wait for next rocket)
+	if block_entity and block_entity.has_method("apply_impulse"):
+		# Strong push from rocket impact (no explosion)
+		var impulse = _direction * 8.0  # Very strong push
+		block_entity.apply_impulse(impulse)
+		print("🚀 Rocket pushed block without exploding!")
+
+	# Destroy rocket without explosion
+	queue_free()
+
+
+## Push all push blocks within radius away from explosion
+func _push_nearby_blocks(center: Vector3, radius: float) -> void:
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check distance
+		var distance = block.global_position.distance_to(center)
+		if distance <= radius:
+			# Calculate push direction (away from explosion center)
+			var push_direction = (block.global_position - center).normalized()
+
+			# Scale force by distance (closer = stronger push)
+			var force_multiplier = (1.0 - (distance / radius)) * 10.0  # Strong explosive force
+			var impulse = push_direction * force_multiplier
+
+			if block.has_method("apply_impulse"):
+				block.apply_impulse(impulse)
+				print("💥 Rocket explosion pushed block!")
+
