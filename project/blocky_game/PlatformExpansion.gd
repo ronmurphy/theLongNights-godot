@@ -86,6 +86,24 @@ func generate_flat_platform(placement_pos: Vector3) -> bool:
 	return success
 
 
+func generate_terrain_extraction(placement_pos: Vector3) -> bool:
+	"""Generate a terrain extraction platform - rips terrain from ground and places in sky"""
+	print("🌍 Generating Terrain Extraction (ripping earth from ground)...")
+
+	# Calculate spawn position (10 blocks away from placement)
+	var spawn_pos = _calculate_spawn_position(placement_pos)
+
+	# Generate platform by copying ground terrain
+	var success = await _generate_extracted_terrain(placement_pos, spawn_pos)
+
+	if success:
+		print("✅ Terrain extraction complete! Earth ripped from ground!")
+	else:
+		print("❌ Failed to extract terrain")
+
+	return success
+
+
 func _calculate_spawn_position(placement_pos: Vector3) -> Vector3:
 	"""Calculate where the platform should spawn (10 blocks away)"""
 	# For now, spawn 10 blocks to the north (negative Z)
@@ -95,6 +113,155 @@ func _calculate_spawn_position(placement_pos: Vector3) -> Vector3:
 		placement_pos.y,  # Same Y level as placement
 		placement_pos.z - SPAWN_DISTANCE
 	)
+
+
+func _generate_extracted_terrain(placement_pos: Vector3, spawn_pos: Vector3) -> bool:
+	"""Extract terrain from ground beneath placement and copy to sky platform"""
+	if not _terrain:
+		push_error("PlatformExpansion: Terrain not initialized")
+		return false
+
+	print("📍 Scanning ground beneath placement position...")
+
+	# FORCE CHUNK GENERATION at BOTH locations (ground source + sky destination)
+	print("Creating VoxelViewers for source (ground) and destination (sky)...")
+
+	# Viewer for ground source area
+	var source_viewer = VoxelViewer.new()
+	source_viewer.position = Vector3(placement_pos.x, 0, placement_pos.z)  # Ground level
+	source_viewer.view_distance = 64
+	source_viewer.requires_visuals = true
+	source_viewer.requires_collisions = true
+	_terrain.add_child(source_viewer)
+
+	# Viewer for sky destination
+	var dest_viewer = VoxelViewer.new()
+	dest_viewer.position = spawn_pos
+	dest_viewer.view_distance = 64
+	dest_viewer.requires_visuals = true
+	dest_viewer.requires_collisions = true
+	_terrain.add_child(dest_viewer)
+
+	# Wait for chunks to generate at both locations
+	await get_tree().create_timer(4.0).timeout  # Longer wait for both areas
+	print("Chunks loaded at source and destination...")
+
+	# Get voxel tool
+	var voxel_tool = _terrain.get_voxel_tool()
+	if not voxel_tool:
+		source_viewer.queue_free()
+		dest_viewer.queue_free()
+		push_error("PlatformExpansion: Failed to get voxel tool")
+		return false
+
+	voxel_tool.channel = VoxelBuffer.CHANNEL_TYPE
+
+	# STEP 1: Scan down to find lowest ground point in 320x320 area
+	print("🔍 Scanning 320x320 area to find lowest ground point...")
+	var scan_base = Vector3i(placement_pos.x, placement_pos.y, placement_pos.z)
+	var lowest_ground_y = _find_lowest_ground_in_area(scan_base, voxel_tool)
+
+	if lowest_ground_y == -999:
+		source_viewer.queue_free()
+		dest_viewer.queue_free()
+		push_error("PlatformExpansion: Could not find ground")
+		return false
+
+	print("✓ Lowest ground point found at Y=%d" % lowest_ground_y)
+
+	# STEP 2: Copy 320x320x20 volume from ground
+	print("📋 Copying terrain... (this may take 5-10 seconds)")
+	var blocks_copied = _copy_terrain_volume(
+		Vector3i(scan_base.x, lowest_ground_y, scan_base.z),  # Source
+		Vector3i(spawn_pos),  # Destination
+		voxel_tool
+	)
+
+	# STEP 3: Generate inverted pyramid support
+	var pyramid_blocks = _generate_inverted_pyramid(spawn_pos, voxel_tool)
+
+	# Clean up viewers
+	source_viewer.queue_free()
+	dest_viewer.queue_free()
+
+	print("🎉 Terrain extraction complete! Copied %d blocks + %d pyramid blocks" % [blocks_copied, pyramid_blocks])
+
+	# Register as ruin
+	var platform_size = Vector3i(PLATFORM_SIZE_BLOCKS, 20, PLATFORM_SIZE_BLOCKS)
+	RuinRegistry.register_ruin(
+		spawn_pos,
+		"terrain_extraction",
+		[],
+		platform_size
+	)
+
+	return true
+
+
+func _find_lowest_ground_in_area(base_pos: Vector3i, voxel_tool: VoxelTool) -> int:
+	"""Scan 320x320 area to find the lowest non-air block"""
+	var lowest_y = 999999
+	var scan_step = 8  # Check every 8th block for performance (40x40 samples instead of 320x320)
+
+	for x in range(0, PLATFORM_SIZE_BLOCKS, scan_step):
+		for z in range(0, PLATFORM_SIZE_BLOCKS, scan_step):
+			var world_x = base_pos.x + x
+			var world_z = base_pos.z + z
+
+			# Scan downward from placement Y to find ground
+			for y in range(base_pos.y, base_pos.y - 200, -1):  # Scan up to 200 blocks down
+				var voxel_id = voxel_tool.get_voxel(Vector3i(world_x, y, world_z))
+				if voxel_id != AIR_ID:
+					# Found solid ground
+					if y < lowest_y:
+						lowest_y = y
+					break
+
+	if lowest_y == 999999:
+		return -999  # Error: no ground found
+
+	return lowest_y
+
+
+func _copy_terrain_volume(source_base: Vector3i, dest_base: Vector3i, voxel_tool: VoxelTool) -> int:
+	"""Copy a 320x320x20 volume from source to destination"""
+	var blocks_copied = 0
+	var copy_depth = 20  # Copy 20 blocks deep from lowest point
+
+	# Progress tracking
+	var total_blocks = PLATFORM_SIZE_BLOCKS * PLATFORM_SIZE_BLOCKS * copy_depth
+	var progress_step = total_blocks / 20  # Update every 5%
+	var blocks_processed = 0
+
+	for y in range(copy_depth):
+		for x in range(PLATFORM_SIZE_BLOCKS):
+			for z in range(PLATFORM_SIZE_BLOCKS):
+				# Source position
+				var source_pos = Vector3i(
+					source_base.x + x,
+					source_base.y + y,
+					source_base.z + z
+				)
+
+				# Destination position
+				var dest_pos = Vector3i(
+					dest_base.x + x,
+					dest_base.y + y,
+					dest_base.z + z
+				)
+
+				# Copy the voxel
+				var voxel_id = voxel_tool.get_voxel(source_pos)
+				voxel_tool.set_voxel(dest_pos, voxel_id)
+				blocks_copied += 1
+				blocks_processed += 1
+
+				# Progress update
+				if blocks_processed % progress_step == 0:
+					var percent = int((float(blocks_processed) / float(total_blocks)) * 100.0)
+					print("Ripping terrain from earth... %d%%" % percent)
+
+	return blocks_copied
 
 
 func _generate_platform_base(spawn_pos: Vector3, is_wilderness: bool) -> bool:

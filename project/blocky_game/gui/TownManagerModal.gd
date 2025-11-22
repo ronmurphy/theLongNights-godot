@@ -465,10 +465,18 @@ func _create_expansion_button(blueprint: StructureBlueprintLibrary.StructureBlue
 			has_claimed_free = player.get_meta("claimed_free_wilderness", false)
 		elif blueprint.name == "construction_platform":
 			has_claimed_free = player.get_meta("claimed_free_construction", false)
+		elif blueprint.name == "terrain_extraction":
+			has_claimed_free = player.get_meta("claimed_free_extraction", false)
 
 	# Determine cost text
 	var cost_text: String
-	if not has_claimed_free:
+	if blueprint.name == "terrain_extraction":
+		# Terrain extraction is special - FREE but only once ever
+		if has_claimed_free:
+			cost_text = "CLAIMED (one-time only)"
+		else:
+			cost_text = "FREE (ONE TIME ONLY!)"
+	elif not has_claimed_free:
 		cost_text = "FREE (first time!)"
 	else:
 		cost_text = str(blueprint.rust_block_cost) + " rust"
@@ -480,6 +488,11 @@ func _create_expansion_button(blueprint: StructureBlueprintLibrary.StructureBlue
 	btn.set_meta("blueprint", blueprint)
 	btn.set_meta("is_expansion", true)
 	btn.set_meta("has_claimed_free", has_claimed_free)
+
+	# Disable terrain extraction if already claimed (one-time only!)
+	if blueprint.name == "terrain_extraction" and has_claimed_free:
+		btn.disabled = true
+
 	_apply_list_button_style(btn)
 	return btn
 
@@ -746,9 +759,11 @@ func _show_structure_preview(blueprint: StructureBlueprintLibrary.StructureBluep
 	else:
 		print("⚠️ TownManagerModal: Failed to generate mesh for blueprint '%s'" % blueprint.name)
 
-	# Use fixed camera distance based on preview area (consistent for all structures)
-	var max_dimension = max(preview_size_x, max(preview_size_y, preview_size_z))
-	_camera_distance = max_dimension * 1.5
+	# Calculate camera distance based on ACTUAL structure size, not preview area
+	# This ensures small structures don't appear tiny due to max-size camera positioning
+	var structure_max_dimension = max(blueprint.size.x, max(blueprint.size.y, blueprint.size.z))
+	_camera_distance = structure_max_dimension * 1.2  # Closer multiplier for better view
+	_camera_distance = max(8.0, _camera_distance)  # Minimum distance to avoid clipping
 	_update_camera_transform()
 
 
@@ -891,6 +906,7 @@ func _show_block_selector_for_fence(full_price: bool):
 			# Emit fence upgrade signal
 			fence_upgraded.emit(full_price, block_id)
 			# Close this modal
+			modal_closed.emit()
 			queue_free()
 		)
 
@@ -922,9 +938,16 @@ func _handle_structure_purchase():
 			has_claimed_free = player.get_meta("claimed_free_wilderness", false)
 		elif _selected_blueprint.name == "construction_platform":
 			has_claimed_free = player.get_meta("claimed_free_construction", false)
+		elif _selected_blueprint.name == "terrain_extraction":
+			has_claimed_free = player.get_meta("claimed_free_extraction", false)
+			# Terrain extraction is ALWAYS free, but only once
+			if has_claimed_free:
+				print("❌ You can only claim ONE Terrain Extraction (already used)!")
+				return
+			actual_cost = 0  # Always free
 
-		# First time is FREE
-		if not has_claimed_free:
+		# First time is FREE (for wilderness and construction)
+		if not has_claimed_free and _selected_blueprint.name != "terrain_extraction":
 			actual_cost = 0
 			print("🎁 First %s is FREE!" % _selected_blueprint.display_name)
 
@@ -944,6 +967,8 @@ func _handle_structure_purchase():
 			player.set_meta("claimed_free_wilderness", true)
 		elif _selected_blueprint.name == "construction_platform":
 			player.set_meta("claimed_free_construction", true)
+		elif _selected_blueprint.name == "terrain_extraction":
+			player.set_meta("claimed_free_extraction", true)
 
 	# Get Blocks reference to find rune_marker
 	var game = get_tree().root.get_node_or_null("Main/Game")
@@ -1016,6 +1041,7 @@ func _handle_structure_purchase():
 		first_blueprint_tutorial_needed.emit()
 
 	# Close modal
+	modal_closed.emit()
 	queue_free()
 
 
