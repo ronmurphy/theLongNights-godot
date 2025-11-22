@@ -23,6 +23,11 @@ func duplicate():
 	d.skyshard_count = skyshard_count
 	d.skyshard_power = skyshard_power
 	d.skyshard_powers = skyshard_powers.duplicate(true)
+
+	# Copy metadata (for custom tooltips and terrain expansion types)
+	for meta_key in get_meta_list():
+		d.set_meta(meta_key, get_meta(meta_key))
+
 	return d
 
 

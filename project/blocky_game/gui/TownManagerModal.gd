@@ -1005,10 +1005,16 @@ func _handle_structure_purchase():
 			if _selected_blueprint.category == "land_expansion":
 				if _selected_blueprint.name == "wilderness_expansion":
 					item.set_meta("terrain_expansion_type", "wilderness")
+					item.set_meta("custom_tooltip", "Wilderness Ruin Terrain")
 				elif _selected_blueprint.name == "construction_platform":
 					item.set_meta("terrain_expansion_type", "construction")
+					item.set_meta("custom_tooltip", "Flat Ruin Terrain")
 				elif _selected_blueprint.name == "terrain_extraction":
 					item.set_meta("terrain_expansion_type", "extraction")
+					item.set_meta("custom_tooltip", "Extracted Ruin Terrain")
+			# For regular structures, set custom tooltip with blueprint name
+			elif _selected_blueprint.category in ["homebase", "utility", "defensive", "production", "underground"]:
+				item.set_meta("custom_tooltip", _selected_blueprint.display_name + " Blueprint")
 
 			inventory._slots[i] = item
 			added = true

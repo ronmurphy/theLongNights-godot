@@ -83,8 +83,11 @@ func set_item(data: InventoryItem):
 		var block := _block_types.get_block(data.id)
 		var sprite_texture = block.base_info.sprite_texture
 
-		# Set tooltip with block name
-		tooltip_text = block.base_info.name.capitalize()
+		# Set tooltip - use custom tooltip if available (for blueprints), otherwise use block name
+		if data.has_meta("custom_tooltip"):
+			tooltip_text = data.get_meta("custom_tooltip")
+		else:
+			tooltip_text = block.base_info.name.capitalize()
 
 		# Check if this block has no sprite (might be tinted)
 		if sprite_texture == null:
