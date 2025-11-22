@@ -379,26 +379,7 @@ func _physics_process(_delta):
 				if has_cube == false:
 					pos = hit.position
 
-				# SPECIAL HANDLING: Construction Expansion - expands current ruin from center
-				if inv_item != null and inv_item.has_meta("terrain_expansion_type"):
-					var expansion_type = inv_item.get_meta("terrain_expansion_type")
-					print("🏗️ Construction Expansion detected: %s" % expansion_type)
-
-					# Get player position (for finding current ruin)
-					var player_pos = get_parent().global_position  # Player body position
-
-					print("📍 Expanding ruin at player position: %s" % player_pos)
-
-					# Expand the current ruin
-					_expand_current_ruin(player_pos)
-
-					# Decrement block count in hotbar (but NOT in creative mode)
-					if not _creative_mode:
-						_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
-
-					_action_place = false  # Consume the action
-
-				elif _is_target_in_range(pos, inv_item) and _can_place_voxel_at(pos):
+				if _is_target_in_range(pos, inv_item) and _can_place_voxel_at(pos):
 					if inv_item != null and inv_item.count > 0:
 						_place_single_block(pos, inv_item.id)
 						print("Place voxel at ", pos)
@@ -2549,35 +2530,6 @@ func _rotate_position_y(pos: Vector3i, degrees: int, size: Vector3i) -> Vector3i
 			result = Vector3i(pos.z, pos.y, size.x - 1 - pos.x)
 
 	return result
-
-
-func _expand_current_ruin(player_pos: Vector3) -> void:
-	"""Expand the ruin the player is currently standing on"""
-	print("🏗️ Expanding current ruin from player position: %s" % player_pos)
-
-	# Load PlatformExpansion generator
-	var PlatformExpansion = load("res://blocky_game/PlatformExpansion.gd")
-	var generator = PlatformExpansion.new()
-
-	# Add generator to scene tree temporarily (needed for async operations)
-	var game = get_node("/root/Main/Game")
-	game.add_child(generator)
-
-	# Initialize generator with terrain and blocks references
-	var terrain = get_node("/root/Main/Game/VoxelTerrain")
-	var blocks = get_node("/root/Main/Game/Blocks")
-	generator.initialize(terrain, blocks)
-
-	# Expand the ruin
-	var success = await generator.expand_ruin(player_pos)
-
-	# Clean up generator
-	generator.queue_free()
-
-	if success:
-		print("✅ Ruin expansion successful!")
-	else:
-		print("❌ Failed to expand ruin")
 
 
 func _on_structure_purchased(blueprint_name: String) -> void:
