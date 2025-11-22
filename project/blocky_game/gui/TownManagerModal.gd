@@ -362,6 +362,63 @@ func _populate_options_list():
 		var btn = _create_structure_button(bp)
 		_options_container.add_child(btn)
 
+	# Separator
+	var separator3 = HSeparator.new()
+	separator3.add_theme_constant_override("separation", 10)
+	_options_container.add_child(separator3)
+
+	# DEFENSIVE STRUCTURES HEADER
+	var defensive_header = Label.new()
+	defensive_header.text = "🛡️ Defensive Structures"
+	defensive_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	defensive_header.add_theme_font_size_override("font_size", 14)
+	defensive_header.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
+	_options_container.add_child(defensive_header)
+
+	# Add defensive structure buttons
+	var defensive_blueprints = StructureBlueprintLibrary.get_blueprints_by_category("defensive")
+	for bp in defensive_blueprints:
+		var btn = _create_structure_button(bp)
+		_options_container.add_child(btn)
+
+	# Separator
+	var separator4 = HSeparator.new()
+	separator4.add_theme_constant_override("separation", 10)
+	_options_container.add_child(separator4)
+
+	# PRODUCTION STRUCTURES HEADER
+	var production_header = Label.new()
+	production_header.text = "⚒️ Production Structures"
+	production_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	production_header.add_theme_font_size_override("font_size", 14)
+	production_header.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
+	_options_container.add_child(production_header)
+
+	# Add production structure buttons
+	var production_blueprints = StructureBlueprintLibrary.get_blueprints_by_category("production")
+	for bp in production_blueprints:
+		var btn = _create_structure_button(bp)
+		_options_container.add_child(btn)
+
+	# Separator
+	var separator5 = HSeparator.new()
+	separator5.add_theme_constant_override("separation", 10)
+	_options_container.add_child(separator5)
+
+	# UNDERGROUND STRUCTURES HEADER
+	var underground_header = Label.new()
+	underground_header.text = "⛏️ Underground Structures"
+	underground_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	underground_header.add_theme_font_size_override("font_size", 14)
+	underground_header.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
+	_options_container.add_child(underground_header)
+
+	# Add underground structure buttons
+	var underground_blueprints = StructureBlueprintLibrary.get_blueprints_by_category("underground")
+	for bp in underground_blueprints:
+		var btn = _create_structure_button(bp)
+		_options_container.add_child(btn)
+
 
 func _create_structure_button(blueprint: StructureBlueprintLibrary.StructureBlueprint) -> Button:
 	"""Create a button for a structure blueprint"""
