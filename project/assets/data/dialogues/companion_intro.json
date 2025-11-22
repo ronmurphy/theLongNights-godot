@@ -154,8 +154,7 @@
           "speaker_display": "Zara",
           "text": "Please, take this Keeper's Charm. It is a gift from the ancient keepers.",
           "portrait_left": "res://assets/art/npc_sprites/zara.png",
-          "delay": 2500,
-          "sfx": "res://assets/sfx/CatMeow.ogg"
+          "delay": 2500
         ,
           "voice_mode": "animalese",
           "voice_speed": 1.2,

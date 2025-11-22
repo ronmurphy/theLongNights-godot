@@ -2298,25 +2298,40 @@ func _create_ghost_preview() -> void:
 	if not _placement_blueprint:
 		return
 
+	print("👻 Creating ghost preview for: %s (category: %s)" % [_placement_blueprint.display_name, _placement_blueprint.category])
+
 	# Load voxel library
 	var voxel_library = load("res://blocky_game/blocks/voxel_library.tres")
 
-	# Create voxel buffer
+	# Create voxel buffer with padding for mesher (needs empty space around voxels)
 	var size = _placement_blueprint.size
+	var padding = 5  # 5 voxels on each side
+	var buffer_size_x = size.x + (padding * 2)
+	var buffer_size_y = size.y + (padding * 2)
+	var buffer_size_z = size.z + (padding * 2)
+
 	var voxels = VoxelBuffer.new()
-	voxels.create(size.x, size.y, size.z)
+	voxels.create(buffer_size_x, buffer_size_y, buffer_size_z)
 	voxels.fill(0, VoxelBuffer.CHANNEL_TYPE)
 
-	# Place voxels from blueprint
+	# Place voxels from blueprint (offset by padding)
+	var voxels_placed = 0
+	var voxels_failed = 0
 	for voxel_data in _placement_blueprint.blocks:
 		var pos: Vector3i = voxel_data.pos
 		var voxel_name: String = voxel_data.voxel_name
 
 		var voxel_id = voxel_library.get_model_index_from_resource_name(voxel_name)
 		if voxel_id == -1:
+			print("❌ Failed to find voxel: '%s'" % voxel_name)
+			voxels_failed += 1
 			continue
 
-		voxels.set_voxel(voxel_id, pos.x, pos.y, pos.z, VoxelBuffer.CHANNEL_TYPE)
+		# Apply padding offset when placing in buffer
+		voxels.set_voxel(voxel_id, pos.x + padding, pos.y + padding, pos.z + padding, VoxelBuffer.CHANNEL_TYPE)
+		voxels_placed += 1
+
+	print("📦 Voxels placed: %d, failed: %d" % [voxels_placed, voxels_failed])
 
 	# Create mesher and generate mesh
 	var mesher = VoxelMesherBlocky.new()
@@ -2324,6 +2339,8 @@ func _create_ghost_preview() -> void:
 
 	var materials = []
 	var generated_mesh = mesher.build_mesh(voxels, materials)
+
+	print("🔨 Mesh generation result: %s (surfaces: %d)" % [generated_mesh != null, generated_mesh.get_surface_count() if generated_mesh else 0])
 
 	if generated_mesh:
 		# Create ghost mesh instance
@@ -2343,9 +2360,15 @@ func _create_ghost_preview() -> void:
 			ghost_material.albedo_color = Color(0.5, 1.0, 0.5, 0.5)  # Green tint, 50% opacity
 			generated_mesh.surface_set_material(i, ghost_material)
 
+		# Offset the mesh to compensate for padding (mesh is centered in padded buffer)
+		# We need to shift it back by the padding amount so it aligns with world position
+		_placement_ghost_mesh.position = Vector3(-padding, -padding, -padding)
+
 		# Add to terrain node
 		_terrain.add_child(_placement_ghost_mesh)
-		print("👻 Created ghost preview mesh")
+		print("👻 Created ghost preview mesh successfully (blocks: %d)" % _placement_blueprint.blocks.size())
+	else:
+		print("❌ Failed to generate ghost preview mesh!")
 
 
 func _update_ghost_preview_position() -> void:
@@ -2376,12 +2399,25 @@ func _update_ghost_preview_position() -> void:
 			size_x = size_z
 			size_z = temp
 
+		# Calculate Y offset based on category
+		var offset_y = 0.0
+		if _placement_blueprint.category == "terrain":
+			# For terrain structures (land lots), place the TOP surface at ground level
+			# Land lots are 4 blocks tall (stone, dirt, dirt, grass at y=0,1,2,3)
+			# The grass layer (y=3) should be flush with the ground
+			# Since hit.position is the air block ABOVE ground, we subtract 1
+			offset_y = _placement_blueprint.size.y - 2.0  # -1 for top layer, -1 for air block
+
 		var center_offset = Vector3(
 			size_x / 2.0,
-			0,  # Don't offset Y
+			offset_y,
 			size_z / 2.0
 		)
 		_placement_ghost_mesh.position = Vector3(pos) - center_offset
+
+		# Debug: Show ghost position for terrain category
+		if _placement_blueprint.category == "terrain":
+			print("👻 Ghost position: %s (hit: %s, offset: %s)" % [_placement_ghost_mesh.position, pos, center_offset])
 
 		# Validate placement and update ghost color
 		var is_valid = _validate_placement_location(pos)
@@ -2489,9 +2525,18 @@ func _place_structure_at_position(pos: Vector3) -> void:
 		size_x = size_z
 		size_z = temp
 
+	# Calculate Y offset based on category
+	var offset_y = 0
+	if _placement_blueprint.category == "terrain":
+		# For terrain structures (land lots), place the TOP surface at ground level
+		# Land lots are 4 blocks tall (stone, dirt, dirt, grass at y=0,1,2,3)
+		# The grass layer (y=3) should be flush with the ground
+		# Since hit.position is the air block ABOVE ground, we subtract 1
+		offset_y = _placement_blueprint.size.y - 2  # -1 for top layer, -1 for air block
+
 	var center_offset = Vector3i(
 		size_x / 2,
-		0,
+		offset_y,
 		size_z / 2
 	)
 
