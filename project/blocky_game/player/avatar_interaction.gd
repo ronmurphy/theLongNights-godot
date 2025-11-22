@@ -2663,6 +2663,12 @@ func _handle_chest_interaction(chest_pos: Vector3) -> void:
 			loot_messages.append("Ring of Thorns")
 			print("Rare drop: Found Ring of Thorns!")
 
+		# 3% chance to find Blade of Pursuit (very rare chain-attack weapon)
+		if randf() < 0.03:
+			loot_items.append({"id": 47, "count": 1})  # blade_of_pursuit
+			loot_messages.append("Blade of Pursuit")
+			print("Very rare drop: Found Blade of Pursuit!")
+
 		# Always give a weapon/tool
 		var loot_table = [
 			{"id": 0, "name": "Rocket Launcher"},

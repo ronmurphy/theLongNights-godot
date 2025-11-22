@@ -58,6 +58,10 @@ var _thorn_attack_timer := 0.0  # Timer for auto-attack (every 2 seconds)
 const THORN_ATTACK_INTERVAL = 2.0  # Seconds between auto-attacks
 const THORN_ATTACK_RANGE = 15.0  # Blocks to search for enemies
 
+## Blade of Pursuit system
+var _blade_of_pursuit_cooldown := 0.0  # Cooldown timer
+const BLADE_OF_PURSUIT_COOLDOWN = 3.0  # 3 second cooldown
+
 ## Player avatar billboard
 var _player_avatar: PlayerAvatar = null
 var _show_avatar: bool = true # Toggle for testing (set to true to see billboard)
@@ -276,6 +280,10 @@ func _physics_process(delta: float):
 
 	# Handle Ring of Thorns (orbiting projectiles that auto-attack)
 	_update_ring_of_thorns(delta)
+
+	# Handle Blade of Pursuit cooldown
+	if _blade_of_pursuit_cooldown > 0.0:
+		_blade_of_pursuit_cooldown -= delta
 
 	# Handle void_fog damage (5 damage when moving to a new fog block)
 	if has_node(terrain):
@@ -1380,6 +1388,35 @@ func _launch_thorn_at_nearest_enemy() -> void:
 				thorn.launch_at_enemy(nearest_enemy)
 				print("🌿 Thorn launched at %s" % nearest_enemy.entity_name)
 				break
+
+
+## Blade of Pursuit system - Chain-attacking flying sword
+func is_blade_of_pursuit_ready() -> bool:
+	"""Check if Blade of Pursuit is off cooldown"""
+	return _blade_of_pursuit_cooldown <= 0.0
+
+
+func launch_blade_of_pursuit(start_pos: Vector3) -> void:
+	"""Launch the Blade of Pursuit at enemies"""
+	if _blade_of_pursuit_cooldown > 0.0:
+		return  # Still on cooldown
+
+	# Start cooldown
+	_blade_of_pursuit_cooldown = BLADE_OF_PURSUIT_COOLDOWN
+
+	# Create flying blade
+	const FlyingBlade = preload("res://blocky_game/projectiles/flying_blade.gd")
+	var blade = Node3D.new()
+	blade.set_script(FlyingBlade)
+
+	# Add to game scene (not as child of player)
+	var game = get_node("/root/Main/Game")
+	if game:
+		game.add_child(blade)
+		blade.initialize(start_pos, self)
+		print("⚔️ Blade of Pursuit launched!")
+	else:
+		blade.queue_free()
 
 
 ## Player death

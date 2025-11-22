@@ -202,6 +202,10 @@ func _init():
 		"name": "ring_of_thorns",
 		"behavior": "ring_of_thorns.gd"
 	})
+	_create_item({
+		"name": "blade_of_pursuit",
+		"behavior": "blade_of_pursuit.gd"
+	})
 
 
 func get_item(id: int) -> Item:
