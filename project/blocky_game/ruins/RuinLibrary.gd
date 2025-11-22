@@ -48,6 +48,8 @@ func _create_ruin_templates():
 	# Mega-ruins with multiple teleport stones
 	_ruin_templates.append(_create_grand_castle())
 	_ruin_templates.append(_create_sky_city_district())
+	# Expansion platforms (no teleport stones, just building space)
+	_ruin_templates.append(_create_flat_platform_120x120())
 
 	print("Loaded ", _ruin_templates.size(), " ruin template(s)")
 
@@ -960,3 +962,33 @@ func _create_sky_city_district() -> RuinTemplate:
 		blocks.append({"pos": lamp + Vector3i(0, 4, 0), "block_id": 7, "variant": 0})  # glass
 
 	return RuinTemplate.new("sky_city_district", Vector3i(55, 21, 55), blocks, teleport_positions, 0.5)
+
+
+func _create_flat_platform_120x120() -> RuinTemplate:
+	"""
+	A simple 120x120 flat platform for base expansion
+	Just 3 layers: 1 layer dirt bottom, 1 layer dirt middle, 1 layer grass top
+	No structures, no teleport stones - pure building space!
+	"""
+	var blocks = []
+	var platform_size = 120
+
+	# Bottom layer - dirt
+	for x in range(platform_size):
+		for z in range(platform_size):
+			blocks.append({"pos": Vector3i(x, 0, z), "block_id": 1, "variant": 0})  # dirt
+
+	# Middle layer - dirt
+	for x in range(platform_size):
+		for z in range(platform_size):
+			blocks.append({"pos": Vector3i(x, 1, z), "block_id": 1, "variant": 0})  # dirt
+
+	# Top layer - grass
+	for x in range(platform_size):
+		for z in range(platform_size):
+			blocks.append({"pos": Vector3i(x, 2, z), "block_id": 2, "variant": 0})  # grass
+
+	print("Created flat_platform_120x120 with ", blocks.size(), " blocks (120x120x3)")
+
+	# No teleport stones - pass empty array
+	return RuinTemplate.new("flat_platform_120x120", Vector3i(120, 3, 120), blocks, [], 0.0)
