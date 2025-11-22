@@ -27,7 +27,7 @@ func expand_ruin(player_pos: Vector3) -> bool:
 		push_error("❌ Player is not standing on a registered ruin!")
 		return false
 
-	print("📍 Found ruin: %s at %s (size: %s)" % [current_ruin.ruin_name, current_ruin.position, current_ruin.size])
+	print("📍 Found ruin: %s at %s (size: %s)" % [current_ruin.ruin_name, current_ruin.position, current_ruin.ruin_size])
 
 	# Check if already expanded
 	if current_ruin.has_meta("has_been_expanded"):
@@ -36,7 +36,7 @@ func expand_ruin(player_pos: Vector3) -> bool:
 
 	# Calculate new bounds (expand from center)
 	var original_pos = current_ruin.position
-	var original_size = current_ruin.size
+	var original_size = current_ruin.ruin_size
 	var new_pos = original_pos - Vector3(EXPANSION_AMOUNT, 0, EXPANSION_AMOUNT)
 	var new_size = original_size + Vector3i(EXPANSION_AMOUNT * 2, 0, EXPANSION_AMOUNT * 2)
 
@@ -49,7 +49,7 @@ func expand_ruin(player_pos: Vector3) -> bool:
 		# Mark as expanded in RuinRegistry
 		current_ruin.set_meta("has_been_expanded", true)
 		# Update size in registry
-		current_ruin.size = new_size
+		current_ruin.ruin_size = new_size
 		current_ruin.position = new_pos
 		print("✅ Ruin expansion complete!")
 		return true
@@ -64,7 +64,7 @@ func _find_ruin_at_position(pos: Vector3) -> RuinRegistry.RuinData:
 
 	for ruin in ruins:
 		var ruin_pos = ruin.position
-		var ruin_size = ruin.size
+		var ruin_size = ruin.ruin_size
 
 		# Check if position is within ruin bounds
 		if pos.x >= ruin_pos.x and pos.x < ruin_pos.x + ruin_size.x and \
