@@ -9,10 +9,8 @@ const DIRT_ID = 1
 const STONE_ID = 29
 const RUIN_STONE_ID = 33
 const AIR_ID = 0
-const LOG_Y_ID = 5  # Pine log
-const BIRCH_LOG_Y_ID = 49  # Birch log (if exists)
-const LEAVES_ID = 8  # Pine leaves
-const BIRCH_LEAVES_ID = 50  # Birch leaves (if exists)
+const LOG_Y_ID = 5  # Pine log (voxel ID)
+const LEAVES_ID = 8  # Pine leaves (voxel ID)
 
 # Platform constants
 const PLATFORM_SIZE_CHUNKS = 20  # 20x20 chunks
@@ -33,6 +31,8 @@ const PINE_TREE_CHANCE = 0.6  # 60% pine, 40% birch
 var _terrain = null
 var _blocks = null
 var _noise: FastNoiseLite = null
+var _birch_log_voxel_id: int = -1  # Runtime voxel ID for birch_log_y
+var _birch_leaves_voxel_id: int = -1  # Runtime voxel ID for birch leaves (if exists)
 
 
 func initialize(terrain_node: Node, blocks_node: Node):
@@ -46,6 +46,18 @@ func initialize(terrain_node: Node, blocks_node: Node):
 	_noise.frequency = HILL_FREQUENCY
 	_noise.fractal_octaves = 3
 	_noise.noise_type = FastNoiseLite.TYPE_PERLIN
+
+	# Get voxel library and check for birch blocks
+	var voxel_library = load("res://blocky_game/blocks/voxel_library.tres")
+	if voxel_library:
+		_birch_log_voxel_id = voxel_library.get_model_index_from_resource_name("birch_log_y")
+		# Note: birch leaves don't exist as a separate block yet, will use pine leaves
+		# _birch_leaves_voxel_id = voxel_library.get_model_index_from_resource_name("birch_leaves")
+
+	if _birch_log_voxel_id != -1:
+		print("PlatformExpansion: Birch trees available (voxel ID: %d)" % _birch_log_voxel_id)
+	else:
+		print("PlatformExpansion: Birch trees not found, using pine only")
 
 	print("PlatformExpansion: Initialized")
 
@@ -273,14 +285,15 @@ func _generate_platform_base(spawn_pos: Vector3, is_wilderness: bool) -> bool:
 	# FORCE CHUNK GENERATION: Create temporary VoxelViewer
 	print("Creating temporary VoxelViewer to generate chunks...")
 	var temp_viewer = VoxelViewer.new()
-	temp_viewer.position = spawn_pos
-	temp_viewer.view_distance = 64  # Large enough to cover 320x320 platform
+	temp_viewer.position = spawn_pos + Vector3(PLATFORM_SIZE_BLOCKS / 2, 0, PLATFORM_SIZE_BLOCKS / 2)  # Center of platform
+	temp_viewer.view_distance = 128  # Very large to ensure 320x320 area is loaded
 	temp_viewer.requires_visuals = true
 	temp_viewer.requires_collisions = true
 	_terrain.add_child(temp_viewer)
 
-	# Wait for chunks to generate
-	await get_tree().create_timer(3.0).timeout  # Longer wait for large area
+	# Wait longer for large area chunks to generate
+	print("Waiting for chunks to load (5 seconds)...")
+	await get_tree().create_timer(5.0).timeout
 	print("Chunks generated, building platform...")
 
 	# Get voxel tool
@@ -460,12 +473,12 @@ func _place_pine_tree(pos: Vector3i, voxel_tool: VoxelTool):
 
 
 func _place_birch_tree(pos: Vector3i, voxel_tool: VoxelTool):
-	"""Place a simple birch tree (4-6 blocks tall)"""
+	"""Place a simple birch tree (4-6 blocks tall) - falls back to pine if birch doesn't exist"""
 	var height = randi() % 3 + 4  # 4-6 blocks tall
 
-	# Trunk (use birch log if available, otherwise pine)
-	var log_id = BIRCH_LOG_Y_ID if _blocks.get_block(BIRCH_LOG_Y_ID) else LOG_Y_ID
-	var leaves_id = BIRCH_LEAVES_ID if _blocks.get_block(BIRCH_LEAVES_ID) else LEAVES_ID
+	# Use birch if available (detected at initialization), otherwise pine
+	var log_id = _birch_log_voxel_id if _birch_log_voxel_id != -1 else LOG_Y_ID
+	var leaves_id = LEAVES_ID  # Always use pine leaves (birch leaves don't exist yet)
 
 	for y in range(height):
 		voxel_tool.set_voxel(Vector3i(pos.x, pos.y + y, pos.z), log_id)
