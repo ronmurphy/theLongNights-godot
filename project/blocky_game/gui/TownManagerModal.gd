@@ -762,16 +762,17 @@ func _show_structure_preview(blueprint: StructureBlueprintLibrary.StructureBluep
 	# Calculate camera distance based on ACTUAL structure size, not preview area
 	# This ensures small structures don't appear tiny due to max-size camera positioning
 	var structure_max_dimension = max(blueprint.size.x, max(blueprint.size.y, blueprint.size.z))
-	_camera_distance = structure_max_dimension * 1.2  # Closer multiplier for better view
-	_camera_distance = max(8.0, _camera_distance)  # Minimum distance to avoid clipping
+	_camera_distance = structure_max_dimension * 1.5  # 1.5x multiplier for good framing
+	_camera_distance = max(5.0, _camera_distance)  # Minimum distance to avoid clipping
 	_update_camera_transform()
 
 
 func _clear_preview():
-	"""Clear the preview mesh"""
-	var preview_mesh = _preview_scene.get_node_or_null("StructurePreview")
-	if preview_mesh:
-		preview_mesh.queue_free()
+	"""Clear all preview meshes immediately"""
+	# Remove all MeshInstance3D children (structure previews)
+	for child in _preview_scene.get_children():
+		if child is MeshInstance3D:
+			child.queue_free()
 
 
 func _get_block_color(block_name: String) -> Color:
