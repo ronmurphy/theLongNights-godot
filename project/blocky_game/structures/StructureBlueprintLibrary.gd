@@ -324,6 +324,18 @@ func _register_land_expansions() -> void:
 	# No template needed - handled by PlatformExpansion.gd
 	_blueprints["construction_platform"] = construction
 
+	# TERRAIN EXTRACTION - Rips terrain from ground and lifts to sky (LORE ACCURATE!)
+	var extraction = StructureBlueprint.new(
+		"terrain_extraction",
+		"Terrain Extraction",
+		Vector3i(320, 20, 320),  # 20x20 chunks
+		"land_expansion",
+		"⚠️ PLACE ON EDGE OF HOMEBASE! Rips a 320x320x20 chunk of terrain from the ground beneath you and places it in the sky. LORE ACCURATE sky ruin creation! Spawns 10 blocks away. First one FREE ONLY!",
+		0  # Always FREE (one-time only)
+	)
+	# No template needed - handled by PlatformExpansion.gd
+	_blueprints["terrain_extraction"] = extraction
+
 
 ## ============================================================================
 ## TEMPLATE BUILDERS

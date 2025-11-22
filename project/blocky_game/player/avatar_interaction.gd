@@ -55,6 +55,7 @@ var _torch_light : OmniLight3D = null
 var _current_held_item_id := -1
 var _portal_compass_modal_open := false  # Track if Portal Compass modal is open
 var _cooking_modal_open := false  # Track if Cooking modal is open
+var _town_manager_modal_open := false  # Track if Town Manager shop is open
 var _fishing_mode := false  # Track if player is fishing (disables movement)
 var _active_fishing_minigame: FishingMinigame = null  # Reference to active fishing minigame
 var _nearby_fish: Node3D = null  # Reference to nearby fish for fishing
@@ -1226,7 +1227,7 @@ func _unhandled_input(event: InputEvent):
 	var terrain_mapper = get_node_or_null("/root/Main/Game/TerrainMapper")
 	var terrain_mapper_open = terrain_mapper != null and terrain_mapper.is_visible
 
-	var ui_open = console_open or terrain_mapper_open or _portal_compass_modal_open or _cooking_modal_open or _fishing_mode
+	var ui_open = console_open or terrain_mapper_open or _portal_compass_modal_open or _cooking_modal_open or _town_manager_modal_open or _fishing_mode
 
 	# Z key toggle disabled - using fire slash effect by default
 	# if event is InputEventKey and event.pressed and not event.echo:
@@ -1581,6 +1582,11 @@ func _on_homebase_dialogue_closed(dialogue_id: String, teleport_stone_pos: Vecto
 func set_cooking_modal_open(is_open: bool) -> void:
 	"""Set cooking modal open state (called by GameConsole)"""
 	_cooking_modal_open = is_open
+
+
+func set_town_manager_modal_open(is_open: bool) -> void:
+	"""Set town manager modal open state (disables hotbar mouse wheel when open)"""
+	_town_manager_modal_open = is_open
 
 
 func _show_portal_compass_modal(teleport_stone_pos: Vector3, is_emergency: bool = false) -> void:
@@ -2191,10 +2197,18 @@ func _open_town_manager_shop(npc: Node) -> void:
 	var game = get_node("/root/Main/Game")
 	game.add_child(modal)
 
+	# Mark modal as open (disables hotbar mouse wheel)
+	set_town_manager_modal_open(true)
+
 	# Connect signals
 	modal.structure_purchased.connect(_on_structure_purchased)
 	modal.fence_upgraded.connect(_on_fence_upgraded)
 	modal.first_blueprint_tutorial_needed.connect(_show_blueprint_tutorial)
+
+	# Re-enable hotbar mouse wheel when modal closes
+	modal.modal_closed.connect(func():
+		set_town_manager_modal_open(false)
+	)
 
 	print("[NPC] Town Manager Shop opened! Browse structures and upgrades")
 
