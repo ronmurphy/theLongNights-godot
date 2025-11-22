@@ -25,6 +25,9 @@ var return_position := Vector3.ZERO
 # Visual
 var _sprite: Sprite3D = null
 var _rotation_speed := 15.0  # Radians per second
+var _trail_points: Array[Vector3] = []
+var _trail_max_length := 15
+var _trail_sprites: Array[Sprite3D] = []
 
 
 func _ready():
@@ -38,9 +41,9 @@ func _ready():
 	if ResourceLoader.exists(texture_path):
 		_sprite.texture = load(texture_path)
 
-	# Make it glow
+	# Make it glow and increase size for visibility
 	_sprite.modulate = Color(1.5, 1.5, 2.0, 1.0)  # Slight blue glow
-	_sprite.pixel_size = 0.02
+	_sprite.pixel_size = 0.05  # Increased from 0.02 for better visibility
 
 	add_child(_sprite)
 
@@ -66,6 +69,9 @@ func _process(delta: float):
 	# Rotate the sprite for visual effect
 	if _sprite:
 		_sprite.rotate_y(_rotation_speed * delta)
+
+	# Update trail
+	_update_trail()
 
 	match state:
 		State.SEEKING:
@@ -97,7 +103,7 @@ func _process_seeking(delta: float):
 func _process_returning(delta: float):
 	"""Fly back to player"""
 	if not is_instance_valid(owner_entity):
-		queue_free()
+		_cleanup_and_free()
 		return
 
 	# Move toward player
@@ -108,7 +114,7 @@ func _process_returning(delta: float):
 	# Check if close enough to player
 	var distance = global_position.distance_to(target_pos)
 	if distance < 1.0:
-		queue_free()  # Blade returns to player
+		_cleanup_and_free()  # Blade returns to player
 
 
 func _find_next_target():
@@ -119,7 +125,7 @@ func _find_next_target():
 		return
 
 	if not is_instance_valid(owner_entity):
-		queue_free()
+		_cleanup_and_free()
 		return
 
 	# Get all entities in the scene
@@ -167,6 +173,20 @@ func _hit_enemy(enemy: Node3D):
 		enemy.take_damage(damage, owner_entity)
 		print("⚔️ Blade hit %s for %d damage!" % [enemy.entity_name if "entity_name" in enemy else "enemy", damage])
 
+	# Spawn slash effect at impact
+	var direction = (enemy.global_position - global_position).normalized()
+	SlashEffectSpawner.spawn_slash(
+		get_node("/root/Main/Game"),
+		enemy.global_position,
+		direction,
+		Color(0.7, 0.9, 1.2, 1.0),  # Bright blue slash for magical blade
+		0.25,  # Duration
+		9.0,   # Intensity (very bright)
+		6.0,   # Speed (fast animation)
+		2.0,   # Scale
+		"res://assets/art/textures/slash_01.png"
+	)
+
 	# Find next target
 	_find_next_target()
 
@@ -176,3 +196,48 @@ func _return_to_player():
 	state = State.RETURNING
 	current_target = null
 	print("⚔️ Blade returning to player (%d enemies hit)" % hit_enemies.size())
+
+
+func _update_trail():
+	"""Create a glowing trail effect behind the blade"""
+	# Add current position to trail
+	_trail_points.push_front(global_position)
+
+	# Limit trail length
+	if _trail_points.size() > _trail_max_length:
+		_trail_points.pop_back()
+		# Remove old sprite if it exists
+		if _trail_sprites.size() > _trail_max_length:
+			var old_sprite = _trail_sprites.pop_back()
+			if is_instance_valid(old_sprite):
+				old_sprite.queue_free()
+
+	# Update trail sprites
+	for i in range(_trail_points.size()):
+		# Create new sprite if needed
+		if i >= _trail_sprites.size():
+			var trail_sprite = Sprite3D.new()
+			trail_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			trail_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+			trail_sprite.texture = _sprite.texture
+			trail_sprite.pixel_size = 0.04
+			get_parent().add_child(trail_sprite)
+			_trail_sprites.push_back(trail_sprite)
+
+		# Update sprite position and fade
+		var trail_sprite = _trail_sprites[i]
+		if is_instance_valid(trail_sprite):
+			trail_sprite.global_position = _trail_points[i]
+			# Fade based on distance from blade (older = more transparent)
+			var alpha = 1.0 - (float(i) / float(_trail_max_length))
+			trail_sprite.modulate = Color(0.7, 0.9, 1.2, alpha * 0.6)
+			trail_sprite.scale = Vector3.ONE * (1.0 - float(i) / float(_trail_max_length) * 0.5)
+
+
+func _cleanup_and_free():
+	"""Clean up trail sprites before freeing the blade"""
+	for trail_sprite in _trail_sprites:
+		if is_instance_valid(trail_sprite):
+			trail_sprite.queue_free()
+	_trail_sprites.clear()
+	queue_free()
