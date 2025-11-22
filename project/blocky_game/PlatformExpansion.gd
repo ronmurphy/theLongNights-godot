@@ -3,7 +3,7 @@ extends Node
 # Expands existing sky ruins from their center point
 # Preserves all structures, only adds blocks in air
 
-const EXPANSION_AMOUNT = 30  # Blocks to expand in each direction
+const EXPANSION_AMOUNT = 80  # Blocks to expand in each direction
 const GROUND_LAYERS = 3  # Number of ground layers (typically dirt+dirt+grass)
 
 var _terrain = null
