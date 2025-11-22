@@ -238,17 +238,11 @@ func _build_tent_template(bp: StructureBlueprint) -> void:
 	bp.add_block(Vector3i(4, 1, 2), "planks")
 	bp.add_block(Vector3i(4, 1, 3), "planks")
 
-	# Level 2 (y=2): Narrower (peak of A-frame)
-	bp.add_block(Vector3i(1, 2, 1), "planks")
-	bp.add_block(Vector3i(1, 2, 2), "planks")
-	bp.add_block(Vector3i(1, 2, 3), "planks")
-	bp.add_block(Vector3i(3, 2, 1), "planks")
-	bp.add_block(Vector3i(3, 2, 2), "planks")
-	bp.add_block(Vector3i(3, 2, 3), "planks")
-	# Ridge line at peak
-	bp.add_block(Vector3i(2, 2, 1), "planks")
-	bp.add_block(Vector3i(2, 2, 2), "planks")
-	bp.add_block(Vector3i(2, 2, 3), "planks")
+	# A-frame roof (y=2): Complete roof coverage
+	# Fill entire top layer to create solid A-frame roof
+	for z in range(5):
+		for x in range(1, 4):  # x=1,2,3 (narrower than base)
+			bp.add_block(Vector3i(x, 2, z), "planks")
 
 
 func _build_shack_template(bp: StructureBlueprint) -> void:
@@ -288,17 +282,11 @@ func _build_shack_template(bp: StructureBlueprint) -> void:
 			else:
 				bp.add_block(Vector3i(6, y, z), "planks")
 
-	# Peaked roof (y=3)
-	# Outer edges
+	# Peaked roof (y=3) - Complete fill for solid roof
+	# Fill entire roof area to create solid peaked roof
 	for x in range(7):
-		bp.add_block(Vector3i(x, 3, 0), "planks")
-		bp.add_block(Vector3i(x, 3, 6), "planks")
-	for z in range(1, 6):
-		bp.add_block(Vector3i(0, 3, z), "planks")
-		bp.add_block(Vector3i(6, 3, z), "planks")
-	# Ridge line down the middle
-	for z in range(1, 6):
-		bp.add_block(Vector3i(3, 3, z), "planks")
+		for z in range(7):
+			bp.add_block(Vector3i(x, 3, z), "planks")
 
 
 func _build_cabin_template(bp: StructureBlueprint) -> void:
@@ -338,18 +326,11 @@ func _build_cabin_template(bp: StructureBlueprint) -> void:
 			else:
 				bp.add_block(Vector3i(9, y, z), "log_y")
 
-	# Peaked roof (y=4)
-	# Full perimeter
+	# Peaked roof (y=4) - Complete fill for solid roof
+	# Fill entire roof area to create solid peaked roof
 	for x in range(10):
-		bp.add_block(Vector3i(x, 4, 0), "planks")
-		bp.add_block(Vector3i(x, 4, 9), "planks")
-	for z in range(1, 9):
-		bp.add_block(Vector3i(0, 4, z), "planks")
-		bp.add_block(Vector3i(9, 4, z), "planks")
-	# Ridge lines
-	for z in range(1, 9):
-		bp.add_block(Vector3i(4, 4, z), "planks")
-		bp.add_block(Vector3i(5, 4, z), "planks")
+		for z in range(10):
+			bp.add_block(Vector3i(x, 4, z), "planks")
 
 
 func _build_lodge_template(bp: StructureBlueprint) -> void:
@@ -400,16 +381,11 @@ func _build_lodge_template(bp: StructureBlueprint) -> void:
 				bp.add_block(Vector3i(0, y, z), "log_y")
 				bp.add_block(Vector3i(14, y, z), "log_y")
 
-	# Peaked roof (y=7)
+	# Peaked roof (y=7) - Complete fill for solid roof
+	# Fill entire roof area to create solid peaked roof
 	for x in range(15):
-		bp.add_block(Vector3i(x, 7, 0), "planks")
-		bp.add_block(Vector3i(x, 7, 14), "planks")
-	for z in range(1, 14):
-		bp.add_block(Vector3i(0, 7, z), "planks")
-		bp.add_block(Vector3i(14, 7, z), "planks")
-	# Ridge line
-	for z in range(1, 14):
-		bp.add_block(Vector3i(7, 7, z), "planks")
+		for z in range(15):
+			bp.add_block(Vector3i(x, 7, z), "planks")
 
 
 func _build_barn_template(bp: StructureBlueprint) -> void:
@@ -437,18 +413,11 @@ func _build_barn_template(bp: StructureBlueprint) -> void:
 			bp.add_block(Vector3i(0, y, z), "planks")
 			bp.add_block(Vector3i(7, y, z), "planks")
 
-	# Barn-style peaked roof (y=5)
-	# Full perimeter
+	# Barn-style peaked roof (y=5) - Complete fill for solid roof
+	# Fill entire roof area to create solid barn roof
 	for x in range(8):
-		bp.add_block(Vector3i(x, 5, 0), "planks")
-		bp.add_block(Vector3i(x, 5, 9), "planks")
-	for z in range(1, 9):
-		bp.add_block(Vector3i(0, 5, z), "planks")
-		bp.add_block(Vector3i(7, 5, z), "planks")
-	# High ridge in center
-	for z in range(1, 9):
-		bp.add_block(Vector3i(3, 5, z), "planks")
-		bp.add_block(Vector3i(4, 5, z), "planks")
+		for z in range(10):
+			bp.add_block(Vector3i(x, 5, z), "planks")
 
 
 func _build_watchtower_template(bp: StructureBlueprint) -> void:
@@ -526,17 +495,11 @@ func _build_storage_template(bp: StructureBlueprint) -> void:
 			bp.add_block(Vector3i(0, y, z), "planks")
 			bp.add_block(Vector3i(5, y, z), "planks")
 
-	# Slanted roof (y=3)
+	# Slanted roof (y=3) - Complete fill for solid roof
+	# Fill entire roof area to create solid slanted roof
 	for x in range(6):
-		bp.add_block(Vector3i(x, 3, 0), "planks")
-		bp.add_block(Vector3i(x, 3, 5), "planks")
-	for z in range(1, 5):
-		bp.add_block(Vector3i(0, 3, z), "planks")
-		bp.add_block(Vector3i(5, 3, z), "planks")
-	# Ridge
-	for z in range(1, 5):
-		bp.add_block(Vector3i(2, 3, z), "planks")
-		bp.add_block(Vector3i(3, 3, z), "planks")
+		for z in range(6):
+			bp.add_block(Vector3i(x, 3, z), "planks")
 
 
 ## ============================================================================
