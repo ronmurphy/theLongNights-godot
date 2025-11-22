@@ -65,6 +65,7 @@ func _ready():
 	_register_defensive_structures()
 	_register_production_structures()
 	_register_underground_structures()
+	_register_land_expansions()
 	print("StructureBlueprintLibrary: Registered %d blueprints" % _blueprints.size())
 
 
@@ -294,6 +295,34 @@ func _register_underground_structures() -> void:
 	)
 	_build_bunker_template(bunker)
 	_blueprints["bunker"] = bunker
+
+
+func _register_land_expansions() -> void:
+	"""Register land expansion platforms (special - no templates, triggers platform generation)"""
+
+	# WILDERNESS EXPANSION - Natural terrain with hills and trees
+	var wilderness = StructureBlueprint.new(
+		"wilderness_expansion",
+		"Wilderness Expansion",
+		Vector3i(320, 10, 320),  # 20x20 chunks
+		"land_expansion",
+		"⚠️ PLACE ON EDGE OF HOMEBASE! Large natural platform with rolling hills and trees. Spawns 10 blocks away. First one FREE, then 500 rust blocks.",
+		500  # 500 rust blocks (after first free)
+	)
+	# No template needed - handled by PlatformExpansion.gd
+	_blueprints["wilderness_expansion"] = wilderness
+
+	# CONSTRUCTION PLATFORM - Flat building surface
+	var construction = StructureBlueprint.new(
+		"construction_platform",
+		"Construction Platform",
+		Vector3i(320, 10, 320),  # 20x20 chunks
+		"land_expansion",
+		"⚠️ PLACE ON EDGE OF HOMEBASE! Large flat platform for organized building. Spawns 10 blocks away. First one FREE, then 400 rust blocks.",
+		400  # 400 rust blocks (after first free)
+	)
+	# No template needed - handled by PlatformExpansion.gd
+	_blueprints["construction_platform"] = construction
 
 
 ## ============================================================================
