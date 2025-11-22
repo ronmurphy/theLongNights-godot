@@ -78,11 +78,12 @@ func _detect_actual_platform_size(ruin: RuinRegistry.RuinData) -> Dictionary:
 
 	const GRASS_ID = 2
 	const DIRT_ID = 1
-	const MAX_SCAN_DISTANCE = 150  # Don't scan more than 150 blocks in each direction
+	const MAX_SCAN_DISTANCE = 60  # Limit to 60 blocks - prevents detecting nearby platforms as one
 
 	# Start from ruin center
 	var ruin_center = ruin.position + Vector3(ruin.ruin_size) / 2.0
-	var scan_y = int(ruin.position.y)  # Scan at the bottom Y level of the ruin
+	# Scan at grass level (ruin bottom + 2, since platforms are: dirt, dirt, grass)
+	var scan_y = int(ruin.position.y) + 2
 
 	# Scan in all 4 directions to find platform edges
 	var min_x = ruin_center.x
