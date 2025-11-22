@@ -129,7 +129,7 @@ func _find_next_target():
 		return
 
 	# Get all entities in the scene
-	var entities = get_tree().get_nodes_in_group("entity")
+	var entities = get_tree().get_nodes_in_group("entities")
 
 	var nearest_enemy = null
 	var nearest_distance = search_range
