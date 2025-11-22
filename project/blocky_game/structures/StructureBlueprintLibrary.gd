@@ -306,7 +306,7 @@ func _register_land_expansions() -> void:
 		"Construction Expansion",
 		Vector3i(60, 3, 60),  # Adds 30 blocks in each direction (60 total)
 		"land_expansion",
-		"⚠️ EXPANDS THE RUIN YOU'RE STANDING ON! Adds 30 blocks of building space in all directions from the center. No matter where you place this block, it will always expand outward from the center of your current sky ruin. Preserves all structures. ONE TIME ONLY per ruin. Cost: 400 rust blocks.",
+		"Expands current ruin +30 blocks each direction. Preserves structures. ONE TIME per ruin.",
 		400  # 400 rust blocks
 	)
 	# No template needed - handled by PlatformExpansion.gd
