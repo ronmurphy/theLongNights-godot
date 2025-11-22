@@ -232,7 +232,8 @@ func _update_trail():
 		# Create new sprite if needed
 		if i >= _trail_sprites.size():
 			var trail_sprite = Sprite3D.new()
-			trail_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED  # Trail uses billboard for simplicity
+			# Disable billboard completely for all trail sprites
+			trail_sprite.billboard = 0  # All trail sprites use manual orientation
 			trail_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 			trail_sprite.texture = _sprite.texture
 			trail_sprite.pixel_size = 0.04
@@ -243,10 +244,9 @@ func _update_trail():
 		var trail_sprite = _trail_sprites[i]
 		if is_instance_valid(trail_sprite):
 			trail_sprite.global_position = _trail_points[i]
-			# Copy rotation from main blade for first few trail sprites
-			if i < 3:
-				trail_sprite.global_transform = global_transform
-				trail_sprite.global_position = _trail_points[i]  # Restore position after copying transform
+			# Copy rotation from main blade for trail sprites
+			trail_sprite.global_transform = global_transform
+			trail_sprite.global_position = _trail_points[i]  # Restore position after copying transform
 			# Fade based on distance from blade (older = more transparent)
 			var alpha = 1.0 - (float(i) / float(_trail_max_length))
 			trail_sprite.modulate = Color(0.7, 0.9, 1.2, alpha * 0.6)
