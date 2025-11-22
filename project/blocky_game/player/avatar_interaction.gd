@@ -385,7 +385,7 @@ func _physics_process(_delta):
 					print("🌍 Terrain Expansion detected: %s" % expansion_type)
 
 					# Calculate position 10 blocks from player in facing direction
-					var player_pos = position  # Player's current position
+					var player_pos = get_parent().global_position  # Player body position
 					var facing_dir = -_head.global_transform.basis.z  # Forward direction
 					facing_dir.y = 0  # Keep on same Y level
 					facing_dir = facing_dir.normalized()
