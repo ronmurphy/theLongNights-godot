@@ -304,9 +304,9 @@ func _register_land_expansions() -> void:
 	var wilderness = StructureBlueprint.new(
 		"wilderness_expansion",
 		"Wilderness Expansion",
-		Vector3i(320, 10, 320),  # 20x20 chunks
+		Vector3i(160, 10, 160),  # 10x10 chunks
 		"land_expansion",
-		"⚠️ PLACE ON EDGE OF HOMEBASE! Large natural platform with rolling hills and trees. Spawns 10 blocks away. First one FREE, then 500 rust blocks.",
+		"⚠️ PLACE ON EDGE OF HOMEBASE! Natural platform (160x160 blocks) with rolling hills and trees. Spawns 10 blocks away. First one FREE, then 500 rust blocks.",
 		500  # 500 rust blocks (after first free)
 	)
 	# No template needed - handled by PlatformExpansion.gd
@@ -316,9 +316,9 @@ func _register_land_expansions() -> void:
 	var construction = StructureBlueprint.new(
 		"construction_platform",
 		"Construction Platform",
-		Vector3i(320, 10, 320),  # 20x20 chunks
+		Vector3i(160, 10, 160),  # 10x10 chunks
 		"land_expansion",
-		"⚠️ PLACE ON EDGE OF HOMEBASE! Large flat platform for organized building. Spawns 10 blocks away. First one FREE, then 400 rust blocks.",
+		"⚠️ PLACE ON EDGE OF HOMEBASE! Flat platform (160x160 blocks) for organized building. Spawns 10 blocks away. First one FREE, then 400 rust blocks.",
 		400  # 400 rust blocks (after first free)
 	)
 	# No template needed - handled by PlatformExpansion.gd
@@ -328,9 +328,9 @@ func _register_land_expansions() -> void:
 	var extraction = StructureBlueprint.new(
 		"terrain_extraction",
 		"Terrain Extraction",
-		Vector3i(320, 20, 320),  # 20x20 chunks
+		Vector3i(160, 20, 160),  # 10x10 chunks
 		"land_expansion",
-		"⚠️ PLACE ON EDGE OF HOMEBASE! Rips a 320x320x20 chunk of terrain from the ground beneath you and places it in the sky. LORE ACCURATE sky ruin creation! Spawns 10 blocks away. First one FREE ONLY!",
+		"⚠️ PLACE ON EDGE OF HOMEBASE! Rips a 160x160x20 chunk of terrain from the ground beneath you and places it in the sky. LORE ACCURATE sky ruin creation! Spawns 10 blocks away. First one FREE ONLY!",
 		0  # Always FREE (one-time only)
 	)
 	# No template needed - handled by PlatformExpansion.gd

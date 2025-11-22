@@ -13,9 +13,9 @@ const LOG_Y_ID = 5  # Pine log (voxel ID)
 const LEAVES_ID = 8  # Pine leaves (voxel ID)
 
 # Platform constants
-const PLATFORM_SIZE_CHUNKS = 20  # 20x20 chunks
+const PLATFORM_SIZE_CHUNKS = 10  # 10x10 chunks (was 20x20, too large for 8GB RAM)
 const CHUNK_SIZE = 16
-const PLATFORM_SIZE_BLOCKS = PLATFORM_SIZE_CHUNKS * CHUNK_SIZE  # 320 blocks
+const PLATFORM_SIZE_BLOCKS = PLATFORM_SIZE_CHUNKS * CHUNK_SIZE  # 160 blocks
 const PLATFORM_THICKNESS = 10  # How thick the platform is
 const SPAWN_DISTANCE = 10  # Blocks away from placement point
 
@@ -168,8 +168,8 @@ func _generate_extracted_terrain(placement_pos: Vector3, spawn_pos: Vector3) -> 
 
 	voxel_tool.channel = VoxelBuffer.CHANNEL_TYPE
 
-	# STEP 1: Scan down to find lowest ground point in 320x320 area
-	print("🔍 Scanning 320x320 area to find lowest ground point...")
+	# STEP 1: Scan down to find lowest ground point in 160x160 area
+	print("🔍 Scanning 160x160 area to find lowest ground point...")
 	var scan_base = Vector3i(placement_pos.x, placement_pos.y, placement_pos.z)
 	var lowest_ground_y = _find_lowest_ground_in_area(scan_base, voxel_tool)
 
@@ -181,7 +181,7 @@ func _generate_extracted_terrain(placement_pos: Vector3, spawn_pos: Vector3) -> 
 
 	print("✓ Lowest ground point found at Y=%d" % lowest_ground_y)
 
-	# STEP 2: Copy 320x320x20 volume from ground
+	# STEP 2: Copy 160x160x20 volume from ground
 	print("📋 Copying terrain... (this may take 5-10 seconds)")
 	var blocks_copied = _copy_terrain_volume(
 		Vector3i(scan_base.x, lowest_ground_y, scan_base.z),  # Source
@@ -286,14 +286,14 @@ func _generate_platform_base(spawn_pos: Vector3, is_wilderness: bool) -> bool:
 	print("Creating temporary VoxelViewer to generate chunks...")
 	var temp_viewer = VoxelViewer.new()
 	temp_viewer.position = spawn_pos + Vector3(PLATFORM_SIZE_BLOCKS / 2, 0, PLATFORM_SIZE_BLOCKS / 2)  # Center of platform
-	temp_viewer.view_distance = 128  # Very large to ensure 320x320 area is loaded
+	temp_viewer.view_distance = 64  # Enough to ensure 160x160 area is loaded
 	temp_viewer.requires_visuals = true
 	temp_viewer.requires_collisions = true
 	_terrain.add_child(temp_viewer)
 
-	# Wait longer for large area chunks to generate
-	print("Waiting for chunks to load (5 seconds)...")
-	await get_tree().create_timer(5.0).timeout
+	# Wait for chunks to generate
+	print("Waiting for chunks to load (3 seconds)...")
+	await get_tree().create_timer(3.0).timeout
 	print("Chunks generated, building platform...")
 
 	# Get voxel tool
