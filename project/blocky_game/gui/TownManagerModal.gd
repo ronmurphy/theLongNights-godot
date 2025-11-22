@@ -419,6 +419,25 @@ func _populate_options_list():
 		var btn = _create_structure_button(bp)
 		_options_container.add_child(btn)
 
+	# Separator
+	var separator6 = HSeparator.new()
+	separator6.add_theme_constant_override("separation", 10)
+	_options_container.add_child(separator6)
+
+	# LAND EXPANSIONS HEADER
+	var expansion_header = Label.new()
+	expansion_header.text = "🌍 Land Expansions"
+	expansion_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	expansion_header.add_theme_font_size_override("font_size", 14)
+	expansion_header.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
+	_options_container.add_child(expansion_header)
+
+	# Add land expansion buttons
+	var expansion_blueprints = StructureBlueprintLibrary.get_blueprints_by_category("land_expansion")
+	for bp in expansion_blueprints:
+		var btn = _create_expansion_button(bp)
+		_options_container.add_child(btn)
+
 
 func _create_structure_button(blueprint: StructureBlueprintLibrary.StructureBlueprint) -> Button:
 	"""Create a button for a structure blueprint"""
@@ -429,6 +448,38 @@ func _create_structure_button(blueprint: StructureBlueprintLibrary.StructureBlue
 	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	btn.pressed.connect(_on_structure_selected.bind(blueprint))
 	btn.set_meta("blueprint", blueprint)
+	_apply_list_button_style(btn)
+	return btn
+
+
+func _create_expansion_button(blueprint: StructureBlueprintLibrary.StructureBlueprint) -> Button:
+	"""Create a button for a land expansion (handles FREE first time logic)"""
+	var btn = Button.new()
+
+	# Check if player has claimed this type before
+	var player = get_tree().get_first_node_in_group("player")
+	var has_claimed_free = false
+
+	if player:
+		if blueprint.name == "wilderness_expansion":
+			has_claimed_free = player.get_meta("claimed_free_wilderness", false)
+		elif blueprint.name == "construction_platform":
+			has_claimed_free = player.get_meta("claimed_free_construction", false)
+
+	# Determine cost text
+	var cost_text: String
+	if not has_claimed_free:
+		cost_text = "FREE (first time!)"
+	else:
+		cost_text = str(blueprint.rust_block_cost) + " rust"
+
+	btn.text = blueprint.display_name + " (" + cost_text + ")"
+	btn.custom_minimum_size = Vector2(0, 50)  # Taller for warning text
+	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	btn.pressed.connect(_on_structure_selected.bind(blueprint))
+	btn.set_meta("blueprint", blueprint)
+	btn.set_meta("is_expansion", true)
+	btn.set_meta("has_claimed_free", has_claimed_free)
 	_apply_list_button_style(btn)
 	return btn
 
@@ -849,11 +900,6 @@ func _handle_structure_purchase():
 	if not _selected_blueprint:
 		return
 
-	# Check if player can afford it
-	if _rust_count < _selected_blueprint.rust_block_cost:
-		print("❌ Not enough rust blocks!")
-		return
-
 	# Get player and inventory
 	var player = get_tree().get_first_node_in_group("player")
 	if not player:
@@ -865,10 +911,39 @@ func _handle_structure_purchase():
 		print("❌ Inventory not found!")
 		return
 
+	# Check if this is a land expansion (special handling)
+	var is_expansion = _selected_blueprint.category == "land_expansion"
+	var actual_cost = _selected_blueprint.rust_block_cost
+
+	if is_expansion:
+		# Check if free claim available
+		var has_claimed_free = false
+		if _selected_blueprint.name == "wilderness_expansion":
+			has_claimed_free = player.get_meta("claimed_free_wilderness", false)
+		elif _selected_blueprint.name == "construction_platform":
+			has_claimed_free = player.get_meta("claimed_free_construction", false)
+
+		# First time is FREE
+		if not has_claimed_free:
+			actual_cost = 0
+			print("🎁 First %s is FREE!" % _selected_blueprint.display_name)
+
+	# Check if player can afford it
+	if _rust_count < actual_cost:
+		print("❌ Not enough rust blocks!")
+		return
+
 	# Deduct rust blocks
-	if _selected_blueprint.rust_block_cost > 0:
+	if actual_cost > 0:
 		if inventory.has_method("remove_rust_blocks"):
-			inventory.remove_rust_blocks(_selected_blueprint.rust_block_cost)
+			inventory.remove_rust_blocks(actual_cost)
+
+	# Mark free claim as used for expansions
+	if is_expansion and actual_cost == 0:
+		if _selected_blueprint.name == "wilderness_expansion":
+			player.set_meta("claimed_free_wilderness", true)
+		elif _selected_blueprint.name == "construction_platform":
+			player.set_meta("claimed_free_construction", true)
 
 	# Get Blocks reference to find rune_marker
 	var game = get_tree().root.get_node_or_null("Main/Game")
