@@ -53,6 +53,9 @@ func _use(trans: Transform3D, inv_item_or_count):
 	var total_damage = DAMAGE + stack_count
 	_damage_nearby_entities(impact_pos, AOE_RADIUS, total_damage, KNOCKBACK_FORCE, inv_item_or_count)
 
+	# Push nearby push_blocks - GOLF CLUB STYLE!
+	_push_nearby_blocks(impact_pos, AOE_RADIUS, KNOCKBACK_FORCE)
+
 	print("Stone Hammer impact at: ", impact_pos, " | Stack bonus: +", stack_count, " damage")
 
 
@@ -204,6 +207,30 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 	# ⚡ SKYSHARD POWER: Lightning Chain (chain from impact center to enemies outside AOE)
 	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.has_power("lightning_chain"):
 		_lightning_chain_aoe(center, radius, int(damage * 0.5))
+
+
+func _push_nearby_blocks(center: Vector3, radius: float, knockback: float):
+	"""Push push_blocks in AOE - GOLF CLUB STYLE!"""
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check if block is in AOE radius
+		var distance = block.global_position.distance_to(center)
+		if distance > radius:
+			continue
+
+		# Calculate knockback direction (away from impact, with upward arc like golf)
+		var knockback_dir = (block.global_position - center).normalized()
+		knockback_dir.y = 0.5  # Strong upward arc - FORE!
+
+		# Apply strong impulse (stone hammer hits HARD!)
+		var impulse = knockback_dir * knockback
+		if block.has_method("apply_impulse"):
+			block.apply_impulse(impulse)
+			print("🔨⛳ Stone Hammer GOLF SWING! Block launched %.1f units away!" % distance)
 
 
 func _lightning_chain_aoe(center: Vector3, aoe_radius: float, chain_damage: int):

@@ -7,6 +7,7 @@ extends Node3D
 @export var friction := 0.92  # How quickly the block slows down (0.0 = instant stop, 1.0 = no friction)
 @export var mass := 1.0  # Mass affects how much momentum is transferred from projectiles
 @export var min_velocity := 0.05  # Stop moving when velocity drops below this
+@export var gravity := 20.0  # Gravity force applied downward
 
 var _velocity := Vector3.ZERO
 var _box_mover := VoxelBoxMover.new()
@@ -172,13 +173,18 @@ func _physics_process(delta: float):
 	if _goal_reached:
 		return
 
-	# Apply friction
-	_velocity *= friction
+	# Apply gravity (downward force)
+	_velocity.y -= gravity * delta
 
-	# Stop if velocity is very small
-	if _velocity.length() < min_velocity:
-		_velocity = Vector3.ZERO
-		return
+	# Apply friction to horizontal movement only (not vertical)
+	_velocity.x *= friction
+	_velocity.z *= friction
+
+	# Stop horizontal movement if velocity is very small (but keep falling)
+	if abs(_velocity.x) < min_velocity:
+		_velocity.x = 0.0
+	if abs(_velocity.z) < min_velocity:
+		_velocity.z = 0.0
 
 	# Calculate motion for this frame
 	var motion := _velocity * delta
@@ -197,8 +203,18 @@ func _physics_process(delta: float):
 		_check_goal_reached()
 
 		# If motion was blocked (didn't move as expected), reduce velocity
-		if motion.length_squared() < (_velocity * delta).length_squared() * 0.5:
-			_velocity *= 0.5  # Hit something, slow down significantly
+		var expected_motion = _velocity * delta
+		if motion.length_squared() < expected_motion.length_squared() * 0.5:
+			# Hit something - check what axis was blocked
+			if abs(motion.y) < abs(expected_motion.y) * 0.5:
+				# Vertical motion was blocked (hit ground or ceiling)
+				_velocity.y = 0.0
+			if abs(motion.x) < abs(expected_motion.x) * 0.5:
+				# X motion was blocked
+				_velocity.x *= 0.5
+			if abs(motion.z) < abs(expected_motion.z) * 0.5:
+				# Z motion was blocked
+				_velocity.z *= 0.5
 
 
 func apply_impulse(impulse: Vector3):
