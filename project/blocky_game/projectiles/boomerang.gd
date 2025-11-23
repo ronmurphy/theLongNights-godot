@@ -304,13 +304,21 @@ func _is_push_block_voxel(voxel_pos: Vector3) -> bool:
 	if voxel_id == 0:
 		return false
 
-	# Get block type
+	# Get block type - need to convert voxel ID to block ID first
 	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
 	if not blocks_node:
 		return false
 
-	var block = blocks_node.get_block(voxel_id)
-	return block and block.base_info.name == "push_block"
+	# Convert voxel ID to block ID using raw mapping
+	var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
+	if not raw_mapping:
+		return false
+
+	var block = blocks_node.get_block(raw_mapping.block_id)
+	if block:
+		return block.base_info.name == "push_block"
+	else:
+		return false
 
 
 func _on_hit_push_block_voxel(voxel_pos: Vector3):
@@ -325,9 +333,9 @@ func _on_hit_push_block_voxel(voxel_pos: Vector3):
 
 		# Check if entity is at this voxel position
 		var entity_voxel_pos = Vector3i(
-			int(floor(block.global_position.x + 0.5)),
-			int(floor(block.global_position.y + 0.5)),
-			int(floor(block.global_position.z + 0.5))
+			int(floor(block.global_position.x)),
+			int(floor(block.global_position.y)),
+			int(floor(block.global_position.z))
 		)
 
 		if entity_voxel_pos == Vector3i(voxel_pos):

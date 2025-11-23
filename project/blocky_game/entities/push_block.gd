@@ -42,20 +42,127 @@ func _ready():
 
 
 func _create_visual_mesh():
-	"""Create a visual cube mesh for the push block"""
+	"""Create a visual cube mesh for the push block with proper texture"""
 	_mesh = MeshInstance3D.new()
-	var cube = BoxMesh.new()
-	cube.size = Vector3(0.9, 0.9, 0.9)  # Slightly smaller than voxel for visual gap
-	_mesh.mesh = cube
 
-	# Material - brownish crate color
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(0.6, 0.4, 0.2)  # Brown wood color
-	mat.metallic = 0.0
-	mat.roughness = 0.8
-	_mesh.material_override = mat
+	# Load the terrain atlas material (same as voxels use)
+	var terrain_mat = load("res://blocky_game/blocks/terrain_material.tres")
+
+	# Create a cube with correct UVs for push_block tile (12, 15) in 16x16 atlas
+	var mesh = _create_textured_cube(Vector2i(12, 15), 0.95)
+	_mesh.mesh = mesh
+	_mesh.material_override = terrain_mat
 
 	add_child(_mesh)
+
+
+func _create_textured_cube(tile_pos: Vector2i, size: float) -> ArrayMesh:
+	"""Create a cube mesh with UVs for a specific tile in the 16x16 atlas"""
+	var atlas_size = 16.0
+	var uv_min = Vector2(tile_pos.x / atlas_size, tile_pos.y / atlas_size)
+	var uv_max = Vector2((tile_pos.x + 1) / atlas_size, (tile_pos.y + 1) / atlas_size)
+
+	var half = size / 2.0
+	var vertices = PackedVector3Array()
+	var uvs = PackedVector2Array()
+	var normals = PackedVector3Array()
+	var indices = PackedInt32Array()
+
+	# Front face (+Z) - facing toward +Z
+	vertices.append(Vector3(-half, -half, half))
+	vertices.append(Vector3(half, -half, half))
+	vertices.append(Vector3(half, half, half))
+	vertices.append(Vector3(-half, half, half))
+	for i in 4:
+		normals.append(Vector3(0, 0, 1))
+	uvs.append(Vector2(uv_min.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_min.y))
+	uvs.append(Vector2(uv_min.x, uv_min.y))
+	# Counter-clockwise winding when viewed from outside
+	indices.append_array([0, 2, 1, 0, 3, 2])
+
+	# Back face (-Z) - facing toward -Z
+	var v_offset = vertices.size()
+	vertices.append(Vector3(half, -half, -half))
+	vertices.append(Vector3(-half, -half, -half))
+	vertices.append(Vector3(-half, half, -half))
+	vertices.append(Vector3(half, half, -half))
+	for i in 4:
+		normals.append(Vector3(0, 0, -1))
+	uvs.append(Vector2(uv_min.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_min.y))
+	uvs.append(Vector2(uv_min.x, uv_min.y))
+	indices.append_array([v_offset, v_offset+2, v_offset+1, v_offset, v_offset+3, v_offset+2])
+
+	# Right face (+X) - facing toward +X
+	v_offset = vertices.size()
+	vertices.append(Vector3(half, -half, half))
+	vertices.append(Vector3(half, -half, -half))
+	vertices.append(Vector3(half, half, -half))
+	vertices.append(Vector3(half, half, half))
+	for i in 4:
+		normals.append(Vector3(1, 0, 0))
+	uvs.append(Vector2(uv_min.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_min.y))
+	uvs.append(Vector2(uv_min.x, uv_min.y))
+	indices.append_array([v_offset, v_offset+2, v_offset+1, v_offset, v_offset+3, v_offset+2])
+
+	# Left face (-X) - facing toward -X
+	v_offset = vertices.size()
+	vertices.append(Vector3(-half, -half, -half))
+	vertices.append(Vector3(-half, -half, half))
+	vertices.append(Vector3(-half, half, half))
+	vertices.append(Vector3(-half, half, -half))
+	for i in 4:
+		normals.append(Vector3(-1, 0, 0))
+	uvs.append(Vector2(uv_min.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_min.y))
+	uvs.append(Vector2(uv_min.x, uv_min.y))
+	indices.append_array([v_offset, v_offset+2, v_offset+1, v_offset, v_offset+3, v_offset+2])
+
+	# Top face (+Y) - facing toward +Y
+	v_offset = vertices.size()
+	vertices.append(Vector3(-half, half, half))
+	vertices.append(Vector3(half, half, half))
+	vertices.append(Vector3(half, half, -half))
+	vertices.append(Vector3(-half, half, -half))
+	for i in 4:
+		normals.append(Vector3(0, 1, 0))
+	uvs.append(Vector2(uv_min.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_min.y))
+	uvs.append(Vector2(uv_min.x, uv_min.y))
+	indices.append_array([v_offset, v_offset+2, v_offset+1, v_offset, v_offset+3, v_offset+2])
+
+	# Bottom face (-Y) - facing toward -Y
+	v_offset = vertices.size()
+	vertices.append(Vector3(-half, -half, -half))
+	vertices.append(Vector3(half, -half, -half))
+	vertices.append(Vector3(half, -half, half))
+	vertices.append(Vector3(-half, -half, half))
+	for i in 4:
+		normals.append(Vector3(0, -1, 0))
+	uvs.append(Vector2(uv_min.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_max.y))
+	uvs.append(Vector2(uv_max.x, uv_min.y))
+	uvs.append(Vector2(uv_min.x, uv_min.y))
+	indices.append_array([v_offset, v_offset+2, v_offset+1, v_offset, v_offset+3, v_offset+2])
+
+	# Create ArrayMesh
+	var arrays = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+
+	var array_mesh = ArrayMesh.new()
+	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return array_mesh
 
 
 func _physics_process(delta: float):
@@ -119,8 +226,6 @@ func _check_goal_reached():
 	vt.channel = VoxelBuffer.CHANNEL_TYPE
 	var voxel_id = vt.get_voxel(block_pos)
 
-	print("🎯 Goal check: entity at ", global_position, " checking block at ", block_pos, " voxel_id=", voxel_id)
-
 	if voxel_id != 0:
 		# Get block type - convert voxel ID to block ID first!
 		var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
@@ -129,7 +234,6 @@ func _check_goal_reached():
 			var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
 			if raw_mapping:
 				var block = blocks_node.get_block(raw_mapping.block_id)
-				print("🎯 Block below: ", block.base_info.name if block else "null")
 				if block and block.base_info.name == GOAL_BLOCK_NAME:
 					_on_goal_reached()
 
