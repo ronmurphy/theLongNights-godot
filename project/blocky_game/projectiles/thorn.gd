@@ -93,6 +93,9 @@ func _process_attacking(delta: float):
 
 	_distance_traveled += speed * delta
 
+	# Check for push block collision
+	_check_push_block_collision()
+
 	# Check for hit (simple distance check)
 	var distance_to_target = global_position.distance_to(target_enemy.global_position)
 	if distance_to_target < 0.5:  # Hit!
@@ -174,3 +177,26 @@ func _get_owner_power_effects() -> Dictionary:
 		effects[power_name] = true
 
 	return effects
+
+
+func _check_push_block_collision():
+	"""Check if thorn hit a push block and apply light momentum"""
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check distance
+		var distance = global_position.distance_to(block.global_position)
+		if distance < 0.8:  # Hit radius (smaller than arrow)
+			# Light push from plant matter projectile
+			var impulse = direction * 2.0  # Lightest push (plant matter)
+
+			if block.has_method("apply_impulse"):
+				block.apply_impulse(impulse)
+				print("🌿 Thorn tapped the push block lightly!")
+
+			# Return to orbit after hitting block
+			_return_to_orbit()
+			return

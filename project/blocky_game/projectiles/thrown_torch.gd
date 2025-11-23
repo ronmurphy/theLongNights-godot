@@ -145,6 +145,9 @@ func _physics_process(delta: float):
 	# Rotate torch end-over-end
 	rotate(Vector3.RIGHT, _rotation_speed * delta)
 
+	# Check for push block collision
+	_check_push_block_collision()
+
 	# Check for collision
 	if _terrain != null:
 		var vt = _terrain.get_voxel_tool()
@@ -152,7 +155,12 @@ func _physics_process(delta: float):
 
 		var hit = vt.raycast(global_position, _velocity.normalized(), motion.length() + 0.5)
 		if hit != null:
-			# Hit something!
+			# Check if we hit a push_block voxel
+			if _is_push_block_voxel(Vector3(hit.position)):
+				_on_hit_push_block_voxel(Vector3(hit.position))
+				return
+
+			# Hit normal terrain!
 			global_position = Vector3(hit.previous_position) + Vector3(0.5, 0.5, 0.5)
 			_land_torch()
 			return
@@ -195,3 +203,114 @@ func get_skyshard_power() -> String:
 func get_skyshard_count() -> int:
 	"""Get the skyshard count of this torch (for smart stacking on retrieval)"""
 	return 0  # Torches don't have skyshard counts
+
+
+func _check_push_block_collision():
+	"""Check if torch hit a push block and apply momentum"""
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check distance
+		var distance = global_position.distance_to(block.global_position)
+		if distance < 1.0:  # Hit radius
+			_on_hit_push_block(block)
+			return
+
+
+func _is_push_block_voxel(voxel_pos: Vector3) -> bool:
+	"""Check if the voxel at this position is a push_block"""
+	if not _terrain:
+		return false
+
+	var vt = _terrain.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	var voxel_id = vt.get_voxel(voxel_pos)
+	if voxel_id == 0:
+		return false
+
+	# Get block type - need to convert voxel ID to block ID first
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	if not blocks_node:
+		return false
+
+	# Convert voxel ID to block ID using raw mapping
+	var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
+	if not raw_mapping:
+		return false
+
+	var block = blocks_node.get_block(raw_mapping.block_id)
+	if block:
+		return block.base_info.name == "push_block"
+	else:
+		return false
+
+
+func _on_hit_push_block_voxel(voxel_pos: Vector3):
+	"""Hit a push_block voxel - find or create entity and push it"""
+	# Find existing push block entity at this position
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+	var block_entity = null
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check if entity is at this voxel position
+		var entity_voxel_pos = Vector3i(
+			int(floor(block.global_position.x)),
+			int(floor(block.global_position.y)),
+			int(floor(block.global_position.z))
+		)
+
+		if entity_voxel_pos == Vector3i(voxel_pos):
+			block_entity = block
+			break
+
+	# If no entity exists, spawn one (will remove voxel and create entity)
+	if not block_entity:
+		var manager = get_node_or_null("/root/Main/Game/PushBlockManager")
+		if manager and manager.has_method("create_push_block_at"):
+			manager.create_push_block_at(Vector3i(voxel_pos))
+
+			# Wait a frame for entity to spawn
+			await get_tree().process_frame
+
+			# Try to find it again
+			push_blocks = get_tree().get_nodes_in_group("push_blocks")
+			for block in push_blocks:
+				if not is_instance_valid(block):
+					continue
+
+				var entity_voxel_pos = Vector3i(
+					int(floor(block.global_position.x)),
+					int(floor(block.global_position.y)),
+					int(floor(block.global_position.z))
+				)
+
+				if entity_voxel_pos == Vector3i(voxel_pos):
+					block_entity = block
+					break
+
+	# Push the block if we found/created it
+	if block_entity:
+		_on_hit_push_block(block_entity)
+	else:
+		# Fallback: land the torch
+		_land_torch()
+
+
+func _on_hit_push_block(block: Node):
+	"""Transfer momentum to push block"""
+	# Calculate impulse based on torch's velocity
+	var impulse = _velocity.normalized() * 2.8  # Moderate push (burning wood + momentum)
+
+	if block.has_method("apply_impulse"):
+		block.apply_impulse(impulse)
+		print("🔥 Torch bonked the push block!")
+
+	# Torch lands after hitting the block
+	_land_torch()

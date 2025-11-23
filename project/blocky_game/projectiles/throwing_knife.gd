@@ -106,22 +106,25 @@ func _physics_process(delta: float):
 	if direct_shot:
 		var direction = (target_position - global_position).normalized()
 		var motion = direction * speed * delta
-		
+
 		# Point knife forward
 		if direction.length() > 0.1:
 			look_at(global_position + direction, Vector3.UP)
 			_mesh.rotate_z(delta * 30.0)  # Fast spin
-		
+
 		# Check for entity collision
 		_check_entity_collision()
-		
+
+		# Check for push block collision
+		_check_push_block_collision()
+
 		# Move toward target
 		global_position += motion
-		
+
 		# If we reached target, explode
 		if global_position.distance_to(target_position) < 1.0:
 			queue_free()
-		
+
 		return  # Skip spiral behavior
 	
 	# === SPIRAL MODE (original throwing knife behavior) ===
@@ -159,6 +162,9 @@ func _physics_process(delta: float):
 	# Check for entity collision
 	_check_entity_collision()
 
+	# Check for push block collision
+	_check_push_block_collision()
+
 	# Check if we've completed enough circles and are close enough
 	if _circles_completed >= circles_before_impact or current_radius < 0.2:
 		_on_impact(target_position)
@@ -171,7 +177,12 @@ func _physics_process(delta: float):
 		var block_pos = Vector3i(floor(global_position.x), floor(global_position.y), floor(global_position.z))
 		var voxel = vt.get_voxel(block_pos)
 		if voxel != 0:
-			# Hit a block!
+			# Check if we hit a push_block voxel
+			if _is_push_block_voxel(Vector3(block_pos)):
+				_on_hit_push_block_voxel(Vector3(block_pos))
+				return
+
+			# Hit a normal block!
 			_on_impact(Vector3(block_pos))
 			return
 
@@ -284,4 +295,124 @@ func _on_impact(hit_pos: Vector3):
 	# Throwing knives no longer destroy blocks
 	# They only damage entities (handled in _check_entity_collision)
 
+	queue_free()
+
+
+func _check_push_block_collision():
+	"""Check if knife hit a push block and apply momentum"""
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check distance
+		var distance = global_position.distance_to(block.global_position)
+		if distance < 1.0:  # Hit radius
+			_on_hit_push_block(block)
+			return
+
+
+func _is_push_block_voxel(voxel_pos: Vector3) -> bool:
+	"""Check if the voxel at this position is a push_block"""
+	if not _terrain:
+		return false
+
+	var vt = _terrain.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	var voxel_id = vt.get_voxel(voxel_pos)
+	if voxel_id == 0:
+		return false
+
+	# Get block type - need to convert voxel ID to block ID first
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	if not blocks_node:
+		return false
+
+	# Convert voxel ID to block ID using raw mapping
+	var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
+	if not raw_mapping:
+		return false
+
+	var block = blocks_node.get_block(raw_mapping.block_id)
+	if block:
+		return block.base_info.name == "push_block"
+	else:
+		return false
+
+
+func _on_hit_push_block_voxel(voxel_pos: Vector3):
+	"""Hit a push_block voxel - find or create entity and push it"""
+	# Find existing push block entity at this position
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+	var block_entity = null
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check if entity is at this voxel position
+		var entity_voxel_pos = Vector3i(
+			int(floor(block.global_position.x)),
+			int(floor(block.global_position.y)),
+			int(floor(block.global_position.z))
+		)
+
+		if entity_voxel_pos == Vector3i(voxel_pos):
+			block_entity = block
+			break
+
+	# If no entity exists, spawn one (will remove voxel and create entity)
+	if not block_entity:
+		var manager = get_node_or_null("/root/Main/Game/PushBlockManager")
+		if manager and manager.has_method("create_push_block_at"):
+			manager.create_push_block_at(Vector3i(voxel_pos))
+
+			# Wait a frame for entity to spawn
+			await get_tree().process_frame
+
+			# Try to find it again
+			push_blocks = get_tree().get_nodes_in_group("push_blocks")
+			for block in push_blocks:
+				if not is_instance_valid(block):
+					continue
+
+				var entity_voxel_pos = Vector3i(
+					int(floor(block.global_position.x)),
+					int(floor(block.global_position.y)),
+					int(floor(block.global_position.z))
+				)
+
+				if entity_voxel_pos == Vector3i(voxel_pos):
+					block_entity = block
+					break
+
+	# Push the block if we found/created it
+	if block_entity:
+		_on_hit_push_block(block_entity)
+	else:
+		# Fallback: couldn't spawn entity for some reason
+		_on_impact(voxel_pos)
+
+
+func _on_hit_push_block(block: Node):
+	"""Transfer momentum to push block"""
+	# Calculate push direction from knife's movement
+	var direction = (target_position - global_position).normalized()
+	if direction.length_squared() < 0.001:
+		direction = Vector3.FORWARD
+
+	# Light impulse (2.5) - throwing knives are light but have good speed
+	# The unusual angle can make for interesting puzzle solutions
+	var impulse = direction * 2.5
+
+	if block.has_method("apply_impulse"):
+		block.apply_impulse(impulse)
+		print("🔪 Throwing knife pushed block!")
+
+	# Spawn impact sparkles
+	_spawn_impact_sparkles(global_position)
+
+	# Knife is destroyed on impact
 	queue_free()
