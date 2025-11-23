@@ -64,7 +64,7 @@ func _use(trans: Transform3D, inv_item_or_count, action: String = "melee"):
 func _use_melee(origin: Vector3, direction: Vector3, stack_count: int, inv_item_or_count):
 	"""Melee thrust attack with 3-block range"""
 	# FIRST: Check for push_block voxels (before mining can happen!)
-	if _check_and_push_voxel(origin, direction):
+	if await _check_and_push_voxel(origin, direction):
 		return  # Hit a push_block voxel, pushed it, done!
 
 	# Find target entity with raycast
