@@ -119,6 +119,9 @@ func _physics_process(delta: float):
 	# Check for entity collision first
 	_check_entity_collision()
 
+	# Check for push block collision
+	_check_push_block_collision()
+
 	# Check for collision with terrain
 	if _terrain != null:
 		var vt = _terrain.get_voxel_tool()
@@ -126,7 +129,12 @@ func _physics_process(delta: float):
 
 		var hit = vt.raycast(global_position, _velocity.normalized(), motion.length() + 0.5)
 		if hit != null:
-			# Hit something!
+			# Check if we hit a push_block voxel
+			if _is_push_block_voxel(Vector3(hit.position)):
+				_on_hit_push_block_voxel(Vector3(hit.position))
+				return
+
+			# Hit normal terrain!
 			_on_hit(Vector3(hit.position))
 			return
 
@@ -289,3 +297,129 @@ func _spawn_ice_explosion(pos: Vector3):
 		tween.tween_property(shard, "global_position", pos + direction * 3.0, 0.6)
 		tween.tween_property(shard, "scale", Vector3.ZERO, 0.6)
 		tween.tween_callback(shard.queue_free)
+
+
+func _check_push_block_collision():
+	"""Check if ice arrow hit a push block and apply momentum"""
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check distance
+		var distance = global_position.distance_to(block.global_position)
+		if distance < 1.0:  # Hit radius
+			_on_hit_push_block(block)
+			return
+
+
+func _is_push_block_voxel(voxel_pos: Vector3) -> bool:
+	"""Check if the voxel at this position is a push_block"""
+	if not _terrain:
+		return false
+
+	var vt = _terrain.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	var voxel_id = vt.get_voxel(voxel_pos)
+	if voxel_id == 0:
+		return false
+
+	# Get block type - need to convert voxel ID to block ID first
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	if not blocks_node:
+		return false
+
+	# Convert voxel ID to block ID using raw mapping
+	var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
+	if not raw_mapping:
+		return false
+
+	var block = blocks_node.get_block(raw_mapping.block_id)
+	if block:
+		return block.base_info.name == "push_block"
+	else:
+		return false
+
+
+func _on_hit_push_block_voxel(voxel_pos: Vector3):
+	"""Hit a push_block voxel - find or create entity and push it"""
+	# Find existing push block entity at this position
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+	var block_entity = null
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check if entity is at this voxel position
+		var entity_voxel_pos = Vector3i(
+			int(floor(block.global_position.x)),
+			int(floor(block.global_position.y)),
+			int(floor(block.global_position.z))
+		)
+
+		if entity_voxel_pos == Vector3i(voxel_pos):
+			block_entity = block
+			break
+
+	# If no entity exists, spawn one (will remove voxel and create entity)
+	if not block_entity:
+		var manager = get_node_or_null("/root/Main/Game/PushBlockManager")
+		if manager and manager.has_method("create_push_block_at"):
+			manager.create_push_block_at(Vector3i(voxel_pos))
+
+			# Wait a frame for entity to spawn
+			await get_tree().process_frame
+
+			# Try to find it again
+			push_blocks = get_tree().get_nodes_in_group("push_blocks")
+			for block in push_blocks:
+				if not is_instance_valid(block):
+					continue
+
+				var entity_voxel_pos = Vector3i(
+					int(floor(block.global_position.x)),
+					int(floor(block.global_position.y)),
+					int(floor(block.global_position.z))
+				)
+
+				if entity_voxel_pos == Vector3i(voxel_pos):
+					block_entity = block
+					break
+
+	# Push the block if we found/created it
+	if block_entity:
+		_on_hit_push_block(block_entity)
+	else:
+		# Fallback: couldn't spawn entity for some reason
+		_on_hit(voxel_pos)
+
+
+func _on_hit_push_block(block: Node):
+	"""Transfer momentum to push block with ICE EFFECT - makes it slide further!"""
+	# Calculate impulse based on arrow velocity
+	var impulse = _velocity.normalized() * 3.5  # Ice arrows push with good force
+
+	if block.has_method("apply_impulse"):
+		block.apply_impulse(impulse)
+		print("❄️ Ice arrow pushed block!")
+
+	# ICE EFFECT: Make the block extra slippery!
+	if block.has("friction"):
+		var original_friction = block.friction
+		block.friction = 0.98  # Much more slippery than normal (0.92)
+		print("❄️ Block is now SLIPPERY! Sliding further...")
+
+		# Restore friction after 3 seconds
+		await get_tree().create_timer(3.0).timeout
+		if is_instance_valid(block) and block.has("friction"):
+			block.friction = original_friction
+			print("❄️ Ice melted, friction restored")
+
+	# Spawn ice particles at impact
+	_spawn_ice_explosion(global_position)
+
+	# Arrow is destroyed on impact
+	queue_free()
