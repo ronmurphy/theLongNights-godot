@@ -31,22 +31,22 @@ func _use(trans: Transform3D, inv_item_or_count):
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
-	# FIRST: Check for push_block voxels (before mining can happen!)
-	if await _check_and_push_voxel(origin, direction):
-		return  # Hit a push_block voxel, pushed it, done!
-
-	# Find target entity with raycast
-	var target_entity = _find_target_entity(origin, direction)
-
-	# Find push_block entity with raycast
+	# FIRST: Check for push_block ENTITIES (already spawned blocks)
 	var target_block = _find_target_push_block(origin, direction)
+	if target_block:
+		# Direct hit on push_block entity - push it!
+		_slash_push_block(target_block, origin, direction)
+		return
 
+	# SECOND: Check for push_block VOXELS (not yet spawned)
+	if await _check_and_push_voxel(origin, direction):
+		return  # Hit a push_block voxel, spawned and pushed it, done!
+
+	# THIRD: Check for enemy entities
+	var target_entity = _find_target_entity(origin, direction)
 	if target_entity:
 		# Direct hit on entity
 		_slash_attack(target_entity, origin, inv_item_or_count)
-	elif target_block:
-		# Direct hit on push_block entity
-		_slash_push_block(target_block, origin, direction)
 	else:
 		# Slash at air (show slash effect) - very close to player for narrower appearance
 		var slash_pos = origin + direction * 0.6
