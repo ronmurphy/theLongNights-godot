@@ -236,7 +236,7 @@ func _on_hit_push_block(block: Node):
 
 		# Store original color
 		var original_color = Color.WHITE
-		if block.has("_mesh") and block._mesh and block._mesh.material_override:
+		if "_mesh" in block and block._mesh and block._mesh.material_override:
 			original_color = block._mesh.material_override.albedo_color
 
 		while drift_time < max_drift_time and is_instance_valid(block):
@@ -249,12 +249,12 @@ func _on_hit_push_block(block: Node):
 				block.apply_impulse(drift_impulse)
 
 				# Purple necromantic glow
-				if block.has("_mesh") and block._mesh and block._mesh.material_override:
+				if "_mesh" in block and block._mesh and block._mesh.material_override:
 					var glow_intensity = 1.0 - (drift_time / max_drift_time)
 					block._mesh.material_override.albedo_color = Color(0.6, 0.3, 0.8) * glow_intensity + original_color * (1.0 - glow_intensity)
 
 		# Restore original color
-		if is_instance_valid(block) and block.has("_mesh") and block._mesh and block._mesh.material_override:
+		if is_instance_valid(block) and "_mesh" in block and block._mesh and block._mesh.material_override:
 			block._mesh.material_override.albedo_color = original_color
 			print("💀 Necromantic curse faded...")
 
