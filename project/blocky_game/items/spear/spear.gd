@@ -31,7 +31,7 @@ func use(trans: Transform3D, inv_item_or_count = 1):
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count, action)
 	else:
-		_use(trans, inv_item_or_count, action)
+		await _use(trans, inv_item_or_count, action)
 
 
 func set_throw_action() -> void:
@@ -47,7 +47,7 @@ func use_throw(trans: Transform3D, inv_item_or_count = 1):
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count, "throw")
 	else:
-		_use(trans, inv_item_or_count, "throw")
+		await _use(trans, inv_item_or_count, "throw")
 
 
 func _use(trans: Transform3D, inv_item_or_count, action: String = "melee"):

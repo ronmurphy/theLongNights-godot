@@ -23,7 +23,7 @@ func use(trans: Transform3D, inv_item_or_count = 1):
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		_use(trans, inv_item_or_count)
+		await _use(trans, inv_item_or_count)
 
 
 func _use(trans: Transform3D, inv_item_or_count):
