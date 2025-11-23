@@ -32,15 +32,21 @@ func _use(trans: Transform3D, inv_item_or_count):
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
-	# FIRST: Check for push_block voxels in direct line (before mining can happen!)
-	if await _check_and_push_voxel(origin, direction):
-		return  # Hit a push_block voxel, pushed it, done!
-
-	# Find ALL targets in cleave arc
-	var target_entities = _find_targets_in_arc(origin, direction)
-
-	# Find push_blocks in cleave arc too
+	# FIRST: Check for push_block ENTITIES in arc (already spawned blocks)
 	var target_blocks = _find_push_blocks_in_arc(origin, direction)
+	if target_blocks.size() > 0:
+		# Found push_block entities - push them all!
+		for block in target_blocks:
+			_cleave_push_block(block, origin, direction)
+		print("Tree Feller cleaved %d push_blocks!" % target_blocks.size())
+		return
+
+	# SECOND: Check for push_block VOXELS in direct line (not yet spawned)
+	if await _check_and_push_voxel(origin, direction):
+		return  # Hit a push_block voxel, spawned and pushed it, done!
+
+	# THIRD: Find enemy entities in cleave arc
+	var target_entities = _find_targets_in_arc(origin, direction)
 
 	if target_entities.size() > 0:
 		# Hit all entities in arc
@@ -57,12 +63,7 @@ func _use(trans: Transform3D, inv_item_or_count):
 		var slash_pos = origin + direction * 0.6
 		_spawn_slash_effect(slash_pos, direction)
 
-	# Push all push_blocks in arc (regardless of entity hits)
-	if target_blocks.size() > 0:
-		for block in target_blocks:
-			_cleave_push_block(block, origin, direction)
-
-	print("Tree Feller cleave! Hit %d targets, %d blocks | Stack bonus: +%d damage" % [target_entities.size(), target_blocks.size(), stack_count])
+	print("Tree Feller cleave! Hit %d targets | Stack bonus: +%d damage" % [target_entities.size(), stack_count])
 
 
 func _find_targets_in_arc(origin: Vector3, direction: Vector3) -> Array:

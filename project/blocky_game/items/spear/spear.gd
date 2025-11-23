@@ -63,22 +63,22 @@ func _use(trans: Transform3D, inv_item_or_count, action: String = "melee"):
 
 func _use_melee(origin: Vector3, direction: Vector3, stack_count: int, inv_item_or_count):
 	"""Melee thrust attack with 3-block range"""
-	# FIRST: Check for push_block voxels (before mining can happen!)
-	if await _check_and_push_voxel(origin, direction):
-		return  # Hit a push_block voxel, pushed it, done!
-
-	# Find target entity with raycast
-	var target_entity = _find_target_entity(origin, direction)
-
-	# Find push_block with raycast
+	# FIRST: Check for push_block ENTITIES (already spawned blocks)
 	var target_block = _find_target_push_block(origin, direction)
+	if target_block:
+		# Direct hit on push_block entity - thrust it!
+		_thrust_push_block(target_block, origin, direction)
+		return
 
+	# SECOND: Check for push_block VOXELS (not yet spawned)
+	if await _check_and_push_voxel(origin, direction):
+		return  # Hit a push_block voxel, spawned and pushed it, done!
+
+	# THIRD: Check for enemy entities
+	var target_entity = _find_target_entity(origin, direction)
 	if target_entity:
 		# Direct hit on entity
 		_thrust_attack(target_entity, origin, inv_item_or_count)
-	elif target_block:
-		# Direct hit on push_block
-		_thrust_push_block(target_block, origin, direction)
 	else:
 		# Thrust at air (show thrust effect) - very close to player for narrower appearance
 		var thrust_pos = origin + direction * 0.6
