@@ -137,6 +137,42 @@ func _register_homebase_structures() -> void:
 	_build_lodge_template(lodge)
 	_blueprints["lodge"] = lodge
 
+	# STONE COTTAGE (Alternative homebase)
+	var stone_cottage = StructureBlueprint.new(
+		"stone_cottage",
+		"Stone Cottage",
+		Vector3i(9, 5, 9),
+		"homebase",
+		"Sturdy stone cottage with wooden roof. More durable than wooden homes.",
+		700  # 700 rust blocks
+	)
+	_build_stone_cottage_template(stone_cottage)
+	_blueprints["stone_cottage"] = stone_cottage
+
+	# SANDSTONE HOUSE (Desert aesthetic)
+	var sandstone_house = StructureBlueprint.new(
+		"sandstone_house",
+		"Sandstone House",
+		Vector3i(8, 5, 8),
+		"homebase",
+		"Desert-style sandstone house with flat roof. Cool in hot climates.",
+		650  # 650 rust blocks
+	)
+	_build_sandstone_house_template(sandstone_house)
+	_blueprints["sandstone_house"] = sandstone_house
+
+	# BIRCH CABIN (Forest aesthetic)
+	var birch_cabin = StructureBlueprint.new(
+		"birch_cabin",
+		"Birch Cabin",
+		Vector3i(9, 5, 7),
+		"homebase",
+		"Cozy cabin built from light birch wood. Natural forest aesthetic.",
+		550  # 550 rust blocks
+	)
+	_build_birch_cabin_template(birch_cabin)
+	_blueprints["birch_cabin"] = birch_cabin
+
 
 func _register_utility_structures() -> void:
 	"""Register utility buildings (Barn, Watchtower, Storage, etc.)"""
@@ -177,6 +213,42 @@ func _register_utility_structures() -> void:
 	_build_storage_template(storage)
 	_blueprints["storage_shed"] = storage
 
+	# ROAD SECTION (Straight)
+	var road = StructureBlueprint.new(
+		"road_section",
+		"Road Section",
+		Vector3i(10, 1, 3),
+		"utility",
+		"Straight stone road section. Connect multiple to create pathways.",
+		80  # 80 rust blocks
+	)
+	_build_road_template(road)
+	_blueprints["road_section"] = road
+
+	# ROAD CORNER
+	var road_corner = StructureBlueprint.new(
+		"road_corner",
+		"Road Corner",
+		Vector3i(5, 1, 5),
+		"utility",
+		"90-degree road corner. Connect with road sections.",
+		50  # 50 rust blocks
+	)
+	_build_road_corner_template(road_corner)
+	_blueprints["road_corner"] = road_corner
+
+	# ROAD INTERSECTION
+	var road_intersection = StructureBlueprint.new(
+		"road_intersection",
+		"Road Intersection",
+		Vector3i(7, 1, 7),
+		"utility",
+		"4-way road intersection. Hub for connecting multiple roads.",
+		120  # 120 rust blocks
+	)
+	_build_road_intersection_template(road_intersection)
+	_blueprints["road_intersection"] = road_intersection
+
 
 func _register_defensive_structures() -> void:
 	"""Register defensive structures (walls, gates, towers)"""
@@ -216,6 +288,30 @@ func _register_defensive_structures() -> void:
 	)
 	_build_corner_tower_template(corner_tower)
 	_blueprints["corner_tower"] = corner_tower
+
+	# GUARD TOWER (Large, tall)
+	var guard_tower = StructureBlueprint.new(
+		"guard_tower",
+		"Guard Tower",
+		Vector3i(7, 15, 7),
+		"defensive",
+		"Tall stone guard tower with lookout platform. Maximum visibility and defense.",
+		900  # 900 rust blocks
+	)
+	_build_guard_tower_template(guard_tower)
+	_blueprints["guard_tower"] = guard_tower
+
+	# FORTIFIED OUTPOST
+	var outpost = StructureBlueprint.new(
+		"fortified_outpost",
+		"Fortified Outpost",
+		Vector3i(9, 6, 9),
+		"defensive",
+		"Fortified stone outpost with thick walls. Defendable garrison building.",
+		750  # 750 rust blocks
+	)
+	_build_fortified_outpost_template(outpost)
+	_blueprints["fortified_outpost"] = outpost
 
 
 func _register_production_structures() -> void:
@@ -320,6 +416,42 @@ func _register_decorative_structures() -> void:
 	)
 	_build_market_stall_template(market_stall)
 	_blueprints["market_stall"] = market_stall
+
+	# WOODEN BRIDGE
+	var bridge = StructureBlueprint.new(
+		"wooden_bridge",
+		"Wooden Bridge",
+		Vector3i(3, 2, 10),
+		"decorative",
+		"Wooden plank bridge. Connect platforms or span gaps.",
+		140  # 140 rust blocks
+	)
+	_build_wooden_bridge_template(bridge)
+	_blueprints["wooden_bridge"] = bridge
+
+	# SHRINE
+	var shrine = StructureBlueprint.new(
+		"shrine",
+		"Shrine",
+		Vector3i(5, 6, 5),
+		"decorative",
+		"Ancient ruin stone shrine with steps. Mystical decorative monument.",
+		250  # 250 rust blocks
+	)
+	_build_shrine_template(shrine)
+	_blueprints["shrine"] = shrine
+
+	# CAMPFIRE CIRCLE
+	var campfire = StructureBlueprint.new(
+		"campfire_circle",
+		"Campfire Circle",
+		Vector3i(7, 2, 7),
+		"decorative",
+		"Stone seating circle with central campfire pit. Gathering spot.",
+		120  # 120 rust blocks
+	)
+	_build_campfire_circle_template(campfire)
+	_blueprints["campfire_circle"] = campfire
 
 
 func _register_underground_structures() -> void:
@@ -1159,6 +1291,296 @@ func _build_land_lot_template(bp: StructureBlueprint) -> void:
 	for x in range(10):
 		for z in range(10):
 			bp.add_block(Vector3i(x, 3, z), "grass")
+
+
+func _build_stone_cottage_template(bp: StructureBlueprint) -> void:
+	"""Build stone cottage (9x5x9) - Stone walls with wooden roof"""
+	# Size is 9x5x9, so valid coords are: x=0-8, y=0-4, z=0-8
+
+	# Floor (stone)
+	for x in range(9):
+		for z in range(9):
+			bp.add_block(Vector3i(x, 0, z), "stone")
+
+	# Walls (stone) - hollow interior
+	for y in range(1, 4):
+		for x in range(9):
+			# Front wall (z=0) with door
+			if x < 3 or x > 5:
+				bp.add_block(Vector3i(x, y, 0), "stone")
+			# Back wall (z=8)
+			bp.add_block(Vector3i(x, y, 8), "stone")
+		for z in range(1, 8):
+			# Left wall
+			bp.add_block(Vector3i(0, y, z), "stone")
+			# Right wall
+			bp.add_block(Vector3i(8, y, z), "stone")
+
+	# Roof (planks)
+	for x in range(9):
+		for z in range(9):
+			bp.add_block(Vector3i(x, 4, z), "planks")
+
+	# Windows (glass)
+	bp.add_block(Vector3i(2, 2, 0), "glass")
+	bp.add_block(Vector3i(6, 2, 0), "glass")
+	bp.add_block(Vector3i(0, 2, 4), "glass")
+	bp.add_block(Vector3i(8, 2, 4), "glass")
+
+
+func _build_sandstone_house_template(bp: StructureBlueprint) -> void:
+	"""Build sandstone house (8x5x8) - Desert style with flat roof"""
+	# Size is 8x5x8, so valid coords are: x=0-7, y=0-4, z=0-7
+
+	# Floor (sandstone)
+	for x in range(8):
+		for z in range(8):
+			bp.add_block(Vector3i(x, 0, z), "sandstone")
+
+	# Walls (sandstone) - hollow interior
+	for y in range(1, 4):
+		for x in range(8):
+			# Front wall with door
+			if x < 3 or x > 4:
+				bp.add_block(Vector3i(x, y, 0), "sandstone")
+			# Back wall
+			bp.add_block(Vector3i(x, y, 7), "sandstone")
+		for z in range(1, 7):
+			# Left wall
+			bp.add_block(Vector3i(0, y, z), "sandstone")
+			# Right wall
+			bp.add_block(Vector3i(7, y, z), "sandstone")
+
+	# Flat roof (sandstone)
+	for x in range(8):
+		for z in range(8):
+			bp.add_block(Vector3i(x, 4, z), "sandstone")
+
+	# Small windows
+	bp.add_block(Vector3i(1, 2, 0), "glass")
+	bp.add_block(Vector3i(6, 2, 0), "glass")
+
+
+func _build_birch_cabin_template(bp: StructureBlueprint) -> void:
+	"""Build birch cabin (9x5x7) - Light birch wood construction"""
+	# Size is 9x5x7, so valid coords are: x=0-8, y=0-4, z=0-6
+
+	# Floor (birch planks - using planks)
+	for x in range(9):
+		for z in range(7):
+			bp.add_block(Vector3i(x, 0, z), "planks")
+
+	# Walls (birch logs)
+	for y in range(1, 4):
+		for x in range(9):
+			# Front wall with door
+			if x < 3 or x > 5:
+				bp.add_block(Vector3i(x, y, 0), "birch_log_y")
+			# Back wall
+			bp.add_block(Vector3i(x, y, 6), "birch_log_y")
+		for z in range(1, 6):
+			# Left wall
+			bp.add_block(Vector3i(0, y, z), "birch_log_y")
+			# Right wall
+			bp.add_block(Vector3i(8, y, z), "birch_log_y")
+
+	# Roof (planks)
+	for x in range(9):
+		for z in range(7):
+			bp.add_block(Vector3i(x, 4, z), "planks")
+
+	# Windows
+	bp.add_block(Vector3i(2, 2, 0), "glass")
+	bp.add_block(Vector3i(6, 2, 0), "glass")
+
+
+func _build_road_template(bp: StructureBlueprint) -> void:
+	"""Build road section (10x1x3) - Straight stone road"""
+	# Size is 10x1x3, so valid coords are: x=0-9, y=0, z=0-2
+
+	# Simple stone road
+	for x in range(10):
+		for z in range(3):
+			bp.add_block(Vector3i(x, 0, z), "stone")
+
+
+func _build_road_corner_template(bp: StructureBlueprint) -> void:
+	"""Build road corner (5x1x5) - 90 degree corner"""
+	# Size is 5x1x5, so valid coords are: x=0-4, y=0, z=0-4
+
+	# L-shaped corner (connects at x=0 and z=0)
+	for x in range(5):
+		for z in range(3):
+			bp.add_block(Vector3i(x, 0, z), "stone")
+	for x in range(3):
+		for z in range(5):
+			bp.add_block(Vector3i(x, 0, z), "stone")
+
+
+func _build_road_intersection_template(bp: StructureBlueprint) -> void:
+	"""Build road intersection (7x1x7) - 4-way crossroads"""
+	# Size is 7x1x7, so valid coords are: x=0-6, y=0, z=0-6
+
+	# Full 7x7 stone platform for intersection
+	for x in range(7):
+		for z in range(7):
+			bp.add_block(Vector3i(x, 0, z), "stone")
+
+
+func _build_guard_tower_template(bp: StructureBlueprint) -> void:
+	"""Build guard tower (7x15x7) - Tall defensive tower"""
+	# Size is 7x15x7, so valid coords are: x=0-6, y=0-14, z=0-6
+
+	# Floor (stone)
+	for x in range(7):
+		for z in range(7):
+			bp.add_block(Vector3i(x, 0, z), "stone")
+
+	# Tower shaft (stone) - hollow interior from y=1 to y=11
+	for y in range(1, 12):
+		for x in range(7):
+			# Front and back walls
+			if x == 0 or x == 6:
+				for z in range(7):
+					bp.add_block(Vector3i(x, y, z), "stone")
+			else:
+				bp.add_block(Vector3i(x, y, 0), "stone")
+				bp.add_block(Vector3i(x, y, 6), "stone")
+		# Side walls (inner)
+		for z in range(1, 6):
+			bp.add_block(Vector3i(0, y, z), "stone")
+			bp.add_block(Vector3i(6, y, z), "stone")
+
+	# Lookout platform (y=12)
+	for x in range(7):
+		for z in range(7):
+			bp.add_block(Vector3i(x, 12, z), "stone")
+
+	# Battlements (y=13-14) - corners and edges
+	for pos in [(0,13,0), (6,13,0), (0,13,6), (6,13,6),
+				(0,14,0), (6,14,0), (0,14,6), (6,14,6),
+				(3,13,0), (3,13,6), (0,13,3), (6,13,3)]:
+		bp.add_block(Vector3i(pos[0], pos[1], pos[2]), "stone")
+
+
+func _build_fortified_outpost_template(bp: StructureBlueprint) -> void:
+	"""Build fortified outpost (9x6x9) - Thick-walled garrison"""
+	# Size is 9x6x9, so valid coords are: x=0-8, y=0-5, z=0-8
+
+	# Floor (stone)
+	for x in range(9):
+		for z in range(9):
+			bp.add_block(Vector3i(x, 0, z), "stone")
+
+	# Thick walls (double thick stone)
+	for y in range(1, 5):
+		# Outer walls
+		for x in range(9):
+			bp.add_block(Vector3i(x, y, 0), "stone")
+			bp.add_block(Vector3i(x, y, 1), "stone")
+			bp.add_block(Vector3i(x, y, 8), "stone")
+			bp.add_block(Vector3i(x, y, 7), "stone")
+		for z in range(2, 7):
+			bp.add_block(Vector3i(0, y, z), "stone")
+			bp.add_block(Vector3i(1, y, z), "stone")
+			bp.add_block(Vector3i(8, y, z), "stone")
+			bp.add_block(Vector3i(7, y, z), "stone")
+
+	# Door gap (front center)
+	for y in range(1, 4):
+		bp.add_block(Vector3i(4, y, 0), 0)  # Air
+		bp.add_block(Vector3i(4, y, 1), 0)
+
+	# Flat roof
+	for x in range(9):
+		for z in range(9):
+			bp.add_block(Vector3i(x, 5, z), "stone")
+
+
+func _build_wooden_bridge_template(bp: StructureBlueprint) -> void:
+	"""Build wooden bridge (3x2x10) - Plank bridge"""
+	# Size is 3x2x10, so valid coords are: x=0-2, y=0-1, z=0-9
+
+	# Bridge deck (planks)
+	for z in range(10):
+		for x in range(3):
+			bp.add_block(Vector3i(x, 0, z), "planks")
+
+	# Railings (planks on sides)
+	for z in range(10):
+		bp.add_block(Vector3i(0, 1, z), "planks")
+		bp.add_block(Vector3i(2, 1, z), "planks")
+
+
+func _build_shrine_template(bp: StructureBlueprint) -> void:
+	"""Build shrine (5x6x5) - Ancient ruin stone monument"""
+	# Size is 5x6x5, so valid coords are: x=0-4, y=0-5, z=0-4
+	# Center at x=2, z=2
+
+	# Base platform (ruin_floor)
+	for x in range(5):
+		for z in range(5):
+			bp.add_block(Vector3i(x, 0, z), "ruin_floor")
+
+	# Steps (front, z=0 side)
+	bp.add_block(Vector3i(1, 1, 0), "ruin_stone")
+	bp.add_block(Vector3i(2, 1, 0), "ruin_stone")
+	bp.add_block(Vector3i(3, 1, 0), "ruin_stone")
+	bp.add_block(Vector3i(2, 2, 1), "ruin_stone")
+
+	# Central altar pedestal (ruin_stone)
+	for y in range(1, 4):
+		bp.add_block(Vector3i(2, y, 2), "ruin_stone")
+		bp.add_block(Vector3i(1, y, 2), "ruin_stone")
+		bp.add_block(Vector3i(3, y, 2), "ruin_stone")
+		bp.add_block(Vector3i(2, y, 3), "ruin_stone")
+
+	# Top piece (ruin_floor)
+	for x in range(1, 4):
+		for z in range(2, 4):
+			bp.add_block(Vector3i(x, 4, z), "ruin_floor")
+
+	# Decorative pillars (corners)
+	for y in range(1, 6):
+		bp.add_block(Vector3i(0, y, 0), "ruin_stone")
+		bp.add_block(Vector3i(4, y, 0), "ruin_stone")
+		bp.add_block(Vector3i(0, y, 4), "ruin_stone")
+		bp.add_block(Vector3i(4, y, 4), "ruin_stone")
+
+
+func _build_campfire_circle_template(bp: StructureBlueprint) -> void:
+	"""Build campfire circle (7x2x7) - Stone seating around firepit"""
+	# Size is 7x2x7, so valid coords are: x=0-6, y=0-1, z=0-6
+	# Center at x=3, z=3
+
+	# Base floor (dirt/grass)
+	for x in range(7):
+		for z in range(7):
+			bp.add_block(Vector3i(x, 0, z), "dirt")
+
+	# Stone seating blocks (ring around center)
+	# North
+	bp.add_block(Vector3i(2, 1, 1), "stone")
+	bp.add_block(Vector3i(3, 1, 1), "stone")
+	bp.add_block(Vector3i(4, 1, 1), "stone")
+	# South
+	bp.add_block(Vector3i(2, 1, 5), "stone")
+	bp.add_block(Vector3i(3, 1, 5), "stone")
+	bp.add_block(Vector3i(4, 1, 5), "stone")
+	# East
+	bp.add_block(Vector3i(5, 1, 2), "stone")
+	bp.add_block(Vector3i(5, 1, 3), "stone")
+	bp.add_block(Vector3i(5, 1, 4), "stone")
+	# West
+	bp.add_block(Vector3i(1, 1, 2), "stone")
+	bp.add_block(Vector3i(1, 1, 3), "stone")
+	bp.add_block(Vector3i(1, 1, 4), "stone")
+
+	# Central fire pit (stone ring)
+	bp.add_block(Vector3i(3, 1, 2), "stone")
+	bp.add_block(Vector3i(3, 1, 4), "stone")
+	bp.add_block(Vector3i(2, 1, 3), "stone")
+	bp.add_block(Vector3i(4, 1, 3), "stone")
 
 
 ## ============================================================================
