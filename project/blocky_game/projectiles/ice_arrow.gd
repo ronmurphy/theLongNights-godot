@@ -410,7 +410,7 @@ func _on_hit_push_block_voxel(voxel_pos: Vector3):
 func _on_hit_push_block(block: Node):
 	"""Transfer momentum to push block with ICE EFFECT - makes it slide further!"""
 	# Calculate impulse based on arrow velocity
-	var impulse = _velocity.normalized() * 2.5  # Reduced from 3.5 - was launching blocks off cliffs!
+	var impulse = _velocity.normalized() * 3.5  # Reduced from 3.5 - was launching blocks off cliffs!
 
 	if block.has_method("apply_impulse"):
 		block.apply_impulse(impulse)
