@@ -300,7 +300,13 @@ func _is_push_block_voxel(voxel_pos: Vector3) -> bool:
 	var vt = _terrain.get_voxel_tool()
 	vt.channel = VoxelBuffer.CHANNEL_TYPE
 
-	var voxel_id = vt.get_voxel(voxel_pos)
+	# Convert to voxel coordinates (floor to get the exact voxel)
+	var voxel_coord = Vector3i(
+		int(floor(voxel_pos.x)),
+		int(floor(voxel_pos.y)),
+		int(floor(voxel_pos.z))
+	)
+	var voxel_id = vt.get_voxel(voxel_coord)
 	if voxel_id == 0:
 		return false
 

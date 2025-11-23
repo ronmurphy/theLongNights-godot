@@ -322,7 +322,13 @@ func _is_push_block_voxel(voxel_pos: Vector3) -> bool:
 	var vt = _terrain.get_voxel_tool()
 	vt.channel = VoxelBuffer.CHANNEL_TYPE
 
-	var voxel_id = vt.get_voxel(voxel_pos)
+	# Convert to voxel coordinates (floor to get the exact voxel)
+	var voxel_coord = Vector3i(
+		int(floor(voxel_pos.x)),
+		int(floor(voxel_pos.y)),
+		int(floor(voxel_pos.z))
+	)
+	var voxel_id = vt.get_voxel(voxel_coord)
 	if voxel_id == 0:
 		return false
 
@@ -394,7 +400,11 @@ func _on_hit_push_block_voxel(voxel_pos: Vector3):
 		_on_hit_push_block(block_entity)
 	else:
 		# Fallback: couldn't spawn entity for some reason
-		_on_hit(voxel_pos)
+		# Use visual-only effects to avoid freezing the voxel
+		print("❄️ Ice arrow hit push_block voxel but couldn't spawn entity - using visual effects only")
+		_spawn_ice_shards_only(voxel_pos)
+		_damage_nearby_entities(voxel_pos, 2.0, 15)  # Still damage nearby entities
+		queue_free()
 
 
 func _on_hit_push_block(block: Node):
