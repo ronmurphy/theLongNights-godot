@@ -1474,22 +1474,21 @@ func _build_fortified_outpost_template(bp: StructureBlueprint) -> void:
 
 	# Thick walls (double thick stone)
 	for y in range(1, 5):
-		# Outer walls
+		# Outer walls (front and back)
 		for x in range(9):
-			bp.add_block(Vector3i(x, y, 0), "stone")
-			bp.add_block(Vector3i(x, y, 1), "stone")
+			# Front walls (z=0 and z=1) with door gap at center (x=4)
+			if x != 4:
+				bp.add_block(Vector3i(x, y, 0), "stone")
+				bp.add_block(Vector3i(x, y, 1), "stone")
+			# Back walls (z=8 and z=7)
 			bp.add_block(Vector3i(x, y, 8), "stone")
 			bp.add_block(Vector3i(x, y, 7), "stone")
+		# Side walls (left and right)
 		for z in range(2, 7):
 			bp.add_block(Vector3i(0, y, z), "stone")
 			bp.add_block(Vector3i(1, y, z), "stone")
 			bp.add_block(Vector3i(8, y, z), "stone")
 			bp.add_block(Vector3i(7, y, z), "stone")
-
-	# Door gap (front center)
-	for y in range(1, 4):
-		bp.add_block(Vector3i(4, y, 0), 0)  # Air
-		bp.add_block(Vector3i(4, y, 1), 0)
 
 	# Flat roof
 	for x in range(9):
