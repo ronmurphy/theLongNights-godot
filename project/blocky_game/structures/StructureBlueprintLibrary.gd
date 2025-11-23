@@ -64,6 +64,7 @@ func _ready():
 	_register_utility_structures()
 	_register_defensive_structures()
 	_register_production_structures()
+	_register_decorative_structures()
 	_register_underground_structures()
 	_register_land_expansions()
 	print("StructureBlueprintLibrary: Registered %d blueprints" % _blueprints.size())
@@ -267,6 +268,58 @@ func _register_production_structures() -> void:
 	)
 	_build_smokehouse_template(smokehouse)
 	_blueprints["smokehouse"] = smokehouse
+
+
+func _register_decorative_structures() -> void:
+	"""Register decorative structures (fountains, arches, etc.)"""
+
+	# FOUNTAIN
+	var fountain = StructureBlueprint.new(
+		"fountain",
+		"Fountain",
+		Vector3i(7, 4, 7),
+		"decorative",
+		"Stone fountain with water. Decorative centerpiece for plazas.",
+		200  # 200 rust blocks
+	)
+	_build_fountain_template(fountain)
+	_blueprints["fountain"] = fountain
+
+	# GARDEN ARCHWAY
+	var archway = StructureBlueprint.new(
+		"garden_archway",
+		"Garden Archway",
+		Vector3i(5, 5, 3),
+		"decorative",
+		"Decorative stone archway. Perfect entrance to gardens or pathways.",
+		150  # 150 rust blocks
+	)
+	_build_archway_template(archway)
+	_blueprints["garden_archway"] = archway
+
+	# LAMP POST
+	var lamp_post = StructureBlueprint.new(
+		"lamp_post",
+		"Lamp Post",
+		Vector3i(3, 6, 3),
+		"decorative",
+		"Tall stone lamp post with glass top. Lights up your base.",
+		100  # 100 rust blocks
+	)
+	_build_lamp_post_template(lamp_post)
+	_blueprints["lamp_post"] = lamp_post
+
+	# MARKET STALL
+	var market_stall = StructureBlueprint.new(
+		"market_stall",
+		"Market Stall",
+		Vector3i(5, 4, 4),
+		"decorative",
+		"Small wooden market stall with counter. Add life to your town.",
+		180  # 180 rust blocks
+	)
+	_build_market_stall_template(market_stall)
+	_blueprints["market_stall"] = market_stall
 
 
 func _register_underground_structures() -> void:
@@ -876,6 +929,131 @@ func _build_smokehouse_template(bp: StructureBlueprint) -> void:
 			# Leave center open for smoke
 			if not (x >= 1 and x <= 2 and z >= 1 and z <= 2):
 				bp.add_block(Vector3i(x, 4, z), "planks")
+
+
+func _build_fountain_template(bp: StructureBlueprint) -> void:
+	"""Build fountain (7x4x7) - Stone fountain with water centerpiece"""
+	# Size is 7x4x7, so valid coords are: x=0-6, y=0-3, z=0-6
+	# Center at x=3, z=3
+
+	# Base platform (stone)
+	for x in range(7):
+		for z in range(7):
+			bp.add_block(Vector3i(x, 0, z), "stone")
+
+	# Outer ring walls (1 block tall)
+	for x in range(7):
+		for z in range(7):
+			# Ring at edge (not corners for nicer look)
+			if (x == 0 or x == 6 or z == 0 or z == 6) and not (x in [0, 6] and z in [0, 6]):
+				bp.add_block(Vector3i(x, 1, z), "stone")
+
+	# Inner basin (2 blocks tall)
+	for x in range(2, 5):
+		for z in range(2, 5):
+			if x == 2 or x == 4 or z == 2 or z == 4:
+				bp.add_block(Vector3i(x, 1, z), "stone")
+				bp.add_block(Vector3i(x, 2, z), "stone")
+
+	# Water in center (3x3)
+	for x in range(2, 5):
+		for z in range(2, 5):
+			bp.add_block(Vector3i(x, 1, z), "water_top")
+
+	# Central pillar
+	bp.add_block(Vector3i(3, 2, 3), "stone")
+	bp.add_block(Vector3i(3, 3, 3), "stone")
+
+
+func _build_archway_template(bp: StructureBlueprint) -> void:
+	"""Build garden archway (5x5x3) - Decorative stone arch"""
+	# Size is 5x5x3, so valid coords are: x=0-4, y=0-4, z=0-2
+	# Entrance runs along Z axis (depth), center at x=2
+
+	# Base blocks (stone)
+	for x in range(5):
+		for z in range(3):
+			bp.add_block(Vector3i(x, 0, z), "stone")
+
+	# Left pillar (x=0-1)
+	for y in range(1, 5):
+		bp.add_block(Vector3i(0, y, 0), "stone")
+		bp.add_block(Vector3i(1, y, 0), "stone")
+		bp.add_block(Vector3i(0, y, 2), "stone")
+		bp.add_block(Vector3i(1, y, 2), "stone")
+
+	# Right pillar (x=3-4)
+	for y in range(1, 5):
+		bp.add_block(Vector3i(3, y, 0), "stone")
+		bp.add_block(Vector3i(4, y, 0), "stone")
+		bp.add_block(Vector3i(3, y, 2), "stone")
+		bp.add_block(Vector3i(4, y, 2), "stone")
+
+	# Arch top (stone bricks)
+	bp.add_block(Vector3i(2, 4, 0), "stone_bricks")
+	bp.add_block(Vector3i(2, 4, 1), "stone_bricks")
+	bp.add_block(Vector3i(2, 4, 2), "stone_bricks")
+
+
+func _build_lamp_post_template(bp: StructureBlueprint) -> void:
+	"""Build lamp post (3x6x3) - Tall stone post with glass lantern"""
+	# Size is 3x6x3, so valid coords are: x=0-2, y=0-5, z=0-2
+	# Center at x=1, z=1
+
+	# Base (stone)
+	for x in range(3):
+		for z in range(3):
+			bp.add_block(Vector3i(x, 0, z), "stone")
+
+	# Central post (stone)
+	for y in range(1, 5):
+		bp.add_block(Vector3i(1, y, 1), "stone")
+
+	# Lantern housing (glass with stone frame)
+	# Stone frame
+	bp.add_block(Vector3i(0, 5, 1), "stone")
+	bp.add_block(Vector3i(2, 5, 1), "stone")
+	bp.add_block(Vector3i(1, 5, 0), "stone")
+	bp.add_block(Vector3i(1, 5, 2), "stone")
+
+	# Glass panels
+	bp.add_block(Vector3i(1, 5, 1), "glass")  # Center glow
+
+
+func _build_market_stall_template(bp: StructureBlueprint) -> void:
+	"""Build market stall (5x4x4) - Small wooden market stand"""
+	# Size is 5x4x4, so valid coords are: x=0-4, y=0-3, z=0-3
+	# Counter faces z=0 (front)
+
+	# Floor (planks)
+	for x in range(5):
+		for z in range(4):
+			bp.add_block(Vector3i(x, 0, z), "planks")
+
+	# Back wall (z=3)
+	for y in range(1, 4):
+		for x in range(5):
+			bp.add_block(Vector3i(x, y, 3), "planks")
+
+	# Side walls
+	for y in range(1, 4):
+		bp.add_block(Vector3i(0, y, 1), "planks")
+		bp.add_block(Vector3i(0, y, 2), "planks")
+		bp.add_block(Vector3i(4, y, 1), "planks")
+		bp.add_block(Vector3i(4, y, 2), "planks")
+
+	# Counter (front, at z=0)
+	for x in range(1, 4):
+		bp.add_block(Vector3i(x, 1, 0), "planks")
+
+	# Roof (overhang)
+	for x in range(5):
+		for z in range(4):
+			bp.add_block(Vector3i(x, 3, z), "planks")
+
+	# Add some crates for decoration
+	bp.add_block(Vector3i(1, 1, 2), "crate")
+	bp.add_block(Vector3i(3, 1, 2), "crate")
 
 
 func _build_root_cellar_template(bp: StructureBlueprint) -> void:
