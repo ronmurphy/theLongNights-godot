@@ -36,18 +36,25 @@ func _use(trans: Transform3D, inv_item_or_count):
 	if await _check_and_push_voxel(origin, direction):
 		return  # Hit a push_block voxel, pushed it, done!
 
-	# Raycast to find target position (ground or entity)
-	var terrain_tool = _terrain.get_voxel_tool()
-	terrain_tool.channel = VoxelBuffer.CHANNEL_TYPE
-	var hit = terrain_tool.raycast(origin, direction, MAX_TARGET_DISTANCE)
+	# Check if there's a push_block entity in the way
+	var target_block = _find_target_push_block(origin, direction)
 
 	var impact_pos : Vector3
-	if hit != null:
-		# Hit the ground
-		impact_pos = Vector3(hit.position)
+	if target_block:
+		# Hit a push_block entity - use its position for AOE
+		impact_pos = target_block.global_position
 	else:
-		# Hit nothing, use position in front of player
-		impact_pos = origin + direction * MAX_TARGET_DISTANCE
+		# Raycast to find target position (ground)
+		var terrain_tool = _terrain.get_voxel_tool()
+		terrain_tool.channel = VoxelBuffer.CHANNEL_TYPE
+		var hit = terrain_tool.raycast(origin, direction, MAX_TARGET_DISTANCE)
+
+		if hit != null:
+			# Hit the ground
+			impact_pos = Vector3(hit.position)
+		else:
+			# Hit nothing, use position in front of player
+			impact_pos = origin + direction * MAX_TARGET_DISTANCE
 
 	# Create visual effects at impact
 	_spawn_dust_particles(impact_pos)
@@ -235,6 +242,35 @@ func _push_nearby_blocks(center: Vector3, radius: float, knockback: float):
 		if block.has_method("apply_impulse"):
 			block.apply_impulse(impulse)
 			print("🔨⛳ Stone Hammer GOLF SWING! Block launched %.1f units away!" % distance)
+
+
+func _find_target_push_block(origin: Vector3, direction: Vector3) -> Node:
+	"""Find push_block entity in hammer range"""
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+	var closest_block = null
+	var closest_distance = MAX_TARGET_DISTANCE
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check if block is in front of player
+		var to_block = block.global_position - origin
+		var distance = to_block.length()
+
+		if distance > MAX_TARGET_DISTANCE:
+			continue
+
+		# Check if block is in attack direction (wide cone for hammer)
+		var angle = direction.angle_to(to_block.normalized())
+		if angle > deg_to_rad(45):  # 90 degree cone (wide for AOE weapon)
+			continue
+
+		if distance < closest_distance:
+			closest_distance = distance
+			closest_block = block
+
+	return closest_block
 
 
 func _check_and_push_voxel(origin: Vector3, direction: Vector3) -> bool:
