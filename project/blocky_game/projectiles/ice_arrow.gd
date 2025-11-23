@@ -407,14 +407,14 @@ func _on_hit_push_block(block: Node):
 		print("❄️ Ice arrow pushed block!")
 
 	# ICE EFFECT: Make the block extra slippery!
-	if block.has("friction"):
+	if "friction" in block:
 		var original_friction = block.friction
 		block.friction = 0.98  # Much more slippery than normal (0.92)
 		print("❄️ Block is now SLIPPERY! Sliding further...")
 
 		# Restore friction after 3 seconds
 		await get_tree().create_timer(3.0).timeout
-		if is_instance_valid(block) and block.has("friction"):
+		if is_instance_valid(block) and "friction" in block:
 			block.friction = original_friction
 			print("❄️ Ice melted, friction restored")
 
