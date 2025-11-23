@@ -20,9 +20,11 @@ var _trail_timer := 0.0
 var _mesh : MeshInstance3D = null
 var _owner_node : Node = null
 var _inv_item = null
+var _last_position := Vector3.ZERO  # Track movement direction for push_block impulse
 
 
 func _ready():
+	_last_position = global_position
 	_terrain = get_node("/root/Main/Game/VoxelTerrain")
 
 	# Create a magical knife visual
@@ -90,6 +92,9 @@ func initialize(start_pos: Vector3, target_pos: Vector3, stack_count: int = 1, o
 
 
 func _physics_process(delta: float):
+	# Store position before moving for push_block direction calculation
+	_last_position = global_position
+
 	lifetime -= delta
 	_trail_timer += delta
 
@@ -398,10 +403,13 @@ func _on_hit_push_block_voxel(voxel_pos: Vector3):
 
 func _on_hit_push_block(block: Node):
 	"""Transfer momentum to push block"""
-	# Calculate push direction from knife's movement
-	var direction = (target_position - global_position).normalized()
+	# Calculate push direction from knife's ACTUAL movement (not toward target)
+	var direction = (global_position - _last_position).normalized()
 	if direction.length_squared() < 0.001:
-		direction = Vector3.FORWARD
+		# Fallback to direction toward target if we haven't moved yet
+		direction = (target_position - global_position).normalized()
+		if direction.length_squared() < 0.001:
+			direction = Vector3.FORWARD
 
 	# Light impulse (2.5) - throwing knives are light but have good speed
 	# The unusual angle can make for interesting puzzle solutions

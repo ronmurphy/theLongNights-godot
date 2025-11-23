@@ -204,9 +204,9 @@ func _process_returning(delta: float):
 
 
 func _find_next_target():
-	"""Find the next nearest enemy that hasn't been hit yet"""
+	"""Find the next nearest enemy or push_block that hasn't been hit yet"""
 	if hit_enemies.size() >= max_chain_count:
-		# Hit maximum enemies, return to player
+		# Hit maximum targets, return to player
 		_return_to_player()
 		return
 
@@ -217,9 +217,10 @@ func _find_next_target():
 	# Get all entities in the scene
 	var entities = get_tree().get_nodes_in_group("entities")
 
-	var nearest_enemy = null
+	var nearest_target = null
 	var nearest_distance = search_range
 
+	# Check enemies
 	for entity in entities:
 		if not is_instance_valid(entity):
 			continue
@@ -235,18 +236,34 @@ func _find_next_target():
 		var distance = global_position.distance_to(entity.global_position)
 		if distance < nearest_distance:
 			nearest_distance = distance
-			nearest_enemy = entity
+			nearest_target = entity
 
-	if nearest_enemy:
-		current_target = nearest_enemy
-		print("⚔️ Blade targeting: %s (%d/%d)" % [nearest_enemy.entity_name if "entity_name" in nearest_enemy else "enemy", hit_enemies.size() + 1, max_chain_count])
+	# Also check for push_blocks as valid targets
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Skip if already hit
+		if hit_enemies.has(block):
+			continue
+
+		var distance = global_position.distance_to(block.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_target = block
+
+	if nearest_target:
+		current_target = nearest_target
+		var target_name = nearest_target.entity_name if "entity_name" in nearest_target else "push_block"
+		print("⚔️ Blade targeting: %s (%d/%d)" % [target_name, hit_enemies.size() + 1, max_chain_count])
 	else:
-		# No more enemies in range, return to player
+		# No more targets in range, return to player
 		_return_to_player()
 
 
 func _hit_enemy(enemy: Node3D):
-	"""Deal damage to enemy and find next target"""
+	"""Deal damage to enemy or push block and find next target"""
 	if not is_instance_valid(enemy):
 		_find_next_target()
 		return
@@ -254,24 +271,47 @@ func _hit_enemy(enemy: Node3D):
 	# Mark as hit
 	hit_enemies.append(enemy)
 
-	# Deal damage
-	if enemy.has_method("take_damage"):
-		enemy.take_damage(damage, owner_entity)
-		print("⚔️ Blade hit %s for %d damage!" % [enemy.entity_name if "entity_name" in enemy else "enemy", damage])
+	# Check if this is a push_block (handle differently from enemies)
+	if enemy.is_in_group("push_blocks"):
+		# Push the block instead of dealing damage
+		var direction = (enemy.global_position - global_position).normalized()
+		var impulse = direction * speed * 0.2  # Strong push from fast blade
 
-	# Spawn slash effect at impact
-	var direction = (enemy.global_position - global_position).normalized()
-	SlashEffectSpawner.spawn_slash(
-		get_node("/root/Main/Game"),
-		enemy.global_position,
-		direction,
-		Color(0.7, 0.9, 1.2, 1.0),  # Bright blue slash for magical blade
-		0.25,  # Duration
-		9.0,   # Intensity (very bright)
-		6.0,   # Speed (fast animation)
-		2.0,   # Scale
-		"res://assets/art/textures/slash_01.png"
-	)
+		if enemy.has_method("apply_impulse"):
+			enemy.apply_impulse(impulse)
+			print("⚔️ Blade SLASHED push_block!")
+
+			# Spawn slash effect at block
+			SlashEffectSpawner.spawn_slash(
+				get_node("/root/Main/Game"),
+				enemy.global_position,
+				direction,
+				Color(0.7, 0.9, 1.2, 1.0),
+				0.25,
+				9.0,
+				6.0,
+				2.0,
+				"res://assets/art/textures/slash_01.png"
+			)
+	else:
+		# Deal damage to enemy
+		if enemy.has_method("take_damage"):
+			enemy.take_damage(damage, owner_entity)
+			print("⚔️ Blade hit %s for %d damage!" % [enemy.entity_name if "entity_name" in enemy else "enemy", damage])
+
+		# Spawn slash effect at impact
+		var direction = (enemy.global_position - global_position).normalized()
+		SlashEffectSpawner.spawn_slash(
+			get_node("/root/Main/Game"),
+			enemy.global_position,
+			direction,
+			Color(0.7, 0.9, 1.2, 1.0),  # Bright blue slash for magical blade
+			0.25,  # Duration
+			9.0,   # Intensity (very bright)
+			6.0,   # Speed (fast animation)
+			2.0,   # Scale
+			"res://assets/art/textures/slash_01.png"
+		)
 
 	# Find next target
 	_find_next_target()

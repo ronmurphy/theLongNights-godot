@@ -418,8 +418,43 @@ func _on_hit_push_block(block: Node):
 			block.friction = original_friction
 			print("❄️ Ice melted, friction restored")
 
-	# Spawn ice particles at impact
-	_spawn_ice_explosion(global_position)
+	# Spawn ice particles at impact (visual only, no terrain modification)
+	_spawn_ice_shards_only(global_position)
 
 	# Arrow is destroyed on impact
 	queue_free()
+
+
+func _spawn_ice_shards_only(pos: Vector3):
+	"""Create VISUAL ice explosion effect WITHOUT freezing terrain"""
+	# Spawn ice shards that fly outward (visual only)
+	for i in range(12):
+		var shard = MeshInstance3D.new()
+		var box = BoxMesh.new()
+		box.size = Vector3(0.2, 0.4, 0.1)
+		shard.mesh = box
+
+		var material = StandardMaterial3D.new()
+		material.albedo_color = Color(0.6, 0.9, 1.0, 0.8)
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.emission_enabled = true
+		material.emission = Color(0.7, 0.95, 1.0)
+		material.emission_energy_multiplier = 3.0
+		shard.material_override = material
+
+		get_parent().add_child(shard)
+		shard.global_position = pos
+
+		# Random direction for each shard
+		var direction = Vector3(
+			randf_range(-1, 1),
+			randf_range(0, 1),
+			randf_range(-1, 1)
+		).normalized()
+
+		# Animate shard flying outward and fading
+		var tween = get_tree().create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(shard, "global_position", pos + direction * 3.0, 0.6)
+		tween.tween_property(shard, "scale", Vector3.ZERO, 0.6)
+		tween.tween_callback(shard.queue_free)
