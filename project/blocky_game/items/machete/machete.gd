@@ -32,7 +32,7 @@ func _use(trans: Transform3D, inv_item_or_count):
 	var direction = -trans.basis.z.normalized()
 
 	# FIRST: Check for push_block voxels (before mining can happen!)
-	if _check_and_push_voxel(origin, direction):
+	if await _check_and_push_voxel(origin, direction):
 		return  # Hit a push_block voxel, pushed it, done!
 
 	# Find target entity with raycast
