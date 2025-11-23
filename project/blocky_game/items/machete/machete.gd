@@ -34,9 +34,15 @@ func _use(trans: Transform3D, inv_item_or_count):
 	# Find target entity with raycast
 	var target_entity = _find_target_entity(origin, direction)
 
+	# Find push_block with raycast
+	var target_block = _find_target_push_block(origin, direction)
+
 	if target_entity:
 		# Direct hit on entity
 		_slash_attack(target_entity, origin, inv_item_or_count)
+	elif target_block:
+		# Direct hit on push_block
+		_slash_push_block(target_block, origin, direction)
 	else:
 		# Slash at air (show slash effect) - very close to player for narrower appearance
 		var slash_pos = origin + direction * 0.6
@@ -87,6 +93,52 @@ func _find_target_entity(origin: Vector3, direction: Vector3) -> Node:
 			closest_entity = entity
 
 	return closest_entity
+
+
+func _find_target_push_block(origin: Vector3, direction: Vector3) -> Node:
+	"""Find push_blocks in melee range"""
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+	var closest_block = null
+	var closest_distance = MAX_TARGET_DISTANCE
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check if block is roughly in front of player
+		var to_block = block.global_position - origin
+		var distance = to_block.length()
+
+		if distance > MAX_TARGET_DISTANCE:
+			continue
+
+		# Check if block is in attack cone (60 degree arc)
+		var angle = direction.angle_to(to_block.normalized())
+		if angle > deg_to_rad(30):  # 30 degrees each side = 60 degree cone
+			continue
+
+		if distance < closest_distance:
+			closest_distance = distance
+			closest_block = block
+
+	return closest_block
+
+
+func _slash_push_block(block: Node, attacker_pos: Vector3, direction: Vector3):
+	"""Slash attack that pushes a block"""
+	# Machete slash with moderate upward force
+	var push_dir = direction
+	push_dir.y = 0.2  # Moderate upward arc from slash
+
+	# Machete is medium power (4.0 force)
+	var impulse = push_dir * 4.0
+
+	if block.has_method("apply_impulse"):
+		block.apply_impulse(impulse)
+		print("🔪 Machete SLASHED push_block! (4.0 force)")
+
+	# Spawn slash effect at block
+	_spawn_slash_effect(block.global_position, push_dir)
 
 
 func _slash_attack(entity: Node, attacker_pos: Vector3, inv_item_or_count):

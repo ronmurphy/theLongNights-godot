@@ -35,6 +35,9 @@ func _use(trans: Transform3D, inv_item_or_count):
 	# Find ALL targets in cleave arc
 	var target_entities = _find_targets_in_arc(origin, direction)
 
+	# Find push_blocks in cleave arc too
+	var target_blocks = _find_push_blocks_in_arc(origin, direction)
+
 	if target_entities.size() > 0:
 		# Hit all entities in arc
 		for entity in target_entities:
@@ -50,7 +53,12 @@ func _use(trans: Transform3D, inv_item_or_count):
 		var slash_pos = origin + direction * 0.6
 		_spawn_slash_effect(slash_pos, direction)
 
-	print("Tree Feller cleave! Hit %d targets | Stack bonus: +%d damage" % [target_entities.size(), stack_count])
+	# Push all push_blocks in arc (regardless of entity hits)
+	if target_blocks.size() > 0:
+		for block in target_blocks:
+			_cleave_push_block(block, origin, direction)
+
+	print("Tree Feller cleave! Hit %d targets, %d blocks | Stack bonus: +%d damage" % [target_entities.size(), target_blocks.size(), stack_count])
 
 
 func _find_targets_in_arc(origin: Vector3, direction: Vector3) -> Array:
@@ -78,6 +86,47 @@ func _find_targets_in_arc(origin: Vector3, direction: Vector3) -> Array:
 			targets.append(entity)
 
 	return targets
+
+
+func _find_push_blocks_in_arc(origin: Vector3, direction: Vector3) -> Array:
+	"""Find all push_blocks in the cleave arc"""
+	var targets = []
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Check if block is in range
+		var to_block = block.global_position - origin
+		var distance = to_block.length()
+
+		if distance > MAX_TARGET_DISTANCE:
+			continue
+
+		# Check if block is in wide cleave arc
+		var angle = direction.angle_to(to_block.normalized())
+		if angle <= deg_to_rad(CLEAVE_ANGLE / 2.0):  # Half angle on each side
+			targets.append(block)
+
+	return targets
+
+
+func _cleave_push_block(block: Node, attacker_pos: Vector3, direction: Vector3):
+	"""Push a block with the tree feller's heavy chopping force"""
+	# Calculate push direction (slightly upward arc from the chop)
+	var push_dir = (block.global_position - attacker_pos).normalized()
+	push_dir.y = 0.3  # Moderate upward arc from chopping motion
+
+	# Tree Feller is 2nd strongest melee weapon (7.5 force)
+	var impulse = push_dir * 7.5
+
+	if block.has_method("apply_impulse"):
+		block.apply_impulse(impulse)
+		print("🪓 Tree Feller CHOPPED push_block! (7.5 force)")
+
+	# Spawn slash effect at block
+	_spawn_slash_effect(block.global_position, push_dir)
 
 
 func _cleave_attack(entity: Node, attacker_pos: Vector3, inv_item_or_count):
