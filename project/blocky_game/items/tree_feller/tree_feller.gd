@@ -24,7 +24,7 @@ func use(trans: Transform3D, inv_item_or_count = 1):
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		await _use(trans, inv_item_or_count)
+		_use(trans, inv_item_or_count)
 
 
 func _use(trans: Transform3D, inv_item_or_count):
@@ -32,21 +32,11 @@ func _use(trans: Transform3D, inv_item_or_count):
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
 
-	# FIRST: Check for push_block ENTITIES in arc (already spawned blocks)
-	var target_blocks = _find_push_blocks_in_arc(origin, direction)
-	if target_blocks.size() > 0:
-		# Found push_block entities - push them all!
-		for block in target_blocks:
-			_cleave_push_block(block, origin, direction)
-		print("Tree Feller cleaved %d push_blocks!" % target_blocks.size())
-		return
-
-	# SECOND: Check for push_block VOXELS in direct line (not yet spawned)
-	if await _check_and_push_voxel(origin, direction):
-		return  # Hit a push_block voxel, spawned and pushed it, done!
-
-	# THIRD: Find enemy entities in cleave arc
+	# Find ALL targets in cleave arc
 	var target_entities = _find_targets_in_arc(origin, direction)
+
+	# Find push_blocks in cleave arc too
+	var target_blocks = _find_push_blocks_in_arc(origin, direction)
 
 	if target_entities.size() > 0:
 		# Hit all entities in arc
@@ -63,7 +53,12 @@ func _use(trans: Transform3D, inv_item_or_count):
 		var slash_pos = origin + direction * 0.6
 		_spawn_slash_effect(slash_pos, direction)
 
-	print("Tree Feller cleave! Hit %d targets | Stack bonus: +%d damage" % [target_entities.size(), stack_count])
+	# Push all push_blocks in arc (regardless of entity hits)
+	if target_blocks.size() > 0:
+		for block in target_blocks:
+			_cleave_push_block(block, origin, direction)
+
+	print("Tree Feller cleave! Hit %d targets, %d blocks | Stack bonus: +%d damage" % [target_entities.size(), target_blocks.size(), stack_count])
 
 
 func _find_targets_in_arc(origin: Vector3, direction: Vector3) -> Array:
@@ -115,74 +110,6 @@ func _find_push_blocks_in_arc(origin: Vector3, direction: Vector3) -> Array:
 			targets.append(block)
 
 	return targets
-
-
-func _check_and_push_voxel(origin: Vector3, direction: Vector3) -> bool:
-	"""Check if we're hitting a push_block voxel and push it. Returns true if we hit one."""
-	if not _terrain:
-		return false
-
-	var vt = _terrain.get_voxel_tool()
-	vt.channel = VoxelBuffer.CHANNEL_TYPE
-
-	# Raycast to find what we're hitting
-	var hit = vt.raycast(origin, direction, MAX_TARGET_DISTANCE)
-	if not hit:
-		return false
-
-	var hit_pos = Vector3(hit.position)
-
-	# Check if it's a push_block voxel
-	var voxel_coord = Vector3i(
-		int(floor(hit_pos.x)),
-		int(floor(hit_pos.y)),
-		int(floor(hit_pos.z))
-	)
-	var voxel_id = vt.get_voxel(voxel_coord)
-	if voxel_id == 0:
-		return false
-
-	# Check if this voxel is a push_block
-	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
-	if not blocks_node:
-		return false
-
-	var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
-	if not raw_mapping:
-		return false
-
-	var block = blocks_node.get_block(raw_mapping.block_id)
-	if not block or block.base_info.name != "push_block":
-		return false
-
-	# It's a push_block! Spawn entity and push it
-	var manager = get_node_or_null("/root/Main/Game/PushBlockManager")
-	if not manager or not manager.has_method("create_push_block_at"):
-		return false
-
-	manager.create_push_block_at(voxel_coord)
-
-	# Wait a frame for entity to spawn, then push it
-	await get_tree().process_frame
-
-	# Find the spawned entity
-	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
-	for push_block in push_blocks:
-		if not is_instance_valid(push_block):
-			continue
-
-		var block_voxel_pos = Vector3i(
-			int(floor(push_block.global_position.x)),
-			int(floor(push_block.global_position.y)),
-			int(floor(push_block.global_position.z))
-		)
-
-		if block_voxel_pos == voxel_coord:
-			# Found it! Push it
-			_cleave_push_block(push_block, origin, direction)
-			return true
-
-	return false
 
 
 func _cleave_push_block(block: Node, attacker_pos: Vector3, direction: Vector3):
