@@ -92,8 +92,16 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 		voxel_tool.set_voxel(world_block_pos, voxel_id)
 		blocks_placed += 1
 
+	# PUZZLE ROOM SPECIAL HANDLING: Convert push_block voxels to entities with correct settings
+	var is_puzzle_room = template.name.begins_with("puzzle_room_")
+	if is_puzzle_room:
+		_setup_puzzle_room(template, world_position)
+
 	# Generate inverted pyramid beneath the ruin (for flying ruins)
-	var pyramid_blocks_placed = _generate_inverted_pyramid(voxel_tool, world_position, template.size)
+	# Skip pyramid for puzzle rooms (they're enclosed chambers)
+	var pyramid_blocks_placed = 0
+	if not is_puzzle_room:
+		pyramid_blocks_placed = _generate_inverted_pyramid(voxel_tool, world_position, template.size)
 
 	# Clean up temporary VoxelViewer
 	temp_viewer.queue_free()
@@ -462,3 +470,30 @@ func _generate_inverted_pyramid(voxel_tool, world_position: Vector3, ruin_size: 
 		print("Generated inverted pyramid with ", blocks_placed, " blocks (height: ", pyramid_height, ", base: ", base_width, ")")
 
 	return blocks_placed
+
+
+func _setup_puzzle_room(template: RuinLibrary.RuinTemplate, world_position: Vector3):
+	"""
+	Set up a puzzle room by converting push_block voxels to entities
+	with the correct gravity and metadata settings
+	"""
+	# Determine gravity setting based on room name
+	var has_gravity = not template.name.contains("zerog")  # "puzzle_room_zerog" has no gravity
+
+	# Find push_block positions in the template
+	const PUSH_BLOCK_ID = 26  # push_block block ID
+	var push_block_positions = []
+
+	for block_data in template.blocks:
+		if block_data.block_id == PUSH_BLOCK_ID:
+			var world_pos = Vector3i(world_position) + block_data.pos
+			push_block_positions.append(world_pos)
+
+	# Convert each push_block voxel to an entity with correct settings
+	var push_block_manager = get_node_or_null("/root/Main/Game/PushBlockManager")
+	if push_block_manager:
+		for pos in push_block_positions:
+			push_block_manager.spawn_puzzle_block(pos, has_gravity, template.name)
+
+	var gravity_str = "WITH gravity" if has_gravity else "ZERO-G"
+	print("🎮 Puzzle room '%s' setup complete! %d push_block(s) spawned (%s)" % [template.name, push_block_positions.size(), gravity_str])

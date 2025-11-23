@@ -7,7 +7,7 @@ extends Node3D
 @export var friction := 0.92  # How quickly the block slows down (0.0 = instant stop, 1.0 = no friction)
 @export var mass := 1.0  # Mass affects how much momentum is transferred from projectiles
 @export var min_velocity := 0.05  # Stop moving when velocity drops below this
-@export var gravity := 20.0  # Gravity force applied downward
+@export var gravity := 20.0  # Gravity force applied downward (0 = no gravity for zero-G puzzle rooms)
 
 var _velocity := Vector3.ZERO
 var _box_mover := VoxelBoxMover.new()
@@ -21,6 +21,10 @@ var _goal_reached := false
 
 # Goal detection
 const GOAL_BLOCK_NAME = "test"  # Goal block for puzzles
+
+# Puzzle room data
+var spawn_position := Vector3.ZERO  # Original spawn position for room reset
+var puzzle_room_id := ""  # Which puzzle room this belongs to (for reset/goal tracking)
 
 
 func _ready():
@@ -173,8 +177,9 @@ func _physics_process(delta: float):
 	if _goal_reached:
 		return
 
-	# Apply gravity (downward force)
-	_velocity.y -= gravity * delta
+	# Apply gravity (downward force) - only if gravity is enabled
+	if gravity > 0:
+		_velocity.y -= gravity * delta
 
 	# Apply friction to horizontal movement only (not vertical)
 	_velocity.x *= friction
@@ -226,6 +231,21 @@ func apply_impulse(impulse: Vector3):
 	print("🎯 PushBlock received impulse: %s (velocity now: %s)" % [impulse, _velocity])
 
 
+func reset_to_spawn():
+	"""Reset the push_block back to its spawn position (for puzzle rooms)"""
+	if spawn_position != Vector3.ZERO and puzzle_room_id != "":
+		global_position = spawn_position
+		_velocity = Vector3.ZERO
+		_goal_reached = false
+
+		# Reset visual to original color
+		if _mesh and _mesh.material_override:
+			var terrain_mat = load("res://blocky_game/blocks/terrain_material.tres")
+			_mesh.material_override = terrain_mat
+
+		print("🔄 Push_block reset to spawn position in room: %s" % puzzle_room_id)
+
+
 func _check_goal_reached():
 	"""Check if the block is touching a goal block (test block)"""
 	if _goal_reached:
@@ -265,5 +285,43 @@ func _on_goal_reached():
 	if _mesh and _mesh.material_override:
 		_mesh.material_override.albedo_color = Color(0.2, 1.0, 0.2)  # Green
 
-	# TODO: Emit signal for puzzle manager
-	# emit_signal("goal_reached")
+	# Puzzle room: Spawn teleport_stone as reward!
+	if puzzle_room_id != "":
+		_spawn_teleport_stone_reward()
+
+
+func _spawn_teleport_stone_reward():
+	"""Spawn a teleport_stone in the puzzle room as a reward for solving it"""
+	if _terrain == null:
+		return
+
+	# Find a suitable location for the teleport stone
+	# Try to spawn it 3 blocks above the goal (test block)
+	var test_block_pos = Vector3i(
+		int(floor(global_position.x)),
+		int(floor(global_position.y - 1.0)),  # The test block we're sitting on
+		int(floor(global_position.z))
+	)
+
+	# Spawn teleport stone 3 blocks above test block
+	var teleport_pos = test_block_pos + Vector3i(0, 3, 0)
+
+	var vt = _terrain.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	# Make sure the spawn location is air
+	if vt.get_voxel(teleport_pos) == 0:
+		# Get teleport_stone block (block ID 20)
+		var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+		if blocks_node:
+			var teleport_block = blocks_node.get_block(20)  # teleport_stone is ID 20
+			if teleport_block and teleport_block.base_info.voxels.size() > 0:
+				var voxel_id = teleport_block.base_info.voxels[0]
+				vt.set_voxel(teleport_pos, voxel_id)
+				print("🎆 PUZZLE SOLVED! Teleport stone spawned at: ", teleport_pos)
+
+				# TODO: Add visual effect (particles, sound, etc.)
+			else:
+				print("⚠️ Could not find teleport_stone block")
+	else:
+		print("⚠️ Teleport spawn location blocked at: ", teleport_pos)

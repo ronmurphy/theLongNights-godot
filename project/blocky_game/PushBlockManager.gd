@@ -156,3 +156,91 @@ func create_push_block_at(world_pos: Vector3i):
 
 	# No entity exists, spawn one
 	_spawn_push_block(world_pos)
+
+
+func spawn_puzzle_block(world_pos: Vector3i, has_gravity: bool, room_id: String) -> Node3D:
+	"""
+	Spawn a push_block for a puzzle room with specific settings
+	- has_gravity: whether the block falls (false for zero-G rooms)
+	- room_id: identifier for room reset and goal tracking
+	Returns the spawned block entity
+	"""
+	# Remove voxel if it exists
+	var vt = _terrain.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+	vt.set_voxel(world_pos, 0)  # Remove voxel
+
+	# Create entity
+	var push_block = Node3D.new()
+	push_block.set_script(PushBlock)
+
+	# Add to scene FIRST
+	var game = get_node("/root/Main/Game")
+	if game:
+		game.add_child(push_block)
+
+		# Set position
+		var spawn_pos = Vector3(
+			world_pos.x + 0.5,
+			world_pos.y + 0.5,
+			world_pos.z + 0.5
+		)
+		push_block.global_position = spawn_pos
+
+		# Configure puzzle room settings
+		push_block.spawn_position = spawn_pos  # For reset
+		push_block.puzzle_room_id = room_id
+		push_block.gravity = 20.0 if has_gravity else 0.0  # Zero-G or normal
+
+		var gravity_str = "WITH gravity" if has_gravity else "ZERO-G"
+		print("🎯 Spawned PUZZLE push_block at %s (%s, room: %s)" % [world_pos, gravity_str, room_id])
+
+		return push_block
+
+	return null
+
+
+func convert_entities_to_voxels_for_save():
+	"""
+	CRITICAL: Convert all push_block entities back to voxels before save
+	This ensures push_blocks persist across save/load cycles
+	Puzzle room blocks are placed at their CURRENT position (not reset to spawn)
+	The teleport_stone they unlocked will remain (it's already a voxel)
+	"""
+	if _terrain == null or _push_block_id == -1:
+		return
+
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+	if push_blocks.is_empty():
+		return
+
+	var vt = _terrain.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+
+	var converted_count = 0
+
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
+
+		# Get the block's current voxel position (snapped to grid)
+		var voxel_pos = Vector3i(
+			int(floor(block.global_position.x)),
+			int(floor(block.global_position.y)),
+			int(floor(block.global_position.z))
+		)
+
+		# Check if location is editable (chunk loaded)
+		var check_aabb = AABB(Vector3(voxel_pos), Vector3(1, 1, 1))
+		if vt.is_area_editable(check_aabb):
+			# Place push_block voxel at current position
+			vt.set_voxel(voxel_pos, _push_block_id)
+			converted_count += 1
+
+			# Remove the entity (will be recreated on load)
+			block.queue_free()
+
+			print("💾 Converted push_block entity to voxel at %s for save" % voxel_pos)
+
+	if converted_count > 0:
+		print("💾 PRE-SAVE: Converted %d push_block entities to voxels" % converted_count)

@@ -50,6 +50,10 @@ func _create_ruin_templates():
 	_ruin_templates.append(_create_sky_city_district())
 	# Expansion platforms (no teleport stones, just building space)
 	_ruin_templates.append(_create_flat_platform_120x120())
+	# Puzzle rooms (push block challenges!)
+	_ruin_templates.append(_create_puzzle_room_simple())
+	_ruin_templates.append(_create_puzzle_room_zerog())
+	_ruin_templates.append(_create_puzzle_room_vertical())
 
 	print("Loaded ", _ruin_templates.size(), " ruin template(s)")
 
@@ -997,3 +1001,181 @@ func _create_flat_platform_120x120() -> RuinTemplate:
 	print("Created flat_platform_120x120 with ", blocks.size(), " blocks (120x120x3) + teleport stone at center")
 
 	return RuinTemplate.new("flat_platform_120x120", Vector3i(120, 4, 120), blocks, teleport_pos, 0.0)
+
+
+## ========== PUZZLE ROOMS (Push Block Challenges) ==========
+
+func _create_puzzle_room_simple() -> RuinTemplate:
+	"""
+	Simple enclosed puzzle room (Easy)
+	- 10x8x10 cube with ruin_stone walls
+	- One push_block at spawn, one test block as goal
+	- Has GRAVITY - traditional Sokoban style
+	- Straight line push to solve
+	"""
+	var blocks = []
+	var room_width = 10
+	var room_height = 8
+	var room_depth = 10
+
+	# Floor (ruin_floor)
+	for x in range(room_width):
+		for z in range(room_depth):
+			blocks.append({"pos": Vector3i(x, 0, z), "block_id": 19, "variant": 0})
+
+	# Walls (ruin_stone) - all 4 sides
+	for y in range(1, room_height):
+		# South wall (z=0)
+		for x in range(room_width):
+			blocks.append({"pos": Vector3i(x, y, 0), "block_id": 18, "variant": 0})
+		# North wall (z=depth-1)
+		for x in range(room_width):
+			blocks.append({"pos": Vector3i(x, y, room_depth - 1), "block_id": 18, "variant": 0})
+		# West wall (x=0)
+		for z in range(1, room_depth - 1):
+			blocks.append({"pos": Vector3i(0, y, z), "block_id": 18, "variant": 0})
+		# East wall (x=width-1)
+		for z in range(1, room_depth - 1):
+			blocks.append({"pos": Vector3i(room_width - 1, y, z), "block_id": 18, "variant": 0})
+
+	# Ceiling (ruin_stone)
+	for x in range(room_width):
+		for z in range(room_depth):
+			blocks.append({"pos": Vector3i(x, room_height, z), "block_id": 18, "variant": 0})
+
+	# Push_block spawn position (left side of room)
+	blocks.append({"pos": Vector3i(2, 1, 5), "block_id": 26, "variant": 0})  # push_block
+
+	# Test block (goal) - right side of room
+	blocks.append({"pos": Vector3i(7, 1, 5), "block_id": 45, "variant": 0})  # test block
+
+	# NO teleport_stone - it spawns when puzzle is solved!
+	var teleport_pos = Vector3i(5, 4, 5)  # Where stone will spawn (center, elevated)
+
+	return RuinTemplate.new("puzzle_room_simple", Vector3i(room_width, room_height + 1, room_depth), blocks, teleport_pos, 1.0)
+
+
+func _create_puzzle_room_zerog() -> RuinTemplate:
+	"""
+	Zero-Gravity Golf Puzzle (Medium)
+	- 12x10x12 cube with glass walls for visibility
+	- One push_block at spawn, test block far away
+	- NO GRAVITY - blocks fly when pushed!
+	- Requires precision shots (golf/rocket league style)
+	"""
+	var blocks = []
+	var room_width = 12
+	var room_height = 10
+	var room_depth = 12
+
+	# Floor (ruin_floor)
+	for x in range(room_width):
+		for z in range(room_depth):
+			blocks.append({"pos": Vector3i(x, 0, z), "block_id": 19, "variant": 0})
+
+	# Walls (glass for visibility!)
+	for y in range(1, room_height):
+		# South wall
+		for x in range(room_width):
+			blocks.append({"pos": Vector3i(x, y, 0), "block_id": 7, "variant": 0})  # glass
+		# North wall
+		for x in range(room_width):
+			blocks.append({"pos": Vector3i(x, y, room_depth - 1), "block_id": 7, "variant": 0})
+		# West wall
+		for z in range(1, room_depth - 1):
+			blocks.append({"pos": Vector3i(0, y, z), "block_id": 7, "variant": 0})
+		# East wall
+		for z in range(1, room_depth - 1):
+			blocks.append({"pos": Vector3i(room_width - 1, y, z), "block_id": 7, "variant": 0})
+
+	# Ceiling (glass)
+	for x in range(room_width):
+		for z in range(room_depth):
+			blocks.append({"pos": Vector3i(x, room_height, z), "block_id": 7, "variant": 0})
+
+	# Push_block spawn (corner)
+	blocks.append({"pos": Vector3i(2, 1, 2), "block_id": 26, "variant": 0})
+
+	# Test block (opposite corner - diagonal shot required!)
+	blocks.append({"pos": Vector3i(9, 1, 9), "block_id": 45, "variant": 0})
+
+	# Obstacle walls (make it harder!)
+	for y in range(1, 4):
+		blocks.append({"pos": Vector3i(6, y, 4), "block_id": 18, "variant": 0})
+		blocks.append({"pos": Vector3i(6, y, 5), "block_id": 18, "variant": 0})
+		blocks.append({"pos": Vector3i(6, y, 6), "block_id": 18, "variant": 0})
+
+	var teleport_pos = Vector3i(6, 5, 6)  # Center, elevated
+
+	return RuinTemplate.new("puzzle_room_zerog", Vector3i(room_width, room_height + 1, room_depth), blocks, teleport_pos, 1.0)
+
+
+func _create_puzzle_room_vertical() -> RuinTemplate:
+	"""
+	Staircase Tower Puzzle (Medium-Hard)
+	- 10x12x10 room with ascending ramp platforms
+	- Push_block at bottom, test block at top
+	- Has GRAVITY - need to push block UP the ramps
+	- Wide ramps (3 blocks) so push_block can fit through
+	"""
+	var blocks = []
+	var room_width = 10
+	var room_height = 12
+	var room_depth = 10
+
+	# Floor (ruin_floor)
+	for x in range(room_width):
+		for z in range(room_depth):
+			blocks.append({"pos": Vector3i(x, 0, z), "block_id": 19, "variant": 0})
+
+	# Walls (ruin_stone) - all 4 sides, full height
+	for y in range(1, room_height):
+		for x in range(room_width):
+			blocks.append({"pos": Vector3i(x, y, 0), "block_id": 18, "variant": 0})
+			blocks.append({"pos": Vector3i(x, y, room_depth - 1), "block_id": 18, "variant": 0})
+		for z in range(1, room_depth - 1):
+			blocks.append({"pos": Vector3i(0, y, z), "block_id": 18, "variant": 0})
+			blocks.append({"pos": Vector3i(room_width - 1, y, z), "block_id": 18, "variant": 0})
+
+	# Ceiling
+	for x in range(room_width):
+		for z in range(room_depth):
+			blocks.append({"pos": Vector3i(x, room_height, z), "block_id": 18, "variant": 0})
+
+	# Ascending ramp platforms (wide enough for push_block to fit!)
+	# Ramp 1 (y=1 to y=3) - South side
+	for z in range(1, 4):
+		for x in range(3, 7):
+			blocks.append({"pos": Vector3i(x, 1, z), "block_id": 19, "variant": 0})
+	for z in range(2, 5):
+		for x in range(3, 7):
+			blocks.append({"pos": Vector3i(x, 2, z), "block_id": 19, "variant": 0})
+	for z in range(3, 6):
+		for x in range(3, 7):
+			blocks.append({"pos": Vector3i(x, 3, z), "block_id": 19, "variant": 0})
+
+	# Ramp 2 (y=4 to y=6) - East side
+	for x in range(5, 8):
+		for z in range(4, 8):
+			blocks.append({"pos": Vector3i(x, 4, z), "block_id": 19, "variant": 0})
+	for x in range(4, 7):
+		for z in range(4, 8):
+			blocks.append({"pos": Vector3i(x, 5, z), "block_id": 19, "variant": 0})
+	for x in range(3, 6):
+		for z in range(4, 8):
+			blocks.append({"pos": Vector3i(x, 6, z), "block_id": 19, "variant": 0})
+
+	# Final platform (y=7) - goal area
+	for x in range(3, 7):
+		for z in range(6, 9):
+			blocks.append({"pos": Vector3i(x, 7, z), "block_id": 19, "variant": 0})
+
+	# Push_block spawn (bottom floor, opposite side of ramp)
+	blocks.append({"pos": Vector3i(2, 1, 7), "block_id": 26, "variant": 0})
+
+	# Test block on final platform
+	blocks.append({"pos": Vector3i(5, 8, 7), "block_id": 45, "variant": 0})
+
+	var teleport_pos = Vector3i(5, 9, 7)  # Above goal
+
+	return RuinTemplate.new("puzzle_room_vertical", Vector3i(room_width, room_height + 1, room_depth), blocks, teleport_pos, 1.0)

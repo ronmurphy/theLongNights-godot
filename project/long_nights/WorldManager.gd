@@ -169,6 +169,12 @@ func save_world() -> bool:
 	# Update last played timestamp
 	_world_data["last_played"] = Time.get_datetime_string_from_system()
 
+	# CRITICAL: Convert push_block entities to voxels before save
+	# This ensures push_blocks persist across save/load cycles
+	var push_block_manager = get_node_or_null("/root/Main/Game/PushBlockManager")
+	if push_block_manager and push_block_manager.has_method("convert_entities_to_voxels_for_save"):
+		push_block_manager.convert_entities_to_voxels_for_save()
+
 	# Save inventory data
 	var inventory = null
 	var player_nodes = get_tree().get_nodes_in_group("player")
