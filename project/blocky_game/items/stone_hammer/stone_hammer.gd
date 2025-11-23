@@ -24,17 +24,13 @@ func use(trans: Transform3D, inv_item_or_count = 1):
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count)
 	else:
-		await _use(trans, inv_item_or_count)
+		_use(trans, inv_item_or_count)
 
 
 func _use(trans: Transform3D, inv_item_or_count):
 	var stack_count = inv_item_or_count.count if typeof(inv_item_or_count) == TYPE_OBJECT else inv_item_or_count
 	var origin = trans.origin
 	var direction = -trans.basis.z.normalized()
-
-	# FIRST: Check for push_block voxels (before mining can happen!)
-	if await _check_and_push_voxel(origin, direction):
-		return  # Hit a push_block voxel, pushed it, done!
 
 	# Check if there's a push_block entity in the way
 	var target_block = _find_target_push_block(origin, direction)
@@ -271,81 +267,6 @@ func _find_target_push_block(origin: Vector3, direction: Vector3) -> Node:
 			closest_block = block
 
 	return closest_block
-
-
-func _check_and_push_voxel(origin: Vector3, direction: Vector3) -> bool:
-	"""Check if we're hitting a push_block voxel and push it with GOLF SWING! Returns true if we hit one."""
-	if not _terrain:
-		return false
-
-	var vt = _terrain.get_voxel_tool()
-	vt.channel = VoxelBuffer.CHANNEL_TYPE
-
-	# Raycast to find what we're hitting
-	var hit = vt.raycast(origin, direction, MAX_TARGET_DISTANCE)
-	if not hit:
-		return false
-
-	var hit_pos = Vector3(hit.position)
-
-	# Check if it's a push_block voxel
-	var voxel_coord = Vector3i(
-		int(floor(hit_pos.x)),
-		int(floor(hit_pos.y)),
-		int(floor(hit_pos.z))
-	)
-	var voxel_id = vt.get_voxel(voxel_coord)
-	if voxel_id == 0:
-		return false
-
-	# Check if this voxel is a push_block
-	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
-	if not blocks_node:
-		return false
-
-	var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
-	if not raw_mapping:
-		return false
-
-	var block = blocks_node.get_block(raw_mapping.block_id)
-	if not block or block.base_info.name != "push_block":
-		return false
-
-	# It's a push_block! Spawn entity and push it with GOLF SWING!
-	var manager = get_node_or_null("/root/Main/Game/PushBlockManager")
-	if not manager or not manager.has_method("create_push_block_at"):
-		return false
-
-	manager.create_push_block_at(voxel_coord)
-
-	# Wait a frame for entity to spawn, then push it
-	await get_tree().process_frame
-
-	# Find the spawned entity
-	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
-	for push_block in push_blocks:
-		if not is_instance_valid(push_block):
-			continue
-
-		var block_voxel_pos = Vector3i(
-			int(floor(push_block.global_position.x)),
-			int(floor(push_block.global_position.y)),
-			int(floor(push_block.global_position.z))
-		)
-
-		if block_voxel_pos == voxel_coord:
-			# Found it! GOLF SWING!
-			var knockback_dir = direction
-			knockback_dir.y = 0.5  # Strong upward arc - FORE!
-			var impulse = knockback_dir * KNOCKBACK_FORCE  # 10.0 force
-
-			if push_block.has_method("apply_impulse"):
-				push_block.apply_impulse(impulse)
-				print("🔨⛳ Stone Hammer GOLF SWING on push_block voxel! (10.0 force)")
-
-			return true
-
-	return false
 
 
 func _lightning_chain_aoe(center: Vector3, aoe_radius: float, chain_damage: int):

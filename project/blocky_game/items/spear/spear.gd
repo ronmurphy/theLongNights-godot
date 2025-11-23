@@ -31,7 +31,7 @@ func use(trans: Transform3D, inv_item_or_count = 1):
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count, action)
 	else:
-		await _use(trans, inv_item_or_count, action)
+		_use(trans, inv_item_or_count, action)
 
 
 func set_throw_action() -> void:
@@ -47,7 +47,7 @@ func use_throw(trans: Transform3D, inv_item_or_count = 1):
 	if mp.has_multiplayer_peer() and not mp.is_server():
 		rpc_id(SERVER_PEER_ID, &"receive_use", trans, stack_count, "throw")
 	else:
-		await _use(trans, inv_item_or_count, "throw")
+		_use(trans, inv_item_or_count, "throw")
 
 
 func _use(trans: Transform3D, inv_item_or_count, action: String = "melee"):
@@ -63,22 +63,18 @@ func _use(trans: Transform3D, inv_item_or_count, action: String = "melee"):
 
 func _use_melee(origin: Vector3, direction: Vector3, stack_count: int, inv_item_or_count):
 	"""Melee thrust attack with 3-block range"""
-	# FIRST: Check for push_block ENTITIES (already spawned blocks)
-	var target_block = _find_target_push_block(origin, direction)
-	if target_block:
-		# Direct hit on push_block entity - thrust it!
-		_thrust_push_block(target_block, origin, direction)
-		return
-
-	# SECOND: Check for push_block VOXELS (not yet spawned)
-	if await _check_and_push_voxel(origin, direction):
-		return  # Hit a push_block voxel, spawned and pushed it, done!
-
-	# THIRD: Check for enemy entities
+	# Find target entity with raycast
 	var target_entity = _find_target_entity(origin, direction)
+
+	# Find push_block with raycast
+	var target_block = _find_target_push_block(origin, direction)
+
 	if target_entity:
 		# Direct hit on entity
 		_thrust_attack(target_entity, origin, inv_item_or_count)
+	elif target_block:
+		# Direct hit on push_block
+		_thrust_push_block(target_block, origin, direction)
 	else:
 		# Thrust at air (show thrust effect) - very close to player for narrower appearance
 		var thrust_pos = origin + direction * 0.6
@@ -178,74 +174,6 @@ func _find_target_push_block(origin: Vector3, direction: Vector3) -> Node:
 			closest_block = block
 
 	return closest_block
-
-
-func _check_and_push_voxel(origin: Vector3, direction: Vector3) -> bool:
-	"""Check if we're hitting a push_block voxel and push it. Returns true if we hit one."""
-	if not _terrain:
-		return false
-
-	var vt = _terrain.get_voxel_tool()
-	vt.channel = VoxelBuffer.CHANNEL_TYPE
-
-	# Raycast to find what we're hitting
-	var hit = vt.raycast(origin, direction, MELEE_RANGE)
-	if not hit:
-		return false
-
-	var hit_pos = Vector3(hit.position)
-
-	# Check if it's a push_block voxel
-	var voxel_coord = Vector3i(
-		int(floor(hit_pos.x)),
-		int(floor(hit_pos.y)),
-		int(floor(hit_pos.z))
-	)
-	var voxel_id = vt.get_voxel(voxel_coord)
-	if voxel_id == 0:
-		return false
-
-	# Check if this voxel is a push_block
-	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
-	if not blocks_node:
-		return false
-
-	var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
-	if not raw_mapping:
-		return false
-
-	var block = blocks_node.get_block(raw_mapping.block_id)
-	if not block or block.base_info.name != "push_block":
-		return false
-
-	# It's a push_block! Spawn entity and push it
-	var manager = get_node_or_null("/root/Main/Game/PushBlockManager")
-	if not manager or not manager.has_method("create_push_block_at"):
-		return false
-
-	manager.create_push_block_at(voxel_coord)
-
-	# Wait a frame for entity to spawn, then push it
-	await get_tree().process_frame
-
-	# Find the spawned entity
-	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
-	for push_block in push_blocks:
-		if not is_instance_valid(push_block):
-			continue
-
-		var block_voxel_pos = Vector3i(
-			int(floor(push_block.global_position.x)),
-			int(floor(push_block.global_position.y)),
-			int(floor(push_block.global_position.z))
-		)
-
-		if block_voxel_pos == voxel_coord:
-			# Found it! Push it
-			_thrust_push_block(push_block, origin, direction)
-			return true
-
-	return false
 
 
 func _thrust_push_block(block: Node, attacker_pos: Vector3, direction: Vector3):
