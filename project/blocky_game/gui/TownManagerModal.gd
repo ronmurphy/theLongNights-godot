@@ -405,6 +405,25 @@ func _populate_options_list():
 	separator5.add_theme_constant_override("separation", 10)
 	_options_container.add_child(separator5)
 
+	# DECORATIVE STRUCTURES HEADER
+	var decorative_header = Label.new()
+	decorative_header.text = "✨ Decorative Structures"
+	decorative_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	decorative_header.add_theme_font_size_override("font_size", 14)
+	decorative_header.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
+	_options_container.add_child(decorative_header)
+
+	# Add decorative structure buttons
+	var decorative_blueprints = StructureBlueprintLibrary.get_blueprints_by_category("decorative")
+	for bp in decorative_blueprints:
+		var btn = _create_structure_button(bp)
+		_options_container.add_child(btn)
+
+	# Separator
+	var separator5b = HSeparator.new()
+	separator5b.add_theme_constant_override("separation", 10)
+	_options_container.add_child(separator5b)
+
 	# UNDERGROUND STRUCTURES HEADER
 	var underground_header = Label.new()
 	underground_header.text = "⛏️ Underground Structures"
@@ -947,7 +966,7 @@ func _handle_structure_purchase():
 			item.count = 1
 
 			# Set custom tooltip with blueprint name for all structures
-			if _selected_blueprint.category in ["homebase", "utility", "defensive", "production", "underground", "terrain"]:
+			if _selected_blueprint.category in ["homebase", "utility", "defensive", "production", "decorative", "underground", "terrain"]:
 				item.set_meta("custom_tooltip", _selected_blueprint.display_name + " Blueprint")
 
 			inventory._slots[i] = item
