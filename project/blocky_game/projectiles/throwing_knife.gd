@@ -297,9 +297,29 @@ func _on_impact(hit_pos: Vector3):
 	"""Handle impact with target or block - knives only damage enemies, not terrain"""
 	print("Throwing knife impact at ", hit_pos)
 
-	# Throwing knives no longer destroy blocks
-	# They only damage entities (handled in _check_entity_collision)
+	# Check if there's a push_block at the impact position
+	var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+	for block in push_blocks:
+		if not is_instance_valid(block):
+			continue
 
+		# Check if block is at impact position (within 2.0 units since knife spirals around target)
+		var distance = hit_pos.distance_to(block.global_position)
+		if distance < 2.0:
+			_on_hit_push_block(block)
+			return
+
+	# Also check if there's a push_block voxel at the impact position
+	if _terrain != null:
+		var vt = _terrain.get_voxel_tool()
+		vt.channel = VoxelBuffer.CHANNEL_TYPE
+		var block_pos = Vector3i(floor(hit_pos.x), floor(hit_pos.y), floor(hit_pos.z))
+		var voxel = vt.get_voxel(block_pos)
+		if voxel != 0 and _is_push_block_voxel(Vector3(block_pos)):
+			_on_hit_push_block_voxel(Vector3(block_pos))
+			return
+
+	# No push_block found, just despawn
 	queue_free()
 
 
@@ -326,7 +346,13 @@ func _is_push_block_voxel(voxel_pos: Vector3) -> bool:
 	var vt = _terrain.get_voxel_tool()
 	vt.channel = VoxelBuffer.CHANNEL_TYPE
 
-	var voxel_id = vt.get_voxel(voxel_pos)
+	# Convert to voxel coordinates (floor to get the exact voxel)
+	var voxel_coord = Vector3i(
+		int(floor(voxel_pos.x)),
+		int(floor(voxel_pos.y)),
+		int(floor(voxel_pos.z))
+	)
+	var voxel_id = vt.get_voxel(voxel_coord)
 	if voxel_id == 0:
 		return false
 
