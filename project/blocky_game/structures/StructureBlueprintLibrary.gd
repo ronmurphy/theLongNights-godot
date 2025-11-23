@@ -1457,9 +1457,9 @@ func _build_guard_tower_template(bp: StructureBlueprint) -> void:
 			bp.add_block(Vector3i(x, 12, z), "stone")
 
 	# Battlements (y=13-14) - corners and edges
-	for pos in [(0,13,0), (6,13,0), (0,13,6), (6,13,6),
-				(0,14,0), (6,14,0), (0,14,6), (6,14,6),
-				(3,13,0), (3,13,6), (0,13,3), (6,13,3)]:
+	for pos in [[0,13,0], [6,13,0], [0,13,6], [6,13,6],
+				[0,14,0], [6,14,0], [0,14,6], [6,14,6],
+				[3,13,0], [3,13,6], [0,13,3], [6,13,3]]:
 		bp.add_block(Vector3i(pos[0], pos[1], pos[2]), "stone")
 
 
