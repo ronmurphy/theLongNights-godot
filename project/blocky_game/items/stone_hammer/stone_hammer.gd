@@ -35,10 +35,18 @@ func _use(trans: Transform3D, inv_item_or_count):
 	# Check if there's a push_block entity in the way
 	var target_block = _find_target_push_block(origin, direction)
 
+	# Check for push_block voxel
+	var voxel_block_pos = _find_push_block_voxel(origin, direction)
+
 	var impact_pos : Vector3
 	if target_block:
 		# Hit a push_block entity - use its position for AOE
 		impact_pos = target_block.global_position
+	elif voxel_block_pos != Vector3.ZERO:
+		# Hit a push_block voxel - spawn it and use its position
+		_spawn_voxel_block(voxel_block_pos)
+		# Use voxel position + center offset for impact
+		impact_pos = voxel_block_pos + Vector3(0.5, 0.5, 0.5)
 	else:
 		# Raycast to find target position (ground)
 		var terrain_tool = _terrain.get_voxel_tool()
@@ -295,6 +303,57 @@ func _lightning_chain_aoe(center: Vector3, aoe_radius: float, chain_damage: int)
 
 	if chained > 0:
 		print("⚡ Lightning Chain (AOE)! Hit %d enemies outside hammer radius" % chained)
+
+
+func _find_push_block_voxel(origin: Vector3, direction: Vector3) -> Vector3:
+	"""Check if we're looking at a push_block voxel"""
+	var terrain_tool = _terrain.get_voxel_tool()
+	terrain_tool.channel = VoxelBuffer.CHANNEL_TYPE
+
+	# Raycast in attack direction
+	var hit = terrain_tool.raycast(origin, direction, MAX_TARGET_DISTANCE)
+	if hit == null:
+		return Vector3.ZERO
+
+	var hit_pos = Vector3(hit.position)
+
+	# Convert to voxel coordinates
+	var voxel_coord = Vector3i(
+		int(floor(hit_pos.x)),
+		int(floor(hit_pos.y)),
+		int(floor(hit_pos.z))
+	)
+
+	var voxel_id = terrain_tool.get_voxel(voxel_coord)
+	if voxel_id == 0:
+		return Vector3.ZERO
+
+	# Check if it's a push_block
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	if not blocks_node:
+		return Vector3.ZERO
+
+	# Convert voxel ID to block ID using raw mapping
+	var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
+	if not raw_mapping:
+		return Vector3.ZERO
+
+	var block = blocks_node.get_block(raw_mapping.block_id)
+	if block and block.base_info.name == "push_block":
+		return Vector3(voxel_coord)
+
+	return Vector3.ZERO
+
+
+func _spawn_voxel_block(voxel_pos: Vector3):
+	"""Spawn a push_block entity from voxel (don't push it, AOE will handle that)"""
+	var voxel_pos_i = Vector3i(voxel_pos)
+
+	# Try to spawn entity via manager
+	var manager = get_node_or_null("/root/Main/Game/PushBlockManager")
+	if manager and manager.has_method("create_push_block_at"):
+		manager.create_push_block_at(voxel_pos_i)
+		print("🔨 Stone Hammer hit push_block voxel - spawning entity for AOE push!")
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)

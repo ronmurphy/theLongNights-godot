@@ -34,15 +34,21 @@ func _use(trans: Transform3D, inv_item_or_count):
 	# Find target entity with raycast
 	var target_entity = _find_target_entity(origin, direction)
 
-	# Find push_block with raycast
+	# Find push_block entity with raycast
 	var target_block = _find_target_push_block(origin, direction)
+
+	# Check for push_block voxel (not yet converted to entity)
+	var voxel_block_pos = _find_push_block_voxel(origin, direction)
 
 	if target_entity:
 		# Direct hit on entity
 		_slash_attack(target_entity, origin, inv_item_or_count)
 	elif target_block:
-		# Direct hit on push_block
+		# Direct hit on push_block entity
 		_slash_push_block(target_block, origin, direction)
+	elif voxel_block_pos != Vector3.ZERO:
+		# Hit a push_block voxel - spawn entity and push it
+		_spawn_and_push_voxel_block(voxel_block_pos, direction)
 	else:
 		# Slash at air (show slash effect) - very close to player for narrower appearance
 		var slash_pos = origin + direction * 0.6
@@ -217,6 +223,86 @@ func _lightning_chain(origin: Vector3, chain_damage: int, primary_target: Node):
 
 	if chained > 0:
 		print("⚡ Lightning Chain! Hit %d additional enemies" % chained)
+
+
+func _find_push_block_voxel(origin: Vector3, direction: Vector3) -> Vector3:
+	"""Check if we're looking at a push_block voxel"""
+	var terrain_tool = _terrain.get_voxel_tool()
+	terrain_tool.channel = VoxelBuffer.CHANNEL_TYPE
+
+	# Raycast in attack direction
+	var hit = terrain_tool.raycast(origin, direction, MAX_TARGET_DISTANCE)
+	if hit == null:
+		return Vector3.ZERO
+
+	var hit_pos = Vector3(hit.position)
+
+	# Convert to voxel coordinates
+	var voxel_coord = Vector3i(
+		int(floor(hit_pos.x)),
+		int(floor(hit_pos.y)),
+		int(floor(hit_pos.z))
+	)
+
+	var voxel_id = terrain_tool.get_voxel(voxel_coord)
+	if voxel_id == 0:
+		return Vector3.ZERO
+
+	# Check if it's a push_block
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	if not blocks_node:
+		return Vector3.ZERO
+
+	# Convert voxel ID to block ID using raw mapping
+	var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
+	if not raw_mapping:
+		return Vector3.ZERO
+
+	var block = blocks_node.get_block(raw_mapping.block_id)
+	if block and block.base_info.name == "push_block":
+		return Vector3(voxel_coord)
+
+	return Vector3.ZERO
+
+
+func _spawn_and_push_voxel_block(voxel_pos: Vector3, direction: Vector3):
+	"""Spawn a push_block entity from voxel and push it"""
+	var voxel_pos_i = Vector3i(voxel_pos)
+
+	# Try to spawn entity via manager
+	var manager = get_node_or_null("/root/Main/Game/PushBlockManager")
+	if manager and manager.has_method("create_push_block_at"):
+		manager.create_push_block_at(voxel_pos_i)
+
+		# Wait a frame for entity to spawn
+		await get_tree().process_frame
+
+		# Find the spawned entity
+		var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+		for block in push_blocks:
+			if not is_instance_valid(block):
+				continue
+
+			var entity_voxel_pos = Vector3i(
+				int(floor(block.global_position.x)),
+				int(floor(block.global_position.y)),
+				int(floor(block.global_position.z))
+			)
+
+			if entity_voxel_pos == voxel_pos_i:
+				# Found it! Push it
+				var push_dir = direction
+				push_dir.y = 0.2  # Moderate upward arc from slash
+				var impulse = push_dir * 4.0  # Machete force
+
+				if block.has_method("apply_impulse"):
+					block.apply_impulse(impulse)
+					print("🔪 Machete SLASHED push_block voxel (spawned entity)!")
+
+				_spawn_slash_effect(block.global_position, push_dir)
+				return
+
+		print("⚠️ Machete: Failed to find spawned push_block entity")
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)

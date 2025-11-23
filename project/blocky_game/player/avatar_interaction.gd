@@ -441,8 +441,41 @@ func _physics_process(_delta):
 			var target_entity = _find_nearest_entity_in_crosshair()
 			var aiming_at_entity = target_entity != null
 
-			# Check if this is a mining tool being held on a block (but NOT aiming at entity)
-			if mining_power > 0 and hit != null and _action_use_held and not aiming_at_entity and _is_target_in_range(hit.position, inv_item):
+			# Check if aiming at a push_block (voxel or entity) - prioritize pushing over mining
+			var aiming_at_push_block = false
+
+			# Check for push_block entity in front of player
+			var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+			var origin = _head.global_position
+			var forward = -_head.get_transform().basis.z.normalized()
+			for block in push_blocks:
+				if not is_instance_valid(block):
+					continue
+				var to_block = block.global_position - origin
+				var distance = to_block.length()
+				if distance < 5.0:  # Within weapon range
+					var angle = forward.angle_to(to_block.normalized())
+					if angle < deg_to_rad(30):  # Within aiming cone
+						aiming_at_push_block = true
+						break
+
+			# Check for push_block voxel if no entity found
+			if not aiming_at_push_block and hit != null:
+				var hit_raw_id := _terrain_tool.get_voxel(hit.position)
+				if hit_raw_id != 0:
+					var rm := _block_types.get_raw_mapping(hit_raw_id)
+					var block = _block_types.get_block(rm.block_id)
+					if block and block.base_info.name == "push_block":
+						aiming_at_push_block = true
+
+			# If aiming at push_block, use weapon instead of mining
+			if aiming_at_push_block and _action_use:
+				item.use(_head.global_transform, inv_item)
+				_action_use = false
+				_action_use_held = false
+
+			# Check if this is a mining tool being held on a block (but NOT aiming at entity or push_block)
+			if not aiming_at_push_block and mining_power > 0 and hit != null and _action_use_held and not aiming_at_entity and _is_target_in_range(hit.position, inv_item):
 				# This is a mining tool being used on a block
 				var hit_raw_id := _terrain_tool.get_voxel(hit.position)
 				var has_cube := hit_raw_id != 0

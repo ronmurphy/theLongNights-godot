@@ -35,8 +35,11 @@ func _use(trans: Transform3D, inv_item_or_count):
 	# Find ALL targets in cleave arc
 	var target_entities = _find_targets_in_arc(origin, direction)
 
-	# Find push_blocks in cleave arc too
+	# Find push_block entities in cleave arc
 	var target_blocks = _find_push_blocks_in_arc(origin, direction)
+
+	# Find push_block voxels in cleave arc
+	var voxel_blocks = _find_push_block_voxels_in_arc(origin, direction)
 
 	if target_entities.size() > 0:
 		# Hit all entities in arc
@@ -53,12 +56,17 @@ func _use(trans: Transform3D, inv_item_or_count):
 		var slash_pos = origin + direction * 0.6
 		_spawn_slash_effect(slash_pos, direction)
 
-	# Push all push_blocks in arc (regardless of entity hits)
+	# Push all push_block entities in arc
 	if target_blocks.size() > 0:
 		for block in target_blocks:
 			_cleave_push_block(block, origin, direction)
 
-	print("Tree Feller cleave! Hit %d targets, %d blocks | Stack bonus: +%d damage" % [target_entities.size(), target_blocks.size(), stack_count])
+	# Spawn and push voxel blocks
+	if voxel_blocks.size() > 0:
+		for voxel_pos in voxel_blocks:
+			_spawn_and_push_voxel_block(voxel_pos, origin, direction)
+
+	print("Tree Feller cleave! Hit %d targets, %d entity blocks, %d voxel blocks | Stack bonus: +%d damage" % [target_entities.size(), target_blocks.size(), voxel_blocks.size(), stack_count])
 
 
 func _find_targets_in_arc(origin: Vector3, direction: Vector3) -> Array:
@@ -193,6 +201,96 @@ func _spawn_slash_effect(pos: Vector3, direction: Vector3):
 		3.5,   # Scale (largest slash for heavy weapon)
 		"res://assets/art/textures/slash_04.png"  # Tree Feller uses slash_04
 	)
+
+func _find_push_block_voxels_in_arc(origin: Vector3, direction: Vector3) -> Array:
+	"""Find all push_block voxels in the cleave arc by sampling multiple raycasts"""
+	var voxel_positions = []
+	var terrain_tool = _terrain.get_voxel_tool()
+	terrain_tool.channel = VoxelBuffer.CHANNEL_TYPE
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	if not blocks_node:
+		return voxel_positions
+
+	# Sample multiple raycasts across the cleave arc
+	var angle_step = deg_to_rad(CLEAVE_ANGLE / 8.0)  # Sample 8 directions across arc
+	for i in range(-4, 5):  # -4 to +4 = 9 samples across arc
+		var angle = i * angle_step
+		var sample_dir = direction.rotated(Vector3.UP, angle)
+
+		var hit = terrain_tool.raycast(origin, sample_dir, MAX_TARGET_DISTANCE)
+		if hit == null:
+			continue
+
+		var hit_pos = Vector3(hit.position)
+		var voxel_coord = Vector3i(
+			int(floor(hit_pos.x)),
+			int(floor(hit_pos.y)),
+			int(floor(hit_pos.z))
+		)
+
+		# Skip if already found this voxel
+		if voxel_positions.has(Vector3(voxel_coord)):
+			continue
+
+		var voxel_id = terrain_tool.get_voxel(voxel_coord)
+		if voxel_id == 0:
+			continue
+
+		# Check if it's a push_block
+		var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
+		if not raw_mapping:
+			continue
+
+		var block = blocks_node.get_block(raw_mapping.block_id)
+		if block and block.base_info.name == "push_block":
+			# Check if this voxel is in the cleave arc
+			var to_block = Vector3(voxel_coord) - origin
+			var angle_to_block = direction.angle_to(to_block.normalized())
+			if angle_to_block <= deg_to_rad(CLEAVE_ANGLE / 2.0):
+				voxel_positions.append(Vector3(voxel_coord))
+
+	return voxel_positions
+
+
+func _spawn_and_push_voxel_block(voxel_pos: Vector3, origin: Vector3, base_direction: Vector3):
+	"""Spawn a push_block entity from voxel and push it"""
+	var voxel_pos_i = Vector3i(voxel_pos)
+
+	# Try to spawn entity via manager
+	var manager = get_node_or_null("/root/Main/Game/PushBlockManager")
+	if manager and manager.has_method("create_push_block_at"):
+		manager.create_push_block_at(voxel_pos_i)
+
+		# Wait a frame for entity to spawn
+		await get_tree().process_frame
+
+		# Find the spawned entity
+		var push_blocks = get_tree().get_nodes_in_group("push_blocks")
+		for block in push_blocks:
+			if not is_instance_valid(block):
+				continue
+
+			var entity_voxel_pos = Vector3i(
+				int(floor(block.global_position.x)),
+				int(floor(block.global_position.y)),
+				int(floor(block.global_position.z))
+			)
+
+			if entity_voxel_pos == voxel_pos_i:
+				# Found it! Push it (use direction toward the block from origin)
+				var push_dir = (block.global_position - origin).normalized()
+				push_dir.y = 0.3  # Moderate upward arc from chopping motion
+				var impulse = push_dir * 7.5  # Tree Feller force
+
+				if block.has_method("apply_impulse"):
+					block.apply_impulse(impulse)
+					print("🪓 Tree Feller CHOPPED push_block voxel (spawned entity)!")
+
+				_spawn_slash_effect(block.global_position, push_dir)
+				return
+
+		print("⚠️ Tree Feller: Failed to find spawned push_block entity")
+
 
 @rpc("any_peer", "call_remote", "reliable", 0)
 func receive_use(trans: Transform3D, stack_count: int = 1):
