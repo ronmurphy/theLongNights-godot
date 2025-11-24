@@ -101,6 +101,54 @@ func _register_homebase_structures() -> void:
 	_build_tent_template(tent)
 	_blueprints["tent"] = tent
 
+	# RED TENT (Small, 1-room, diagonal stripes)
+	var red_tent = StructureBlueprint.new(
+		"red_tent",
+		"Red Tent",
+		Vector3i(5, 3, 5),
+		"homebase",
+		"A vibrant red tent with bold diagonal stripes of orange and yellow. Perfect for adventurers!",
+		150  # 150 rust blocks
+	)
+	_build_red_tent_striped(red_tent)
+	_blueprints["red_tent"] = red_tent
+
+	# BLUE TENT (Small, 1-room, gradient)
+	var blue_tent = StructureBlueprint.new(
+		"blue_tent",
+		"Blue Tent",
+		Vector3i(5, 3, 5),
+		"homebase",
+		"A soothing blue tent with a cool gradient effect. Great for a peaceful rest.",
+		150  # 150 rust blocks
+	)
+	_build_blue_tent_gradient(blue_tent)
+	_blueprints["blue_tent"] = blue_tent
+
+	# GREEN TENT (Small, 1-room, forest canopy)
+	var green_tent = StructureBlueprint.new(
+		"green_tent",
+		"Green Tent",
+		Vector3i(5, 3, 5),
+		"homebase",
+		"A lush green tent with natural dappled patterns. Blends with the forest.",
+		150  # 150 rust blocks
+	)
+	_build_green_tent_forest(green_tent)
+	_blueprints["green_tent"] = green_tent
+
+	# RAINBOW TENT (Medium, 1-room, yurt-style)
+	var rainbow_tent = StructureBlueprint.new(
+		"rainbow_tent",
+		"Rainbow Tent",
+		Vector3i(7, 4, 7),
+		"homebase",
+		"A majestic yurt-style tent with all rainbow colors. Truly special and unique!",
+		250  # 250 rust blocks (more expensive, bigger)
+	)
+	_build_rainbow_tent_yurt(rainbow_tent)
+	_blueprints["rainbow_tent"] = rainbow_tent
+
 	# SHACK (Medium, 1-room with door)
 	var shack = StructureBlueprint.new(
 		"shack",
@@ -1597,6 +1645,205 @@ func get_blueprint(blueprint_name: String) -> StructureBlueprint:
 func get_all_blueprints() -> Array:
 	"""Get all registered blueprints"""
 	return _blueprints.values()
+
+
+## ============================================================================
+## COLORED TENT VARIATIONS
+## ============================================================================
+
+func _build_red_tent_striped(bp: StructureBlueprint) -> void:
+	"""Build red tent with diagonal stripe pattern (5x3x5) - A-frame tent"""
+	# Size is 5x3x5, so valid coords are: x=0-4, y=0-2, z=0-4
+
+	# Floor (5x5 planks - base floor)
+	for x in range(5):
+		for z in range(5):
+			bp.add_block(Vector3i(x, 0, z), "planks")
+
+	# A-frame walls with diagonal stripe pattern
+	# Pattern: alternates red, orange, yellow in diagonal bands
+	# Front and back walls (z=0 and z=4) - full height with stripes
+	for y in range(1, 3):
+		# Front wall (z=0) with 2x2 entrance opening at center
+		bp.add_block(Vector3i(1, y, 0), "redcolor")
+		# Center opening (x=2 is OPEN)
+		bp.add_block(Vector3i(3, y, 0), "orangecolor")
+		# Back wall (z=4) - solid, striped
+		for x in range(1, 4):
+			if x == 1:
+				bp.add_block(Vector3i(x, y, 4), "redcolor")
+			elif x == 2:
+				bp.add_block(Vector3i(x, y, 4), "orangecolor")
+			else:  # x == 3
+				bp.add_block(Vector3i(x, y, 4), "yellowcolor")
+
+	# Side walls - slanted A-frame shape with stripes
+	# Level 1 (y=1): Full width
+	bp.add_block(Vector3i(0, 1, 1), "redcolor")
+	bp.add_block(Vector3i(0, 1, 2), "orangecolor")
+	bp.add_block(Vector3i(0, 1, 3), "yellowcolor")
+	bp.add_block(Vector3i(4, 1, 1), "yellowcolor")
+	bp.add_block(Vector3i(4, 1, 2), "orangecolor")
+	bp.add_block(Vector3i(4, 1, 3), "redcolor")
+
+	# A-frame roof (y=2): Complete roof coverage with color pattern
+	for z in range(5):
+		for x in range(1, 4):  # x=1,2,3 (narrower than base)
+			# Diagonal stripe pattern
+			var stripe_index = (x + z) % 3  # Creates diagonal effect
+			if stripe_index == 0:
+				bp.add_block(Vector3i(x, 2, z), "redcolor")
+			elif stripe_index == 1:
+				bp.add_block(Vector3i(x, 2, z), "orangecolor")
+			else:
+				bp.add_block(Vector3i(x, 2, z), "yellowcolor")
+
+
+func _build_blue_tent_gradient(bp: StructureBlueprint) -> void:
+	"""Build blue tent with gradient effect (5x3x5) - A-frame tent"""
+	# Size is 5x3x5, so valid coords are: x=0-4, y=0-2, z=0-4
+
+	# Floor (5x5 planks)
+	for x in range(5):
+		for z in range(5):
+			bp.add_block(Vector3i(x, 0, z), "planks")
+
+	# A-frame walls with gradient effect - darker at base, lighter at top
+	# Front and back walls (z=0 and z=4) - gradient from blue to light blue
+	for y in range(1, 3):
+		var wall_color = "bluecolor" if y == 1 else "lbluecolor"
+
+		# Front wall (z=0) with 2x2 entrance opening at center
+		bp.add_block(Vector3i(1, y, 0), wall_color)
+		# Center opening (x=2 is OPEN)
+		bp.add_block(Vector3i(3, y, 0), wall_color)
+		# Back wall (z=4) - solid gradient
+		for x in range(1, 4):
+			bp.add_block(Vector3i(x, y, 4), wall_color)
+
+	# Side walls - slanted A-frame shape with gradient
+	# Level 1 (y=1): Blue (darker)
+	bp.add_block(Vector3i(0, 1, 1), "bluecolor")
+	bp.add_block(Vector3i(0, 1, 2), "bluecolor")
+	bp.add_block(Vector3i(0, 1, 3), "bluecolor")
+	bp.add_block(Vector3i(4, 1, 1), "bluecolor")
+	bp.add_block(Vector3i(4, 1, 2), "bluecolor")
+	bp.add_block(Vector3i(4, 1, 3), "bluecolor")
+
+	# A-frame roof (y=2): Gradient to purple at peak
+	for z in range(5):
+		for x in range(1, 4):  # x=1,2,3 (narrower than base)
+			bp.add_block(Vector3i(x, 2, z), "burplecolor")
+
+
+func _build_green_tent_forest(bp: StructureBlueprint) -> void:
+	"""Build green tent with forest canopy pattern (5x3x5) - A-frame tent"""
+	# Size is 5x3x5, so valid coords are: x=0-4, y=0-2, z=0-4
+
+	# Floor (5x5 planks)
+	for x in range(5):
+		for z in range(5):
+			bp.add_block(Vector3i(x, 0, z), "planks")
+
+	# A-frame walls with mixed green colors (organic dappled appearance)
+	# Randomized distribution of green shades
+	# Front and back walls (z=0 and z=4) with mixed greens
+	var green_colors = ["greencolor", "limecolor", "blgrncolor"]
+
+	for y in range(1, 3):
+		# Front wall (z=0) with 2x2 entrance opening at center
+		var color1 = green_colors[1 % 3]  # limecolor
+		var color3 = green_colors[3 % 3]  # blgrncolor
+		bp.add_block(Vector3i(1, y, 0), color1)
+		# Center opening (x=2 is OPEN)
+		bp.add_block(Vector3i(3, y, 0), color3)
+		# Back wall (z=4) - solid with varied greens
+		for x in range(1, 4):
+			bp.add_block(Vector3i(x, y, 4), green_colors[x % 3])
+
+	# Side walls - slanted A-frame shape with mixed greens
+	# Level 1 (y=1): Mixed greens
+	bp.add_block(Vector3i(0, 1, 1), "greencolor")
+	bp.add_block(Vector3i(0, 1, 2), "limecolor")
+	bp.add_block(Vector3i(0, 1, 3), "blgrncolor")
+	bp.add_block(Vector3i(4, 1, 1), "blgrncolor")
+	bp.add_block(Vector3i(4, 1, 2), "limecolor")
+	bp.add_block(Vector3i(4, 1, 3), "greencolor")
+
+	# A-frame roof (y=2): Mixed greens for dappled canopy effect
+	for z in range(5):
+		for x in range(1, 4):  # x=1,2,3 (narrower than base)
+			bp.add_block(Vector3i(x, 2, z), green_colors[(x + z) % 3])
+
+
+func _build_rainbow_tent_yurt(bp: StructureBlueprint) -> void:
+	"""Build rainbow tent yurt-style structure (7x4x7) - Circular yurt with rainbow rings"""
+	# Size is 7x4x7, so valid coords are: x=0-6, y=0-3, z=0-6
+
+	# Floor (7x7 planks)
+	for x in range(7):
+		for z in range(7):
+			bp.add_block(Vector3i(x, 0, z), "planks")
+
+	# Define rainbow colors for radial rings
+	var rainbow_colors = [
+		"redcolor",
+		"orangecolor",
+		"yellowcolor",
+		"limecolor",
+		"blgrncolor",
+		"lbluecolor",
+		"bluecolor",
+		"burplecolor",
+		"magentacolor",
+		"greencolor",
+		"cyancolor",
+		"purlpecolor",
+		"browncolor",
+		"yellowcolor",
+		"orangecolor",
+		"redcolor"
+	]
+
+	# Create yurt structure with 2x2 entrance at front (z=0, centered at x=3-4)
+	# Y-level 1 (y=1): Outer ring of colors
+	# Y-level 2 (y=2): Middle ring of colors
+	# Y-level 3 (y=3): Inner ring/peak of colors
+
+	# Y=1 level: Outer walls
+	for x in range(7):
+		for z in range(7):
+			# Create circular shape with entrance opening at front
+			var dist = Vector2(x - 3, z - 3).length()
+			if dist >= 2.5 and dist <= 3.5:  # Outer ring
+				# Skip entrance at front (z=0, x=3-4, y=1-2)
+				if not (z == 0 and (x == 3 or x == 4)):
+					var color_idx = int((atan2(z - 3, x - 3) + PI) / (PI / 8)) % rainbow_colors.size()
+					bp.add_block(Vector3i(x, 1, z), rainbow_colors[color_idx])
+
+	# Y=2 level: Middle walls with entrance
+	for x in range(7):
+		for z in range(7):
+			var dist = Vector2(x - 3, z - 3).length()
+			if dist >= 1.5 and dist <= 3.5:  # Middle ring (wider range)
+				# Skip entrance at front (z=0-1, x=3-4)
+				if not (z <= 1 and z >= 0 and (x == 3 or x == 4)):
+					var color_idx = int((atan2(z - 3, x - 3) + PI) / (PI / 8)) % rainbow_colors.size()
+					bp.add_block(Vector3i(x, 2, z), rainbow_colors[(color_idx + 2) % rainbow_colors.size()])
+
+	# Y=3 level: Peak/roof with all colors in circular pattern
+	for x in range(7):
+		for z in range(7):
+			var dist = Vector2(x - 3, z - 3).length()
+			if dist <= 3.2:  # Center peak area
+				var color_idx = int((atan2(z - 3, x - 3) + PI) / (PI / 8)) % rainbow_colors.size()
+				bp.add_block(Vector3i(x, 3, z), rainbow_colors[(color_idx + 4) % rainbow_colors.size()])
+
+	# Add central plank pole structure for support (inside)
+	# Thin pole running through center (x=3, z=3)
+	bp.add_block(Vector3i(3, 1, 3), "planks")
+	bp.add_block(Vector3i(3, 2, 3), "planks")
+	bp.add_block(Vector3i(3, 3, 3), "planks")
 
 
 func get_blueprints_by_category(category: String) -> Array:
