@@ -255,6 +255,7 @@ func _register_commands() -> void:
 	commands["undervoid"] = _cmd_undervoid  # Spawn Undervoid structure
 	commands["charview"] = _cmd_charview  # Character view - orbit camera around player
 	commands["photo"] = _cmd_photo  # Photo mode - manual camera control for screenshots
+	commands["revive"] = _cmd_revive  # Revive all dead NPCs and companions
 
 ## Commands Implementation
 
@@ -317,6 +318,7 @@ func _cmd_help(_args: Array) -> void:
 	add_output("  [color=yellow]hp[/color] - Show current HP")
 	add_output("  [color=yellow]damage <amount>[/color] - Damage player (for testing)")
 	add_output("  [color=yellow]heal <amount>[/color] - Heal player")
+	add_output("  [color=yellow]revive[/color] - Revive all dead NPCs and companions at 50% HP")
 	add_output("")
 	add_output("[color=cyan]Dialogue Commands:[/color]")
 	add_output("  [color=yellow]dialogue <id>[/color] - Trigger a dialogue (or 'dlg' for short)")
@@ -857,6 +859,60 @@ func _cmd_heal(args: Array) -> void:
 
 	player.heal(amount)
 	add_output("[color=lime]Healed player for %d HP (HP: %d/%d)[/color]" % [amount, player.current_hp, player.max_hp])
+
+
+func _cmd_revive(_args: Array) -> void:
+	"""Revive all dead NPCs and companions, set to 50% HP"""
+	var revived_count = 0
+
+	# 1. REVIVE ACTIVE COMPANION (if dead and exists)
+	var companions = get_tree().get_nodes_in_group("companions")
+	for companion in companions:
+		if not companion.is_alive:
+			companion.is_alive = true
+			companion.current_hp = int(companion.max_hp * 0.5)
+			companion.healed.emit(companion.current_hp)
+			add_output("[color=lime]✓ Revived active companion: %s (%d HP)[/color]" % [
+				companion.entity_name, companion.current_hp
+			])
+			revived_count += 1
+
+	# 2. REVIVE BENCHED COMPANIONS (NPCs at homebase with "benched_companions" group)
+	var benched_companions = get_tree().get_nodes_in_group("benched_companions")
+	for benched in benched_companions:
+		if not benched.is_alive:
+			benched.is_alive = true
+			benched.current_hp = int(benched.max_hp * 0.5)
+			benched.healed.emit(benched.current_hp)
+			if benched.has_method("_update_health_bar"):
+				benched._update_health_bar()
+			add_output("[color=lime]✓ Revived benched companion: %s (%d HP)[/color]" % [
+				benched.entity_name, benched.current_hp
+			])
+			revived_count += 1
+
+	# 3. REVIVE ALL NPCs (homebase and world NPCs)
+	var all_npcs = get_tree().get_nodes_in_group("npcs")
+	for npc in all_npcs:
+		# Skip if already handled above (benched companions are also in "npcs" group)
+		if npc in benched_companions:
+			continue
+
+		if not npc.is_alive:
+			npc.is_alive = true
+			npc.current_hp = int(npc.max_hp * 0.5)
+			npc.healed.emit(npc.current_hp)
+			if npc.has_method("_update_health_bar"):
+				npc._update_health_bar()
+			add_output("[color=lime]✓ Revived NPC: %s (%d HP)[/color]" % [
+				npc.entity_name, npc.current_hp
+			])
+			revived_count += 1
+
+	if revived_count == 0:
+		add_output("[color=yellow]No dead entities found to revive[/color]")
+	else:
+		add_output("[color=lime]🌟 Revived %d entities total![/color]" % revived_count)
 
 
 func _cmd_dialogue(args: Array) -> void:

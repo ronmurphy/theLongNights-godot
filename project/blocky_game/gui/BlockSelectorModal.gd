@@ -1024,9 +1024,10 @@ func _handle_item_shop_transaction():
 		return
 
 	if is_buy:
-		# BUY: Purchase shop item with rust blocks
+		# BUY: Purchase shop item with rust blocks (supports quantity)
 		var item_id = _selected_block_id
-		print("[Item Shop DEBUG] Buying item ID: %d" % item_id)
+		var quantity = int(_quantity_spinbox.value)
+		print("[Item Shop DEBUG] Buying item ID: %d (quantity: %d)" % [item_id, quantity])
 
 		var item = _item_db.get_item(item_id)
 		if not item:
@@ -1035,47 +1036,82 @@ func _handle_item_shop_transaction():
 			return
 
 		print("[Item Shop DEBUG] Item loaded: %s (ID: %d)" % [item.base_info.name, item_id])
-		var price = 10  # Base price for shop items (no powers)
+		var base_price = 10  # Base price per item (no powers)
+		var total_price = base_price * quantity
 
-		# Check if player has enough rust blocks
+		# Check if player has enough rust blocks for total purchase
 		var rust_count = _inventory.get_rust_block_count()
-		print("[Item Shop DEBUG] Price: %d, Player has: %d rust blocks" % [price, rust_count])
-		if rust_count < price:
-			_show_message("Not enough rust blocks! Need %d, have %d" % [price, rust_count], Color.RED)
+		print("[Item Shop DEBUG] Price per item: %d, Total: %d, Player has: %d rust blocks" % [base_price, total_price, rust_count])
+		if rust_count < total_price:
+			_show_message("Not enough rust blocks! Need %d, have %d" % [total_price, rust_count], Color.RED)
 			return
 
-		# Spend rust blocks
-		print("[Item Shop DEBUG] Spending %d rust blocks..." % price)
-		if not _inventory.spend_rust_blocks(price):
+		# Spend total rust blocks
+		print("[Item Shop DEBUG] Spending %d rust blocks for %d items..." % [total_price, quantity])
+		if not _inventory.spend_rust_blocks(total_price):
 			print("[Item Shop ERROR] Failed to spend rust blocks!")
 			_show_message("Transaction failed!", Color.RED)
 			return
 
-		# Add item to inventory (find empty slot)
-		print("[Item Shop DEBUG] Looking for empty inventory slot...")
-		var added = false
-		for i in range(_inventory._slots.size()):
-			if _inventory._slots[i] == null:
-				print("[Item Shop DEBUG] Found empty slot at index %d, adding item..." % i)
-				var new_item = InventoryItem.new()
-				new_item.type = InventoryItem.TYPE_ITEM
-				new_item.id = item_id
-				new_item.count = 1  # Items aren't stackable
-				_inventory._slots[i] = new_item
-				added = true
+		# Add items to inventory (loop for quantity, items don't stack)
+		print("[Item Shop DEBUG] Adding %d items to inventory..." % quantity)
+		var items_added = 0
+
+		for q in range(quantity):
+			# Find empty slot for this item
+			var slot_found = false
+			for i in range(_inventory._slots.size()):
+				if _inventory._slots[i] == null:
+					print("[Item Shop DEBUG] Found empty slot at index %d, adding item %d/%d..." % [i, q + 1, quantity])
+
+					# MYSTERY POUCH LOGIC: Replace generic pouch with tiered pouch based on week
+					var final_item_id = item_id
+					if item_id == 55:  # Mystery pouch ID
+						var time_manager = get_node_or_null("/root/TimeManager")
+						if time_manager:
+							var current_week = time_manager.current_week
+							# Calculate tier: week - 1, capped at tier 4
+							var pouch_tier = min(max(current_week - 1, 1), 4)
+							# Map to pouch item IDs (pouch_1=50, pouch_2=51, pouch_3=52, pouch_4=53)
+							final_item_id = 49 + pouch_tier
+							print("[Mystery Pouch] Week %d → Giving Tier %d Pouch (ID %d)" % [current_week, pouch_tier, final_item_id])
+
+					var new_item = InventoryItem.new()
+					new_item.type = InventoryItem.TYPE_ITEM
+					new_item.id = final_item_id
+					new_item.count = 1  # Items aren't stackable
+					_inventory._slots[i] = new_item
+					items_added += 1
+					slot_found = true
+					break
+
+			# If no slot found for this item, stop trying
+			if not slot_found:
+				print("[Item Shop WARNING] Inventory full after adding %d/%d items" % [items_added, quantity])
 				break
 
-		if not added:
+		# Handle partial purchase (refund for items that couldn't be added)
+		if items_added < quantity:
+			var items_not_added = quantity - items_added
+			var refund_amount = base_price * items_not_added
+			_inventory.add_rust_blocks(refund_amount)
+			print("[Item Shop] Partial purchase: Added %d/%d items, refunded %d rust blocks" % [items_added, quantity, refund_amount])
+
+		if items_added == 0:
 			print("[Item Shop ERROR] No empty slots! Inventory full.")
-			# Refund rust blocks if inventory full
-			_inventory.add_rust_blocks(price)
 			_show_message("Inventory full! Purchase cancelled.", Color.RED)
 			return
 
-		print("[Item Shop DEBUG] Item added to inventory, updating views...")
+		print("[Item Shop DEBUG] Items added to inventory, updating views...")
 		_inventory._update_views()
-		print("[Item Shop] ✅ Bought %s for %d rust blocks" % [item.base_info.name, price])
-		_show_message("✅ Bought %s for %d rust blocks!" % [item.base_info.name.replace("_", " ").capitalize(), price], Color.GREEN)
+
+		var actual_cost = base_price * items_added
+		if items_added == quantity:
+			print("[Item Shop] ✅ Bought %dx %s for %d rust blocks" % [items_added, item.base_info.name, actual_cost])
+			_show_message("✅ Bought %dx %s for %d rust blocks!" % [items_added, item.base_info.name.replace("_", " ").capitalize(), actual_cost], Color.GREEN)
+		else:
+			print("[Item Shop] ⚠️ Bought %d/%d %s for %d rust blocks (inventory full)" % [items_added, quantity, item.base_info.name, actual_cost])
+			_show_message("⚠️ Bought %d/%d %s for %d rust blocks (inventory full)" % [items_added, quantity, item.base_info.name.replace("_", " ").capitalize(), actual_cost], Color.YELLOW)
 
 	else:  # is_sell
 		# SELL: Sell player item for rust blocks
@@ -1257,13 +1293,15 @@ func _populate_items():
 	if not _item_db:
 		return
 
-	# Define weapon/item IDs (exclude food IDs 13-39, Keeper's Charm ID 42)
+	# Define weapon/item IDs (exclude food IDs 13-16, 22-39, Keeper's Charm ID 42)
 	var weapon_ids = range(0, 13)  # IDs 0-12: rocket_launcher through tree_feller
+	var material_ids = [17, 18, 19, 20, 21]  # stone_ore, coal, iron_ore, gold_ore, skyshard (from pouches)
 	var misc_item_ids = [40, 41]  # light_orb, spear (excludes 42 = Keeper's Charm)
 	var shield_ids = [43, 44, 45]  # wood_shield, shield, shield_crusader
 	var ring_ids = [46, 48]  # ring_of_thorns, ring_of_teleportation
 	var special_weapon_ids = [47, 49]  # blade_of_pursuit, boomerang
-	var all_item_ids = weapon_ids + misc_item_ids + shield_ids + ring_ids + special_weapon_ids
+	var mystery_pouch_id = [55]  # Mystery pouch - gives tier based on current week
+	var all_item_ids = weapon_ids + material_ids + misc_item_ids + shield_ids + ring_ids + special_weapon_ids + mystery_pouch_id
 
 	# Create buttons for each item
 	for item_id in all_item_ids:
@@ -1436,13 +1474,15 @@ func _populate_player_items():
 	if not _player_grid_container or not _inventory or not _item_db:
 		return
 
-	# Define weapon/item IDs (exclude food, Keeper's Charm)
+	# Define weapon/item IDs (exclude food IDs 13-16, 22-39, Keeper's Charm ID 42, tiered pouches 50-54)
 	var weapon_ids = range(0, 13)  # IDs 0-12
+	var material_ids = [17, 18, 19, 20, 21]  # stone_ore, coal, iron_ore, gold_ore, skyshard (from pouches)
 	var misc_item_ids = [40, 41]  # light_orb, spear (excludes 42 = Keeper's Charm)
 	var shield_ids = [43, 44, 45]  # wood_shield, shield, shield_crusader
 	var ring_ids = [46, 48]  # ring_of_thorns, ring_of_teleportation
 	var special_weapon_ids = [47, 49]  # blade_of_pursuit, boomerang
-	var all_item_ids = weapon_ids + misc_item_ids + shield_ids + ring_ids + special_weapon_ids
+	var pouch_ids = [50, 51, 52, 53, 54, 55]  # All pouches (tiered drops + mystery shop pouch)
+	var all_item_ids = weapon_ids + material_ids + misc_item_ids + shield_ids + ring_ids + special_weapon_ids + pouch_ids
 
 	# Note: Equipped items are stored in separate slots (_player_weapon_slot, _companion_weapon_slot,
 	# _companion_accessory_slot) and are NOT in the _slots array, so they won't appear in the sell list

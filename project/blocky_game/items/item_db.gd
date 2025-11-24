@@ -214,6 +214,28 @@ func _init():
 		"name": "boomerang",
 		"behavior": "boomerang.gd"
 	})
+	# Tiered pouches - enemy loot drops
+	_create_item({
+		"name": "pouch_1",
+		"behavior": "pouch_1.gd"
+	})
+	_create_item({
+		"name": "pouch_2",
+		"behavior": "pouch_2.gd"
+	})
+	_create_item({
+		"name": "pouch_3",
+		"behavior": "pouch_3.gd"
+	})
+	_create_item({
+		"name": "pouch_4",
+		"behavior": "pouch_4.gd"
+	})
+	_create_item({
+		"name": "pouch_5",
+		"behavior": "pouch_5.gd"
+	})
+	# Mystery pouch - sold in Daniel's shop, gives tier based on week
 	_create_item({
 		"name": "pouch",
 		"behavior": "pouch.gd"

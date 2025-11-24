@@ -14,6 +14,7 @@ enum Team {
 @export var entity_id: String = ""
 @export var entity_name: String = "Unknown"
 @export var team: Team = Team.NEUTRAL
+@export var entity_tier: int = 1  # Enemy tier (1-5) for loot drops
 @export var max_hp: int = 10
 @export var attack_damage: int = 3
 @export var defense: int = 10
@@ -258,17 +259,22 @@ func _check_bloodmoon_sky_drops() -> void:
 	if team != Team.ENEMY:
 		return
 
-	# ALWAYS: 20% chance to drop a pouch (any enemy, any location)
+	# ALWAYS: 20% chance to drop a tiered pouch (any enemy, any location)
 	if randf() < 0.20:
 		var player = get_tree().get_first_node_in_group("player")
 		if player:
 			var inventory = player.get_node_or_null("Inventory")
 			var items = get_node_or_null("/root/Main/Game/Items")
 			if inventory and items:
-				var pouch_item = _find_item_by_name(items, "pouch")
+				# Roll for pouch tier based on enemy tier
+				var pouch_tier = _roll_pouch_tier(entity_tier)
+				var pouch_name = "pouch_%d" % pouch_tier
+				var pouch_item = _find_item_by_name(items, pouch_name)
 				if pouch_item:
 					_add_item_to_inventory(inventory, pouch_item.base_info.id, 1)
-					print("💰 Enemy dropped a Pouch!")
+					var tier_names = ["", "Common", "Uncommon", "Rare", "Epic", "Legendary"]
+					var tier_emoji = ["", "💰", "💎", "✨", "🔥", "🌟"]
+					print("%s [%s] Tier %d enemy dropped %s Pouch (tier %d)!" % [tier_emoji[pouch_tier], entity_name, entity_tier, tier_names[pouch_tier], pouch_tier])
 
 	# Check if this was a blood moon spawn
 	if not has_meta("is_bloodmoon_spawn"):
@@ -309,6 +315,45 @@ func _check_bloodmoon_sky_drops() -> void:
 		if compass_item:
 			_add_item_to_inventory(inventory, compass_item.base_info.id, 1)
 			print("  + 1 Portal Compass (bonus!)")
+
+
+func _roll_pouch_tier(enemy_tier: int) -> int:
+	"""Roll for which pouch tier drops based on enemy tier
+	Enemy tier determines the MAX pouch tier that can drop
+	Weighted toward lower tiers, but higher tiers have a chance
+	"""
+	# Tier-based drop weights
+	# Format: [tier1_weight, tier2_weight, tier3_weight, tier4_weight, tier5_weight]
+	var drop_weights = []
+
+	match enemy_tier:
+		1:
+			drop_weights = [100, 0, 0, 0, 0]  # Only tier 1
+		2:
+			drop_weights = [70, 30, 0, 0, 0]  # Mostly tier 1, some tier 2
+		3:
+			drop_weights = [50, 35, 15, 0, 0]  # Mix of 1-3
+		4:
+			drop_weights = [40, 30, 20, 10, 0]  # Mix of 1-4
+		5:
+			drop_weights = [30, 25, 25, 15, 5]  # All tiers, 5% legendary
+		_:
+			drop_weights = [100, 0, 0, 0, 0]  # Default to tier 1
+
+	# Calculate total weight
+	var total_weight = 0
+	for weight in drop_weights:
+		total_weight += weight
+
+	# Roll
+	var roll = randi() % total_weight
+	var current_weight = 0
+	for tier_index in range(drop_weights.size()):
+		current_weight += drop_weights[tier_index]
+		if roll < current_weight:
+			return tier_index + 1  # +1 because tiers are 1-indexed
+
+	return 1  # Fallback
 
 
 func _find_item_by_name(items_node, item_name: String):
@@ -518,6 +563,8 @@ func apply_entity_data(data: Dictionary) -> void:
 		defense = data["defense"]
 	if "speed" in data:
 		movement_speed = data["speed"]
+	if "tier" in data:
+		entity_tier = int(data["tier"])  # Read tier from JSON
 
 	# Determine team based on type
 	if "type" in data:

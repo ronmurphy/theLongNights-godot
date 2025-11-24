@@ -633,16 +633,17 @@ func _on_slot_right_clicked(idx: int):
 	if item == null:
 		return
 
-	# Check if this is a pouch (item ID for pouch - look it up)
+	# Check if this is a pouch (any tier: pouch_1 through pouch_5)
 	var items_node = get_node_or_null("/root/Main/Game/Items")
 	if not items_node:
 		return
 
-	# Find pouch item ID
+	# Find pouch item IDs (check all 5 tiers)
+	const POUCH_NAMES = ["pouch_1", "pouch_2", "pouch_3", "pouch_4", "pouch_5"]
 	for i in range(100):
 		var check_item = items_node.get_item(i)
-		if check_item and check_item.base_info.name == "pouch":
-			# Found pouch ID!
+		if check_item and check_item.base_info.name in POUCH_NAMES:
+			# Found a pouch tier!
 			if item.type == InventoryItem.TYPE_ITEM and item.id == i:
 				# This is a pouch! Open it
 				var player = get_tree().get_first_node_in_group("player")
@@ -655,7 +656,7 @@ func _on_slot_right_clicked(idx: int):
 							_slots[idx] = null
 						_slot_views[idx].get_display().set_item(_slots[idx])
 						emit_signal("changed")
-			break
+				break
 
 
 func _on_avatar_clicked(is_player: bool):
