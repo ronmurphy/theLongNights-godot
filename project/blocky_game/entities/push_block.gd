@@ -60,6 +60,18 @@ func _create_visual_mesh():
 
 	add_child(_mesh)
 
+	# Add collision detection for grapple-pull raycast
+	var static_body = StaticBody3D.new()
+	var collision_shape = CollisionShape3D.new()
+	var box_shape = BoxShape3D.new()
+	box_shape.size = Vector3(0.95, 0.95, 0.95)  # Match visual size
+	collision_shape.shape = box_shape
+
+	static_body.add_child(collision_shape)
+	add_child(static_body)
+
+	print("🎯 Added collision detection to push_block")
+
 
 func _create_textured_cube(tile_pos: Vector2i, size: float) -> ArrayMesh:
 	"""Create a cube mesh with UVs for a specific tile in the 16x16 atlas"""
@@ -281,9 +293,22 @@ func _on_goal_reached():
 
 	print("🎉 PushBlock reached goal!")
 
-	# Visual feedback - turn green
+	# Visual feedback - turn green (create material INSTANCE to avoid affecting all blocks!)
 	if _mesh and _mesh.material_override:
-		_mesh.material_override.albedo_color = Color(0.2, 1.0, 0.2)  # Green
+		# Create instance of material (not shared reference)
+		var green_material = _mesh.material_override.duplicate()
+		green_material.albedo_color = Color(0.2, 1.0, 0.2)  # Green
+		_mesh.material_override = green_material
+
+		# Auto-disable green glow after 5 seconds
+		var timer = get_tree().create_timer(5.0)
+		timer.timeout.connect(func():
+			if _mesh and is_instance_valid(_mesh):
+				# Reset to normal terrain material
+				var terrain_mat = load("res://blocky_game/blocks/terrain_material.tres")
+				_mesh.material_override = terrain_mat
+				print("✅ Reset push_block to normal color after 5s")
+		)
 
 	# Puzzle room: Spawn teleport_stone as reward!
 	if puzzle_room_id != "":

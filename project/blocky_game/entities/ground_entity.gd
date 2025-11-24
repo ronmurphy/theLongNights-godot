@@ -15,6 +15,7 @@ var _box_mover := VoxelBoxMover.new()
 var _terrain: VoxelTerrain = null
 var _collision_size := Vector3(0.6, 0.6, 0.6)  # Default collision box size
 var _collision_offset := Vector3(-0.3, -0.3, -0.3)  # Centered collision box
+var _external_force_timer := 0.0  # Prevent AI movement override when > 0
 
 # Block breaking system
 var _block_damage: Dictionary = {}  # {Vector3i: int} - tracks hits per block
@@ -56,9 +57,15 @@ func apply_ground_movement(delta: float, velocity_input: Vector3) -> void:
 	if _block_break_timer > 0:
 		_block_break_timer -= delta
 
-	# Set horizontal velocity from input
-	_velocity.x = velocity_input.x
-	_velocity.z = velocity_input.z
+	# Update external force timer
+	if _external_force_timer > 0:
+		_external_force_timer -= delta
+
+	# Only apply AI movement if not being affected by external force (knockback/pull)
+	if _external_force_timer <= 0:
+		# Set horizontal velocity from input
+		_velocity.x = velocity_input.x
+		_velocity.z = velocity_input.z
 
 	# Apply gravity
 	_velocity.y -= gravity * delta
@@ -117,6 +124,13 @@ func is_grounded() -> bool:
 ## Get current velocity
 func get_velocity() -> Vector3:
 	return _velocity
+
+
+## Apply external force (grapple pull, knockback, etc.)
+func apply_external_force(force: Vector3):
+	"""Apply an external force to the entity (overrides velocity and disables AI movement briefly)"""
+	_velocity = force
+	_external_force_timer = 0.5  # Disable AI movement for 0.5 seconds
 
 
 ## Set collision box size (for different sized enemies)

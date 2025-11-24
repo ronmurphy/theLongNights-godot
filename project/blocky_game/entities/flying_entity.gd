@@ -10,6 +10,9 @@ class_name FlyingEntity
 @export var bob_frequency := 1.5  # Speed of bobbing
 
 var _bob_time := 0.0
+var _velocity := Vector3.ZERO  # External velocity (for grapple pulls, knockback, etc.)
+var _velocity_decay := 0.9  # How quickly external velocity decays
+var _external_force_timer := 0.0  # Prevent AI movement override when > 0
 
 
 func _ready():
@@ -28,6 +31,11 @@ func apply_bob_movement(delta: float) -> void:
 			_regen_timer = 0.0
 			heal(1)
 
+	# Apply external velocity (grapple pull, knockback, etc.)
+	if _velocity.length() > 0.1:
+		global_position += _velocity * delta
+		_velocity *= _velocity_decay  # Decay over time
+
 
 ## Get the current bob offset (add this to your target Y position)
 func get_bob_offset() -> float:
@@ -37,6 +45,14 @@ func get_bob_offset() -> float:
 ## Smoothly move toward a target position with bobbing
 func move_toward_target(delta: float, target_pos: Vector3, speed: float, maintain_height: bool = true) -> void:
 	if not is_alive:
+		return
+
+	# Update external force timer
+	if _external_force_timer > 0:
+		_external_force_timer -= delta
+
+	# Skip AI movement if being affected by external force
+	if _external_force_timer > 0:
 		return
 
 	# Calculate direction to target
@@ -58,6 +74,13 @@ func move_toward_target(delta: float, target_pos: Vector3, speed: float, maintai
 		var bob_offset = get_bob_offset()
 		var target_y = target_pos.y + float_height + bob_offset
 		global_position.y = lerp(global_position.y, target_y, delta * 3.0)
+
+
+## Apply external force (grapple pull, knockback, etc.)
+func apply_external_force(force: Vector3):
+	"""Apply an external force to the flying entity (overrides velocity and disables AI movement briefly)"""
+	_velocity = force
+	_external_force_timer = 0.5  # Disable AI movement for 0.5 seconds
 
 
 func create_billboard_shadow(texture_path: String, shadow_scale: Vector3 = Vector3(1.2, 1.2, 1.2)) -> void:

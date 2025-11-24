@@ -158,6 +158,132 @@ func _animate_chain_shoot(mesh_instance: MeshInstance3D, final_distance: float):
 	tween.set_trans(Tween.TRANS_CUBIC)
 
 
+func use_pull(trans: Transform3D, inv_item_or_count = 1):
+	"""Right-click: Pull push_blocks (always) or enemies (with 'pull' power) toward player"""
+	var mp := get_tree().get_multiplayer()
+	if mp.has_multiplayer_peer() and not mp.is_server():
+		rpc_id(SERVER_PEER_ID, &"receive_use_pull", trans, inv_item_or_count)
+	else:
+		_use_pull(trans, inv_item_or_count)
+
+
+func _use_pull(trans: Transform3D, inv_item_or_count = 1):
+	"""Pull a push_block (always) or enemy (with 'pull' power) toward the player"""
+	var origin = trans.origin
+	var direction = -trans.basis.z.normalized()
+
+	# Check if player has "pull" power
+	var has_pull_power = false
+	if typeof(inv_item_or_count) == TYPE_OBJECT:
+		if "skyshard_power" in inv_item_or_count and inv_item_or_count.skyshard_power == "pull":
+			has_pull_power = true
+
+	# Raycast to find entities
+	var space_state = get_viewport().world_3d.direct_space_state
+	var query = PhysicsRayQueryParameters3D.create(origin, origin + direction * GRAPPLE_MAX_DISTANCE)
+	query.collision_mask = 1  # Default collision layer
+
+	var result = space_state.intersect_ray(query)
+
+	if result.is_empty():
+		print("Grapple pull: No entity hit")
+		return
+
+	var collider = result.get("collider")
+	if collider == null:
+		print("Grapple pull: No collider")
+		return
+
+	# Priority 1: Try to find a push_block (always works, no power needed)
+	var push_block = _find_push_block_parent(collider)
+	if push_block != null:
+		_pull_push_block(push_block, origin)
+		return
+
+	# Priority 2: If "pull" power is equipped, try to pull enemies
+	if has_pull_power:
+		var enemy = _find_enemy_parent(collider)
+		if enemy != null:
+			_pull_enemy(enemy, origin)
+			return
+
+	print("Grapple pull: Not aiming at a valid target (push_block or enemy)")
+
+
+func _pull_push_block(push_block: Node, player_origin: Vector3):
+	"""Pull a push_block toward the player"""
+	var pull_direction = (player_origin - push_block.global_position).normalized()
+	var pull_force = pull_direction * PULL_SPEED * 2.0  # Stronger pull than player grapple
+
+	if push_block.has_method("apply_impulse"):
+		push_block.apply_impulse(pull_force)
+		print("🪝 Grapple PULL! Pulling push_block from ", push_block.global_position, " toward player")
+
+		# Create visual chain
+		var chain_line = _create_grapple_chain(player_origin, push_block.global_position)
+
+		# Auto-remove chain after 0.5s
+		if chain_line:
+			var timer = get_tree().create_timer(0.5)
+			timer.timeout.connect(func(): chain_line.queue_free())
+
+
+func _pull_enemy(enemy: Node, player_origin: Vector3):
+	"""Pull an enemy toward the player with STRONG force (yeet mechanic!)"""
+	var pull_direction = (player_origin - enemy.global_position).normalized()
+	var pull_force = pull_direction * PULL_SPEED * 5.0  # VERY STRONG - enemies fly PAST player
+
+	# Add small upward boost for a nice arc
+	pull_force.y += 2.0
+
+	print("🪝💥 Grapple YEET! Pulling enemy from %s toward player at %s" % [enemy.global_position, player_origin])
+
+	# Apply velocity to enemy (use set_velocity if available, or direct position change)
+	if enemy.has_method("apply_external_force"):
+		enemy.apply_external_force(pull_force)
+	elif enemy.has_method("set_velocity"):
+		enemy.set_velocity(pull_force)
+	elif "velocity" in enemy:
+		enemy.velocity = pull_force
+	else:
+		print("⚠️ Enemy has no velocity/force method - cannot pull")
+		return
+
+	# Create visual chain
+	var chain_line = _create_grapple_chain(player_origin, enemy.global_position)
+
+	# Auto-remove chain after 0.5s
+	if chain_line:
+		var timer = get_tree().create_timer(0.5)
+		timer.timeout.connect(func(): chain_line.queue_free())
+
+
+func _find_push_block_parent(node: Node) -> Node:
+	"""Walk up node tree to find a push_block entity"""
+	var current = node
+	while current != null:
+		if current.is_in_group("push_blocks"):
+			return current
+		current = current.get_parent()
+	return null
+
+
+func _find_enemy_parent(node: Node) -> Node:
+	"""Walk up node tree to find an enemy entity"""
+	var current = node
+	while current != null:
+		# Check if node is in the enemy_entities group (set by EntityBase._ready)
+		if current.is_in_group("enemy_entities"):
+			return current
+		current = current.get_parent()
+	return null
+
+
 @rpc("any_peer", "call_remote", "reliable", 0)
 func receive_use(trans: Transform3D, stack_count: int = 1):
 	_use(trans, stack_count)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func receive_use_pull(trans: Transform3D, inv_item_or_count = 1):
+	_use_pull(trans, inv_item_or_count)

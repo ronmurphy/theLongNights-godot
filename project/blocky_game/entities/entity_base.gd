@@ -53,6 +53,9 @@ func _ready():
 		Team.ENEMY:
 			add_to_group("enemy_entities")
 
+	# Add collision detection for raycasts (grapple-pull, etc.)
+	_add_collision_detection()
+
 
 ## Deal damage to this entity
 func take_damage(amount: int, from: Node = null) -> void:
@@ -419,6 +422,21 @@ func _death_effect_high() -> void:
 		1.0,
 		1.5
 	)
+
+
+## Add collision detection for raycasts (grapple hook, etc.)
+func _add_collision_detection():
+	"""Add a StaticBody3D with collision shape so entities can be detected by raycasts"""
+	var static_body = StaticBody3D.new()
+	static_body.name = "RaycastCollision"
+	var collision_shape = CollisionShape3D.new()
+	var capsule_shape = CapsuleShape3D.new()
+	capsule_shape.radius = 0.4  # Wide enough to catch most entities
+	capsule_shape.height = 1.5  # Tall enough for humanoid entities
+	collision_shape.shape = capsule_shape
+
+	static_body.add_child(collision_shape)
+	add_child(static_body)
 
 
 ## Create a billboard sprite for this entity

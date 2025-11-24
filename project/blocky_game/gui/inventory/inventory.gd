@@ -1861,6 +1861,11 @@ func _show_power_selection_modal(weapon_slot_idx: int) -> void:
 		{"name": "glide", "display": "Glide", "desc": "Slow fall (synergy with Wind Walker Boots)", "slot": "EQUIP"}
 	]
 
+	# GRAPPLING HOOK EXCLUSIVE POWER: Pull (only shows for grappling hook)
+	const GRAPPLING_HOOK_ID = 1
+	if weapon.id == GRAPPLING_HOOK_ID:
+		powers.append({"name": "pull", "display": "Pull", "desc": "Right-click to pull enemies toward you (yeet mechanic!)", "slot": "HOTBAR"})
+
 	# Scroll container for powers
 	var scroll = ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(560, 320)

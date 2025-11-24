@@ -399,8 +399,14 @@ func _physics_process(_delta):
 
 	# Handle weapon/item usage
 	elif inv_item.type == InventoryItem.TYPE_ITEM:
+		# Special handling for grappling hook - right-click pulls push_blocks
+		if inv_item.id == 1 and _action_place:  # Grappling hook
+			# Right-click: pull push_block toward player
+			var item = _item_db.get_item(inv_item.id)
+			item.use_pull(_head.global_transform, inv_item)
+			_action_place = false  # Consume the right-click
 		# Special handling for spear - right-click throws (MUST be before projectile retrieval)
-		if inv_item.id == 41 and _action_place:  # Spear
+		elif inv_item.id == 41 and _action_place:  # Spear
 			# Right-click: throw spear
 			var item = _item_db.get_item(inv_item.id)
 			item.use_throw(_head.global_transform, inv_item)

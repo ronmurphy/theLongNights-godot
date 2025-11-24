@@ -35,6 +35,7 @@
 [ext_resource type="ArrayMesh" uid="uid://biqs6t0hsxu4i" path="res://blocky_game/blocks/birch_log/birch_log_z.obj" id="29"]
 [ext_resource type="ArrayMesh" uid="uid://bi2ba32upomeq" path="res://blocky_game/blocks/ice/ice.obj" id="34_8mrmn"]
 [ext_resource type="ArrayMesh" uid="uid://dtgwrtcbi4ucb" path="res://blocky_game/blocks/test/test.obj" id="34_10cid"]
+[ext_resource type="Material" uid="uid://test_emit_material_01" path="res://blocky_game/blocks/test_material_emissive.tres" id="34_test_emit"]
 [ext_resource type="ArrayMesh" uid="uid://bvtdbwbco6kbw" path="res://blocky_game/blocks/rust_floor/rust_floor.obj" id="35_7wops"]
 [ext_resource type="ArrayMesh" uid="uid://bcwl8gyjbvjb8" path="res://blocky_game/blocks/void_stone/void_stone.obj" id="35_vwih2"]
 [ext_resource type="ArrayMesh" uid="uid://diu7oy5nxp38k" path="res://blocky_game/blocks/void_stone_active/void_stone_active.obj" id="36_8x7un"]
@@ -449,7 +450,7 @@ tile_front = Vector2i(10, 15)
 [sub_resource type="VoxelBlockyModelMesh" id="VoxelBlockyModelMesh_hha2l"]
 resource_name = "test"
 collision_aabbs = Array[AABB]([AABB(0, 0, 0, 1, 1, 1)])
-material_override_0 = ExtResource("2_r7axq")
+material_override_0 = ExtResource("34_test_emit")
 collision_enabled_0 = true
 mesh = ExtResource("34_10cid")
 
