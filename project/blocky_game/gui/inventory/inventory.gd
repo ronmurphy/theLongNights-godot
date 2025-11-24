@@ -625,54 +625,36 @@ func _on_bento_slot_pressed(bento_idx: int):
 
 func _on_slot_right_clicked(idx: int):
 	"""Handle right-click on inventory slot - open pouches"""
-	print("DEBUG: Right-clicked slot ", idx)
-
 	# Ignore if dragging
 	if _dragged_slot != -1:
-		print("DEBUG: Ignoring - currently dragging")
 		return
 
 	var item = _slots[idx]
 	if item == null:
-		print("DEBUG: Slot is empty")
 		return
-
-	print("DEBUG: Item in slot - type: ", item.type, " id: ", item.id)
 
 	# Check if this is a pouch (item ID for pouch - look it up)
 	var items_node = get_node_or_null("/root/Main/Game/Items")
 	if not items_node:
-		print("DEBUG: Items node not found!")
 		return
-
-	print("DEBUG: Items node found, searching for pouch...")
 
 	# Find pouch item ID
 	for i in range(100):
 		var check_item = items_node.get_item(i)
 		if check_item and check_item.base_info.name == "pouch":
 			# Found pouch ID!
-			print("DEBUG: Found pouch at ID ", i, " - item id is ", item.id)
 			if item.type == InventoryItem.TYPE_ITEM and item.id == i:
 				# This is a pouch! Open it
-				print("Opening pouch...")
 				var player = get_tree().get_first_node_in_group("player")
 				if player:
-					print("DEBUG: Player found")
 					var camera = player.get_node_or_null("Camera")
 					if camera:
-						print("DEBUG: Camera found, calling use()")
 						check_item.use(camera.global_transform, item)
-						print("DEBUG: use() returned, updating display")
 						# Update slot display
 						if item.count <= 0:
 							_slots[idx] = null
 						_slot_views[idx].get_display().set_item(_slots[idx])
 						emit_signal("changed")
-					else:
-						print("DEBUG: Camera not found!")
-				else:
-					print("DEBUG: Player not found!")
 			break
 
 

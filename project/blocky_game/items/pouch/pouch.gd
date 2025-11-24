@@ -54,32 +54,21 @@ func use(trans: Transform3D, inv_item_or_count = 1):
 
 func _use(trans: Transform3D, inv_item_or_count):
 	"""Open the pouch - always gives 1 skyshard + 1 random item"""
-	print("DEBUG: Pouch _use() called! inv_item_or_count type: ", typeof(inv_item_or_count))
-
 	# Get player and inventory
 	var player = get_tree().get_first_node_in_group("player")
 	if not player:
-		print("DEBUG: Player not found!")
 		return
-
-	print("DEBUG: Player found: ", player)
 
 	var inventory = player.get_node_or_null("Inventory")
 	if not inventory:
-		print("DEBUG: Inventory not found!")
 		return
-
-	print("DEBUG: Inventory found")
 
 	# Decrement pouch count by 1 (not the whole stack!)
 	# The inventory GUI will handle removing the item if count reaches 0
 	if typeof(inv_item_or_count) == TYPE_OBJECT:
-		print("DEBUG: Decrementing pouch count from ", inv_item_or_count.count)
 		inv_item_or_count.count -= 1
-		print("DEBUG: New count: ", inv_item_or_count.count)
 
 	# Always give 1 skyshard
-	print("DEBUG: Looking for skyshard item...")
 	var skyshard_item = _find_item_by_name("skyshard")
 	if skyshard_item:
 		_add_item_to_inventory(inventory, skyshard_item.base_info.id, 1)
