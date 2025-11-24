@@ -258,6 +258,18 @@ func _check_bloodmoon_sky_drops() -> void:
 	if team != Team.ENEMY:
 		return
 
+	# ALWAYS: 20% chance to drop a pouch (any enemy, any location)
+	if randf() < 0.20:
+		var player = get_tree().get_first_node_in_group("player")
+		if player:
+			var inventory = player.get_node_or_null("Inventory")
+			var items = get_node_or_null("/root/Main/Game/Items")
+			if inventory and items:
+				var pouch_item = _find_item_by_name(items, "pouch")
+				if pouch_item:
+					_add_item_to_inventory(inventory, pouch_item.base_info.id, 1)
+					print("💰 Enemy dropped a Pouch!")
+
 	# Check if this was a blood moon spawn
 	if not has_meta("is_bloodmoon_spawn"):
 		return

@@ -214,6 +214,10 @@ func _init():
 		"name": "boomerang",
 		"behavior": "boomerang.gd"
 	})
+	_create_item({
+		"name": "pouch",
+		"behavior": "pouch.gd"
+	})
 
 
 func get_item(id: int) -> Item:

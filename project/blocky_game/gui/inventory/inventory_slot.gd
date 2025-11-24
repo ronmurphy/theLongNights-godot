@@ -1,6 +1,7 @@
 extends Control
 
 signal pressed
+signal right_clicked
 
 const InventoryItemDisplay = preload("../inventory_item_display.gd")
 
@@ -11,7 +12,12 @@ const InventoryItemDisplay = preload("../inventory_item_display.gd")
 func _gui_input(event):
 	if event is InputEventMouseButton:
 		if event.pressed:
-			emit_signal("pressed")
+			# Right-click
+			if event.button_index == MOUSE_BUTTON_RIGHT:
+				emit_signal("right_clicked")
+			# Left-click
+			else:
+				emit_signal("pressed")
 
 
 func _notification(what: int):
