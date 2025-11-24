@@ -68,7 +68,27 @@ const VOID_BEACON = 57
 const RUIN_STONE_ = 58
 const RUIN_VOID_LAMP = 59
 const VOID_GAS = 60
-
+const RUNE_CORE = 61
+const RUNE_MARKER = 62
+const STONE_BRICKS = 63
+const VOID_STONE_BRICKS = 64
+const RUST_FLOOR_X = 65
+const BROWNCOLOR = 66
+const ORANGECOLOR = 67
+const YELLOWCOLOR = 68
+const LIMECOLOR = 69
+const GREENCOLOR = 70
+const BLGRNCOLOR = 71
+const CYANCOLOR = 72
+const LBLUECOLOR = 73
+const BLUECOLOR = 74
+const BURPLECOLOR = 75
+const PURLPECOLOR = 76
+const MAGENTACOLOR = 77
+const DGREYCOLOR = 78
+const MGREYCOLOR = 79
+const LGREYCOLOR = 80
+const REDCOLOR = 81
 
 const _CHANNEL = VoxelBuffer.CHANNEL_TYPE
 
@@ -100,11 +120,6 @@ var _trees_max_y := 0
 # Cave and depth constants
 const BEDROCK_LEVEL = -512
 const CAVE_THRESHOLD = 0.35  # Higher = bigger caves
-const RUNE_CORE = 61
-const RUNE_MARKER = 62
-const STONE_BRICKS = 63
-const VOID_STONE_BRICKS = 64
-const RUST_FLOOR_X = 65
 const MIN_CAVE_HEIGHT = -10  # Caves start just below surface
 
 

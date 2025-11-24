@@ -382,6 +382,134 @@ func _init():
 		"voxels": ["test"],
 		"transparent": false
 	})
+	_create_block({
+		"name": "browncolor",
+		"gui_model": "browncolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["browncolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "orangecolor",
+		"gui_model": "orangecolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["orangecolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "yellowcolor",
+		"gui_model": "yellowcolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["yellowcolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "limecolor",
+		"gui_model": "limecolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["limecolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "greencolor",
+		"gui_model": "greencolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["greencolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "blgrncolor",
+		"gui_model": "blgrncolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["blgrncolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "cyancolor",
+		"gui_model": "cyancolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["cyancolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "lbluecolor",
+		"gui_model": "lbluecolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["lbluecolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "bluecolor",
+		"gui_model": "bluecolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["bluecolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "burplecolor",
+		"gui_model": "burplecolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["burplecolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "purlpecolor",
+		"gui_model": "purlpecolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["purlpecolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "magentacolor",
+		"gui_model": "magentacolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["magentacolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "dgreycolor",
+		"gui_model": "dgreycolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["dgreycolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "mgreycolor",
+		"gui_model": "mgreycolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["mgreycolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "lgreycolor",
+		"gui_model": "lgreycolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["lgreycolor"],
+		"transparent": false
+	})
+	_create_block({
+		"name": "redcolor",
+		"gui_model": "redcolor.obj",
+		"rotation_type": ROTATION_TYPE_NONE,
+		"voxels": ["redcolor"],
+		"transparent": false
+	})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
