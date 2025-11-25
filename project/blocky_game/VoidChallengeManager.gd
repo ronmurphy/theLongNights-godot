@@ -23,6 +23,13 @@ func initialize(void_ruin_spawner: Node):
 	_void_ruin_spawner = void_ruin_spawner
 	print("VoidChallengeManager initialized with VoidRuinSpawner")
 
+	# Connect to dialog completion signal (once)
+	var dialog = get_tree().get_first_node_in_group("void_challenge_complete_dialog")
+	if dialog:
+		if not dialog.completed.is_connected(_on_dialog_completed):
+			dialog.completed.connect(_on_dialog_completed)
+			print("🔗 Connected to VoidChallengeCompleteDialog")
+
 	# Connect to any existing push_blocks
 	_connect_to_existing_push_blocks()
 
@@ -108,12 +115,8 @@ func _show_completion_dialog(challenge_data: Dictionary):
 		_dialog_showing = false
 		return
 
-	# Show dialog and wait for completion
+	# Show dialog (signal already connected in initialize())
 	dialog.show_completion(potion_name, potion_id, challenge_data)
-
-	# Connect to dialog completion signal
-	if not dialog.completed.is_connected(_on_dialog_completed):
-		dialog.completed.connect(_on_dialog_completed)
 
 
 func _on_dialog_completed(potion_id: String, challenge_data: Dictionary):
