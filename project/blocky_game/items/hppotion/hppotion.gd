@@ -60,21 +60,44 @@ func _on_choice_made(target: String, inv_item_or_count):
 			BONUS_AMOUNT,
 			PlayerData.bonus_max_hp
 		])
+
+		# Update the player entity's max_hp property
+		var player = get_tree().get_first_node_in_group("player")
+		if player:
+			player.max_hp = PlayerData.max_hp
+
+			# Refresh PartyUI to show new max HP
+			var party_ui = get_tree().get_first_node_in_group("party_ui")
+			if party_ui:
+				party_ui._on_player_hp_changed(player.current_hp, player.max_hp)
 	elif target == "companion":
 		CompanionManager.companion_bonus_max_hp += BONUS_AMOUNT
 		CompanionManager.save_to_file()
 
-		# Get companion name for message
+		# Get companion and update its max_hp
 		var companions = get_tree().get_nodes_in_group("companions")
 		var companion_name = "Companion"
+		var companion_current_hp = 0
+		var companion_max_hp = CompanionManager.get_companion_max_hp()
+
 		if companions.size() > 0:
-			companion_name = companions[0].entity_name
+			var companion = companions[0]
+			companion_name = companion.entity_name
+			companion_current_hp = companion.current_hp
+
+			# Update the companion entity's max_hp property
+			companion.max_hp = companion_max_hp
 
 		print("💪 %s gained +%d Max HP! (Total bonus: +%d)" % [
 			companion_name,
 			BONUS_AMOUNT,
 			CompanionManager.companion_bonus_max_hp
 		])
+
+		# Refresh PartyUI to show new max HP
+		var party_ui = get_tree().get_first_node_in_group("party_ui")
+		if party_ui:
+			party_ui.update_companion_hp(companion_current_hp, companion_max_hp)
 
 	# Decrement potion count
 	if typeof(inv_item_or_count) == TYPE_OBJECT:

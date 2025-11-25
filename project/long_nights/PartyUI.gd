@@ -51,12 +51,15 @@ func _get_inventory():
 
 
 func _ready() -> void:
+	# Add to group for easy access by potions and other systems
+	add_to_group("party_ui")
+
 	# Create UI
 	_create_ui()
 
 	# Connect to player after scene is ready
 	call_deferred("_connect_to_player")
-	
+
 	# Connect to inventory equipment changes
 	call_deferred("_connect_to_inventory")
 
