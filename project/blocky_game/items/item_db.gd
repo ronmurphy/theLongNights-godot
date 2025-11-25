@@ -240,7 +240,7 @@ func _init():
 		"name": "pouch",
 		"behavior": "pouch.gd"
 	})
-	# Stat potions - void ruins rewards, permanent stat boosts
+	# Stat potions - permanent stat boosts (Player/Companion choice)
 	_create_item({
 		"name": "hppotion",
 		"behavior": "hppotion.gd"

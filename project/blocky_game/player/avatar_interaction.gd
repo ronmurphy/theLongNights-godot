@@ -316,15 +316,8 @@ func _physics_process(_delta):
 				_action_use = false
 				_action_use_held = false  # Prevent mining the block
 				return  # Don't process other interactions
-			# Rune core (void challenge teleport stone)
-			var rune_core_block = _block_types.get_block_by_name("rune_core")
-			if rune_core_block and rm.block_id == rune_core_block.base_info.id:
-				_handle_rune_core_interaction(hit.position)
-				_action_use = false
-				_action_use_held = false  # Prevent mining the block
-				return  # Don't process other interactions
 			# Chest is block ID 28
-			elif rm.block_id == 28:
+			if rm.block_id == 28:
 				_handle_chest_interaction(hit.position)
 				_action_use = false
 				_action_use_held = false  # Prevent mining the block
@@ -1514,59 +1507,6 @@ func _try_consume_food() -> void:
 	
 	# Consume 1 food
 	_inventory.decrement_hotbar_slot(_hotbar.get_selected_slot_index())
-
-
-func _handle_rune_core_interaction(rune_core_pos: Vector3) -> void:
-	"""Called when player right-clicks on a rune_core (void challenge teleport stone)"""
-	print("Player interacted with rune_core at: ", rune_core_pos)
-
-	# Get the VoidRuinSpawner from the game node (navigate up from player)
-	var player = get_parent()
-	if not player:
-		push_error("Could not find player node!")
-		return
-
-	var game = player.get_parent().get_parent()  # Players -> Game
-	if not game:
-		push_error("Game node not found!")
-		return
-
-	var void_ruin_spawner = game.get_node_or_null("VoidRuinSpawner")
-	if not void_ruin_spawner:
-		push_error("VoidRuinSpawner not found! Make sure it's initialized in the game scene.")
-		return
-
-	# Start the async teleport process (don't await, let it run in background)
-	_do_void_challenge_teleport(player, void_ruin_spawner, rune_core_pos)
-
-
-func _do_void_challenge_teleport(player: Node, void_ruin_spawner: Node, rune_core_pos: Vector3) -> void:
-	"""Async coroutine to handle void challenge teleportation"""
-	# Disable gravity BEFORE spawning and teleporting
-	if player.has_method("disable_gravity"):
-		player.disable_gravity()
-		print("Gravity disabled for void challenge teleport")
-
-	# Spawn void ruin and get spawn position (this has await, so we need await here too)
-	print("Spawning void challenge...")
-	var spawn_pos = await void_ruin_spawner.spawn_void_ruin_for_player(rune_core_pos)
-
-	if spawn_pos == Vector3.ZERO:
-		push_error("Failed to spawn void ruin!")
-		# Re-enable gravity if spawn failed
-		if player.has_method("enable_gravity"):
-			player.enable_gravity()
-		return
-
-	# Teleport player to spawn position (template already includes correct offset)
-	player.global_position = spawn_pos
-	print("Player teleported to void challenge at: ", player.global_position)
-
-	# Re-enable gravity after 2 seconds (chunks loaded)
-	await get_tree().create_timer(2.0).timeout
-	if player.has_method("enable_gravity"):
-		player.enable_gravity()
-		print("Gravity re-enabled after void challenge teleport")
 
 
 func _handle_teleport_stone_interaction(teleport_stone_pos: Vector3) -> void:

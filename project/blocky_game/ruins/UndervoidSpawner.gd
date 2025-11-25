@@ -279,15 +279,9 @@ func spawn_structure_at(world_position: Vector3, depth: int = -200) -> bool:
 
 	# Place void_beacon block at beacon position (the physical block the light sits on)
 	const VOID_BEACON = 57  # From generator.gd
-	const RUNE_CORE = 61  # From generator.gd (using rune_core as void challenge teleport stone)
 	var beacon_block_pos = Vector3i(world_position + template.beacon_pos - Vector3(0, 0.5, 0))
 	voxel_tool.set_voxel(beacon_block_pos, VOID_BEACON)
 	print("🟣 Placed void_beacon block at ", beacon_block_pos)
-
-	# Place rune_core (void challenge teleport stone) next to the beacon (2 blocks away)
-	var teleport_stone_pos = beacon_block_pos + Vector3i(2, 0, 0)
-	voxel_tool.set_voxel(teleport_stone_pos, RUNE_CORE)
-	print("🌌 Placed rune_core (void challenge teleport stone) at ", teleport_stone_pos)
 
 	# Place the purple beacon light on top of the block
 	if _game != null:
