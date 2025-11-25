@@ -71,7 +71,7 @@ func _create_combat_arena_simple() -> VoidChallengeTemplate:
 	blocks.append({"pos": Vector3i(14, 1, 4), "block_id": 26, "variant": 0})  # push_block
 
 	# Test block target on side platform
-	blocks.append({"pos": Vector3i(15, 1, 4), "block_id": 27, "variant": 0})  # test_block
+	blocks.append({"pos": Vector3i(15, 1, 4), "block_id": 45, "variant": 0})  # test_block
 
 	# VoidBeacons at corners of main platform
 	var beacons = [
@@ -123,7 +123,7 @@ func _create_parkour_platforms_simple() -> VoidChallengeTemplate:
 
 	# Push block and test block on goal platform
 	blocks.append({"pos": Vector3i(24, 1, 3), "block_id": 26, "variant": 0})  # push_block
-	blocks.append({"pos": Vector3i(25, 1, 3), "block_id": 27, "variant": 0})  # test_block
+	blocks.append({"pos": Vector3i(25, 1, 3), "block_id": 45, "variant": 0})  # test_block
 
 	# Beacons at start and goal
 	var beacons = [
@@ -166,7 +166,7 @@ func _create_puzzle_void_simple() -> VoidChallengeTemplate:
 	blocks.append({"pos": Vector3i(2, 1, 2), "block_id": 26, "variant": 0})  # push_block
 
 	# Test block target (goal position)
-	blocks.append({"pos": Vector3i(9, 1, 9), "block_id": 27, "variant": 0})  # test_block
+	blocks.append({"pos": Vector3i(9, 1, 9), "block_id": 45, "variant": 0})  # test_block
 
 	# A few obstacle blocks to make it more puzzle-like
 	blocks.append({"pos": Vector3i(6, 1, 5), "block_id": 18, "variant": 0})  # obstacle
@@ -214,7 +214,7 @@ func _create_gauntlet_mixed() -> VoidChallengeTemplate:
 
 	# Push block and test block on goal platform
 	blocks.append({"pos": Vector3i(20, 1, 4), "block_id": 26, "variant": 0})  # push_block
-	blocks.append({"pos": Vector3i(21, 1, 4), "block_id": 27, "variant": 0})  # test_block
+	blocks.append({"pos": Vector3i(21, 1, 4), "block_id": 45, "variant": 0})  # test_block
 
 	# Beacons
 	var beacons = [

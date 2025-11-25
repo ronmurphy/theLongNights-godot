@@ -11,6 +11,7 @@ const VOID_RUIN_Y = -612  # 100 blocks below bedrock (-512)
 @onready var _void_ruin_library: VoidRuinLibrary = null
 @onready var _blocks = null  # Will be set to the Blocks node
 @onready var _terrain = null  # Will be set to the VoxelTerrain node
+@onready var _void_challenge_manager = null  # VoidChallengeManager reference
 
 # Track active void challenge for completion/return
 var _active_challenge: Dictionary = {}  # {player_id: {origin_pos, challenge_type, ruin_pos}}
@@ -20,11 +21,17 @@ func _ready():
 	print("VoidRuinSpawner ready")
 
 
-func initialize(void_ruin_library: VoidRuinLibrary, blocks_node: Node, terrain_node: Node):
+func _physics_process(_delta):
+	"""Monitor push_blocks in void challenges and respawn if they fall off"""
+	_check_fallen_push_blocks()
+
+
+func initialize(void_ruin_library: VoidRuinLibrary, blocks_node: Node, terrain_node: Node, void_challenge_manager: Node = null):
 	"""Initialize the spawner with required dependencies"""
 	_void_ruin_library = void_ruin_library
 	_blocks = blocks_node
 	_terrain = terrain_node
+	_void_challenge_manager = void_challenge_manager
 	print("VoidRuinSpawner initialized")
 
 
@@ -91,7 +98,7 @@ func spawn_void_ruin_for_player(origin_teleport_pos: Vector3, challenge_type: St
 	for block_data in template.blocks:
 		var block_pos: Vector3i = block_data.pos
 		var block_id: int = block_data.block_id
-		var variant: int = block_data.get("variant", 0)
+		var variant: int = block_data.variant if "variant" in block_data else 0
 
 		# Calculate world position
 		var world_block_pos = Vector3i(spawn_position) + block_pos
@@ -134,7 +141,7 @@ func _setup_void_challenge(template: VoidRuinLibrary.VoidChallengeTemplate, worl
 
 	# Find push_block and test_block positions in the template
 	const PUSH_BLOCK_ID = 26  # push_block block ID
-	const TEST_BLOCK_ID = 27  # test_block block ID (target)
+	const TEST_BLOCK_ID = 45  # test_block block ID (target) - glowing test block
 
 	var push_block_positions = []
 	var test_block_positions = []
@@ -147,12 +154,25 @@ func _setup_void_challenge(template: VoidRuinLibrary.VoidChallengeTemplate, worl
 		elif block_data.block_id == TEST_BLOCK_ID:
 			test_block_positions.append(world_pos)
 
-	# Spawn push_block entities
+	# Spawn push_block entities and track them
+	var spawned_push_blocks = []
 	var push_block_manager = get_node_or_null("/root/Main/Game/PushBlockManager")
 	if push_block_manager:
 		for pos in push_block_positions:
 			# Tag push blocks with challenge info so we can detect completion
-			push_block_manager.spawn_puzzle_block(pos, has_gravity, template.name)
+			var push_block = push_block_manager.spawn_puzzle_block(pos, has_gravity, template.name)
+			if push_block:
+				spawned_push_blocks.append({
+					"node": push_block,
+					"original_pos": pos,
+					"has_gravity": has_gravity
+				})
+
+		# Wait a frame for push_blocks to be added to scene tree, then register with VoidChallengeManager
+		if _void_challenge_manager:
+			await get_tree().process_frame
+			_void_challenge_manager._connect_to_existing_push_blocks()
+			print("🔗 Registered void challenge push_blocks with VoidChallengeManager")
 
 	# Get player to track their active challenge
 	var player = get_tree().get_first_node_in_group("player")
@@ -164,7 +184,8 @@ func _setup_void_challenge(template: VoidRuinLibrary.VoidChallengeTemplate, worl
 			"ruin_pos": world_position,
 			"ruin_name": template.name,
 			"push_block_positions": push_block_positions,
-			"test_block_positions": test_block_positions
+			"test_block_positions": test_block_positions,
+			"push_blocks": spawned_push_blocks  # Track entities for respawn
 		}
 
 	var gravity_str = "WITH gravity" if has_gravity else "ZERO-G"
@@ -176,13 +197,66 @@ func _setup_void_challenge(template: VoidRuinLibrary.VoidChallengeTemplate, worl
 	])
 
 
+func _check_fallen_push_blocks():
+	"""Check if any push_blocks fell below Y -650 and respawn them"""
+	const RESPAWN_THRESHOLD = -650.0  # Platforms are at Y -612, so this catches blocks that fall off
+
+	for player_id in _active_challenge.keys():
+		var challenge_data = _active_challenge[player_id]
+
+		if not challenge_data.has("push_blocks"):
+			continue
+
+		var push_blocks = challenge_data.push_blocks
+		for i in range(push_blocks.size()):
+			var push_block_data = push_blocks[i]
+			var push_block_node = push_block_data.node
+
+			# Check if node is still valid
+			if not is_instance_valid(push_block_node):
+				continue
+
+			# Check if push_block fell below threshold
+			if push_block_node.global_position.y < RESPAWN_THRESHOLD:
+				print("🔄 Push block fell off platform (Y: %.1f), respawning..." % push_block_node.global_position.y)
+
+				# Respawn at original position
+				var original_pos = push_block_data.original_pos
+				var has_gravity = push_block_data.has_gravity
+
+				# Remove old push_block
+				push_block_node.queue_free()
+
+				# Spawn new one
+				var push_block_manager = get_node_or_null("/root/Main/Game/PushBlockManager")
+				if push_block_manager:
+					push_block_manager.spawn_puzzle_block(original_pos, has_gravity, challenge_data.ruin_name)
+
+					# Re-register with VoidChallengeManager (scan for all push_blocks)
+					if _void_challenge_manager:
+						await get_tree().process_frame
+						_void_challenge_manager._connect_to_existing_push_blocks()
+						print("✅ Push block respawned at: ", original_pos)
+
+						# Update tracking data with new push_block reference
+						var all_push_blocks = get_tree().get_nodes_in_group("push_blocks")
+						for pb in all_push_blocks:
+							if pb.global_position.distance_to(original_pos) < 1.0:
+								push_blocks[i] = {
+									"node": pb,
+									"original_pos": original_pos,
+									"has_gravity": has_gravity
+								}
+								break
+
+
 func _add_void_beacon_lights(world_position: Vector3, template: VoidRuinLibrary.VoidChallengeTemplate):
 	"""
 	Add VoidBeacon lights to the challenge platforms
 	Uses darker purple/void colors instead of bright teleport stone colors
 	"""
 	# Add lights at key positions (start platform, target platform)
-	var beacon_positions = template.get("beacon_positions", [])
+	var beacon_positions = template.beacon_positions if template.beacon_positions else []
 
 	for beacon_pos in beacon_positions:
 		var world_beacon_pos = world_position + Vector3(beacon_pos)

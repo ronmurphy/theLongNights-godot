@@ -202,6 +202,28 @@ func _ready():
 		entrance_generator.initialize(undervoid_registry, _terrain, self, _blocks)
 		print("🟣 The Long Nights: Undervoid system initialized (Registry, Structures, Entry Detection)")
 
+		# Add Void Challenge system (void ruins at Y -612)
+		var VoidRuinLibrary = preload("res://blocky_game/ruins/VoidRuinLibrary.gd")
+		var void_ruin_library = VoidRuinLibrary.new()
+		void_ruin_library.name = "VoidRuinLibrary"
+		add_child(void_ruin_library)
+
+		var VoidRuinSpawner = preload("res://blocky_game/ruins/VoidRuinSpawner.gd")
+		var void_ruin_spawner = VoidRuinSpawner.new()
+		void_ruin_spawner.name = "VoidRuinSpawner"
+		add_child(void_ruin_spawner)
+
+		var VoidChallengeManager = preload("res://blocky_game/VoidChallengeManager.gd")
+		var void_challenge_manager = VoidChallengeManager.new()
+		void_challenge_manager.name = "VoidChallengeManager"
+		add_child(void_challenge_manager)
+
+		# Initialize after in tree
+		await get_tree().process_frame
+		void_challenge_manager.initialize(void_ruin_spawner)
+		void_ruin_spawner.initialize(void_ruin_library, _blocks, _terrain, void_challenge_manager)
+		print("🌌 The Long Nights: Void Challenge system initialized (Void Ruins at Y -612)")
+
 		# Add game over screen
 		var game_over = GameOverScreen.new()
 		add_child(game_over)

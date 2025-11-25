@@ -23,6 +23,9 @@ func initialize(void_ruin_spawner: Node):
 	_void_ruin_spawner = void_ruin_spawner
 	print("VoidChallengeManager initialized with VoidRuinSpawner")
 
+	# Connect to any existing push_blocks
+	_connect_to_existing_push_blocks()
+
 
 func _connect_to_existing_push_blocks():
 	"""Connect to goal_reached signals from existing push_blocks"""

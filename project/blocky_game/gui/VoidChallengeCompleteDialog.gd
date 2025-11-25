@@ -37,13 +37,16 @@ func show_completion(potion_name: String, potion_id: String, challenge_data: Dic
 	# Show dialog
 	show()
 
-	# Pause game input (player can't move while dialog is open)
-	get_tree().paused = false  # Don't actually pause, just show dialog
+	# Release mouse so player can click the Continue button
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func _on_continue_clicked():
 	"""Player clicked Continue button"""
 	hide()
+
+	# Re-capture mouse for first-person controls
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 	# Emit completion signal with potion ID and challenge data
 	completed.emit(_current_potion_id, _current_challenge_data)
