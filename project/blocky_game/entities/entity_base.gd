@@ -18,6 +18,7 @@ enum Team {
 @export var max_hp: int = 10
 @export var attack_damage: int = 3
 @export var defense: int = 10
+@export var luck: int = 0  # Affects hit/dodge chance in combat
 @export var movement_speed: float = 2.0
 
 ## Current state
@@ -33,11 +34,19 @@ signal took_damage(amount: int, from: Node)
 signal healed(amount: int)
 
 
-## d20-style roll to hit
-static func roll_to_hit() -> bool:
-	# Roll a d20, if 10 or higher the attack hits
+## d20-style roll to hit with luck modifiers
+static func roll_to_hit(attacker_luck: int = 0, defender_luck: int = 0) -> bool:
+	# Roll a d20, base threshold is 10
+	# Attacker luck lowers threshold (easier to hit)
+	# Defender luck raises threshold (harder to hit)
+	# Luck is capped at +5 effective (80% max hit chance)
+	const LUCK_CAP = 5
+	var clamped_attacker_luck = mini(attacker_luck, LUCK_CAP)
+	var clamped_defender_luck = mini(defender_luck, LUCK_CAP)
+
 	var roll = randi() % 20 + 1
-	return roll >= 10
+	var hit_threshold = 10 - clamped_attacker_luck + clamped_defender_luck
+	return roll >= hit_threshold
 
 
 func _ready():

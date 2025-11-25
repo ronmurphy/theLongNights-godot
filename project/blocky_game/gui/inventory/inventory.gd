@@ -624,7 +624,7 @@ func _on_bento_slot_pressed(bento_idx: int):
 
 
 func _on_slot_right_clicked(idx: int):
-	"""Handle right-click on inventory slot - open pouches"""
+	"""Handle right-click on inventory slot - use pouches and potions"""
 	# Ignore if dragging
 	if _dragged_slot != -1:
 		return
@@ -633,19 +633,19 @@ func _on_slot_right_clicked(idx: int):
 	if item == null:
 		return
 
-	# Check if this is a pouch (any tier: pouch_1 through pouch_5)
+	# Check if this is a usable item (pouches or potions)
 	var items_node = get_node_or_null("/root/Main/Game/Items")
 	if not items_node:
 		return
 
-	# Find pouch item IDs (check all 5 tiers)
-	const POUCH_NAMES = ["pouch_1", "pouch_2", "pouch_3", "pouch_4", "pouch_5"]
+	# Find usable item IDs (pouches and stat potions)
+	const USABLE_ITEM_NAMES = ["pouch_1", "pouch_2", "pouch_3", "pouch_4", "pouch_5", "hppotion", "defpotion", "atkpotion", "luckpotion"]
 	for i in range(100):
 		var check_item = items_node.get_item(i)
-		if check_item and check_item.base_info.name in POUCH_NAMES:
-			# Found a pouch tier!
+		if check_item and check_item.base_info.name in USABLE_ITEM_NAMES:
+			# Found a usable item (pouch or potion)!
 			if item.type == InventoryItem.TYPE_ITEM and item.id == i:
-				# This is a pouch! Open it
+				# Use the item
 				var player = get_tree().get_first_node_in_group("player")
 				if player:
 					var camera = player.get_node_or_null("Camera")

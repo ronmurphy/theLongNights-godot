@@ -240,6 +240,23 @@ func _init():
 		"name": "pouch",
 		"behavior": "pouch.gd"
 	})
+	# Stat potions - void ruins rewards, permanent stat boosts
+	_create_item({
+		"name": "hppotion",
+		"behavior": "hppotion.gd"
+	})
+	_create_item({
+		"name": "defpotion",
+		"behavior": "defpotion.gd"
+	})
+	_create_item({
+		"name": "atkpotion",
+		"behavior": "atkpotion.gd"
+	})
+	_create_item({
+		"name": "luckpotion",
+		"behavior": "luckpotion.gd"
+	})
 
 
 func get_item(id: int) -> Item:

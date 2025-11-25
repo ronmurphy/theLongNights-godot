@@ -38,6 +38,12 @@ var saved_title_emoji: String = ""
 var companion_voice_speed: float = 1.0
 var companion_voice_pitch: float = 3.5
 
+# Permanent stat bonuses from potions (added to role stats)
+var companion_bonus_max_hp: int = 0
+var companion_bonus_defense: int = 0
+var companion_bonus_attack: int = 0
+var companion_bonus_luck: int = 0
+
 func _update_voice_defaults() -> void:
 	# Make male companions slightly deeper than female
 	if companion_gender == "male":
@@ -174,32 +180,40 @@ func get_companion_weapon() -> String:
 			return ""
 
 
-## Get companion stats based on role (same as PlayerData)
+## Get companion stats based on role (same as PlayerData) + permanent bonuses
 func get_companion_max_hp() -> int:
+	var base_hp = 100
 	match companion_role:
-		"tank": return 150
-		"wizard": return 80
-		"healer": return 100
-		"rogue": return 90
-		_: return 100
+		"tank": base_hp = 150
+		"wizard": base_hp = 80
+		"healer": base_hp = 100
+		"rogue": base_hp = 90
+	return base_hp + companion_bonus_max_hp
 
 
 func get_companion_defense() -> int:
+	var base_defense = 10
 	match companion_role:
-		"tank": return 20
-		"wizard": return 5
-		"healer": return 10
-		"rogue": return 8
-		_: return 10
+		"tank": base_defense = 20
+		"wizard": base_defense = 5
+		"healer": base_defense = 10
+		"rogue": base_defense = 8
+	return base_defense + companion_bonus_defense
 
 
 func get_companion_attack_bonus() -> int:
+	var base_attack = 0
 	match companion_role:
-		"tank": return 5
-		"wizard": return 15
-		"healer": return 0
-		"rogue": return 20
-		_: return 0
+		"tank": base_attack = 5
+		"wizard": base_attack = 15
+		"healer": base_attack = 0
+		"rogue": base_attack = 20
+	return base_attack + companion_bonus_attack
+
+
+func get_companion_luck() -> int:
+	# Base luck is 0 for all roles, only bonuses from potions apply
+	return companion_bonus_luck
 
 
 ## Get avatar path for companion
@@ -260,7 +274,11 @@ func save_to_file() -> void:
 		"guard_position": null,
 		"equipped_accessory_id": -1,
 		"active_title": "",
-		"title_emoji": ""
+		"title_emoji": "",
+		"bonus_max_hp": companion_bonus_max_hp,
+		"bonus_defense": companion_bonus_defense,
+		"bonus_attack": companion_bonus_attack,
+		"bonus_luck": companion_bonus_luck
 	}
 	
 	# Get live companion data if it exists
@@ -342,6 +360,12 @@ func load_from_file() -> bool:
 	# Load companion title
 	saved_title = save_data.get("active_title", "")
 	saved_title_emoji = save_data.get("title_emoji", "")
+
+	# Load permanent stat bonuses from potions
+	companion_bonus_max_hp = save_data.get("bonus_max_hp", 0)
+	companion_bonus_defense = save_data.get("bonus_defense", 0)
+	companion_bonus_attack = save_data.get("bonus_attack", 0)
+	companion_bonus_luck = save_data.get("bonus_luck", 0)
 
 	# If no name was saved, generate one
 	if companion_name == "":

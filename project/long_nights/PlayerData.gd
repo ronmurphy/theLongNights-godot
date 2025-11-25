@@ -14,8 +14,15 @@ var player_name: String = ""  # Player's chosen or default name
 var max_hp: int = 100
 var defense: int = 10
 var attack_bonus: int = 0
+var luck: int = 0
 var max_mana: int = 0
 var current_mana: int = 0
+
+## Permanent stat bonuses from potions (added to role stats)
+var bonus_max_hp: int = 0
+var bonus_defense: int = 0
+var bonus_attack: int = 0
+var bonus_luck: int = 0
 
 ## Tutorial flags
 var compass_tutorial_shown: bool = false
@@ -43,16 +50,19 @@ func set_character(p_role: String, p_race: String, p_gender: String, p_name: Str
 
 
 func _apply_role_stats() -> void:
+	# Base stats from role
 	match role:
 		"tank":
 			max_hp = 150  # 50% more HP
 			defense = 20  # Double defense
 			attack_bonus = 5  # Moderate attack bonus
+			luck = 0
 
 		"wizard":
 			max_hp = 80  # 20% less HP
 			defense = 5  # Half defense
 			attack_bonus = 15  # High spell damage
+			luck = 0
 			max_mana = 100
 			current_mana = 100
 
@@ -60,6 +70,7 @@ func _apply_role_stats() -> void:
 			max_hp = 100  # Normal HP
 			defense = 10  # Normal defense
 			attack_bonus = 0  # No attack bonus
+			luck = 0
 			max_mana = 100
 			current_mana = 100
 
@@ -67,6 +78,13 @@ func _apply_role_stats() -> void:
 			max_hp = 90  # 10% less HP
 			defense = 8  # Slightly less defense
 			attack_bonus = 20  # Highest attack bonus (crits!)
+			luck = 0
+
+	# Apply permanent potion bonuses on top of role stats
+	max_hp += bonus_max_hp
+	defense += bonus_defense
+	attack_bonus += bonus_attack
+	luck += bonus_luck
 
 
 ## Get avatar sprite path
@@ -91,7 +109,11 @@ func save_to_file() -> void:
 		"race": race,
 		"gender": gender,
 		"player_name": player_name,
-		"compass_tutorial_shown": compass_tutorial_shown
+		"compass_tutorial_shown": compass_tutorial_shown,
+		"bonus_max_hp": bonus_max_hp,
+		"bonus_defense": bonus_defense,
+		"bonus_attack": bonus_attack,
+		"bonus_luck": bonus_luck
 	}
 
 	var file = FileAccess.open("user://player_character.save", FileAccess.WRITE)
@@ -130,6 +152,15 @@ func load_from_file() -> bool:
 
 	# Load tutorial flags
 	compass_tutorial_shown = save_data.get("compass_tutorial_shown", false)
+
+	# Load permanent stat bonuses from potions
+	bonus_max_hp = save_data.get("bonus_max_hp", 0)
+	bonus_defense = save_data.get("bonus_defense", 0)
+	bonus_attack = save_data.get("bonus_attack", 0)
+	bonus_luck = save_data.get("bonus_luck", 0)
+
+	# Reapply role stats to include bonuses
+	_apply_role_stats()
 
 	print("PlayerData: Character loaded from save")
 	return true

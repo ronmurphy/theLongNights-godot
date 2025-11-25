@@ -109,6 +109,7 @@ func _ready():
 	current_hp = max_hp
 	defense = CompanionManager.get_companion_defense()
 	attack_damage = CompanionManager.get_companion_attack_bonus()
+	luck = CompanionManager.get_companion_luck()
 	movement_speed = 4.0  # Base movement speed
 
 	# Apply race-based speed multiplier

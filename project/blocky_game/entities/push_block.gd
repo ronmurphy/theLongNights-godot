@@ -4,6 +4,8 @@ extends Node3D
 ## Uses VoxelBoxMover physics for terrain collision
 ## Slides in the direction of impact with friction
 
+signal goal_reached(push_block: Node3D)  # Emitted when block reaches test_block goal
+
 @export var friction := 0.92  # How quickly the block slows down (0.0 = instant stop, 1.0 = no friction)
 @export var mass := 1.0  # Mass affects how much momentum is transferred from projectiles
 @export var min_velocity := 0.05  # Stop moving when velocity drops below this
@@ -292,6 +294,9 @@ func _on_goal_reached():
 	_velocity = Vector3.ZERO
 
 	print("🎉 PushBlock reached goal!")
+
+	# Emit signal for challenge completion
+	goal_reached.emit(self)
 
 	# Visual feedback - turn green (create material INSTANCE to avoid affecting all blocks!)
 	if _mesh and _mesh.material_override:

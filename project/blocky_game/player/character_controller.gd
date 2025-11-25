@@ -18,6 +18,7 @@ const MIN_GRAVITY := 5.0  # Minimum gravity (don't go below this)
 @export var max_hp: int = 100
 @export var defense: int = 10  # % damage reduction
 @export var attack_bonus: int = 0  # Bonus damage from role
+@export var luck: int = 0  # Hit/dodge chance modifier
 @export var max_mana: int = 0  # For wizard/healer
 @export var current_mana: int = 0
 
@@ -124,6 +125,7 @@ func _ready():
 	max_hp = PlayerData.max_hp
 	defense = PlayerData.defense
 	attack_bonus = PlayerData.attack_bonus
+	luck = PlayerData.luck
 	max_mana = PlayerData.max_mana
 	current_mana = PlayerData.current_mana
 
