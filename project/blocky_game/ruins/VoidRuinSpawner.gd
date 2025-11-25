@@ -40,7 +40,7 @@ func spawn_void_ruin_for_player(origin_teleport_pos: Vector3, challenge_type: St
 	Spawn a void ruin challenge for a player
 	origin_teleport_pos: The void_teleport_stone position they came from (for return)
 	challenge_type: "combat", "parkour", "puzzle", "gauntlet" (random if empty)
-	Returns the spawn position, or Vector3.ZERO if failed
+	Returns the player spawn position (center of starting platform), or Vector3.ZERO if failed
 	"""
 	if _void_ruin_library == null:
 		push_error("VoidRuinSpawner not initialized - VoidRuinLibrary is null")
@@ -126,7 +126,10 @@ func spawn_void_ruin_for_player(origin_teleport_pos: Vector3, challenge_type: St
 	_add_void_beacon_lights(spawn_position, template)
 
 	print("Placed ", blocks_placed, " blocks for void challenge '", template.name, "' (", template.challenge_type, ")")
-	return spawn_position
+
+	# Return player spawn position (challenge origin + spawn offset from template)
+	var player_spawn_pos = spawn_position + template.player_spawn_offset
+	return player_spawn_pos
 
 
 func _setup_void_challenge(template: VoidRuinLibrary.VoidChallengeTemplate, world_position: Vector3, origin_pos: Vector3):
@@ -134,10 +137,19 @@ func _setup_void_challenge(template: VoidRuinLibrary.VoidChallengeTemplate, worl
 	Set up void challenge mechanics:
 	- Convert push_block voxels to entities
 	- Spawn test_block target
+	- Spawn enemies for combat challenges
 	- Track challenge data for completion
 	"""
 	# Determine gravity setting (combat/gauntlet may have gravity, parkour might not)
 	var has_gravity = not template.name.contains("zerog")
+
+	# Spawn enemies for combat challenges
+	if template.challenge_type == "combat":
+		var enemy_spawner = get_node_or_null("/root/Main/Game/EnemySpawner")
+		if enemy_spawner:
+			# Spawn enemies on the platform (scale count based on platform size)
+			enemy_spawner.spawn_enemies_at_combat_ruin(world_position, template.size)
+			print("👹 Spawned enemies for combat challenge at: ", world_position)
 
 	# Find push_block and test_block positions in the template
 	const PUSH_BLOCK_ID = 26  # push_block block ID

@@ -211,7 +211,8 @@ func _physics_process(delta: float):
 
 	# Check if area is loaded
 	var vt := _terrain.get_voxel_tool()
-	if vt.is_area_editable(AABB(aabb.position + global_position, aabb.size)):
+	var check_aabb = AABB(aabb.position + global_position, aabb.size)
+	if vt.is_area_editable(check_aabb):
 		# Get motion with collision detection
 		motion = _box_mover.get_motion(global_position, motion, aabb, _terrain)
 
@@ -220,6 +221,10 @@ func _physics_process(delta: float):
 
 		# Check if we've reached a goal block
 		_check_goal_reached()
+	else:
+		# Debug: Area not editable, can't check goal
+		if _velocity.length_squared() < 0.01 and not _goal_reached:
+			print("⚠️ Push_block at %s: Area NOT editable (AABB: %s), cannot check goal!" % [global_position, check_aabb])
 
 		# If motion was blocked (didn't move as expected), reduce velocity
 		var expected_motion = _velocity * delta
@@ -265,17 +270,18 @@ func _check_goal_reached():
 	if _goal_reached:
 		return
 
-	# Check the block position below us
+	# Check the block position below us (use round instead of floor for better precision)
 	var block_pos = Vector3i(
-		int(floor(global_position.x)),
-		int(floor(global_position.y - 1.0)),  # Check block below
-		int(floor(global_position.z))
+		int(round(global_position.x)),
+		int(round(global_position.y - 1.0)),  # Check block below
+		int(round(global_position.z))
 	)
 
 	var vt = _terrain.get_voxel_tool()
 	vt.channel = VoxelBuffer.CHANNEL_TYPE
 	var voxel_id = vt.get_voxel(block_pos)
 
+	# Debug: Only log when we're on a non-air block
 	if voxel_id != 0:
 		# Get block type - convert voxel ID to block ID first!
 		var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
@@ -284,8 +290,20 @@ func _check_goal_reached():
 			var raw_mapping = blocks_node.get_raw_mapping(voxel_id)
 			if raw_mapping:
 				var block = blocks_node.get_block(raw_mapping.block_id)
-				if block and block.base_info.name == GOAL_BLOCK_NAME:
-					_on_goal_reached()
+				if block:
+					# Debug output to help diagnose issues
+					if block.base_info.name != GOAL_BLOCK_NAME:
+						print("🔍 Push_block on block: '%s' (BlockID:%d, VoxelID:%d) at %s - NOT goal" % [
+							block.base_info.name, raw_mapping.block_id, voxel_id, block_pos
+						])
+
+					if block.base_info.name == GOAL_BLOCK_NAME:
+						print("🎯 GOAL DETECTED! Push_block on '%s' at %s" % [block.base_info.name, block_pos])
+						_on_goal_reached()
+				else:
+					print("⚠️ Block ID %d has no block data" % raw_mapping.block_id)
+			else:
+				print("⚠️ Voxel ID %d has no raw_mapping" % voxel_id)
 
 
 func _on_goal_reached():

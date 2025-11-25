@@ -11,15 +11,17 @@ class VoidChallengeTemplate:
 	var size: Vector3i  # Bounding box size
 	var blocks: Array  # Array of {pos: Vector3i, block_id: int, variant: int}
 	var beacon_positions: Array  # Array of Vector3i - VoidBeacon light positions
+	var player_spawn_offset: Vector3  # Where to spawn player relative to origin (center of start platform)
 	var weight: float = 1.0  # For weighted random selection
 
-	func _init(p_name: String, p_type: String, p_reward: String, p_size: Vector3i, p_blocks: Array, p_beacons: Array, p_weight: float = 1.0):
+	func _init(p_name: String, p_type: String, p_reward: String, p_size: Vector3i, p_blocks: Array, p_beacons: Array, p_spawn_offset: Vector3, p_weight: float = 1.0):
 		name = p_name
 		challenge_type = p_type
 		reward_potion = p_reward
 		size = p_size
 		blocks = p_blocks
 		beacon_positions = p_beacons
+		player_spawn_offset = p_spawn_offset
 		weight = p_weight
 
 
@@ -86,6 +88,7 @@ func _create_combat_arena_simple() -> VoidChallengeTemplate:
 		Vector3i(17, 3, 10),
 		blocks,
 		beacons,
+		Vector3(5, 2, 5),  # Center of 10x10 starting platform
 		1.0
 	)
 
@@ -138,6 +141,7 @@ func _create_parkour_platforms_simple() -> VoidChallengeTemplate:
 		Vector3i(27, 3, 8),
 		blocks,
 		beacons,
+		Vector3(2.5, 2, 2.5),  # Center of 5x5 starting platform
 		1.0
 	)
 
@@ -185,6 +189,7 @@ func _create_puzzle_void_simple() -> VoidChallengeTemplate:
 		Vector3i(12, 3, 12),
 		blocks,
 		beacons,
+		Vector3(6, 2, 6),  # Center of 12x12 starting platform
 		1.0
 	)
 
@@ -230,6 +235,7 @@ func _create_gauntlet_mixed() -> VoidChallengeTemplate:
 		Vector3i(23, 4, 9),
 		blocks,
 		beacons,
+		Vector3(3, 2, 3),  # Center of 6x6 starting platform
 		1.0
 	)
 

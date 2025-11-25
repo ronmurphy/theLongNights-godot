@@ -1558,8 +1558,8 @@ func _do_void_challenge_teleport(player: Node, void_ruin_spawner: Node, rune_cor
 			player.enable_gravity()
 		return
 
-	# Teleport player to spawn position (slightly above the platform)
-	player.global_position = spawn_pos + Vector3(0, 2, 0)
+	# Teleport player to spawn position (template already includes correct offset)
+	player.global_position = spawn_pos
 	print("Player teleported to void challenge at: ", player.global_position)
 
 	# Re-enable gravity after 2 seconds (chunks loaded)
