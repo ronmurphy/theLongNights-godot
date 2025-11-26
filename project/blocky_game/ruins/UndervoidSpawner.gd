@@ -18,7 +18,7 @@ const AbyssGolem = preload("res://blocky_game/entities/abyss_golem.gd")
 
 # Chunk-based spawning system
 const CHUNK_SIZE = 16  # Godot voxel default chunk size
-const STRUCTURE_SPAWN_CHANCE = 0.08  # 8% chance per chunk (roughly 1 in 12-13 chunks)
+const STRUCTURE_SPAWN_CHANCE = 0.05  # 5% chance per chunk (roughly 1 in 20 chunks) - optimized for performance
 const CITY_BUILDING_SPAWN_CHANCE = 0.10  # 10% chance per chunk at city level
 const CITY_LEVEL_MIN_Y = -490  # Top of rust hills layer
 const CITY_LEVEL_MAX_Y = -490  # Buildings spawn at this level (above rust hills)
@@ -26,8 +26,8 @@ var _processed_chunks: Dictionary = {}  # Track which chunks we've checked: Vect
 var _processed_city_chunks: Dictionary = {}  # Track city chunks separately
 var _world_seed: int = 131183  # Default seed (matches world gen)
 var _check_timer: float = 0.0
-const CHECK_INTERVAL = 3.0  # Check for new chunks every 3 seconds
-const FAST_CHECK_INTERVAL = 0.5  # Check every 0.5s when falling fast
+const CHECK_INTERVAL = 5.0  # Check for new chunks every 5 seconds (optimized from 3s)
+const FAST_CHECK_INTERVAL = 1.5  # Check every 1.5s when falling fast (optimized from 0.5s)
 var _last_player_y: float = 0.0  # Track player Y for velocity detection
 
 ## Performance optimization - Cache player reference to avoid frequent group queries
@@ -101,10 +101,8 @@ func _check_nearby_chunks_for_structures():
 	var player_chunk_z = int(floor(player_pos.z / CHUNK_SIZE))
 
 	# Check chunks in a radius around player
-	# Increase radius when deep in Undervoid (falling fast zone)
-	var CHUNK_CHECK_RADIUS = 8  # Default: 128 blocks
-	if player_y < -300:
-		CHUNK_CHECK_RADIUS = 12  # Deep Undervoid: 192 blocks (more lookahead)
+	# Keep consistent radius to reduce CPU overhead at deep levels
+	var CHUNK_CHECK_RADIUS = 8  # Default: 128 blocks (optimized - removed deep level acceleration)
 
 	for cx in range(player_chunk_x - CHUNK_CHECK_RADIUS, player_chunk_x + CHUNK_CHECK_RADIUS + 1):
 		for cz in range(player_chunk_z - CHUNK_CHECK_RADIUS, player_chunk_z + CHUNK_CHECK_RADIUS + 1):
@@ -231,14 +229,14 @@ func spawn_structure_at(world_position: Vector3, depth: int = -200) -> bool:
 	# FORCE CHUNK GENERATION: Create temporary VoxelViewer
 	var temp_viewer = VoxelViewer.new()
 	temp_viewer.position = world_position
-	temp_viewer.view_distance = 20  # Larger for deep structures
+	temp_viewer.view_distance = 12  # Optimized from 20 - still sufficient for structure placement
 	temp_viewer.requires_visuals = true
 	temp_viewer.requires_collisions = true
 	_terrain.add_child(temp_viewer)
 
 	# Wait longer for deep Undervoid chunks to generate (Y -150 to -500)
 	# Player falls FAST through underground, so chunks may not be ready immediately
-	await get_tree().create_timer(4.0).timeout
+	await get_tree().create_timer(6.0).timeout
 
 	# Get the voxel tool for editing terrain
 	var voxel_tool = _terrain.get_voxel_tool()
@@ -252,12 +250,12 @@ func spawn_structure_at(world_position: Vector3, depth: int = -200) -> bool:
 	if not voxel_tool.is_area_editable(structure_aabb):
 		push_warning("🟣 Structure area not loaded yet at ", world_position, " - waiting longer...")
 		# Wait additional time for deep chunks (they take longer to generate)
-		await get_tree().create_timer(3.0).timeout
+		await get_tree().create_timer(4.0).timeout
 
 		# Check again
 		if not voxel_tool.is_area_editable(structure_aabb):
 			push_warning("🟣 Structure area still not editable, waiting even longer...")
-			await get_tree().create_timer(3.0).timeout
+			await get_tree().create_timer(4.0).timeout
 
 			if not voxel_tool.is_area_editable(structure_aabb):
 				temp_viewer.queue_free()
@@ -346,13 +344,13 @@ func spawn_city_building_at(world_position: Vector3) -> bool:
 	# FORCE CHUNK GENERATION: Create temporary VoxelViewer
 	var temp_viewer = VoxelViewer.new()
 	temp_viewer.position = world_position
-	temp_viewer.view_distance = 16
+	temp_viewer.view_distance = 12  # Optimized from 16 - sufficient for building placement
 	temp_viewer.requires_visuals = true
 	temp_viewer.requires_collisions = true
 	_terrain.add_child(temp_viewer)
 
 	# Wait for chunks to generate at city level
-	await get_tree().create_timer(2.0).timeout
+	await get_tree().create_timer(4.0).timeout
 
 	# Get the voxel tool for editing terrain
 	var voxel_tool = _terrain.get_voxel_tool()

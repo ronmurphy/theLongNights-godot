@@ -233,6 +233,9 @@ func _physics_process(delta: float):
 		_entity_cache_timer = 0.0
 		_refresh_entity_cache()
 
+	# Performance optimization: Cap VoxelViewer distance in deep underground (Y < -150)
+	_adjust_voxel_viewer_for_depth()
+
 	# Check for proximity-based dialogue triggers (e.g., crashed ruin)
 	if Engine.has_singleton("DialogueManager"):
 		var dm = Engine.get_singleton("DialogueManager")
@@ -1074,6 +1077,28 @@ func _apply_graphics_settings() -> void:
 	# Log current profile
 	var profile = GraphicsSettings.get_current_profile()
 	print("[CharacterController] Graphics profile: ", profile.to_upper())
+
+
+## Performance optimization: Adjust VoxelViewer distance based on depth
+func _adjust_voxel_viewer_for_depth() -> void:
+	"""Cap VoxelViewer distance in deep underground to reduce chunk generation overhead"""
+	var voxel_viewer = get_node_or_null("VoxelViewer")
+	if not voxel_viewer:
+		return
+
+	var player_y = global_position.y
+	const UNDERVOID_THRESHOLD = -150.0  # Matching UndervoidSpawner threshold
+	const MAX_DEEP_VIEW_DISTANCE = 100  # Cap view distance when underground
+
+	if player_y < UNDERVOID_THRESHOLD:
+		# Deep underground: cap view distance to reduce strain on chunk generation
+		var current_distance = voxel_viewer.view_distance
+		if current_distance > MAX_DEEP_VIEW_DISTANCE:
+			voxel_viewer.view_distance = MAX_DEEP_VIEW_DISTANCE
+	else:
+		# Above threshold: use normal graphics settings
+		var normal_distance = GraphicsSettings.get_setting("voxel_viewer_distance")
+		voxel_viewer.view_distance = normal_distance
 
 
 ## Teleport/Gravity Control Functions

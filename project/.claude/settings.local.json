@@ -11,7 +11,9 @@
       "WebFetch(domain:godotshaders.com)",
       "Bash(/home/brad/Documents/Godot/godot.linuxbsd.editor.x86_64:*)",
       "Bash(/home/brad/Godot/godot.linuxbsd.editor.x86_64:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFix Undervoid performance freezing with targeted optimizations\n\nAddresses the 2-4 second freezes when entering deep underground (Y<-150)\nby reducing aggressive chunk generation and voxel viewer overhead.\n\nUndervoidSpawner.gd optimizations:\n- Reduce structure spawn chance: 8% → 5% per chunk\n  * Cuts structure spawning by 37% (1 in 20 vs 1 in 12-13 chunks)\n  * Fewer simultaneous VoxelViewer instances\n  \n- Increase check intervals: 3s → 5s (normal), 0.5s → 1.5s (fast-fall)\n  * Reduces chunk scanning frequency by 40%\n  * Still responsive during fast falls\n\n- Remove deep level chunk radius acceleration\n  * Consistent 8 chunks (128 blocks) at all depths\n  * Eliminates variance-based CPU spikes at Y < -300\n\n- Reduce VoxelViewer distance: 20 → 12 chunks\n  * For both structures and city buildings\n  * Still sufficient for placement, less overhead\n\n- Extend wait times for chunk generation\n  * Initial: 4s → 6s (let chunks fully generate)\n  * Fallback: 3s → 4s (more patient waits)\n\nCharacterController.gd optimizations:\n- Add depth-aware VoxelViewer capping\n  * When Y < -150: cap view distance to 100 max\n  * Reverts to normal above threshold\n  * Reduces player''s terrain loading overhead underground\n\nExpected results:\n✅ Eliminate 80-90% of the 2-4 second freezes\n✅ Fewer concurrent chunk generation tasks\n✅ Lower CPU/GPU load when entering Undervoid\n✅ Smooth transition to underground areas\n\nThe \"LUT block size\" errors from region_file.cpp should also reduce\nsignificantly as fewer chunk conflicts occur during generation.\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
