@@ -244,8 +244,17 @@ func _check_entity_collision():
 func _on_hit_entity(entity: Node):
 	"""Hit an entity with knife damage"""
 	var total_damage = base_damage + stack_bonus
+
+	# Apply blood moon damage modifier (from blood pendant, etc.)
+	if is_instance_valid(_owner_node) and "blood_moon_damage_modifier" in _owner_node:
+		total_damage = int(total_damage * (1.0 + _owner_node.blood_moon_damage_modifier))
+
 	entity.take_damage(total_damage, _owner_node if _owner_node else self)
-	print("Throwing knife hit %s for %d damage! (base: %d + stack: %d)" % [entity.entity_name, total_damage, base_damage, stack_bonus])
+
+	var damage_info = "Throwing knife hit %s for %d damage! (base: %d + stack: %d)" % [entity.entity_name, total_damage, base_damage, stack_bonus]
+	if is_instance_valid(_owner_node) and "blood_moon_damage_modifier" in _owner_node and _owner_node.blood_moon_damage_modifier > 0.0:
+		damage_info += " [🩸 +%d%%]" % int(_owner_node.blood_moon_damage_modifier * 100)
+	print(damage_info)
 
 	# ⚡ SKYSHARD POWERS via Powers.gd
 	if typeof(_inv_item) == TYPE_OBJECT and _inv_item != null and _inv_item.skyshard_power != "":

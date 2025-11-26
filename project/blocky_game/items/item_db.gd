@@ -282,6 +282,12 @@ func _init():
 		"behavior": "goldenpotion.gd"
 	})
 
+	# Blood Pendant - +50% damage during blood moons (accessory)
+	_create_item({
+		"name": "blood_pendant",
+		"behavior": "blood_pendant.gd"
+	})
+
 
 func get_item(id: int) -> Item:
 	assert(id >= 0)

@@ -29,9 +29,11 @@ var _dragged_slot := -1
 # Equipment slots (separate from inventory)
 var _player_weapon_slot: InventoryItem = null
 var _companion_weapon_slot: InventoryItem = null
+var _player_accessory_slot: InventoryItem = null  # Accessory slot for player (blood pendant, etc.)
 var _companion_accessory_slot: InventoryItem = null  # Second equip slot for companion
 var _player_weapon_slot_view = null
 var _companion_weapon_slot_view = null
+var _player_accessory_slot_view = null  # UI view for player accessory slot
 var _companion_accessory_slot_view = null  # UI view for accessory slot
 var _player_equipment_panel = null
 var _companion_equipment_panel = null
@@ -434,6 +436,8 @@ func _on_slot_pressed(idx: int):
 			dragged_item = _companion_weapon_slot
 		elif _dragged_slot == -997:
 			dragged_item = _companion_accessory_slot
+		elif _dragged_slot == -996:
+			dragged_item = _player_accessory_slot
 		elif _dragged_slot <= -100:
 			# From bento box
 			var source_bento_idx = -100 - _dragged_slot
@@ -459,6 +463,10 @@ func _on_slot_pressed(idx: int):
 				_companion_accessory_slot = null
 				_companion_accessory_slot_view.get_display().set_item(null)
 				_update_companion_accessory()
+			elif _dragged_slot == -996:
+				_player_accessory_slot = null
+				_player_accessory_slot_view.get_display().set_item(null)
+				_update_player_accessory()
 			elif _dragged_slot <= -100:
 				# Clear from bento box
 				var source_bento_idx = -100 - _dragged_slot
@@ -1102,15 +1110,17 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 	
 	var acc_slot = InventorySlot.instantiate()
 	acc_slot.custom_minimum_size = Vector2(56, 56)
-	
+
 	if is_player:
-		# Player doesn't have accessory slot logic implemented yet, so disable/dim it or just show empty
-		acc_slot.modulate = Color(0.5, 0.5, 0.5, 0.5) 
-		acc_slot.tooltip_text = "Player accessory slot not available"
+		# Player accessory slot (for blood pendant, etc.)
+		acc_slot.pressed.connect(_on_player_accessory_slot_pressed)
+		_player_accessory_slot_view = acc_slot
+		acc_slot.tooltip_text = "Player Accessory Slot"
 	else:
 		acc_slot.pressed.connect(_on_accessory_slot_pressed)
 		_companion_accessory_slot_view = acc_slot
-		
+		acc_slot.tooltip_text = "Companion Accessory Slot"
+
 	acc_vbox.add_child(acc_slot)
 	equip_hbox.add_child(acc_vbox)
 	
@@ -1282,6 +1292,59 @@ func _on_accessory_slot_pressed():
 		if _companion_accessory_slot != null:
 			_dragged_slot = -997  # Special ID for accessory slot
 			_dragged_item_view.start(_companion_accessory_slot)
+
+
+func _on_player_accessory_slot_pressed():
+	"""Handle clicking player accessory slot"""
+	if _dragged_slot != -1:
+		# Try to equip dragged item
+		var dragged_item = _slots[_dragged_slot] if _dragged_slot >= 0 else null
+
+		if dragged_item != null:
+			# For now, allow any item with an EQUIP power OR accessory items like blood pendant
+			# We'll allow blood pendant even without powers (it has passive blood moon bonus)
+			var is_valid_accessory = false
+			if dragged_item.skyshard_power != "" and _is_equip_power(dragged_item.skyshard_power):
+				is_valid_accessory = true
+			elif dragged_item.id == 65:  # blood_pendant ID (last item in item_db.gd)
+				is_valid_accessory = true
+
+			if is_valid_accessory:
+				# Swap items
+				var old_accessory = _player_accessory_slot
+				_player_accessory_slot = dragged_item
+				_slots[_dragged_slot] = old_accessory
+
+				# Update views
+				_update_player_accessory_slot_view()
+				_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+
+				# End drag
+				_dragged_item_view.stop()
+				_dragged_slot = -1
+
+				# Notify player
+				_update_player_accessory()
+
+				equipment_changed.emit()
+				print("✨ Player equipped accessory: %s" % dragged_item.id)
+			else:
+				# Invalid item
+				print("❌ Only accessories can go in player accessory slot!")
+				if _dragged_slot >= 0 and _dragged_slot < _slots.size():
+					_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+				_dragged_item_view.stop()
+				_dragged_slot = -1
+		else:
+			_dragged_item_view.stop()
+			_dragged_slot = -1
+	else:
+		# Start dragging accessory if there is one
+		if _player_accessory_slot != null:
+			_dragged_slot = -996  # Special ID for player accessory slot
+			_dragged_item_view.start(_player_accessory_slot)
+
+
 func _on_companion_roster_swapped(index: int) -> void:
 	"""Called when player swaps companions in the roster; refresh inventory UI."""
 	print("Inventory: companion swap signal received -> index=%d" % index)
@@ -1560,6 +1623,24 @@ func _update_companion_accessory():
 	var companion = get_tree().get_first_node_in_group("companions")
 	if companion and companion.has_method("set_accessory"):
 		companion.set_accessory(_companion_accessory_slot)
+
+
+func _update_player_accessory_slot_view():
+	"""Update player accessory slot display"""
+	if _player_accessory_slot_view:
+		_player_accessory_slot_view.get_display().set_item(_player_accessory_slot)
+
+
+func _update_player_accessory():
+	"""Notify player of accessory change"""
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("set_accessory"):
+		player.set_accessory(_player_accessory_slot)
+
+
+func get_player_accessory() -> InventoryItem:
+	"""Get the player's currently equipped accessory"""
+	return _player_accessory_slot
 
 
 ## ============================================================================
@@ -1909,6 +1990,11 @@ func _show_power_selection_modal(weapon_slot_idx: int) -> void:
 	const GRAPPLING_HOOK_ID = 1
 	if weapon.id == GRAPPLING_HOOK_ID:
 		powers.append({"name": "pull", "display": "Pull", "desc": "Right-click to pull enemies toward you (yeet mechanic!)", "slot": "HOTBAR"})
+
+	# BLADE OF PURSUIT EXCLUSIVE POWER: Relentless Pursuit (only shows for blade_of_pursuit)
+	const BLADE_OF_PURSUIT_ID = 47
+	if weapon.id == BLADE_OF_PURSUIT_ID:
+		powers.append({"name": "relentless_pursuit", "display": "Relentless Pursuit", "desc": "Extend chain from 5 to 10 enemies with escalating damage (+5 per hit, 35→80)", "slot": "HOTBAR"})
 
 	# Scroll container for powers
 	var scroll = ScrollContainer.new()

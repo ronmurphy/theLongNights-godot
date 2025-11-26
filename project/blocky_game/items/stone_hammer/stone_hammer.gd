@@ -155,6 +155,12 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 	var entities = get_tree().get_nodes_in_group("entities")
 	var total_heal = 0  # Track total healing for Life Steal
 	var hit_entities = []  # Track entities hit for Powers system
+	var player = get_tree().get_first_node_in_group("player")
+
+	# Apply blood moon modifier to damage once
+	var total_damage = damage
+	if player and "blood_moon_damage_modifier" in player:
+		total_damage = int(total_damage * (1.0 + player.blood_moon_damage_modifier))
 
 	for entity in entities:
 		if not entity.is_alive:
@@ -170,7 +176,7 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 			continue
 
 		# Deal damage
-		entity.take_damage(damage, self)
+		entity.take_damage(total_damage, self)
 
 		# Apply knockback
 		var knockback_dir = (entity.global_position - center).normalized()
@@ -180,7 +186,10 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 		if entity is GroundEntity:
 			entity._velocity += knockback_dir * knockback
 
-		print("Stone Hammer hit %s (distance: %.1f)" % [entity.entity_name, distance])
+		var damage_info = "Stone Hammer hit %s (distance: %.1f)" % [entity.entity_name, distance]
+		if player and "blood_moon_damage_modifier" in player and player.blood_moon_damage_modifier > 0.0:
+			damage_info += " [🩸 +%d%%]" % int(player.blood_moon_damage_modifier * 100)
+		print(damage_info)
 
 		# ⚡ SKYSHARD POWERS - Collect data for Powers system (called once after loop)
 		hit_entities.append(entity)
@@ -192,15 +201,14 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 			var power_context = {
 				"entity": hit_entity,
 				"position": hit_entity.global_position,
-				"stack_count": damage,
-				"damage_dealt": damage,
+				"stack_count": total_damage,
+				"damage_dealt": total_damage,
 				"attacker": get_tree().get_first_node_in_group("player")
 			}
 			Powers.execute_hotbar_power(inv_item_or_count.skyshard_power, power_context)
 
 	# Apply total healing (after all damage dealt)
 	if total_heal > 0:
-		var player = get_tree().get_first_node_in_group("player")
 		if player and player.has_method("heal"):
 			player.heal(total_heal)
 			print("💚 Life Steal (AOE)! Healed %d HP from multiple enemies" % total_heal)
@@ -215,13 +223,12 @@ func _damage_nearby_entities(center: Vector3, radius: float, damage: int, knockb
 					hit_count += 1
 
 		if hit_count > 0:
-			var player = get_tree().get_first_node_in_group("player")
 			if player and player.has_method("activate_wind_dash"):
 				player.activate_wind_dash()
 
 	# ⚡ SKYSHARD POWER: Lightning Chain (chain from impact center to enemies outside AOE)
 	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.has_power("lightning_chain"):
-		_lightning_chain_aoe(center, radius, int(damage * 0.5))
+		_lightning_chain_aoe(center, radius, int(total_damage * 0.5))
 
 
 func _push_nearby_blocks(center: Vector3, radius: float, knockback: float):

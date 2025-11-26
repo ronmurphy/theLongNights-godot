@@ -124,18 +124,28 @@ func _hit_enemy():
 		# Check if owner has weapon powers to apply
 		var power_effects = _get_owner_power_effects()
 
+		# Calculate damage with blood moon modifier
+		var total_damage = damage
+
+		# Apply blood moon damage modifier (from blood pendant, etc.)
+		if is_instance_valid(owner_entity) and "blood_moon_damage_modifier" in owner_entity:
+			total_damage = int(total_damage * (1.0 + owner_entity.blood_moon_damage_modifier))
+
 		# Apply base damage
-		target_enemy.take_damage(damage, owner_entity)
+		target_enemy.take_damage(total_damage, owner_entity)
 
 		# Apply power effects (poison, life steal, etc.)
 		if power_effects.has("poison") and target_enemy.has_method("apply_poison"):
 			target_enemy.apply_poison(5, 5.0)  # 5 damage over 5 seconds
 
 		if power_effects.has("life_steal") and owner_entity.has_method("heal"):
-			var heal_amount = int(damage * 0.1)  # 10% life steal
+			var heal_amount = int(total_damage * 0.1)  # 10% life steal
 			owner_entity.heal(heal_amount)
 
-		print("🌿 Thorn hit %s for %d damage!" % [target_enemy.entity_name if "entity_name" in target_enemy else "enemy", damage])
+		var damage_info = "🌿 Thorn hit %s for %d damage!" % [target_enemy.entity_name if "entity_name" in target_enemy else "enemy", total_damage]
+		if is_instance_valid(owner_entity) and "blood_moon_damage_modifier" in owner_entity and owner_entity.blood_moon_damage_modifier > 0.0:
+			damage_info += " [🩸 +%d%%]" % int(owner_entity.blood_moon_damage_modifier * 100)
+		print(damage_info)
 
 	# Return to orbit after hit
 	_return_to_orbit()

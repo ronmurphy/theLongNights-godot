@@ -101,8 +101,18 @@ func _physics_process(delta: float):
 		var distance = global_position.distance_to(entity.global_position)
 		if distance < 1.2:
 			if entity.has_method("take_damage"):
-				entity.take_damage(damage, owner_entity)
-				print("🔥 Fireball hits %s for %d damage!" % [entity.get("entity_name"), damage])
+				var total_damage = damage
+
+				# Apply blood moon damage modifier (from blood pendant, etc.)
+				if is_instance_valid(owner_entity) and "blood_moon_damage_modifier" in owner_entity:
+					total_damage = int(total_damage * (1.0 + owner_entity.blood_moon_damage_modifier))
+
+				entity.take_damage(total_damage, owner_entity)
+
+				var damage_info = "🔥 Fireball hits %s for %d damage!" % [entity.get("entity_name"), total_damage]
+				if is_instance_valid(owner_entity) and "blood_moon_damage_modifier" in owner_entity and owner_entity.blood_moon_damage_modifier > 0.0:
+					damage_info += " [🩸 +%d%%]" % int(owner_entity.blood_moon_damage_modifier * 100)
+				print(damage_info)
 			_explode()
 			return
 

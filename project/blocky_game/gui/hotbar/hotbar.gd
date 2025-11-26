@@ -16,6 +16,9 @@ var _bento_right_panel : Panel = null  # Right 3 slots panel
 # Cooldown overlay system
 var _cooldown_overlays := {}  # Maps slot index -> {panel: ColorRect, label: Label}
 
+# Chain counter overlay system (for Blade of Pursuit)
+var _chain_counter_overlays := {}  # Maps slot index -> Label
+
 
 func _ready():
 	call_deferred("_update_views")
@@ -26,6 +29,7 @@ func _ready():
 func _process(_delta: float):
 	"""Update cooldown overlays for items with cooldowns"""
 	_update_cooldown_overlays()
+	_update_chain_counter_overlays()
 
 
 func _create_mining_progress_bar():
@@ -337,3 +341,65 @@ func _create_or_update_cooldown_overlay(slot_index: int, cooldown_seconds: float
 	# Update label text
 	var overlay = _cooldown_overlays[slot_index]
 	overlay.label.text = str(int(ceil(cooldown_seconds)))
+
+
+func _update_chain_counter_overlays():
+	"""Update chain counter overlays for Blade of Pursuit"""
+	# Get player to check chain progress
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		return
+
+	# Check each hotbar slot
+	for i in _inventory.get_hotbar_slot_count():
+		var slot_data = _inventory.get_hotbar_slot_data(i)
+		if not slot_data:
+			# Remove overlay if it exists
+			if _chain_counter_overlays.has(i):
+				_chain_counter_overlays[i].queue_free()
+				_chain_counter_overlays.erase(i)
+			continue
+
+		# Check if this is the Blade of Pursuit (ID 47)
+		if slot_data.type == InventoryItem.TYPE_ITEM and slot_data.id == 47:
+			# Get chain progress
+			if player.has_method("get_blade_chain_progress"):
+				var progress = player.get_blade_chain_progress()
+				if progress.active:
+					# Show counter: "2/5" or "2/10"
+					_create_or_update_chain_counter(i, progress.current, progress.max)
+				else:
+					# Remove counter when blade is not active
+					if _chain_counter_overlays.has(i):
+						_chain_counter_overlays[i].queue_free()
+						_chain_counter_overlays.erase(i)
+		else:
+			# Not blade of pursuit, remove counter if it exists
+			if _chain_counter_overlays.has(i):
+				_chain_counter_overlays[i].queue_free()
+				_chain_counter_overlays.erase(i)
+
+
+func _create_or_update_chain_counter(slot_index: int, current: int, max_count: int):
+	"""Create or update chain counter for Blade of Pursuit slot"""
+	var slot_view = _slot_container.get_child(slot_index)
+
+	if not _chain_counter_overlays.has(slot_index):
+		# Create new chain counter label
+		var label = Label.new()
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		label.position = Vector2(2, 2)  # Top-left corner
+		label.add_theme_font_size_override("font_size", 14)
+		label.add_theme_color_override("font_color", Color.WHITE)
+		label.add_theme_color_override("font_outline_color", Color.BLACK)
+		label.add_theme_constant_override("outline_size", 3)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.z_index = 15  # Above cooldown overlay
+
+		slot_view.add_child(label)
+		_chain_counter_overlays[slot_index] = label
+
+	# Update label text
+	var label = _chain_counter_overlays[slot_index]
+	label.text = "%d/%d" % [current, max_count]

@@ -32,8 +32,8 @@ func use(trans: Transform3D, inv_item_or_count = 1):
 		print("⚔️ Blade of Pursuit on cooldown!")
 		return
 
-	# Launch the blade
+	# Launch the blade (pass inv_item to check for powers)
 	if player.has_method("launch_blade_of_pursuit"):
-		player.launch_blade_of_pursuit(trans.origin)
+		player.launch_blade_of_pursuit(trans.origin, inv_item_or_count)
 	else:
 		print("⚔️ ERROR: Player missing launch_blade_of_pursuit method!")

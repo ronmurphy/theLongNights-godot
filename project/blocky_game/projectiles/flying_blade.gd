@@ -282,6 +282,10 @@ func _hit_enemy(enemy: Node3D):
 	# Mark as hit
 	hit_enemies.append(enemy)
 
+	# Update player's chain progress UI
+	if is_instance_valid(owner_entity) and owner_entity.has_method("update_blade_chain_progress"):
+		owner_entity.update_blade_chain_progress(hit_enemies.size(), max_chain_count)
+
 	# Calculate damage (with scaling for synergy power)
 	var current_damage = base_damage
 	if has_extended_chain:
@@ -289,6 +293,10 @@ func _hit_enemy(enemy: Node3D):
 		# 1st hit: 35, 2nd: 40, 3rd: 45... 10th: 80
 		current_damage = base_damage + (hit_enemies.size() - 1) * damage_per_hit
 		damage = current_damage  # Update for display
+
+	# Apply blood moon damage modifier (from blood pendant, etc.)
+	if is_instance_valid(owner_entity) and "blood_moon_damage_modifier" in owner_entity:
+		current_damage = int(current_damage * (1.0 + owner_entity.blood_moon_damage_modifier))
 
 	# Check if this is a push_block (handle differently from enemies)
 	if enemy.is_in_group("push_blocks"):
@@ -319,6 +327,10 @@ func _hit_enemy(enemy: Node3D):
 			var damage_info = "%d damage" % current_damage
 			if has_extended_chain and hit_enemies.size() > 1:
 				damage_info += " (+%d from chain)" % ((hit_enemies.size() - 1) * damage_per_hit)
+			# Check if blood moon modifier is active
+			if is_instance_valid(owner_entity) and "blood_moon_damage_modifier" in owner_entity:
+				if owner_entity.blood_moon_damage_modifier > 0.0:
+					damage_info += " [🩸 +%d%%]" % int(owner_entity.blood_moon_damage_modifier * 100)
 			print("⚔️ Blade hit %s for %s!" % [enemy.entity_name if "entity_name" in enemy else "enemy", damage_info])
 
 		# Spawn slash effect at impact
@@ -348,6 +360,9 @@ func _return_to_player():
 
 func _cleanup_and_free():
 	"""Clean up and free the blade"""
+	# Reset player's chain progress UI
+	if is_instance_valid(owner_entity) and owner_entity.has_method("reset_blade_chain"):
+		owner_entity.reset_blade_chain()
 	queue_free()
 
 

@@ -179,10 +179,17 @@ func _hit_entity(entity: Node):
 	var stack_count = _inv_item_or_count.count if typeof(_inv_item_or_count) == TYPE_OBJECT else 1
 	var total_damage = SPEAR_DAMAGE + stack_count
 
+	# Apply blood moon damage modifier (from blood pendant, etc.)
+	if is_instance_valid(_spear_owner) and "blood_moon_damage_modifier" in _spear_owner:
+		total_damage = int(total_damage * (1.0 + _spear_owner.blood_moon_damage_modifier))
+
 	# Deal damage
 	entity.take_damage(total_damage, _spear_owner)
 
-	print("Spear hit entity for %d damage! (base: %d + stack: %d)" % [total_damage, SPEAR_DAMAGE, stack_count])
+	var damage_info = "Spear hit entity for %d damage! (base: %d + stack: %d)" % [total_damage, SPEAR_DAMAGE, stack_count]
+	if is_instance_valid(_spear_owner) and "blood_moon_damage_modifier" in _spear_owner and _spear_owner.blood_moon_damage_modifier > 0.0:
+		damage_info += " [🩸 +%d%%]" % int(_spear_owner.blood_moon_damage_modifier * 100)
+	print(damage_info)
 
 	# ⚡ SKYSHARD POWERS
 	if typeof(_inv_item_or_count) == TYPE_OBJECT and _inv_item_or_count.skyshard_power != "":

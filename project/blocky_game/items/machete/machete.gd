@@ -149,15 +149,24 @@ func _slash_push_block(block: Node, attacker_pos: Vector3, direction: Vector3):
 
 func _slash_attack(entity: Node, attacker_pos: Vector3, inv_item_or_count):
 	var stack_count = inv_item_or_count.count if typeof(inv_item_or_count) == TYPE_OBJECT else inv_item_or_count
+	var player = get_tree().get_first_node_in_group("player")
 
 	# Deal damage with stack bonus
 	var total_damage = DAMAGE + stack_count
+
+	# Apply blood moon modifier
+	if player and "blood_moon_damage_modifier" in player:
+		total_damage = int(total_damage * (1.0 + player.blood_moon_damage_modifier))
+
 	entity.take_damage(total_damage, self)
 
 	# Spawn slash effect at entity position
 	_spawn_slash_effect(entity.global_position, (entity.global_position - attacker_pos).normalized())
 
-	print("Machete hit %s for %d damage!" % [entity.entity_name, total_damage])
+	var damage_info = "Machete hit %s for %d damage!" % [entity.entity_name, total_damage]
+	if player and "blood_moon_damage_modifier" in player and player.blood_moon_damage_modifier > 0.0:
+		damage_info += " [🩸 +%d%%]" % int(player.blood_moon_damage_modifier * 100)
+	print(damage_info)
 
 	# ⚡ SKYSHARD POWERS - Use centralized Powers system
 	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.skyshard_power != "":
@@ -174,7 +183,6 @@ func _slash_attack(entity: Node, attacker_pos: Vector3, inv_item_or_count):
 
 	# ⚡ SKYSHARD POWER: Wind Dash
 	if typeof(inv_item_or_count) == TYPE_OBJECT and inv_item_or_count.has_power("wind_dash"):
-		var player = get_tree().get_first_node_in_group("player")
 		if player and player.has_method("activate_wind_dash"):
 			player.activate_wind_dash()
 

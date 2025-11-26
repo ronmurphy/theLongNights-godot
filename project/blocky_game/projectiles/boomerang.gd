@@ -392,7 +392,13 @@ func _check_enemy_collisions():
 		if distance <= HIT_RADIUS:
 			# Inside hitbox - deal damage this frame!
 			if entity.has_method("take_damage"):
-				entity.take_damage(DAMAGE_PER_FRAME, owner_entity)
+				var damage = DAMAGE_PER_FRAME
+
+				# Apply blood moon damage modifier (from blood pendant, etc.)
+				if is_instance_valid(owner_entity) and "blood_moon_damage_modifier" in owner_entity:
+					damage = int(damage * (1.0 + owner_entity.blood_moon_damage_modifier))
+
+				entity.take_damage(damage, owner_entity)
 				_entities_damaged_this_frame.append(entity)
 
 

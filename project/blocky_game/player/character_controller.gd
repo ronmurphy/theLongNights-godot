@@ -62,10 +62,17 @@ const THORN_ATTACK_RANGE = 15.0  # Blocks to search for enemies
 ## Blade of Pursuit system
 var _blade_of_pursuit_cooldown := 0.0  # Cooldown timer
 const BLADE_OF_PURSUIT_COOLDOWN = 3.0  # 3 second cooldown
+var _blade_chain_current := 0  # Current enemy hit in chain
+var _blade_chain_max := 5  # Max enemies in chain (5 base, 10 with synergy)
+var _blade_is_active := false  # True while blade is chaining
 
 ## Ring of Teleportation system
 var _teleport_ring_cooldown := 0.0  # Cooldown timer
 const TELEPORT_RING_COOLDOWN = 30.0  # 30 second cooldown
+
+## Accessory system (blood pendant, etc.)
+var _equipped_accessory = null  # Currently equipped accessory item
+var blood_moon_damage_modifier: float = 0.0  # Damage multiplier (0.5 = +50% damage)
 
 ## Player avatar billboard
 var _player_avatar: PlayerAvatar = null
@@ -298,6 +305,9 @@ func _physics_process(delta: float):
 	# Handle Ring of Teleportation cooldown
 	if _teleport_ring_cooldown > 0.0:
 		_teleport_ring_cooldown -= delta
+
+	# Update blood moon damage modifier
+	_update_blood_moon_modifier()
 
 	# Handle void_fog damage (5 damage when moving to a new fog block)
 	if has_node(terrain):
@@ -1440,7 +1450,29 @@ func get_blade_of_pursuit_cooldown() -> float:
 	return _blade_of_pursuit_cooldown
 
 
-func launch_blade_of_pursuit(start_pos: Vector3) -> void:
+func get_blade_chain_progress() -> Dictionary:
+	"""Get blade chain progress for UI display"""
+	return {
+		"current": _blade_chain_current,
+		"max": _blade_chain_max,
+		"active": _blade_is_active
+	}
+
+
+func update_blade_chain_progress(current: int, max_chain: int) -> void:
+	"""Update blade chain progress from flying blade"""
+	_blade_chain_current = current
+	_blade_chain_max = max_chain
+	_blade_is_active = true
+
+
+func reset_blade_chain() -> void:
+	"""Reset blade chain when blade returns"""
+	_blade_chain_current = 0
+	_blade_is_active = false
+
+
+func launch_blade_of_pursuit(start_pos: Vector3, blade_item = null) -> void:
 	"""Launch the Blade of Pursuit at enemies"""
 	if _blade_of_pursuit_cooldown > 0.0:
 		return  # Still on cooldown
@@ -1449,8 +1481,15 @@ func launch_blade_of_pursuit(start_pos: Vector3) -> void:
 	_blade_of_pursuit_cooldown = BLADE_OF_PURSUIT_COOLDOWN
 
 	# Check for synergy power: "relentless_pursuit" (extended chain)
-	var equipped_weapon = _get_equipped_weapon()
-	var has_extended_chain = equipped_weapon and equipped_weapon.has_power("relentless_pursuit")
+	# Check the blade item itself (passed from hotbar use), not the equipped weapon
+	var has_extended_chain = false
+	if blade_item and typeof(blade_item) == TYPE_OBJECT and blade_item.has_method("has_power"):
+		has_extended_chain = blade_item.has_power("relentless_pursuit")
+
+	# Initialize chain tracking
+	_blade_chain_current = 0
+	_blade_chain_max = 10 if has_extended_chain else 5
+	_blade_is_active = true
 
 	# Create flying blade
 	const FlyingBlade = preload("res://blocky_game/projectiles/flying_blade.gd")
@@ -1499,6 +1538,35 @@ func is_teleport_ring_ready() -> bool:
 func get_teleport_ring_cooldown() -> float:
 	"""Get remaining cooldown time for Ring of Teleportation"""
 	return _teleport_ring_cooldown
+
+
+## Accessory system - Blood Pendant and other accessories
+func set_accessory(accessory_item) -> void:
+	"""Set the player's equipped accessory"""
+	_equipped_accessory = accessory_item
+	if accessory_item:
+		print("✨ Player equipped accessory: %s" % accessory_item.id)
+	else:
+		print("✨ Player unequipped accessory")
+	# Update modifier immediately
+	_update_blood_moon_modifier()
+
+
+func _update_blood_moon_modifier() -> void:
+	"""Update blood moon damage modifier based on equipped accessory and blood moon status"""
+	blood_moon_damage_modifier = 0.0  # Reset
+
+	if not _equipped_accessory:
+		return
+
+	# Blood Pendant: +50% damage during blood moons
+	const BLOOD_PENDANT_ID = 65
+	if _equipped_accessory.id == BLOOD_PENDANT_ID:
+		# Check if it's currently a blood moon
+		if TimeManager and TimeManager.is_bloodmoon:
+			blood_moon_damage_modifier = 0.5  # +50% damage
+			# Optional: print when modifier becomes active
+			# print("🩸 Blood Pendant active! +50% damage")
 
 
 func teleport_to_target(trans: Transform3D) -> void:
