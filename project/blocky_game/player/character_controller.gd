@@ -1423,6 +1423,10 @@ func launch_blade_of_pursuit(start_pos: Vector3) -> void:
 	# Start cooldown
 	_blade_of_pursuit_cooldown = BLADE_OF_PURSUIT_COOLDOWN
 
+	# Check for synergy power: "relentless_pursuit" (extended chain)
+	var equipped_weapon = _get_equipped_weapon()
+	var has_extended_chain = equipped_weapon and equipped_weapon.has_power("relentless_pursuit")
+
 	# Create flying blade
 	const FlyingBlade = preload("res://blocky_game/projectiles/flying_blade.gd")
 	var blade = Node3D.new()
@@ -1432,8 +1436,11 @@ func launch_blade_of_pursuit(start_pos: Vector3) -> void:
 	var game = get_node("/root/Main/Game")
 	if game:
 		game.add_child(blade)
-		blade.initialize(start_pos, self)
-		print("⚔️ Blade of Pursuit launched!")
+		blade.initialize(start_pos, self, has_extended_chain)
+		if has_extended_chain:
+			print("⚔️ Blade of Pursuit launched with RELENTLESS PURSUIT! (10 targets, scaling damage)")
+		else:
+			print("⚔️ Blade of Pursuit launched!")
 	else:
 		blade.queue_free()
 

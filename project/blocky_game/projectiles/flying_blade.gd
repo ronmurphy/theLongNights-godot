@@ -12,11 +12,16 @@ enum State {
 
 var state: State = State.SEEKING
 var speed := 25.0
-var damage := 35  # Rare drop magical weapon - strong damage per hit
+var base_damage := 35  # Rare drop magical weapon - strong damage per hit
+var damage := 35  # Current damage (may scale with synergy power)
 var owner_entity = null  # Player who launched the blade
 var max_chain_count := 5  # Maximum enemies to hit
 var search_range := 20.0  # Range to search for enemies
 var hit_enemies: Array = []  # Track which enemies we've already hit
+
+# Synergy power: Relentless Pursuit (extended chain)
+var has_extended_chain := false  # If true: 10 targets, +5 damage per hit
+var damage_per_hit := 5  # Damage bonus added per chain hit (synergy only)
 
 # Current target
 var current_target = null
@@ -136,11 +141,17 @@ func _ready():
 	print("⚔️ Created 3D blade mesh with magical aura")
 
 
-func initialize(start_pos: Vector3, player: Node3D):
+func initialize(start_pos: Vector3, player: Node3D, extended_chain: bool = false):
 	"""Initialize the blade with starting position and player reference"""
 	global_position = start_pos
 	owner_entity = player
 	return_position = start_pos
+	has_extended_chain = extended_chain
+
+	# Apply synergy power bonuses
+	if has_extended_chain:
+		max_chain_count = 10  # Extended from 5 to 10 targets
+		print("⚔️ RELENTLESS PURSUIT active: 10 targets, scaling damage!")
 
 	# Find first target
 	_find_next_target()
@@ -271,6 +282,14 @@ func _hit_enemy(enemy: Node3D):
 	# Mark as hit
 	hit_enemies.append(enemy)
 
+	# Calculate damage (with scaling for synergy power)
+	var current_damage = base_damage
+	if has_extended_chain:
+		# Damage increases by 5 for each enemy hit in the chain
+		# 1st hit: 35, 2nd: 40, 3rd: 45... 10th: 80
+		current_damage = base_damage + (hit_enemies.size() - 1) * damage_per_hit
+		damage = current_damage  # Update for display
+
 	# Check if this is a push_block (handle differently from enemies)
 	if enemy.is_in_group("push_blocks"):
 		# Push the block instead of dealing damage
@@ -296,8 +315,11 @@ func _hit_enemy(enemy: Node3D):
 	else:
 		# Deal damage to enemy
 		if enemy.has_method("take_damage"):
-			enemy.take_damage(damage, owner_entity)
-			print("⚔️ Blade hit %s for %d damage!" % [enemy.entity_name if "entity_name" in enemy else "enemy", damage])
+			enemy.take_damage(current_damage, owner_entity)
+			var damage_info = "%d damage" % current_damage
+			if has_extended_chain and hit_enemies.size() > 1:
+				damage_info += " (+%d from chain)" % ((hit_enemies.size() - 1) * damage_per_hit)
+			print("⚔️ Blade hit %s for %s!" % [enemy.entity_name if "entity_name" in enemy else "enemy", damage_info])
 
 		# Spawn slash effect at impact
 		var direction = (enemy.global_position - global_position).normalized()
