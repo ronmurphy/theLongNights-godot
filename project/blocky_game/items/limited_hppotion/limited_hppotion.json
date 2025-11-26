@@ -1,0 +1,6 @@
+{
+	"name": "Limited HP Potion",
+	"description": "A limited health potion. Permanently increases Max HP by 5.",
+	"max_stack": 10,
+	"icon": "res://blocky_game/items/limited_hppotion/limited_hppotion_sprite.png"
+}

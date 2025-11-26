@@ -675,6 +675,9 @@ func _apply_bloodmoon_buffs(entity, enemy_key: String):
 	entity.set_meta("is_bloodmoon_spawn", true)
 	entity.set_meta("spawn_y_position", entity.global_position.y)
 
+	# Track spawn count for blood moon performance rewards
+	TimeManager.increment_bloodmoon_spawn()
+
 	print("🩸 Blood Moon Buff Applied! Tier %d: +%d%% stats (%s HP:%d Atk:%d Def:%d)" %
 		[tier, int(buff_percent * 100), enemy_key, entity.max_hp, entity.attack_damage, entity.defense])
 

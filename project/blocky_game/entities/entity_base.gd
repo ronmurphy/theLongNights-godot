@@ -119,6 +119,10 @@ func die() -> void:
 
 	print("%s died!" % entity_name)
 
+	# Track blood moon kill for performance rewards
+	if has_meta("is_bloodmoon_spawn") and get_meta("is_bloodmoon_spawn"):
+		TimeManager.increment_bloodmoon_kill()
+
 	# Check for blood moon sky ruin drops
 	_check_bloodmoon_sky_drops()
 

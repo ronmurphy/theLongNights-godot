@@ -2811,6 +2811,27 @@ func _handle_chest_interaction(chest_pos: Vector3) -> void:
 			loot_messages.append("Ring of Teleportation")
 			print("Rare drop: Found Ring of Teleportation!")
 
+		# Limited potions - 10-15% chance each
+		if randf() < 0.15:
+			loot_items.append({"id": 60, "count": 1})  # limited_hppotion
+			loot_messages.append("Limited HP Potion")
+			print("Found Limited HP Potion!")
+
+		if randf() < 0.12:
+			loot_items.append({"id": 61, "count": 1})  # limited_atkpotion
+			loot_messages.append("Limited ATK Potion")
+			print("Found Limited ATK Potion!")
+
+		if randf() < 0.12:
+			loot_items.append({"id": 62, "count": 1})  # limited_defpotion
+			loot_messages.append("Limited DEF Potion")
+			print("Found Limited DEF Potion!")
+
+		if randf() < 0.10:
+			loot_items.append({"id": 63, "count": 1})  # limited_luckpotion
+			loot_messages.append("Limited LUCK Potion")
+			print("Found Limited LUCK Potion!")
+
 		# Always give a weapon/tool
 		# Climbing Claws > Wind Walker Boots
 		var loot_table = [
@@ -3431,31 +3452,43 @@ func clear_nearby_fish() -> void:
 
 
 func _on_bloodmoon_survived() -> void:
-	"""Called when player survives a blood moon - grants 2 random potions"""
-	# Potion item IDs from item_db.gd (0-indexed)
+	"""Called when player survives a blood moon - grants potions based on performance"""
+	# Full potion item IDs from item_db.gd (0-indexed)
 	const POTION_IDS = {
 		"hppotion": 56,
 		"defpotion": 57,
 		"atkpotion": 58,
 		"luckpotion": 59
 	}
-	
-	# Get all potion IDs as an array
+	const GOLDEN_POTION_ID = 64
+
+	# Get performance stats from TimeManager
+	var kill_percentage = TimeManager.get_bloodmoon_kill_percentage()
+	var kills = TimeManager.bloodmoon_enemies_killed
+	var spawns = TimeManager.bloodmoon_enemies_spawned
+
+	# Base reward: 2 random full potions (guaranteed for survival)
 	var available_potions = POTION_IDS.values()
-	
-	# Shuffle the array to randomize
 	available_potions.shuffle()
-	
-	# Take the first 2 potions (guaranteed to be unique)
+
 	var potion1_id = available_potions[0]
 	var potion2_id = available_potions[1]
-	
-	# Add potions to inventory
+
 	_add_item_to_inventory(potion1_id, 1)
 	_add_item_to_inventory(potion2_id, 1)
-	
-	# Get potion names for the message
+
 	var potion1_name = _item_db.get_item(potion1_id).base_info.name
 	var potion2_name = _item_db.get_item(potion2_id).base_info.name
-	
-	print("🎁 Blood Moon Survival Rewards: Received %s and %s!" % [potion1_name, potion2_name])
+
+	var reward_message = "🎁 Blood Moon Survival Rewards (%d/%d = %d%%):\n  • %s\n  • %s" % [
+		kills, spawns, int(kill_percentage * 100),
+		potion1_name, potion2_name
+	]
+
+	# Performance bonus: Golden potion for 75%+ kill rate
+	if kill_percentage >= 0.75:
+		_add_item_to_inventory(GOLDEN_POTION_ID, 1)
+		reward_message += "\n  • ✨ Golden Potion (Performance Bonus!)"
+		print("⭐ EXCELLENT PERFORMANCE! 75%+ kills - Golden Potion awarded!")
+
+	print(reward_message)

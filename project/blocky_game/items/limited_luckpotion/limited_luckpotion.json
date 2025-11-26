@@ -1,0 +1,6 @@
+{
+	"name": "Limited LUCK Potion",
+	"description": "A limited fortune potion. Permanently increases Luck by 1.",
+	"max_stack": 10,
+	"icon": "res://blocky_game/items/limited_luckpotion/limited_luckpotion_sprite.png"
+}

@@ -129,8 +129,8 @@ func _ready():
 	max_mana = PlayerData.max_mana
 	current_mana = PlayerData.current_mana
 
-	# Apply race-based speed multiplier
-	var speed_multiplier = CharacterQuiz.get_race_speed_multiplier(PlayerData.race)
+	# Apply race-based speed multiplier + golden potion speed blessing
+	var speed_multiplier = CharacterQuiz.get_race_speed_multiplier(PlayerData.race) + PlayerData.bonus_speed_multiplier
 	speed *= speed_multiplier
 	_climb_speed *= speed_multiplier
 
@@ -239,10 +239,11 @@ func _physics_process(delta: float):
 		if dm:
 			dm.check_event_triggers(global_position)
 
-	# Handle auto-regeneration (1 HP every 3 minutes)
+	# Handle auto-regeneration (1 HP every 3 minutes, or faster with golden potion regen blessing)
 	if is_alive and current_hp < max_hp:
 		_regen_timer += delta
-		if _regen_timer >= REGEN_INTERVAL:
+		var regen_interval = REGEN_INTERVAL / PlayerData.bonus_regen_multiplier  # Golden potion can make this 3x faster
+		if _regen_timer >= regen_interval:
 			_regen_timer = 0.0
 			heal(1)
 
@@ -380,7 +381,7 @@ func _physics_process(delta: float):
 				# Aerial control: reduce air movement if not gliding
 				# Check glide status early for aerial control
 				var equipped_weapon = _get_equipped_weapon()
-				var has_glide_power = equipped_weapon and equipped_weapon.has_power("glide")
+				var has_glide_power = (equipped_weapon and equipped_weapon.has_power("glide")) or PlayerData.permanent_glide
 				var boots_equipped = _has_wind_walker_boots()
 				var turn_speed_multiplier = 1.0
 
@@ -405,7 +406,7 @@ func _physics_process(delta: float):
 
 		# Wind Walker Boots and [Glide] Power: slow-fall cap (already checked above for aerial control)
 		var equipped_weapon = _get_equipped_weapon()
-		var has_glide_power = equipped_weapon and equipped_weapon.has_power("glide")
+		var has_glide_power = (equipped_weapon and equipped_weapon.has_power("glide")) or PlayerData.permanent_glide
 		var boots_equipped = _has_wind_walker_boots()
 		var fall_speed_cap = -4.0
 

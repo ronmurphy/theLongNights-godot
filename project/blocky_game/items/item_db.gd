@@ -258,6 +258,30 @@ func _init():
 		"behavior": "luckpotion.gd"
 	})
 
+	# Limited potions - half bonuses, common drops from pouches/chests
+	_create_item({
+		"name": "limited_hppotion",
+		"behavior": "limited_hppotion.gd"
+	})
+	_create_item({
+		"name": "limited_atkpotion",
+		"behavior": "limited_atkpotion.gd"
+	})
+	_create_item({
+		"name": "limited_defpotion",
+		"behavior": "limited_defpotion.gd"
+	})
+	_create_item({
+		"name": "limited_luckpotion",
+		"behavior": "limited_luckpotion.gd"
+	})
+
+	# Golden potion - special stat blessings (blood moon performance reward)
+	_create_item({
+		"name": "goldenpotion",
+		"behavior": "goldenpotion.gd"
+	})
+
 
 func get_item(id: int) -> Item:
 	assert(id >= 0)

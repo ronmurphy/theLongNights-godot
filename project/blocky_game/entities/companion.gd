@@ -112,8 +112,8 @@ func _ready():
 	luck = CompanionManager.get_companion_luck()
 	movement_speed = 4.0  # Base movement speed
 
-	# Apply race-based speed multiplier
-	var speed_multiplier = CharacterQuiz.get_race_speed_multiplier(CompanionManager.companion_race)
+	# Apply race-based speed multiplier + golden potion speed blessing
+	var speed_multiplier = CharacterQuiz.get_race_speed_multiplier(CompanionManager.companion_race) + CompanionManager.companion_bonus_speed_multiplier
 	movement_speed *= speed_multiplier
 
 	# Set collision box (similar to player)
@@ -1750,9 +1750,9 @@ func _apply_glide_fall_cap() -> void:
 	if _player and _player.has_method("_has_wind_walker_boots"):
 		player_has_boots = _player._has_wind_walker_boots()
 
-	# Check if companion has glide power equipped in THEIR accessory slot or weapon
+	# Check if companion has glide power equipped in THEIR accessory slot or weapon, or permanent glide blessing
 	var powers = get_all_equipped_powers()  # Gets powers from companion's weapon AND accessory
-	var has_glide_power = "glide" in powers
+	var has_glide_power = ("glide" in powers) or CompanionManager.companion_permanent_glide
 
 	# Determine fall speed cap based on synergy
 	var fall_speed_cap = -4.0

@@ -1,0 +1,6 @@
+{
+	"name": "Limited ATK Potion",
+	"description": "A limited strength potion. Permanently increases Attack by 1.",
+	"max_stack": 10,
+	"icon": "res://blocky_game/items/limited_atkpotion/limited_atkpotion_sprite.png"
+}

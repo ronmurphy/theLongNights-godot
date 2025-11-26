@@ -9,6 +9,7 @@ signal hour_changed(hour: int)
 signal bloodmoon_started
 signal bloodmoon_ended
 signal bloodmoon_survived  # Emitted when player survives a blood moon
+signal bloodmoon_stats_changed  # Emitted when kill count changes (for UI updates)
 signal week_completed
 signal season_changed(season: String)
 
@@ -28,6 +29,11 @@ var elapsed_time: float = 0.0
 
 var is_bloodmoon: bool = false
 var time_paused: bool = false
+
+# Blood moon tracking
+var bloodmoon_enemies_spawned: int = 0
+var bloodmoon_enemies_killed: int = 0
+var bloodmoon_start_hour: int = 0  # Hour when current blood moon started (for survival duration)
 
 # Seasonal tracking
 const SEASONS = ["spring", "summer", "autumn", "winter"]
@@ -93,6 +99,10 @@ func _update_bloodmoon_state() -> void:
 
 	if should_be_bloodmoon and not is_bloodmoon:
 		is_bloodmoon = true
+		# Reset tracking counters
+		bloodmoon_enemies_spawned = 0
+		bloodmoon_enemies_killed = 0
+		bloodmoon_start_hour = current_hour
 		bloodmoon_started.emit()
 		print("🩸 BLOODMOON STARTED!")
 	elif not should_be_bloodmoon and is_bloodmoon:
@@ -131,6 +141,46 @@ func get_total_hours() -> int:
 	var weeks_hours = (current_week - 1) * DAYS_PER_WEEK * HOURS_PER_DAY
 	var days_hours = (current_day - 1) * HOURS_PER_DAY
 	return weeks_hours + days_hours + current_hour
+
+
+## ============================================================================
+## BLOOD MOON TRACKING
+## ============================================================================
+
+func increment_bloodmoon_spawn() -> void:
+	"""Called by EnemySpawner when an enemy spawns during blood moon"""
+	if is_bloodmoon:
+		bloodmoon_enemies_spawned += 1
+		bloodmoon_stats_changed.emit()
+
+
+func increment_bloodmoon_kill() -> void:
+	"""Called by entity_base when a blood moon enemy dies"""
+	if is_bloodmoon:
+		bloodmoon_enemies_killed += 1
+		bloodmoon_stats_changed.emit()
+
+
+func get_bloodmoon_kill_percentage() -> float:
+	"""Returns kill percentage (0.0 to 1.0) for current blood moon"""
+	if bloodmoon_enemies_spawned == 0:
+		return 0.0
+	return float(bloodmoon_enemies_killed) / float(bloodmoon_enemies_spawned)
+
+
+func get_bloodmoon_survival_hours() -> int:
+	"""Returns how many hours the player has survived current blood moon"""
+	if not is_bloodmoon:
+		return 0
+
+	# Calculate hours since blood moon started
+	var hours_survived = current_hour - bloodmoon_start_hour
+
+	# Handle day transition (blood moon crosses midnight)
+	if hours_survived < 0:
+		hours_survived += HOURS_PER_DAY
+
+	return hours_survived
 
 
 ## ============================================================================

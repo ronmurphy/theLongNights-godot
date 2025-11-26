@@ -44,6 +44,12 @@ var companion_bonus_defense: int = 0
 var companion_bonus_attack: int = 0
 var companion_bonus_luck: int = 0
 
+# Special stat bonuses from golden potions
+var companion_bonus_speed_multiplier: float = 0.0  # Added to race speed multiplier
+var companion_bonus_regen_multiplier: float = 1.0  # Multiplies HP regen speed
+var companion_bonus_max_mana: int = 0  # Extra mana for wizard/healer
+var companion_permanent_glide: bool = false  # Can glide without equipment
+
 func _update_voice_defaults() -> void:
 	# Make male companions slightly deeper than female
 	if companion_gender == "male":
@@ -278,7 +284,11 @@ func save_to_file() -> void:
 		"bonus_max_hp": companion_bonus_max_hp,
 		"bonus_defense": companion_bonus_defense,
 		"bonus_attack": companion_bonus_attack,
-		"bonus_luck": companion_bonus_luck
+		"bonus_luck": companion_bonus_luck,
+		"bonus_speed_multiplier": companion_bonus_speed_multiplier,
+		"bonus_regen_multiplier": companion_bonus_regen_multiplier,
+		"bonus_max_mana": companion_bonus_max_mana,
+		"companion_permanent_glide": companion_permanent_glide
 	}
 	
 	# Get live companion data if it exists
@@ -366,6 +376,12 @@ func load_from_file() -> bool:
 	companion_bonus_defense = save_data.get("bonus_defense", 0)
 	companion_bonus_attack = save_data.get("bonus_attack", 0)
 	companion_bonus_luck = save_data.get("bonus_luck", 0)
+
+	# Load special stat bonuses from golden potions
+	companion_bonus_speed_multiplier = save_data.get("bonus_speed_multiplier", 0.0)
+	companion_bonus_regen_multiplier = save_data.get("bonus_regen_multiplier", 1.0)
+	companion_bonus_max_mana = save_data.get("bonus_max_mana", 0)
+	companion_permanent_glide = save_data.get("companion_permanent_glide", false)
 
 	# If no name was saved, generate one
 	if companion_name == "":

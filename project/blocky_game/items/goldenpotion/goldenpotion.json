@@ -1,0 +1,6 @@
+{
+	"name": "Golden Potion",
+	"description": "A rare magical elixir. Choose a powerful permanent blessing: Speed, Regen, Mana, or Glide.",
+	"max_stack": 5,
+	"icon": "res://blocky_game/items/goldenpotion/goldenpotion_sprite.png"
+}

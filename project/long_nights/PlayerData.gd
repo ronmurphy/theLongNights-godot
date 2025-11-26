@@ -24,6 +24,12 @@ var bonus_defense: int = 0
 var bonus_attack: int = 0
 var bonus_luck: int = 0
 
+## Special stat bonuses from golden potions
+var bonus_speed_multiplier: float = 0.0  # Added to race speed multiplier
+var bonus_regen_multiplier: float = 1.0  # Multiplies HP regen speed (1.0 = normal, 3.0 = 3x faster)
+var bonus_max_mana: int = 0  # Extra mana for wizard/healer
+var permanent_glide: bool = false  # Can glide without equipment
+
 ## Tutorial flags
 var compass_tutorial_shown: bool = false
 
@@ -113,7 +119,11 @@ func save_to_file() -> void:
 		"bonus_max_hp": bonus_max_hp,
 		"bonus_defense": bonus_defense,
 		"bonus_attack": bonus_attack,
-		"bonus_luck": bonus_luck
+		"bonus_luck": bonus_luck,
+		"bonus_speed_multiplier": bonus_speed_multiplier,
+		"bonus_regen_multiplier": bonus_regen_multiplier,
+		"bonus_max_mana": bonus_max_mana,
+		"permanent_glide": permanent_glide
 	}
 
 	var file = FileAccess.open("user://player_character.save", FileAccess.WRITE)
@@ -158,6 +168,12 @@ func load_from_file() -> bool:
 	bonus_defense = save_data.get("bonus_defense", 0)
 	bonus_attack = save_data.get("bonus_attack", 0)
 	bonus_luck = save_data.get("bonus_luck", 0)
+
+	# Load special stat bonuses from golden potions
+	bonus_speed_multiplier = save_data.get("bonus_speed_multiplier", 0.0)
+	bonus_regen_multiplier = save_data.get("bonus_regen_multiplier", 1.0)
+	bonus_max_mana = save_data.get("bonus_max_mana", 0)
+	permanent_glide = save_data.get("permanent_glide", false)
 
 	# Reapply role stats to include bonuses
 	_apply_role_stats()

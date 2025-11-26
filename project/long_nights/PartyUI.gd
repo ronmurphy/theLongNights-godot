@@ -25,6 +25,7 @@ class PartyMember:
 var party_container: VBoxContainer
 var player_ui: Control
 var companion_ui: Control
+var bloodmoon_label: Label  # Shows kill count during blood moon
 
 # Reference to player
 var player_node: Node3D
@@ -69,6 +70,9 @@ func _ready() -> void:
 	# Force full companion info refresh on game start (continue/load)
 	call_deferred("_refresh_companion_info_on_start")
 
+	# Connect to blood moon signals
+	call_deferred("_connect_to_bloodmoon")
+
 	print("PartyUI: Ready")
 # Force PartyUI companion info refresh on game start
 func _refresh_companion_info_on_start() -> void:
@@ -99,6 +103,15 @@ func _create_ui() -> void:
 	# Position in top-right (under time/day display) with margin from edge
 	var viewport_size = get_viewport_rect().size
 	party_container.position = Vector2(viewport_size.x - 310, 70)
+
+	# Blood moon kill count label (hidden by default, shown during blood moon)
+	bloodmoon_label = Label.new()
+	bloodmoon_label.name = "BloodMoonLabel"
+	bloodmoon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bloodmoon_label.add_theme_font_size_override("font_size", 14)
+	bloodmoon_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))  # Red color
+	bloodmoon_label.visible = false
+	party_container.add_child(bloodmoon_label)
 
 	# Create player UI
 	player_ui = _create_party_member_ui(false)
@@ -307,6 +320,41 @@ func _on_equipment_changed() -> void:
 	_update_player_weapon()
 	_update_companion_weapon()
 
+
+func _connect_to_bloodmoon() -> void:
+	"""Connect to TimeManager blood moon signals"""
+	if TimeManager:
+		TimeManager.bloodmoon_started.connect(_on_bloodmoon_started)
+		TimeManager.bloodmoon_ended.connect(_on_bloodmoon_ended)
+		TimeManager.bloodmoon_stats_changed.connect(_update_bloodmoon_label)
+		print("PartyUI: Connected to blood moon signals")
+	else:
+		push_warning("PartyUI: TimeManager not found!")
+
+
+func _on_bloodmoon_started() -> void:
+	"""Called when blood moon starts - show the kill count label"""
+	if bloodmoon_label:
+		bloodmoon_label.visible = true
+		_update_bloodmoon_label()
+
+
+func _on_bloodmoon_ended() -> void:
+	"""Called when blood moon ends - hide the kill count label"""
+	if bloodmoon_label:
+		bloodmoon_label.visible = false
+
+
+func _update_bloodmoon_label() -> void:
+	"""Update the blood moon kill count display"""
+	if not bloodmoon_label or not TimeManager:
+		return
+
+	var killed = TimeManager.bloodmoon_enemies_killed
+	var spawned = TimeManager.bloodmoon_enemies_spawned
+	var percentage = int(TimeManager.get_bloodmoon_kill_percentage() * 100)
+
+	bloodmoon_label.text = "Blood Moon: %d/%d (%d%%)" % [killed, spawned, percentage]
 
 
 func _update_player_ui() -> void:

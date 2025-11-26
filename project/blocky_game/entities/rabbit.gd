@@ -126,7 +126,7 @@ func _handle_resting(delta: float):
 
 func _handle_fleeing(delta: float):
 	# Flee away from attacker
-	if _attacker and is_instance_valid(_attacker):
+	if _attacker and is_instance_valid(_attacker) and _attacker is Node3D:
 		var away_from_attacker = (global_position - _attacker.global_position).normalized()
 		away_from_attacker.y = 0  # Only horizontal movement
 

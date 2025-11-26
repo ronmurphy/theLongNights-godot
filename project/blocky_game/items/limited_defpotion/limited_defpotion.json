@@ -1,0 +1,6 @@
+{
+	"name": "Limited DEF Potion",
+	"description": "A limited defense potion. Permanently increases Defense by 1.",
+	"max_stack": 10,
+	"icon": "res://blocky_game/items/limited_defpotion/limited_defpotion_sprite.png"
+}

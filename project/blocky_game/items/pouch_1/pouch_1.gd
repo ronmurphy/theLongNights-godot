@@ -22,6 +22,12 @@ const LOOT_TABLE = {
 	# Rare chance for basic weapons (weight 2-3)
 	"throwing_knives": 2,
 	"spear": 2,
+
+	# Limited potions - rare drops (weight 3-4)
+	"limited_hppotion": 4,
+	"limited_atkpotion": 3,
+	"limited_defpotion": 3,
+	"limited_luckpotion": 3,
 }
 
 

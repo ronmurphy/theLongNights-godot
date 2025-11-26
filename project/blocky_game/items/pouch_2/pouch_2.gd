@@ -26,6 +26,12 @@ const LOOT_TABLE = {
 	"boomerang": 5,
 	"spear": 6,
 	"crossbow": 4,
+
+	# Limited potions - better chance than tier 1 (weight 4-5)
+	"limited_hppotion": 5,
+	"limited_atkpotion": 4,
+	"limited_defpotion": 4,
+	"limited_luckpotion": 4,
 }
 
 
