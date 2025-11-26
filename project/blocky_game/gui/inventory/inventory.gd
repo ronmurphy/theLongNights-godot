@@ -1018,24 +1018,14 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 
 	# Equipment section - different layout for player vs companion
 	if is_player:
-		# Player: Single weapon slot (vertical layout)
-		var weapon_label = Label.new()
-		weapon_label.text = "Accessory"
-		weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		weapon_label.add_theme_font_size_override("font_size", 12)
-		content_container.add_child(weapon_label)
+		# Player: Single weapon slot (vertical layout) - matching companion flow
+		var equip_label = Label.new()
+		equip_label.text = "Equipment"
+		equip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		equip_label.add_theme_font_size_override("font_size", 12)
+		content_container.add_child(equip_label)
 
-		const InventorySlot = preload("res://blocky_game/gui/inventory/inventory_slot.tscn")
-		var weapon_slot = InventorySlot.instantiate()
-		weapon_slot.custom_minimum_size = Vector2(64, 64)
-		weapon_slot.pressed.connect(_on_equipment_slot_pressed.bind(is_player))
-		_player_weapon_slot_view = weapon_slot
-
-		var weapon_center = CenterContainer.new()
-		weapon_center.add_child(weapon_slot)
-		content_container.add_child(weapon_center)
-
-		# Player info area (name, role, stats)
+		# Player info area (name, role, stats) - BEFORE the weapon slot
 		var info_vbox = VBoxContainer.new()
 		info_vbox.name = "InfoVBox"
 		info_vbox.add_theme_constant_override("separation", 4)
@@ -1052,41 +1042,59 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 		role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		info_vbox.add_child(role_label)
 
-		# Stats row
-		var stat_hbox = HBoxContainer.new()
-		stat_hbox.name = "StatsHBox"
-		stat_hbox.add_theme_constant_override("separation", 6)
+		# First stats row: HP and ATK
+		var stat_hbox1 = HBoxContainer.new()
+		stat_hbox1.name = "StatsHBox1"
+		stat_hbox1.add_theme_constant_override("separation", 6)
 
 		var hp_label = Label.new()
 		hp_label.name = "HPLabel"
 		hp_label.add_theme_font_size_override("font_size", 10)
-		stat_hbox.add_child(hp_label)
-
-		info_vbox.add_child(stat_hbox)
-
-		# Bonus stats row (ATK, DEF, LUCK)
-		var bonus_hbox = HBoxContainer.new()
-		bonus_hbox.name = "BonusStatsHBox"
-		bonus_hbox.add_theme_constant_override("separation", 6)
+		stat_hbox1.add_child(hp_label)
 
 		var atk_label = Label.new()
 		atk_label.name = "ATKLabel"
 		atk_label.add_theme_font_size_override("font_size", 10)
-		bonus_hbox.add_child(atk_label)
+		stat_hbox1.add_child(atk_label)
+
+		info_vbox.add_child(stat_hbox1)
+
+		# Second stats row: DEF and LUCK
+		var stat_hbox2 = HBoxContainer.new()
+		stat_hbox2.name = "StatsHBox2"
+		stat_hbox2.add_theme_constant_override("separation", 6)
 
 		var def_label = Label.new()
 		def_label.name = "DEFLabel"
 		def_label.add_theme_font_size_override("font_size", 10)
-		bonus_hbox.add_child(def_label)
+		stat_hbox2.add_child(def_label)
 
 		var luck_label = Label.new()
 		luck_label.name = "LUCKLabel"
 		luck_label.add_theme_font_size_override("font_size", 10)
-		bonus_hbox.add_child(luck_label)
+		stat_hbox2.add_child(luck_label)
 
-		info_vbox.add_child(bonus_hbox)
+		info_vbox.add_child(stat_hbox2)
 
 		content_container.add_child(info_vbox)
+
+		# Weapon label
+		var weapon_label = Label.new()
+		weapon_label.text = "Accessory"
+		weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		weapon_label.add_theme_font_size_override("font_size", 10)
+		content_container.add_child(weapon_label)
+
+		# Weapon slot (below stats, matching companion layout)
+		const InventorySlot = preload("res://blocky_game/gui/inventory/inventory_slot.tscn")
+		var weapon_slot = InventorySlot.instantiate()
+		weapon_slot.custom_minimum_size = Vector2(64, 64)
+		weapon_slot.pressed.connect(_on_equipment_slot_pressed.bind(is_player))
+		_player_weapon_slot_view = weapon_slot
+
+		var weapon_center = CenterContainer.new()
+		weapon_center.add_child(weapon_slot)
+		content_container.add_child(weapon_center)
 	else:
 		# Companion: Weapon + Accessory side-by-side (horizontal layout)
 		var equip_label = Label.new()
@@ -1595,13 +1603,24 @@ func _update_player_panel() -> void:
 	if not info_vbox:
 		return
 
-	# Get labels
+	# Get labels (HP/ATK in StatsHBox1, DEF/LUCK in StatsHBox2)
 	var name_label = info_vbox.find_child("NameLabel", true, false)
 	var role_label = info_vbox.find_child("RoleLabel", true, false)
-	var hp_label = info_vbox.find_child("HPLabel", true, false)
-	var atk_label = info_vbox.find_child("ATKLabel", true, false)
-	var def_label = info_vbox.find_child("DEFLabel", true, false)
-	var luck_label = info_vbox.find_child("LUCKLabel", true, false)
+	var stat_hbox1 = info_vbox.find_child("StatsHBox1", true, false)
+	var stat_hbox2 = info_vbox.find_child("StatsHBox2", true, false)
+
+	var hp_label = null
+	var atk_label = null
+	var def_label = null
+	var luck_label = null
+
+	if stat_hbox1:
+		hp_label = stat_hbox1.find_child("HPLabel", true, false)
+		atk_label = stat_hbox1.find_child("ATKLabel", true, false)
+
+	if stat_hbox2:
+		def_label = stat_hbox2.find_child("DEFLabel", true, false)
+		luck_label = stat_hbox2.find_child("LUCKLabel", true, false)
 
 	# Update name
 	if name_label:
@@ -1613,7 +1632,7 @@ func _update_player_panel() -> void:
 
 	# Update HP (get from player entity if available)
 	if hp_label:
-		var current_hp = PlayerData.current_hp
+		var current_hp = PlayerData.max_hp  # Default to max HP
 		var max_hp = PlayerData.max_hp
 		var player = get_tree().get_first_node_in_group("player")
 		if player:
