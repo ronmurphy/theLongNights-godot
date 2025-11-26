@@ -30,6 +30,12 @@ const CHECK_INTERVAL = 3.0  # Check for new chunks every 3 seconds
 const FAST_CHECK_INTERVAL = 0.5  # Check every 0.5s when falling fast
 var _last_player_y: float = 0.0  # Track player Y for velocity detection
 
+## Performance optimization - Cache player reference to avoid frequent group queries
+var _cached_player: Node = null
+var _player_cache_timer: float = 0.0
+const PLAYER_CACHE_INTERVAL: float = 0.5  # Update player cache every 0.5 seconds
+const UNDERVOID_THRESHOLD: float = -100.0  # Quick exit if above this Y
+
 
 func _ready():
 	print("🟣 UndervoidSpawner ready - chunk-based spawning enabled")
@@ -53,23 +59,28 @@ func initialize(undervoid_structures: UndervoidStructures, blocks_node: Node, te
 
 func _process(delta: float):
 	"""Periodically check for new chunks to spawn structures in"""
+	# Performance optimization: Update cached player reference periodically
+	_player_cache_timer += delta
+	if _player_cache_timer >= PLAYER_CACHE_INTERVAL:
+		_player_cache_timer = 0.0
+		_cached_player = get_tree().get_first_node_in_group("player")
+
+	# Quick exit: Skip all processing if player is above Undervoid (sky ruins, surface, etc)
+	if not _cached_player or _cached_player.global_position.y > UNDERVOID_THRESHOLD:
+		return
+
 	_check_timer += delta
 
 	# Detect if player is falling fast (more than 20 blocks/second downward)
-	var player = get_tree().get_first_node_in_group("player")
-	if player:
-		var player_y = player.global_position.y
-		var y_velocity = (_last_player_y - player_y) / delta if delta > 0 else 0
-		_last_player_y = player_y
+	var player_y = _cached_player.global_position.y
+	var y_velocity = (_last_player_y - player_y) / delta if delta > 0 else 0
+	_last_player_y = player_y
 
-		# If falling fast in Undervoid, check much more frequently
-		var is_falling_fast = y_velocity > 20.0 and player_y < -150
-		var check_interval = FAST_CHECK_INTERVAL if is_falling_fast else CHECK_INTERVAL
+	# If falling fast in Undervoid, check much more frequently
+	var is_falling_fast = y_velocity > 20.0 and player_y < -150
+	var check_interval = FAST_CHECK_INTERVAL if is_falling_fast else CHECK_INTERVAL
 
-		if _check_timer >= check_interval:
-			_check_timer = 0.0
-			_check_nearby_chunks_for_structures()
-	elif _check_timer >= CHECK_INTERVAL:
+	if _check_timer >= check_interval:
 		_check_timer = 0.0
 		_check_nearby_chunks_for_structures()
 
@@ -77,16 +88,15 @@ func _process(delta: float):
 func _check_nearby_chunks_for_structures():
 	"""Check chunks around player and spawn structures if needed"""
 	# Only spawn if player is in Undervoid
-	var player = get_tree().get_first_node_in_group("player")
-	if not player:
+	if not _cached_player:
 		return
 
-	var player_y = player.global_position.y
+	var player_y = _cached_player.global_position.y
 	if player_y > -150:
 		return  # Not in Undervoid yet
 
 	# Get player's chunk coordinates
-	var player_pos = player.global_position
+	var player_pos = _cached_player.global_position
 	var player_chunk_x = int(floor(player_pos.x / CHUNK_SIZE))
 	var player_chunk_z = int(floor(player_pos.z / CHUNK_SIZE))
 
