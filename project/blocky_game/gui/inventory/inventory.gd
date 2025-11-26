@@ -919,303 +919,222 @@ func _create_equipment_panels():
 
 
 func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxContainer:
-	"""Create a paper doll panel with avatar and weapon slot"""
+	"""Create a paper doll panel with unified layout for both player and companion"""
 	var panel = VBoxContainer.new()
 	panel.name = character_name + "Equipment"
 	panel.add_theme_constant_override("separation", 8)
-	panel.custom_minimum_size = Vector2(180, 250)  # Increased size for better visibility
+	panel.custom_minimum_size = Vector2(200, 320)  # Increased size for better spacing
 
-	# Title label
+	# 1. Title Label (Character Type)
 	var title = Label.new()
 	title.text = character_name
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 16)  # Slightly larger font
+	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	panel.add_child(title)
 
-	# For companion: Create horizontal layout with behavior buttons on left
-	var content_container: Control
-	var behavior_buttons_vbox: VBoxContainer = null
+	# 2. Top Section: Avatar + (Optional) Behavior Buttons
+	var top_hbox = HBoxContainer.new()
+	top_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	top_hbox.add_theme_constant_override("separation", 10)
 	
+	# Behavior buttons (Left side, Companion only)
 	if not is_player:
-		# Companion: Use HBoxContainer for [Buttons] [Avatar+Equipment]
-		var hbox = HBoxContainer.new()
-		hbox.add_theme_constant_override("separation", 4)
+		var behavior_vbox = VBoxContainer.new()
+		behavior_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		behavior_vbox.add_theme_constant_override("separation", 6)
 		
-		# Left side: Behavior buttons (vertical stack)
-		behavior_buttons_vbox = VBoxContainer.new()
-		behavior_buttons_vbox.add_theme_constant_override("separation", 4)
-		
-		# Create 4 behavior buttons with emojis
 		var behaviors = ["normal", "aggressive", "defensive", "guard"]
 		var emojis = ["⚖️", "⚔️", "🛡️", "🏰"]
-		var colors = [
-			Color(0.7, 0.7, 0.7),   # Normal - gray
-			Color(1.0, 0.3, 0.3),   # Aggressive - red
-			Color(0.3, 0.5, 1.0),   # Defensive - blue
-			Color(0.8, 0.6, 0.3)    # Guard - orange/brown
-		]
-		var tooltips = ["Normal: Balanced behavior", "Aggressive: Attack more enemies from farther away", "Defensive: Stay close and protect", "Guard: Stay at current position and defend"]
+		var colors = [Color(0.8, 0.8, 0.8), Color(1.0, 0.4, 0.4), Color(0.4, 0.6, 1.0), Color(0.9, 0.7, 0.4)]
+		var tooltips = ["Normal", "Aggressive", "Defensive", "Guard"]
 		
 		for i in range(4):
 			var btn = Button.new()
 			btn.name = behaviors[i].capitalize() + "Button"
 			btn.text = emojis[i]
-			btn.custom_minimum_size = Vector2(32, 32)
-			btn.add_theme_font_size_override("font_size", 18)
-			btn.modulate = colors[i]
+			btn.custom_minimum_size = Vector2(36, 36)
 			btn.tooltip_text = tooltips[i]
+			btn.modulate = colors[i]
 			btn.pressed.connect(_on_behavior_button_pressed.bind(behaviors[i]))
-			behavior_buttons_vbox.add_child(btn)
+			behavior_vbox.add_child(btn)
 		
-		hbox.add_child(behavior_buttons_vbox)
-		
-		# Right side: Avatar and equipment (in a VBoxContainer)
-		content_container = VBoxContainer.new()
-		content_container.add_theme_constant_override("separation", 8)
-		hbox.add_child(content_container)
-		
-		panel.add_child(hbox)
-	else:
-		# Player: Just use the panel directly (no behavior buttons)
-		content_container = panel
+		top_hbox.add_child(behavior_vbox)
 
-	# Avatar (reuse party UI avatar) - made clickable for food consumption
+	# Avatar (Center)
 	var avatar_bg = Panel.new()
 	avatar_bg.name = "AvatarBG"
-	avatar_bg.custom_minimum_size = Vector2(128, 128)  # Bigger avatar, less squished
-
+	avatar_bg.custom_minimum_size = Vector2(128, 128)
+	
 	var avatar_style = StyleBoxFlat.new()
-	avatar_style.bg_color = Color(0.2, 0.2, 0.2, 0.8)
-	avatar_style.border_color = Color(0.6, 0.5, 0.3)
+	avatar_style.bg_color = Color(0.15, 0.15, 0.15, 0.9)
+	avatar_style.border_color = Color(0.5, 0.4, 0.3)
 	avatar_style.set_border_width_all(2)
+	avatar_style.corner_radius_top_left = 4
+	avatar_style.corner_radius_top_right = 4
+	avatar_style.corner_radius_bottom_left = 4
+	avatar_style.corner_radius_bottom_right = 4
 	avatar_bg.add_theme_stylebox_override("panel", avatar_style)
-
-	# Make avatar clickable for drag-to-consume food
-	var avatar_button = Button.new()
-	avatar_button.name = "AvatarButton"
-	avatar_button.custom_minimum_size = Vector2(128, 128)
-	avatar_button.flat = true  # Invisible button
-	avatar_button.mouse_filter = Control.MOUSE_FILTER_PASS
-	avatar_button.pressed.connect(_on_avatar_clicked.bind(is_player))
-	avatar_bg.add_child(avatar_button)
 
 	var avatar_texture = TextureRect.new()
 	avatar_texture.name = "AvatarTexture"
-	avatar_texture.custom_minimum_size = Vector2(124, 124)  # Match larger avatar size
+	avatar_texture.custom_minimum_size = Vector2(120, 120)
 	avatar_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	avatar_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	avatar_texture.position = Vector2(2, 2)
-	avatar_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Let button handle clicks
+	avatar_texture.position = Vector2(4, 4)
 	avatar_bg.add_child(avatar_texture)
 
-	# Load avatar based on player data
-	_load_avatar_for_panel(avatar_texture, is_player)
+	# Clickable area for food
+	var avatar_btn = Button.new()
+	avatar_btn.name = "AvatarButton"
+	avatar_btn.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	avatar_btn.flat = true
+	avatar_btn.mouse_filter = Control.MOUSE_FILTER_PASS
+	avatar_btn.pressed.connect(_on_avatar_clicked.bind(is_player))
+	avatar_bg.add_child(avatar_btn)
 
-	# Center avatar in panel
-	var avatar_center = CenterContainer.new()
-	avatar_center.add_child(avatar_bg)
-	content_container.add_child(avatar_center)
+	top_hbox.add_child(avatar_bg)
+	panel.add_child(top_hbox)
 
-	# Equipment section - different layout for player vs companion
+	# 3. Info Section (Name & Role)
+	var info_vbox = VBoxContainer.new()
+	info_vbox.name = "InfoVBox"
+	info_vbox.add_theme_constant_override("separation", 2)
+	
+	var name_label = Label.new()
+	name_label.name = "NameLabel"
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.add_theme_font_size_override("font_size", 14)
+	name_label.add_theme_color_override("font_color", Color(1, 0.9, 0.6)) # Gold-ish
+	info_vbox.add_child(name_label)
+
+	var role_label = Label.new()
+	role_label.name = "RoleLabel"
+	role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	role_label.add_theme_font_size_override("font_size", 11)
+	role_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	info_vbox.add_child(role_label)
+	
+	# Title label (hidden by default)
+	var title_label = Label.new()
+	title_label.name = "TitleLabel"
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_size_override("font_size", 11)
+	title_label.visible = false
+	info_vbox.add_child(title_label)
+
+	panel.add_child(info_vbox)
+
+	# 4. Stats Grid (Emoji based)
+	var stats_grid = GridContainer.new()
+	stats_grid.name = "StatsGrid"
+	stats_grid.columns = 2
+	stats_grid.add_theme_constant_override("h_separation", 15)
+	stats_grid.add_theme_constant_override("v_separation", 4)
+	
+	# Helper to create stat label
+	var create_stat = func(name, emoji):
+		var lbl = Label.new()
+		lbl.name = name + "Label"
+		lbl.text = emoji + " --"
+		lbl.add_theme_font_size_override("font_size", 12)
+		return lbl
+
+	var hp_container = HBoxContainer.new()
+	hp_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	hp_container.add_child(create_stat.call("HP", "❤️"))
+	stats_grid.add_child(hp_container)
+
+	var atk_container = HBoxContainer.new()
+	atk_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	atk_container.add_child(create_stat.call("ATK", "⚔️"))
+	stats_grid.add_child(atk_container)
+
+	var def_container = HBoxContainer.new()
+	def_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	def_container.add_child(create_stat.call("DEF", "🛡️"))
+	stats_grid.add_child(def_container)
+
+	var luck_container = HBoxContainer.new()
+	luck_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	luck_container.add_child(create_stat.call("LUCK", "🍀"))
+	stats_grid.add_child(luck_container)
+	
+	# Center the grid
+	var stats_center = CenterContainer.new()
+	stats_center.add_child(stats_grid)
+	panel.add_child(stats_center)
+
+	# 5. Equipment Slots (Weapon + Accessory)
+	var equip_hbox = HBoxContainer.new()
+	equip_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	equip_hbox.add_theme_constant_override("separation", 15)
+	
+	const InventorySlot = preload("res://blocky_game/gui/inventory/inventory_slot.tscn")
+	
+	# Weapon Slot
+	var weapon_vbox = VBoxContainer.new()
+	var weapon_lbl = Label.new()
+	weapon_lbl.text = "Weapon"
+	weapon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	weapon_lbl.add_theme_font_size_override("font_size", 10)
+	weapon_vbox.add_child(weapon_lbl)
+	
+	var weapon_slot = InventorySlot.instantiate()
+	weapon_slot.custom_minimum_size = Vector2(56, 56)
+	weapon_slot.pressed.connect(_on_equipment_slot_pressed.bind(is_player))
+	weapon_vbox.add_child(weapon_slot)
+	
 	if is_player:
-		# Player: Single weapon slot (vertical layout) - matching companion flow
-		var equip_label = Label.new()
-		equip_label.text = "Equipment"
-		equip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		equip_label.add_theme_font_size_override("font_size", 12)
-		content_container.add_child(equip_label)
-
-		# Player info area (name, role, stats) - BEFORE the weapon slot
-		var info_vbox = VBoxContainer.new()
-		info_vbox.name = "InfoVBox"
-		info_vbox.add_theme_constant_override("separation", 4)
-
-		var name_label = Label.new()
-		name_label.name = "NameLabel"
-		name_label.add_theme_font_size_override("font_size", 12)
-		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		info_vbox.add_child(name_label)
-
-		var role_label = Label.new()
-		role_label.name = "RoleLabel"
-		role_label.add_theme_font_size_override("font_size", 10)
-		role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		info_vbox.add_child(role_label)
-
-		# First stats row: HP and ATK
-		var stat_hbox1 = HBoxContainer.new()
-		stat_hbox1.name = "StatsHBox1"
-		stat_hbox1.add_theme_constant_override("separation", 6)
-
-		var hp_label = Label.new()
-		hp_label.name = "HPLabel"
-		hp_label.add_theme_font_size_override("font_size", 10)
-		stat_hbox1.add_child(hp_label)
-
-		var atk_label = Label.new()
-		atk_label.name = "ATKLabel"
-		atk_label.add_theme_font_size_override("font_size", 10)
-		stat_hbox1.add_child(atk_label)
-
-		info_vbox.add_child(stat_hbox1)
-
-		# Second stats row: DEF and LUCK
-		var stat_hbox2 = HBoxContainer.new()
-		stat_hbox2.name = "StatsHBox2"
-		stat_hbox2.add_theme_constant_override("separation", 6)
-
-		var def_label = Label.new()
-		def_label.name = "DEFLabel"
-		def_label.add_theme_font_size_override("font_size", 10)
-		stat_hbox2.add_child(def_label)
-
-		var luck_label = Label.new()
-		luck_label.name = "LUCKLabel"
-		luck_label.add_theme_font_size_override("font_size", 10)
-		stat_hbox2.add_child(luck_label)
-
-		info_vbox.add_child(stat_hbox2)
-
-		content_container.add_child(info_vbox)
-
-		# Weapon label
-		var weapon_label = Label.new()
-		weapon_label.text = "Accessory"
-		weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		weapon_label.add_theme_font_size_override("font_size", 10)
-		content_container.add_child(weapon_label)
-
-		# Weapon slot (below stats, matching companion layout)
-		const InventorySlot = preload("res://blocky_game/gui/inventory/inventory_slot.tscn")
-		var weapon_slot = InventorySlot.instantiate()
-		weapon_slot.custom_minimum_size = Vector2(64, 64)
-		weapon_slot.pressed.connect(_on_equipment_slot_pressed.bind(is_player))
 		_player_weapon_slot_view = weapon_slot
-
-		var weapon_center = CenterContainer.new()
-		weapon_center.add_child(weapon_slot)
-		content_container.add_child(weapon_center)
 	else:
-		# Companion: Weapon + Accessory side-by-side (horizontal layout)
-		var equip_label = Label.new()
-		equip_label.text = "Equipment"
-		equip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		equip_label.add_theme_font_size_override("font_size", 12)
-		content_container.add_child(equip_label)
-		
-		# Container for both slots (horizontal)
-		var slots_hbox = HBoxContainer.new()
-		slots_hbox.add_theme_constant_override("separation", 8)
-		
-		# Left side: Weapon slot with label
-		var weapon_vbox = VBoxContainer.new()
-		weapon_vbox.add_theme_constant_override("separation", 2)
-		
-		var weapon_label = Label.new()
-		weapon_label.text = "Weapon"
-		weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		weapon_label.add_theme_font_size_override("font_size", 10)
-		weapon_vbox.add_child(weapon_label)
-		
-		const InventorySlot = preload("res://blocky_game/gui/inventory/inventory_slot.tscn")
-		var weapon_slot = InventorySlot.instantiate()
-		weapon_slot.custom_minimum_size = Vector2(64, 64)
-		weapon_slot.pressed.connect(_on_equipment_slot_pressed.bind(is_player))
 		_companion_weapon_slot_view = weapon_slot
-		weapon_vbox.add_child(weapon_slot)
 		
-		slots_hbox.add_child(weapon_vbox)
+	equip_hbox.add_child(weapon_vbox)
+
+	# Accessory Slot
+	var acc_vbox = VBoxContainer.new()
+	var acc_lbl = Label.new()
+	acc_lbl.text = "Accessory"
+	acc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	acc_lbl.add_theme_font_size_override("font_size", 10)
+	acc_vbox.add_child(acc_lbl)
+	
+	var acc_slot = InventorySlot.instantiate()
+	acc_slot.custom_minimum_size = Vector2(56, 56)
+	
+	if is_player:
+		# Player doesn't have accessory slot logic implemented yet, so disable/dim it or just show empty
+		acc_slot.modulate = Color(0.5, 0.5, 0.5, 0.5) 
+		acc_slot.tooltip_text = "Player accessory slot not available"
+	else:
+		acc_slot.pressed.connect(_on_accessory_slot_pressed)
+		_companion_accessory_slot_view = acc_slot
 		
-		# Right side: Accessory slot with label
-		var accessory_vbox = VBoxContainer.new()
-		accessory_vbox.add_theme_constant_override("separation", 2)
-		
-		var accessory_label = Label.new()
-		accessory_label.text = "Accessory"
-		accessory_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		accessory_label.add_theme_font_size_override("font_size", 10)
-		accessory_vbox.add_child(accessory_label)
-		
-		var accessory_slot = InventorySlot.instantiate()
-		accessory_slot.custom_minimum_size = Vector2(64, 64)
-		accessory_slot.pressed.connect(_on_accessory_slot_pressed)
-		_companion_accessory_slot_view = accessory_slot
-		accessory_vbox.add_child(accessory_slot)
-		# Keep a reference to accessory view for later updates
-		_companion_accessory_slot_view = accessory_slot
+	acc_vbox.add_child(acc_slot)
+	equip_hbox.add_child(acc_vbox)
+	
+	panel.add_child(equip_hbox)
 
-		# Companion info area (details that don't fit in Party UI)
-		var info_vbox = VBoxContainer.new()
-		info_vbox.name = "InfoVBox"
-		info_vbox.add_theme_constant_override("separation", 4)
-
-		var name_label = Label.new()
-		name_label.name = "NameLabel"
-		name_label.add_theme_font_size_override("font_size", 12)
-		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		info_vbox.add_child(name_label)
-
-		var role_label = Label.new()
-		role_label.name = "RoleLabel"
-		role_label.add_theme_font_size_override("font_size", 10)
-		role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		info_vbox.add_child(role_label)
-
-		var title_label = Label.new()
-		title_label.name = "TitleLabel"
-		title_label.visible = false
-		info_vbox.add_child(title_label)
-
-		var stat_hbox = HBoxContainer.new()
-		stat_hbox.name = "StatsHBox"
-		stat_hbox.add_theme_constant_override("separation", 6)
-
-		var hp_label = Label.new()
-		hp_label.name = "HPLabel"
-		hp_label.add_theme_font_size_override("font_size", 10)
-		stat_hbox.add_child(hp_label)
-
-		var atk_label = Label.new()
-		atk_label.name = "ATKLabel"
-		atk_label.add_theme_font_size_override("font_size", 10)
-		stat_hbox.add_child(atk_label)
-
-		var def_label = Label.new()
-		def_label.name = "DEFLabel"
-		def_label.add_theme_font_size_override("font_size", 10)
-		stat_hbox.add_child(def_label)
-
-		info_vbox.add_child(stat_hbox)
-
-		# Show extra info: companion name, role, title, and stats
-		info_vbox.visible = true
-
-		content_container.add_child(info_vbox)
-		
-		slots_hbox.add_child(accessory_vbox)
-		
-		# Center the horizontal container
-		var slots_center = CenterContainer.new()
-		slots_center.add_child(slots_hbox)
-		content_container.add_child(slots_center)
-
-	# Add Hunt button for companion (only show for companion)
+	# 6. Hunt Button (Companion Only)
 	if not is_player:
 		var spacer = Control.new()
-		spacer.custom_minimum_size = Vector2(0, 10)
-		content_container.add_child(spacer)
+		spacer.custom_minimum_size = Vector2(0, 5)
+		panel.add_child(spacer)
 		
-		var hunt_button = Button.new()
-		hunt_button.name = "HuntButton"
-		hunt_button.text = "Hunt"
-		hunt_button.custom_minimum_size = Vector2(120, 40)
-		hunt_button.add_theme_font_size_override("font_size", 14)
-		hunt_button.modulate = Color(0.9, 0.7, 0.2)  # Golden color
-		hunt_button.pressed.connect(_on_hunt_button_pressed)
+		var hunt_btn = Button.new()
+		hunt_btn.text = "HUNT"
+		hunt_btn.custom_minimum_size = Vector2(100, 30)
+		hunt_btn.add_theme_font_size_override("font_size", 12)
+		hunt_btn.modulate = Color(0.9, 0.7, 0.2)
+		hunt_btn.pressed.connect(_on_hunt_button_pressed)
 		
 		var hunt_center = CenterContainer.new()
-		hunt_center.add_child(hunt_button)
-		content_container.add_child(hunt_center)
+		hunt_center.add_child(hunt_btn)
+		panel.add_child(hunt_center)
+
+	# Load avatar
+	_load_avatar_for_panel(avatar_texture, is_player)
 
 	return panel
 
@@ -1389,89 +1308,47 @@ func _update_companion_panel() -> void:
 	"""Refresh the companion paper-doll area with name, role, HP, ATK, DEF, and avatar."""
 	if not _companion_equipment_panel:
 		# Try to locate the panel in the scene tree if it wasn't created yet
-		var found = get_tree().get_root().find_node("CompanionEquipment", true, false)
+		var found = get_tree().get_root().find_child("CompanionEquipment", true, false)
 		if found:
 			_companion_equipment_panel = found
-			print("Inventory: found CompanionEquipment node at runtime")
 		else:
-			print("Inventory: CompanionEquipment not found, can't update panel")
 			return
-	print("Inventory: Updating companion panel - _companion_equipment_panel valid: %s" % (_companion_equipment_panel != null))
-	# Traverse to content_container first
-	var content_container = null
-	for child in _companion_equipment_panel.get_children():
-		if child is Container:
-			# Heuristic: look for the first container with AvatarBG and InfoVBox children
-			if child.find_child("AvatarBG", true, false) and child.find_child("InfoVBox", true, false):
-				content_container = child
-				break
-	if not content_container:
-		print("Inventory: content_container not found in CompanionEquipment panel")
-		return
-	# Now look for AvatarBG/AvatarTexture and InfoVBox inside content_container
-	var avatar_bg = content_container.find_child("AvatarBG", true, false)
-	var avatar_texture = null
-	if avatar_bg:
-		for child in avatar_bg.get_children():
-			if child is TextureRect and child.name == "AvatarTexture":
-				avatar_texture = child
-				break
-	print("Inventory: AvatarBG node: %s" % (avatar_bg != null))
-	print("Inventory: AvatarTexture node: %s" % (avatar_texture != null))
-	if avatar_texture and avatar_texture is TextureRect:
+
+	# In the new layout, everything is directly under the panel or in known containers
+	# Panel -> InfoVBox -> [NameLabel, RoleLabel, TitleLabel]
+	# Panel -> CenterContainer -> StatsGrid -> [HPLabel, ATKLabel, DEFLabel]
+	
+	var info_vbox = _companion_equipment_panel.find_child("InfoVBox", true, false)
+	var stats_grid = _companion_equipment_panel.find_child("StatsGrid", true, false)
+	var avatar_texture = _companion_equipment_panel.find_child("AvatarTexture", true, false)
+
+	# Update Avatar
+	if avatar_texture:
 		var active = null
 		if CompanionManager and CompanionManager.using_roster_system:
 			active = CompanionManager.get_active_companion()
-		var race = CompanionManager.companion_race
-		var gender = CompanionManager.companion_gender
-		if active != null:
-			race = active.race
-			gender = active.gender
-		# Use roster-aware avatar helper so Inventory and PartyUI pick the same sprite
+			
 		var avatar_path = CompanionManager.get_active_avatar_path("ready")
-		print("Inventory: companion avatar path=%s (race=%s gender=%s)" % [avatar_path, race, gender])
-		var avatar_exists = ResourceLoader.exists(avatar_path)
-		print("Inventory: ResourceLoader.exists(%s) = %s" % [avatar_path, avatar_exists])
-		if avatar_exists:
-			var loaded_texture = load(avatar_path)
-			print("Inventory: loaded texture: %s" % (loaded_texture != null))
-			avatar_texture.texture = loaded_texture
-			print("Inventory: avatar texture set for %s" % race)
-		else:
-			print("Inventory: Avatar texture path does not exist: %s" % avatar_path)
-	elif avatar_texture:
-		print("Inventory: AvatarTexture node is not a TextureRect! Type: %s" % typeof(avatar_texture))
-	var info_vbox = content_container.find_child("InfoVBox", true, false)
-	print("Inventory: InfoVBox node: %s" % (info_vbox != null))
+		if ResourceLoader.exists(avatar_path):
+			avatar_texture.texture = load(avatar_path)
+
+	# Update Info (Name, Role, Title)
 	if info_vbox:
 		var name_label = info_vbox.find_child("NameLabel", true, false)
 		var role_label = info_vbox.find_child("RoleLabel", true, false)
 		var title_label = info_vbox.find_child("TitleLabel", true, false)
-		var hp_label = info_vbox.find_child("HPLabel", true, false)
-		var atk_label = info_vbox.find_child("ATKLabel", true, false)
-		var def_label = info_vbox.find_child("DEFLabel", true, false)
-		print("Inventory: NameLabel: %s, RoleLabel: %s, TitleLabel: %s, HPLabel: %s, ATKLabel: %s, DEFLabel: %s" % [name_label != null, role_label != null, title_label != null, hp_label != null, atk_label != null, def_label != null])
 
 		var active = null
 		if CompanionManager and CompanionManager.using_roster_system:
 			active = CompanionManager.get_active_companion()
-		# If active is still null, ensure we fall back to legacy companion
-		if active == null:
-			print("Inventory: no roster active companion. Falling back to legacy values.")
 
-		# Debug output
-		print("Inventory: Updating companion panel. using_roster_system=%s" % CompanionManager.using_roster_system)
-		var a_name = active.companion_name if active != null else CompanionManager.get_companion_name()
-		print("Inventory: active companion name=%s" % a_name)
-
-		# Name & role
 		if name_label:
 			name_label.text = active.companion_name if active != null else CompanionManager.get_companion_name()
+		
 		if role_label:
 			var r = active.role if active != null else CompanionManager.companion_role
 			role_label.text = "[%s]" % CharacterQuiz.get_role_name(r)
 
-		# Title
 		if title_label:
 			var te = ""
 			var tt = ""
@@ -1481,34 +1358,50 @@ func _update_companion_panel() -> void:
 			else:
 				te = CompanionManager.saved_title_emoji
 				tt = CompanionManager.saved_title
+				
 			if tt != "":
 				title_label.text = "%s %s" % [te, tt]
 				title_label.visible = true
 			else:
-				title_label.text = ""
 				title_label.visible = false
 
-		# HP + stats
+	# Update Stats (HP, ATK, DEF)
+	if stats_grid:
+		var hp_label = stats_grid.find_child("HPLabel", true, false)
+		var atk_label = stats_grid.find_child("ATKLabel", true, false)
+		var def_label = stats_grid.find_child("DEFLabel", true, false)
+		
 		if hp_label:
 			var current_hp = CompanionManager.get_companion_max_hp()
 			var max_hp = CompanionManager.get_companion_max_hp()
 			var comps = get_tree().get_nodes_in_group("companions")
 			if comps.size() > 0:
 				var comp_node = comps[0]
-				if comp_node and typeof(comp_node.current_hp) in [TYPE_INT, TYPE_FLOAT]:
+				if comp_node and "current_hp" in comp_node:
 					current_hp = comp_node.current_hp
-					var comp_max = comp_node.get("max_hp")
-					if comp_max != null:
-						max_hp = comp_max
-			if max_hp == 0:
-				max_hp = CompanionManager.get_companion_max_hp()
-			hp_label.text = "%d/%d HP" % [current_hp, max_hp]
+					if "max_hp" in comp_node:
+						max_hp = comp_node.max_hp
+			
+			hp_label.text = "❤️ %d/%d" % [current_hp, max_hp]
 
 		if atk_label:
-			atk_label.text = "ATK: +%d" % CompanionManager.get_companion_attack_bonus()
+			atk_label.text = "⚔️ +%d" % CompanionManager.get_companion_attack_bonus()
 
 		if def_label:
-			def_label.text = "DEF: %d" % CompanionManager.get_companion_defense()
+			def_label.text = "🛡️ %d" % CompanionManager.get_companion_defense()
+
+	# Update weapon and accessory slots logic remains mostly the same, 
+	# but we need to ensure the views are correctly linked if they were re-created
+	# (The _create_paper_doll_panel function assigns _companion_weapon_slot_view, so we are good)
+	
+	# Re-run the logic to populate the slot data objects if needed
+	# (This part is largely unchanged from original, just ensuring it runs)
+	var active_comp = null
+	if CompanionManager and CompanionManager.using_roster_system:
+		active_comp = CompanionManager.get_active_companion()
+		
+	# ... (Weapon/Accessory data population logic is preserved in existing code below this block)
+
 
 	# Update weapon and accessory slots (use roster data if present, otherwise use legacy saved values)
 	var active = null
@@ -1596,62 +1489,48 @@ func _update_player_panel() -> void:
 	if not _player_equipment_panel:
 		return
 
-	# Find the InfoVBox in the player panel
-	var content_container = _player_equipment_panel  # For player, the panel IS the content container
-	var info_vbox = content_container.find_child("InfoVBox", true, false)
+	var info_vbox = _player_equipment_panel.find_child("InfoVBox", true, false)
+	var stats_grid = _player_equipment_panel.find_child("StatsGrid", true, false)
+	
+	# Update Info (Name, Role)
+	if info_vbox:
+		var name_label = info_vbox.find_child("NameLabel", true, false)
+		var role_label = info_vbox.find_child("RoleLabel", true, false)
+		
+		if name_label:
+			name_label.text = PlayerData.player_name
+			
+		if role_label:
+			role_label.text = "[%s]" % CharacterQuiz.get_role_name(PlayerData.role)
 
-	if not info_vbox:
-		return
-
-	# Get labels (HP/ATK in StatsHBox1, DEF/LUCK in StatsHBox2)
-	var name_label = info_vbox.find_child("NameLabel", true, false)
-	var role_label = info_vbox.find_child("RoleLabel", true, false)
-	var stat_hbox1 = info_vbox.find_child("StatsHBox1", true, false)
-	var stat_hbox2 = info_vbox.find_child("StatsHBox2", true, false)
-
-	var hp_label = null
-	var atk_label = null
-	var def_label = null
-	var luck_label = null
-
-	if stat_hbox1:
-		hp_label = stat_hbox1.find_child("HPLabel", true, false)
-		atk_label = stat_hbox1.find_child("ATKLabel", true, false)
-
-	if stat_hbox2:
-		def_label = stat_hbox2.find_child("DEFLabel", true, false)
-		luck_label = stat_hbox2.find_child("LUCKLabel", true, false)
-
-	# Update name
-	if name_label:
-		name_label.text = PlayerData.player_name if PlayerData.player_name != "" else "Player"
-
-	# Update role
-	if role_label:
-		role_label.text = "[%s]" % PlayerData.get_role_name()
-
-	# Update HP (get from player entity if available)
-	if hp_label:
-		var current_hp = PlayerData.max_hp  # Default to max HP
-		var max_hp = PlayerData.max_hp
-		var player = get_tree().get_first_node_in_group("player")
-		if player:
-			current_hp = player.current_hp
-			max_hp = player.max_hp
-		hp_label.text = "%d/%d HP" % [current_hp, max_hp]
-
-	# Update bonus stats
-	if atk_label:
-		var bonus = PlayerData.bonus_attack
-		atk_label.text = "ATK: +%d" % bonus if bonus > 0 else "ATK: 0"
-
-	if def_label:
-		var bonus = PlayerData.bonus_defense
-		def_label.text = "DEF: +%d" % bonus if bonus > 0 else "DEF: 0"
-
-	if luck_label:
-		var bonus = PlayerData.bonus_luck
-		luck_label.text = "LUCK: +%d" % bonus if bonus > 0 else "LUCK: 0"
+	# Update Stats (HP, ATK, DEF, LUCK)
+	if stats_grid:
+		var hp_label = stats_grid.find_child("HPLabel", true, false)
+		var atk_label = stats_grid.find_child("ATKLabel", true, false)
+		var def_label = stats_grid.find_child("DEFLabel", true, false)
+		var luck_label = stats_grid.find_child("LUCKLabel", true, false)
+		
+		if hp_label:
+			var player = get_tree().get_first_node_in_group("player")
+			var current_hp = PlayerData.max_hp
+			var max_hp = PlayerData.max_hp
+			
+			if player and "current_hp" in player:
+				current_hp = player.current_hp
+				
+			hp_label.text = "❤️ %d/%d" % [current_hp, max_hp]
+			
+		if atk_label:
+			var atk = PlayerData.attack_bonus
+			atk_label.text = "⚔️ +%d" % atk
+			
+		if def_label:
+			var def = PlayerData.defense
+			def_label.text = "🛡️ %d" % def
+			
+		if luck_label:
+			var luck = PlayerData.luck
+			luck_label.text = "🍀 %d" % luck
 
 
 func _validate_item_exists(item_id: int) -> bool:
