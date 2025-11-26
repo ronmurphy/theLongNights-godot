@@ -8,6 +8,7 @@ signal day_changed(day: int)
 signal hour_changed(hour: int)
 signal bloodmoon_started
 signal bloodmoon_ended
+signal bloodmoon_survived  # Emitted when player survives a blood moon
 signal week_completed
 signal season_changed(season: String)
 
@@ -97,6 +98,14 @@ func _update_bloodmoon_state() -> void:
 	elif not should_be_bloodmoon and is_bloodmoon:
 		is_bloodmoon = false
 		bloodmoon_ended.emit()
+		
+		# Check if player survived the blood moon
+		var player = get_tree().get_first_node_in_group("player")
+		if player and is_instance_valid(player):
+			# Player is alive - they survived!
+			bloodmoon_survived.emit()
+			print("🎉 Player survived the blood moon! Rewards granted.")
+		
 		print("✅ Bloodmoon ended, survivors advance!")
 
 ## Returns formatted time string

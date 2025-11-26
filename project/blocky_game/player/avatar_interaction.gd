@@ -143,6 +143,9 @@ func _ready():
 	var lamp_manager = get_node_or_null("/root/LampManager")
 	if lamp_manager:
 		await lamp_manager.load_lamps()
+	
+	# Connect to blood moon survival rewards
+	TimeManager.bloodmoon_survived.connect(_on_bloodmoon_survived)
 
 
 func _process(_delta):
@@ -2809,9 +2812,10 @@ func _handle_chest_interaction(chest_pos: Vector3) -> void:
 			print("Rare drop: Found Ring of Teleportation!")
 
 		# Always give a weapon/tool
+		# Climbing Claws > Wind Walker Boots
 		var loot_table = [
 			{"id": 0, "name": "Rocket Launcher"},
-			{"id": 2, "name": "Climbing Claws"},
+			{"id": 2, "name": "Wind Walker Boots"}, 
 			{"id": 3, "name": "Ice Bow"},
 			{"id": 4, "name": "Fire Staff"},
 			{"id": 5, "name": "Throwing Knives"},
@@ -3424,3 +3428,34 @@ func set_nearby_fish(fish: Node3D) -> void:
 func clear_nearby_fish() -> void:
 	"""Called when fish is no longer available"""
 	_nearby_fish = null
+
+
+func _on_bloodmoon_survived() -> void:
+	"""Called when player survives a blood moon - grants 2 random potions"""
+	# Potion item IDs from item_db.gd (0-indexed)
+	const POTION_IDS = {
+		"hppotion": 56,
+		"defpotion": 57,
+		"atkpotion": 58,
+		"luckpotion": 59
+	}
+	
+	# Get all potion IDs as an array
+	var available_potions = POTION_IDS.values()
+	
+	# Shuffle the array to randomize
+	available_potions.shuffle()
+	
+	# Take the first 2 potions (guaranteed to be unique)
+	var potion1_id = available_potions[0]
+	var potion2_id = available_potions[1]
+	
+	# Add potions to inventory
+	_add_item_to_inventory(potion1_id, 1)
+	_add_item_to_inventory(potion2_id, 1)
+	
+	# Get potion names for the message
+	var potion1_name = _item_db.get_item(potion1_id).base_info.name
+	var potion2_name = _item_db.get_item(potion2_id).base_info.name
+	
+	print("🎁 Blood Moon Survival Rewards: Received %s and %s!" % [potion1_name, potion2_name])

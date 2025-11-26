@@ -491,7 +491,14 @@ func _cmd_bloodmoon(args: Array) -> void:
 	elif subcmd == "stop":
 		TimeManager.is_bloodmoon = false
 		TimeManager.bloodmoon_ended.emit()
-		add_output("[color=lime]Bloodmoon ended[/color]")
+		
+		# Check if player survived (for testing rewards)
+		var player = get_tree().get_first_node_in_group("player")
+		if player and is_instance_valid(player):
+			TimeManager.bloodmoon_survived.emit()
+			add_output("[color=lime]Bloodmoon ended - Player survived! Rewards granted.[/color]")
+		else:
+			add_output("[color=lime]Bloodmoon ended[/color]")
 
 	else:
 		add_output("[color=red]Unknown bloodmoon command. Use: bloodmoon start | bloodmoon stop[/color]")
