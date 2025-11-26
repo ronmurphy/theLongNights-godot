@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ciofaifuejubq"
-path="res://.godot/imported/kitchenbench.png-02a212f8672c7b0c115533458cc4e087.ctex"
+uid="uid://cl1rtrxni4i06"
+path="res://.godot/imported/net.png-ca499ef8c40116f6870af7239dd8fbb0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/tools/kitchenbench.png"
-dest_files=["res://.godot/imported/kitchenbench.png-02a212f8672c7b0c115533458cc4e087.ctex"]
+source_file="res://assets/art/tools/net.png"
+dest_files=["res://.godot/imported/net.png-ca499ef8c40116f6870af7239dd8fbb0.ctex"]
 
 [params]
 

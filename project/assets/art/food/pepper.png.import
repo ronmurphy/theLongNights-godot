@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bw7evurwuv6qd"
-path="res://.godot/imported/workbench.png-dfb9e8a87f69609f63678662bac9fcdf.ctex"
+uid="uid://y17tle7pfr8i"
+path="res://.godot/imported/pepper.png-e87cca493f0a09dbfb64c21e59d6476a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/tools/workbench.png"
-dest_files=["res://.godot/imported/workbench.png-dfb9e8a87f69609f63678662bac9fcdf.ctex"]
+source_file="res://assets/art/food/pepper.png"
+dest_files=["res://.godot/imported/pepper.png-e87cca493f0a09dbfb64c21e59d6476a.ctex"]
 
 [params]
 

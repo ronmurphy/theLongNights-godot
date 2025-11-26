@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b1bl7jbxcqf7n"
-path="res://.godot/imported/toolbench.png-80b43e4ea0e51d32f50fb0797d738b7e.ctex"
+uid="uid://bmybehkfhdjrd"
+path="res://.godot/imported/dart.png-b37b20c09ceb730c2a95cbbfbb574a2c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/tools/toolbench.png"
-dest_files=["res://.godot/imported/toolbench.png-80b43e4ea0e51d32f50fb0797d738b7e.ctex"]
+source_file="res://assets/art/tools/dart.png"
+dest_files=["res://.godot/imported/dart.png-b37b20c09ceb730c2a95cbbfbb574a2c.ctex"]
 
 [params]
 
