@@ -243,6 +243,7 @@ func _register_commands() -> void:
 	commands["creative"] = _cmd_creative
 	commands["season"] = _cmd_season
 	commands["perfmon"] = _cmd_perfmon
+	commands["polish"] = _cmd_polish
 	commands["cooking"] = _cmd_cooking
 	commands["blocks"] = _cmd_blocks
 	commands["shop"] = _cmd_shop
@@ -301,6 +302,8 @@ func _cmd_help(_args: Array) -> void:
 	add_output("  [color=yellow]graphics low[/color] - Set to LOW profile (50 chunks)")
 	add_output("  [color=yellow]graphics medium[/color] - Set to MEDIUM profile (112 chunks)")
 	add_output("  [color=yellow]graphics high[/color] - Set to HIGH profile (128 chunks)")
+	add_output("  [color=yellow]graphics cinematic[/color] - Set to CINEMATIC profile (192 chunks + Glow)")
+	add_output("  [color=yellow]polish true|false[/color] - Toggle cheap visual effects (Vignette/Color Grading)")
 	add_output("")
 	add_output("[color=cyan]Display Commands:[/color]")
 	add_output("  [color=yellow]fps true[/color] - Show FPS counter")
@@ -704,9 +707,9 @@ func _cmd_graphics(args: Array) -> void:
 	var profile = args[0].to_lower()
 
 	# Validate profile exists
-	if profile not in ["low", "medium", "high"]:
+	if profile not in ["low", "medium", "high", "cinematic"]:
 		add_output("[color=red]Invalid profile: " + profile + "[/color]")
-		add_output("[color=yellow]Valid profiles: low, medium, high[/color]")
+		add_output("[color=yellow]Valid profiles: low, medium, high, cinematic[/color]")
 		return
 
 	# Apply the profile
@@ -726,6 +729,24 @@ func _cmd_graphics(args: Array) -> void:
 	add_output("  Shadows: " + ("ON" if shadows else "OFF"))
 	add_output("  Particles: " + str(particles))
 	add_output("  Debris Count: " + str(debris))
+
+func _cmd_polish(args: Array) -> void:
+	if args.is_empty():
+		var status = "ON" if GraphicsSettings.get_visual_polish_enabled() else "OFF"
+		add_output("[color=cyan]Visual Polish is currently: " + status + "[/color]")
+		add_output("[color=yellow]Usage: polish true | polish false[/color]")
+		return
+
+	var value = args[0].to_lower()
+
+	if value == "true" or value == "on" or value == "1":
+		GraphicsSettings.set_visual_polish_enabled(true)
+		add_output("[color=lime]Visual Polish enabled (Vignette + Color Grading)[/color]")
+	elif value == "false" or value == "off" or value == "0":
+		GraphicsSettings.set_visual_polish_enabled(false)
+		add_output("[color=lime]Visual Polish disabled[/color]")
+	else:
+		add_output("[color=red]Invalid value. Use: polish true | polish false[/color]")
 
 func _cmd_spawn(args: Array) -> void:
 	if args.is_empty():

@@ -10,80 +10,119 @@ const CONFIG_PATH = "user://graphics_settings.json"
 var profiles := {
 	"low": {
 		"directional_light_shadows": false,
-		"torch_light_shadows": false,  # Disable torch shadows on low (big FPS gain)
+		"torch_light_shadows": false,
 		"torch_light_enabled": false,
 		"torch_light_range": 0.0,
 		"particle_count": 8,
-		"meteor_trail_spawn_interval": 0.15,  # milliseconds as float (150ms)
+		"meteor_trail_spawn_interval": 0.15,
 		"debris_count": 0,
 		"debris_physics_enabled": false,
-		"voxel_viewer_distance": 64,  # Original distance, now smooth with SDFGI disabled
-		"camera_far_clip": 62.72,  # 64 * 0.98, just before voxel boundary
-		"foliage_cull_mode": 2,  # 2 = two-sided (foliage)
-		"transparent_cull_mode": 2,
-		"voxel_viewer_requires_collisions": true,  # Still need collisions for player
-		"voxel_viewer_requires_visuals": true,
-		"grass_sway_enabled": false,  # Disable grass sway on low quality
-		# Fog settings - fog starts 5 chunks before camera cutoff, fully opaque at cutoff
-		"day_fog_start": 44.0,      # 5 chunks before cutoff (49 - 5)
-		"day_fog_end": 49.0,        # Full opacity at camera edge
-		"night_fog_start": 44.0,    # Same for night
-		"night_fog_end": 49.0,
-		"bloodmoon_fog_start": 44.0,  # Same for bloodmoon
-		"bloodmoon_fog_end": 49.0,
-	},
-	"medium": {
-		"directional_light_shadows": true,
-		"torch_light_shadows": false,  # Still disable on medium to maintain good FPS
-		"torch_light_enabled": true,
-		"torch_light_range": 8.0,
-		"particle_count": 15,
-		"meteor_trail_spawn_interval": 0.10,  # 100ms
-		"debris_count": 15,
-		"debris_physics_enabled": true,
-		"voxel_viewer_distance": 144,  # Scaled from original ratio (112 * 64/50)
-		"camera_far_clip": 141.12,  # 144 * 0.98
+		"voxel_viewer_distance": 64,
+		"camera_far_clip": 62.72,
 		"foliage_cull_mode": 2,
 		"transparent_cull_mode": 2,
 		"voxel_viewer_requires_collisions": true,
 		"voxel_viewer_requires_visuals": true,
-		"grass_sway_enabled": true,  # Enable grass sway on medium quality
-		# Fog settings - fog starts 5 chunks before camera cutoff
-		"day_fog_start": 136.12,     # 5 chunks before cutoff (141.12 - 5)
+		"grass_sway_enabled": false,
+		"day_fog_start": 44.0,
+		"day_fog_end": 49.0,
+		"night_fog_start": 44.0,
+		"night_fog_end": 49.0,
+		"bloodmoon_fog_start": 44.0,
+		"bloodmoon_fog_end": 49.0,
+		# Post-processing
+		"glow_enabled": false,
+		"vignette_enabled": false,
+		"adjustment_enabled": false,
+	},
+	"medium": {
+		"directional_light_shadows": true,
+		"torch_light_shadows": false,
+		"torch_light_enabled": true,
+		"torch_light_range": 8.0,
+		"particle_count": 15,
+		"meteor_trail_spawn_interval": 0.10,
+		"debris_count": 15,
+		"debris_physics_enabled": true,
+		"voxel_viewer_distance": 144,
+		"camera_far_clip": 141.12,
+		"foliage_cull_mode": 2,
+		"transparent_cull_mode": 2,
+		"voxel_viewer_requires_collisions": true,
+		"voxel_viewer_requires_visuals": true,
+		"grass_sway_enabled": true,
+		"day_fog_start": 136.12,
 		"day_fog_end": 141.12,
 		"night_fog_start": 136.12,
 		"night_fog_end": 141.12,
 		"bloodmoon_fog_start": 136.12,
 		"bloodmoon_fog_end": 141.12,
+		# Post-processing
+		"glow_enabled": false,
+		"vignette_enabled": true,
+		"adjustment_enabled": true,
 	},
 	"high": {
 		"directional_light_shadows": true,
-		"torch_light_shadows": true,  # Enable beautiful shadows only on high-end hardware
+		"torch_light_shadows": true,
 		"torch_light_enabled": true,
 		"torch_light_range": 12.0,
 		"particle_count": 20,
-		"meteor_trail_spawn_interval": 0.05,  # 50ms
+		"meteor_trail_spawn_interval": 0.05,
 		"debris_count": 30,
 		"debris_physics_enabled": true,
-		"voxel_viewer_distance": 160,  # Scaled from original ratio (128 * 64/50)
-		"camera_far_clip": 156.8,  # 160 * 0.98
+		"voxel_viewer_distance": 160,
+		"camera_far_clip": 156.8,
 		"foliage_cull_mode": 2,
 		"transparent_cull_mode": 2,
 		"voxel_viewer_requires_collisions": true,
 		"voxel_viewer_requires_visuals": true,
-		"grass_sway_enabled": true,  # Enable grass sway on high quality
-		# Fog settings - fog starts 5 chunks before camera cutoff
-		"day_fog_start": 151.8,     # 5 chunks before cutoff (156.8 - 5)
+		"grass_sway_enabled": true,
+		"day_fog_start": 151.8,
 		"day_fog_end": 156.8,
 		"night_fog_start": 151.8,
 		"night_fog_end": 156.8,
 		"bloodmoon_fog_start": 151.8,
 		"bloodmoon_fog_end": 156.8,
+		# Post-processing
+		"glow_enabled": true,
+		"vignette_enabled": true,
+		"adjustment_enabled": true,
+	},
+	"cinematic": {
+		"directional_light_shadows": true,
+		"torch_light_shadows": true,
+		"torch_light_enabled": true,
+		"torch_light_range": 16.0,
+		"particle_count": 40,
+		"meteor_trail_spawn_interval": 0.02,
+		"debris_count": 50,
+		"debris_physics_enabled": true,
+		"voxel_viewer_distance": 192,
+		"camera_far_clip": 188.16,
+		"foliage_cull_mode": 0, # Disabled culling
+		"transparent_cull_mode": 0,
+		"voxel_viewer_requires_collisions": true,
+		"voxel_viewer_requires_visuals": true,
+		"grass_sway_enabled": true,
+		"day_fog_start": 183.16,
+		"day_fog_end": 188.16,
+		"night_fog_start": 183.16,
+		"night_fog_end": 188.16,
+		"bloodmoon_fog_start": 183.16,
+		"bloodmoon_fog_end": 188.16,
+		# Post-processing
+		"glow_enabled": true,
+		"vignette_enabled": true,
+		"adjustment_enabled": true,
 	}
 }
 
 # Global fog setting (applies to all profiles)
 var fog_enabled: bool = true
+
+# Global visual polish setting (allows cheap effects on lower profiles)
+var visual_polish_enabled: bool = true
 
 # Resolution and window settings
 var window_resolution: Vector2i = Vector2i(1920, 1080)
@@ -130,6 +169,10 @@ func load_settings() -> void:
 				fog_enabled = data["fog_enabled"]
 				print("[GraphicsSettings] Loaded fog_enabled: ", fog_enabled)
 			
+			if data.has("visual_polish_enabled"):
+				visual_polish_enabled = data["visual_polish_enabled"]
+				print("[GraphicsSettings] Loaded visual_polish_enabled: ", visual_polish_enabled)
+			
 			# Load resolution settings
 			if data.has("resolution"):
 				var res = data["resolution"]
@@ -159,6 +202,7 @@ func save_settings() -> void:
 	var config_data = {
 		"profile": current_profile,
 		"fog_enabled": fog_enabled,
+		"visual_polish_enabled": visual_polish_enabled,
 		"resolution": [window_resolution.x, window_resolution.y],
 		"fullscreen": fullscreen_enabled,
 		"vsync": vsync_enabled,
@@ -195,6 +239,7 @@ func apply_profile(profile_name: String) -> void:
 	_apply_camera_settings()
 	_apply_voxel_viewer_distance()
 	_apply_environment_quality()
+	_apply_post_processing()
 
 	settings_changed.emit(profile_name)
 	settings_applied.emit(current_settings)
@@ -257,7 +302,7 @@ func _apply_environment_quality() -> void:
 	# SDFGI = expensive global illumination (10-20+ fps cost on laptops)
 	var world_env = get_tree().root.find_child("WorldEnvironment", true, false)
 	if world_env and world_env.environment:
-		var enable_sdfgi = current_profile == "high"
+		var enable_sdfgi = current_profile == "high" or current_profile == "cinematic"
 		world_env.environment.sdfgi_enabled = enable_sdfgi
 		world_env.environment.sdfgi_use_occlusion = enable_sdfgi
 		print("[GraphicsSettings] SDFGI: ", "ENABLED" if enable_sdfgi else "DISABLED", " (profile: ", current_profile, ")")
@@ -390,3 +435,49 @@ func is_vsync_enabled() -> bool:
 
 func get_resolution_presets() -> Dictionary:
 	return resolution_presets
+
+## Visual Polish Control
+func set_visual_polish_enabled(enabled: bool) -> void:
+	visual_polish_enabled = enabled
+	_apply_post_processing()
+	save_settings()
+	print("[GraphicsSettings] Visual Polish: ", "ENABLED" if enabled else "DISABLED")
+
+func get_visual_polish_enabled() -> bool:
+	return visual_polish_enabled
+
+func toggle_visual_polish() -> bool:
+	visual_polish_enabled = !visual_polish_enabled
+	_apply_post_processing()
+	save_settings()
+	print("[GraphicsSettings] Visual Polish toggled: ", "ON" if visual_polish_enabled else "OFF")
+	return visual_polish_enabled
+
+func _apply_post_processing() -> void:
+	var world_env = get_tree().root.find_child("WorldEnvironment", true, false)
+	if world_env and world_env.environment:
+		var env = world_env.environment
+		
+		# Glow (Expensive) - Controlled by profile
+		var enable_glow = current_settings.get("glow_enabled", false)
+		env.glow_enabled = enable_glow
+		
+		# Visual Polish (Cheap) - Controlled by global toggle
+		# This allows low-end machines to have "pop" without expensive lighting
+		env.adjustment_enabled = visual_polish_enabled
+		if visual_polish_enabled:
+			env.adjustment_saturation = 1.15
+			env.adjustment_contrast = 1.05
+		
+		# Vignette
+		# Try to set intensity if property exists (Godot 4.x)
+		if "vignette_enabled" in env:
+			env.vignette_enabled = visual_polish_enabled
+		
+		if "vignette_intensity" in env:
+			env.vignette_intensity = 0.25 if visual_polish_enabled else 0.0
+			
+		print("[GraphicsSettings] Post-Process: Glow=", enable_glow, " | Polish=", visual_polish_enabled)
+	else:
+		print("[GraphicsSettings] Warning: WorldEnvironment not found for post-processing")
+

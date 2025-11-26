@@ -8,6 +8,7 @@ var _close_button: Button
 var _profile_buttons: Dictionary = {}
 var _profile_label: Label
 var _resolution_buttons: Dictionary = {}
+var _polish_checkbox: CheckBox
 var _fullscreen_checkbox: CheckBox
 var _vsync_checkbox: CheckBox
 
@@ -78,10 +79,11 @@ func _setup_ui() -> void:
 	var profile_tooltips = {
 		"low": "Best for potato PCs\nMinimal graphics features",
 		"medium": "Balanced performance\nModerate graphics quality",
-		"high": "Maximum quality\nRequires good hardware"
+		"high": "Maximum quality\nRequires good hardware",
+		"cinematic": "Ultimate visuals\nRequires powerful GPU"
 	}
 	
-	for profile_name in ["low", "medium", "high"]:
+	for profile_name in ["low", "medium", "high", "cinematic"]:
 		var button = Button.new()
 		button.text = profile_name.to_upper()
 		button.custom_minimum_size = Vector2(120, 50)
@@ -98,6 +100,19 @@ func _setup_ui() -> void:
 
 	# Spacer
 	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(0, 10)
+	vbox.add_child(spacer)
+
+	# Visual Polish Checkbox
+	_polish_checkbox = CheckBox.new()
+	_polish_checkbox.text = "Visual Polish (Vignette + Color Grading)"
+	_polish_checkbox.tooltip_text = "Enable cheap visual effects\nGreat for Low/Medium profiles"
+	_polish_checkbox.button_pressed = GraphicsSettings.get_visual_polish_enabled()
+	_polish_checkbox.toggled.connect(_on_polish_toggled)
+	vbox.add_child(_polish_checkbox)
+
+	# Spacer
+	spacer = Control.new()
 	spacer.custom_minimum_size = Vector2(0, 15)
 	vbox.add_child(spacer)
 
@@ -179,6 +194,10 @@ func _on_vsync_toggled(pressed: bool) -> void:
 	print("[GraphicsSettingsUI] VSync: ", pressed)
 	GraphicsSettings.set_vsync(pressed)
 
+func _on_polish_toggled(pressed: bool) -> void:
+	print("[GraphicsSettingsUI] Visual Polish: ", pressed)
+	GraphicsSettings.set_visual_polish_enabled(pressed)
+
 func _on_settings_changed(profile_name: String) -> void:
 	_update_profile_display()
 	_update_button_states()
@@ -201,6 +220,9 @@ func _update_button_states() -> void:
 		else:
 			button.remove_theme_color_override("font_color")
 			button.modulate = Color.WHITE
+	
+	if _polish_checkbox:
+		_polish_checkbox.set_pressed_no_signal(GraphicsSettings.get_visual_polish_enabled())
 	
 	_update_resolution_button_states()
 
