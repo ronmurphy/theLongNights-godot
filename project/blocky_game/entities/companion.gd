@@ -92,6 +92,11 @@ var _last_void_fog_position := Vector3i(999999, 999999, 999999)  # Track last fo
 var _teleport_retry_timer: float = 0.0  # Timer before retrying teleport
 const TELEPORT_RETRY_DELAY = 2.0  # Seconds to wait before retrying (matches teleport_stone cooldown)
 
+## Performance optimization - Entity caching to avoid expensive get_nodes_in_group() calls every frame
+var _cached_enemy_entities: Array = []
+var _enemy_cache_timer: float = 0.0
+const ENEMY_CACHE_REFRESH_INTERVAL: float = 1.0  # Check every 1.0 second
+
 
 func _ready():
 	# Set up as friendly entity BEFORE calling super._ready()
@@ -610,6 +615,12 @@ func _process(delta: float):
 	if not is_alive:
 		return
 
+	# Update cached enemy entities (performance optimization)
+	_enemy_cache_timer += delta
+	if _enemy_cache_timer >= ENEMY_CACHE_REFRESH_INTERVAL:
+		_enemy_cache_timer = 0.0
+		_cached_enemy_entities = get_tree().get_nodes_in_group("enemy_entities")
+
 	# Auto-eat from bento box if HP is low
 	_try_auto_eat_from_bento()
 
@@ -831,13 +842,17 @@ func _attack_target():
 
 
 func _look_for_threats():
-	# Auto-attack nearby enemies
-	var enemies = get_tree().get_nodes_in_group("enemy_entities")
+	# Auto-attack nearby enemies (using cached entity list)
+	var enemies = _cached_enemy_entities
 	var closest_enemy = null
 	var attack_range = ATTACK_RANGE if is_ranged_weapon else MELEE_RANGE
 	var closest_distance = attack_range
 
 	for enemy in enemies:
+		# Skip invalid entities
+		if not is_instance_valid(enemy):
+			continue
+
 		if not enemy.is_alive:
 			continue
 
@@ -1711,30 +1726,27 @@ func _apply_defensive_heal(delta: float) -> void:
 func _apply_companion_flame_aura(delta: float) -> void:
 	"""Companion's flame aura - burns nearby enemies"""
 	_companion_flame_aura_timer += delta
-	
+
 	if _companion_flame_aura_timer >= 1.0:  # Every 1 second
 		_companion_flame_aura_timer = 0.0
-		
+
 		const FLAME_RADIUS = 4.0
 		const FLAME_DAMAGE = 3  # Companions do less flame damage than player
-		
-		var entities = get_tree().get_nodes_in_group("entities")
+
+		# Use enemy_entities group instead of scanning all entities
+		var entities = get_tree().get_nodes_in_group("enemy_entities")
 		var burned_count = 0
-		
+
 		for entity in entities:
 			if not is_instance_valid(entity) or not entity.is_alive:
 				continue
-			
-			# Only burn enemies
-			if entity.team != Team.ENEMY:
-				continue
-			
+
 			# Check if within flame aura radius
 			var distance = global_position.distance_to(entity.global_position)
 			if distance <= FLAME_RADIUS:
 				entity.take_damage(FLAME_DAMAGE, self)
 				burned_count += 1
-		
+
 		if burned_count > 0:
 			print("🔥 %s's Flame Aura! Burned %d nearby enemies for %d damage each" % [entity_name, burned_count, FLAME_DAMAGE])
 

@@ -93,24 +93,11 @@ func _ready():
 
 
 func _load_enemies_from_json():
-	"""Load all enemy entities from entities.json and organize by tier"""
-	var file = FileAccess.open(ENTITIES_JSON_PATH, FileAccess.READ)
-	if not file:
-		push_error("EnemySpawner: Failed to load entities.json")
-		return
+	"""Load all enemy entities from entities.json (cached via JsonDataManager) and organize by tier"""
+	var data = JsonDataManager.get_data("entities")
 
-	var json_string = file.get_as_text()
-	file.close()
-
-	var json = JSON.new()
-	var error = json.parse(json_string)
-	if error != OK:
-		push_error("EnemySpawner: Failed to parse entities.json")
-		return
-
-	var data = json.data
 	if not data or not "monsters" in data:
-		push_error("EnemySpawner: No 'monsters' section in entities.json")
+		push_error("EnemySpawner: No 'monsters' section in entities data")
 		return
 
 	var monsters = data["monsters"]

@@ -533,31 +533,17 @@ func _create_sprite(texture_path: String, pixel_size: float = 0.0025) -> Sprite3
 
 
 
-## Load entity data from entities.json
+## Load entity data from entities.json (cached via JsonDataManager)
 static func load_entity_data(entity_id: String) -> Dictionary:
-	var json_path = "res://assets/art/entities/entities.json"
-	var file = FileAccess.open(json_path, FileAccess.READ)
+	var entities = JsonDataManager.get_data("entities")
 
-	if file == null:
-		push_error("EntityBase: Failed to open entities.json")
-		return {}
-
-	var json_string = file.get_as_text()
-	file.close()
-
-	var json = JSON.new()
-	if json.parse(json_string) != OK:
-		push_error("EntityBase: Failed to parse entities.json")
-		return {}
-
-	var data = json.data
-	if typeof(data) != TYPE_DICTIONARY:
-		push_error("EntityBase: entities.json is not a dictionary")
+	if entities.is_empty():
+		push_error("EntityBase: Failed to load entities data")
 		return {}
 
 	# Search in monsters section
-	if "monsters" in data and entity_id in data["monsters"]:
-		return data["monsters"][entity_id]
+	if "monsters" in entities and entity_id in entities["monsters"]:
+		return entities["monsters"][entity_id]
 
 	push_error("EntityBase: Entity '%s' not found in entities.json" % entity_id)
 	return {}

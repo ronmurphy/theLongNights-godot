@@ -1,7 +1,7 @@
 extends Node
 
 ## Cooking Recipe Database
-## Loads recipes from recipes_database.json
+## Loads recipes from recipes_database.json (cached via JsonDataManager)
 
 # Recipe structure: {ingredients: [{id: int, count: int}], result_id: int, result_count: int, name: String, description: String, effects: Dictionary}
 var _recipes = []
@@ -11,41 +11,23 @@ func _init():
 
 
 func _load_recipes_from_json():
-	"""Load all recipes from the JSON database"""
-	var json_path = "res://assets/data/recipes_database.json"
+	"""Load all recipes from the JSON database (cached via JsonDataManager)"""
+	var data = JsonDataManager.get_data("recipes")
 
-	if not FileAccess.file_exists(json_path):
-		print("ERROR: recipes_database.json not found at: ", json_path)
+	if not data or not data.has("recipes"):
+		print("ERROR: No recipes found in recipes data")
 		return
-
-	var file = FileAccess.open(json_path, FileAccess.READ)
-	if file == null:
-		print("ERROR: Could not open recipes_database.json")
-		return
-
-	var json_text = file.get_as_text()
-	file.close()
-
-	var json = JSON.new()
-	var parse_result = json.parse(json_text)
-
-	if parse_result != OK:
-		print("ERROR: Failed to parse recipes_database.json: ", json.get_error_message())
-		return
-
-	var data = json.data
 
 	# Load all recipes from the JSON
-	if data.has("recipes"):
-		for recipe_data in data.recipes:
-			_recipes.append({
-				"ingredients": recipe_data.ingredients,
-				"result_id": recipe_data.result_id,
-				"result_count": recipe_data.result_count,
-				"name": recipe_data.name,
-				"description": recipe_data.description,
-				"effects": recipe_data.effects
-			})
+	for recipe_data in data.recipes:
+		_recipes.append({
+			"ingredients": recipe_data.ingredients,
+			"result_id": recipe_data.result_id,
+			"result_count": recipe_data.result_count,
+			"name": recipe_data.name,
+			"description": recipe_data.description,
+			"effects": recipe_data.effects
+		})
 
 	print("Loaded ", _recipes.size(), " recipes from database")
 

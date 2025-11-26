@@ -10,7 +10,8 @@
       "Bash(git log:*)",
       "WebFetch(domain:godotshaders.com)",
       "Bash(/home/brad/Documents/Godot/godot.linuxbsd.editor.x86_64:*)",
-      "Bash(/home/brad/Godot/godot.linuxbsd.editor.x86_64:*)"
+      "Bash(/home/brad/Godot/godot.linuxbsd.editor.x86_64:*)",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "ask": []
