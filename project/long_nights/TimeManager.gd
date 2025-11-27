@@ -92,9 +92,12 @@ func advance_week() -> void:
 	print("🎉 Week completed! Week %d begins" % current_week)
 
 func _update_bloodmoon_state() -> void:
+	# Blood moon spans across midnight from day 7 to day 1
+	# Day 7: 9pm (hour 21) to 11pm (hour 23)
+	# Day 1: midnight (hour 0) to 5am (hour 5, exclusive)
 	var should_be_bloodmoon = (current_day == DAYS_PER_WEEK and
 							   current_hour >= BLOODMOON_START_HOUR) or \
-							  (current_day == DAYS_PER_WEEK and
+							  (current_day == 1 and
 							   current_hour < BLOODMOON_END_HOUR)
 
 	if should_be_bloodmoon and not is_bloodmoon:

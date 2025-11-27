@@ -97,6 +97,9 @@ func _ready():
 	# Initialize companion weapon slot with their default weapon
 	call_deferred("_initialize_companion_default_weapon")
 
+	# Initialize player accessory slots from saved data
+	call_deferred("_initialize_player_accessories")
+
 	# Connect to roster swaps so the UI updates when companion swaps (PartyUI uses the same signal)
 	if CompanionManager and not CompanionManager.companion_swapped.is_connected(_on_companion_roster_swapped):
 		CompanionManager.companion_swapped.connect(_on_companion_roster_swapped)
@@ -431,13 +434,15 @@ func _on_slot_pressed(idx: int):
 		if _dragged_slot >= 0:
 			dragged_item = _slots[_dragged_slot]
 		elif _dragged_slot == -999:
-			dragged_item = _player_weapon_slot
+			dragged_item = _player_weapon_slot  # Companion weapon (player uses -995/-996 for accessories)
 		elif _dragged_slot == -998:
 			dragged_item = _companion_weapon_slot
 		elif _dragged_slot == -997:
 			dragged_item = _companion_accessory_slot
 		elif _dragged_slot == -996:
-			dragged_item = _player_accessory_slot
+			dragged_item = _player_accessory_slot  # Player accessory slot 2
+		elif _dragged_slot == -995:
+			dragged_item = _player_weapon_slot  # Player accessory slot 1 (repurposed from weapon)
 		elif _dragged_slot <= -100:
 			# From bento box
 			var source_bento_idx = -100 - _dragged_slot
@@ -466,7 +471,11 @@ func _on_slot_pressed(idx: int):
 			elif _dragged_slot == -996:
 				_player_accessory_slot = null
 				_player_accessory_slot_view.get_display().set_item(null)
-				_update_player_accessory()
+				_update_player_accessories()
+			elif _dragged_slot == -995:
+				_player_weapon_slot = null
+				_player_weapon_slot_view.get_display().set_item(null)
+				_update_player_accessories()
 			elif _dragged_slot <= -100:
 				# Clear from bento box
 				var source_bento_idx = -100 - _dragged_slot
@@ -556,6 +565,10 @@ func _on_slot_pressed(idx: int):
 					_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
 				elif _dragged_slot == -997:
 					_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+				elif _dragged_slot == -996:
+					_player_accessory_slot_view.get_display().set_item(_player_accessory_slot)
+				elif _dragged_slot == -995:
+					_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
 				elif _dragged_slot >= 0:
 					_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
 				_dragged_slot = -1
@@ -579,15 +592,19 @@ func _on_bento_slot_pressed(bento_idx: int):
 		if _dragged_slot >= 0:
 			# From regular inventory
 			dragged_item = _slots[_dragged_slot]
-		elif _dragged_slot == -999 or _dragged_slot == -998 or _dragged_slot == -997:
-			# From equipment slot - cancel (can't put equipment in bento)
-			print("Cannot place equipment in bento box!")
+		elif _dragged_slot == -999 or _dragged_slot == -998 or _dragged_slot == -997 or _dragged_slot == -996 or _dragged_slot == -995:
+			# From equipment/accessory slot - cancel (can't put equipment in bento)
+			print("Cannot place equipment/accessories in bento box!")
 			if _dragged_slot == -999:
 				_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
 			elif _dragged_slot == -998:
 				_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
 			elif _dragged_slot == -997:
 				_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+			elif _dragged_slot == -996:
+				_player_accessory_slot_view.get_display().set_item(_player_accessory_slot)
+			elif _dragged_slot == -995:
+				_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
 			_dragged_item_view.stop()
 			_dragged_slot = -1
 			return
@@ -628,6 +645,10 @@ func _on_bento_slot_pressed(bento_idx: int):
 				_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
 			elif _dragged_slot == -997:
 				_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+			elif _dragged_slot == -996:
+				_player_accessory_slot_view.get_display().set_item(_player_accessory_slot)
+			elif _dragged_slot == -995:
+				_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
 			elif _dragged_slot <= -100:
 				var source_bento_idx = -100 - _dragged_slot
 				_bento_slot_views[source_bento_idx].get_display().set_item(_bento_slots[source_bento_idx])
@@ -651,8 +672,9 @@ func _on_slot_right_clicked(idx: int):
 		return
 
 	# Find usable item IDs (pouches and stat potions)
-	const USABLE_ITEM_NAMES = ["pouch_1", "pouch_2", "pouch_3", "pouch_4", "pouch_5", "hppotion", "defpotion", "atkpotion", "luckpotion"]
-	for i in range(100):
+	const USABLE_ITEM_NAMES = ["pouch_1", "pouch_2", "pouch_3", "pouch_4", "pouch_5", "hppotion", "defpotion", "atkpotion", "luckpotion", "limited_hppotion", "limited_defpotion", "limited_atkpotion", "limited_luckpotion"]
+	var item_count = items_node.get_item_count()
+	for i in range(item_count):
 		var check_item = items_node.get_item(i)
 		if check_item and check_item.base_info.name in USABLE_ITEM_NAMES:
 			# Found a usable item (pouch or potion)!
@@ -680,9 +702,9 @@ func _on_avatar_clicked(is_player: bool):
 	var dragged_item = null
 	if _dragged_slot >= 0:
 		dragged_item = _slots[_dragged_slot]
-	elif _dragged_slot == -999 or _dragged_slot == -998 or _dragged_slot == -997:
-		# Equipment slot - can't consume weapons/accessories
-		print("Cannot consume equipment!")
+	elif _dragged_slot == -999 or _dragged_slot == -998 or _dragged_slot == -997 or _dragged_slot == -996 or _dragged_slot == -995:
+		# Equipment/accessory slot - can't consume weapons/accessories
+		print("Cannot consume equipment/accessories!")
 		_cancel_drag()
 		return
 	elif _dragged_slot <= -100:
@@ -734,6 +756,10 @@ func _cancel_drag():
 		_companion_weapon_slot_view.get_display().set_item(_companion_weapon_slot)
 	elif _dragged_slot == -997:
 		_companion_accessory_slot_view.get_display().set_item(_companion_accessory_slot)
+	elif _dragged_slot == -996:
+		_player_accessory_slot_view.get_display().set_item(_player_accessory_slot)
+	elif _dragged_slot == -995:
+		_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
 	elif _dragged_slot <= -100:
 		var source_bento_idx = -100 - _dragged_slot
 		_bento_slot_views[source_bento_idx].get_display().set_item(_bento_slots[source_bento_idx])
@@ -1080,42 +1106,43 @@ func _create_paper_doll_panel(character_name: String, is_player: bool) -> VBoxCo
 	
 	const InventorySlot = preload("res://blocky_game/gui/inventory/inventory_slot.tscn")
 	
-	# Weapon Slot
+	# Weapon Slot (Player: Accessory, Companion: Weapon)
 	var weapon_vbox = VBoxContainer.new()
 	var weapon_lbl = Label.new()
-	weapon_lbl.text = "Weapon"
+	weapon_lbl.text = "Accessory" if is_player else "Weapon"
 	weapon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	weapon_lbl.add_theme_font_size_override("font_size", 10)
 	weapon_vbox.add_child(weapon_lbl)
-	
+
 	var weapon_slot = InventorySlot.instantiate()
 	weapon_slot.custom_minimum_size = Vector2(56, 56)
-	weapon_slot.pressed.connect(_on_equipment_slot_pressed.bind(is_player))
-	weapon_vbox.add_child(weapon_slot)
-	
 	if is_player:
+		weapon_slot.pressed.connect(_on_player_accessory_slot_1_pressed)
 		_player_weapon_slot_view = weapon_slot
+		weapon_slot.tooltip_text = "Player Accessory Slot 1"
 	else:
+		weapon_slot.pressed.connect(_on_equipment_slot_pressed.bind(is_player))
 		_companion_weapon_slot_view = weapon_slot
+	weapon_vbox.add_child(weapon_slot)
 		
 	equip_hbox.add_child(weapon_vbox)
 
-	# Accessory Slot
+	# Accessory Slot (Second slot for player)
 	var acc_vbox = VBoxContainer.new()
 	var acc_lbl = Label.new()
-	acc_lbl.text = "Accessory"
+	acc_lbl.text = "Accessory" if not is_player else "Accessory"
 	acc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	acc_lbl.add_theme_font_size_override("font_size", 10)
 	acc_vbox.add_child(acc_lbl)
-	
+
 	var acc_slot = InventorySlot.instantiate()
 	acc_slot.custom_minimum_size = Vector2(56, 56)
 
 	if is_player:
-		# Player accessory slot (for blood pendant, etc.)
-		acc_slot.pressed.connect(_on_player_accessory_slot_pressed)
+		# Player accessory slot 2 (for blood pendant, phoenix items, etc.)
+		acc_slot.pressed.connect(_on_player_accessory_slot_2_pressed)
 		_player_accessory_slot_view = acc_slot
-		acc_slot.tooltip_text = "Player Accessory Slot"
+		acc_slot.tooltip_text = "Player Accessory Slot 2"
 	else:
 		acc_slot.pressed.connect(_on_accessory_slot_pressed)
 		_companion_accessory_slot_view = acc_slot
@@ -1294,45 +1321,148 @@ func _on_accessory_slot_pressed():
 			_dragged_item_view.start(_companion_accessory_slot)
 
 
-func _on_player_accessory_slot_pressed():
-	"""Handle clicking player accessory slot"""
+func _on_player_accessory_slot_1_pressed():
+	"""Handle clicking player accessory slot 1 (first slot, was 'weapon')"""
 	if _dragged_slot != -1:
 		# Try to equip dragged item
-		var dragged_item = _slots[_dragged_slot] if _dragged_slot >= 0 else null
+		var dragged_item = null
+
+		# Get the item being dragged
+		if _dragged_slot >= 0:
+			dragged_item = _slots[_dragged_slot]
+		elif _dragged_slot == -995:
+			dragged_item = _player_weapon_slot  # First accessory slot
+		elif _dragged_slot == -996:
+			dragged_item = _player_accessory_slot  # Second accessory slot
+		elif _dragged_slot == -997:
+			dragged_item = _companion_accessory_slot
 
 		if dragged_item != null:
-			# For now, allow any item with an EQUIP power OR accessory items like blood pendant
-			# We'll allow blood pendant even without powers (it has passive blood moon bonus)
+			# Check if it's a valid accessory (EQUIP power OR special accessories like blood pendant)
 			var is_valid_accessory = false
 			if dragged_item.skyshard_power != "" and _is_equip_power(dragged_item.skyshard_power):
 				is_valid_accessory = true
-			elif dragged_item.id == 65:  # blood_pendant ID (last item in item_db.gd)
+			elif dragged_item.id == 65:  # blood_pendant ID
+				is_valid_accessory = true
+
+			if is_valid_accessory:
+				# Swap items
+				var old_accessory = _player_weapon_slot
+				_player_weapon_slot = dragged_item
+
+				# Return old item to source
+				if _dragged_slot >= 0:
+					_slots[_dragged_slot] = old_accessory
+					_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+				elif _dragged_slot == -995:
+					_player_weapon_slot = null
+				elif _dragged_slot == -996:
+					_player_accessory_slot = old_accessory
+					_update_player_accessory_slot_view()
+				elif _dragged_slot == -997:
+					_companion_accessory_slot = old_accessory
+					_update_accessory_slot_view()
+
+				# Update view
+				_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
+
+				# End drag
+				_dragged_item_view.stop()
+				_dragged_slot = -1
+
+				# Notify player (update both slots)
+				_update_player_accessories()
+
+				equipment_changed.emit()
+				print("✨ Player equipped accessory in slot 1: %s" % dragged_item.id)
+			else:
+				# Invalid item
+				print("❌ Only accessories can go in player accessory slot 1!")
+				if _dragged_slot >= 0 and _dragged_slot < _slots.size():
+					_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+				elif _dragged_slot == -995:
+					_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
+				elif _dragged_slot == -996:
+					_update_player_accessory_slot_view()
+				elif _dragged_slot == -997:
+					_update_accessory_slot_view()
+				_dragged_item_view.stop()
+				_dragged_slot = -1
+		else:
+			_dragged_item_view.stop()
+			_dragged_slot = -1
+	else:
+		# Start dragging accessory if there is one
+		if _player_weapon_slot != null:
+			_dragged_slot = -995  # Special ID for player accessory slot 1
+			_dragged_item_view.start(_player_weapon_slot)
+
+
+func _on_player_accessory_slot_2_pressed():
+	"""Handle clicking player accessory slot 2 (second slot)"""
+	if _dragged_slot != -1:
+		# Try to equip dragged item
+		var dragged_item = null
+
+		# Get the item being dragged
+		if _dragged_slot >= 0:
+			dragged_item = _slots[_dragged_slot]
+		elif _dragged_slot == -995:
+			dragged_item = _player_weapon_slot  # First accessory slot
+		elif _dragged_slot == -996:
+			dragged_item = _player_accessory_slot  # Second accessory slot
+		elif _dragged_slot == -997:
+			dragged_item = _companion_accessory_slot
+
+		if dragged_item != null:
+			# Check if it's a valid accessory (EQUIP power OR special accessories like blood pendant)
+			var is_valid_accessory = false
+			if dragged_item.skyshard_power != "" and _is_equip_power(dragged_item.skyshard_power):
+				is_valid_accessory = true
+			elif dragged_item.id == 65:  # blood_pendant ID
 				is_valid_accessory = true
 
 			if is_valid_accessory:
 				# Swap items
 				var old_accessory = _player_accessory_slot
 				_player_accessory_slot = dragged_item
-				_slots[_dragged_slot] = old_accessory
 
-				# Update views
+				# Return old item to source
+				if _dragged_slot >= 0:
+					_slots[_dragged_slot] = old_accessory
+					_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+				elif _dragged_slot == -995:
+					_player_weapon_slot = old_accessory
+					_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
+				elif _dragged_slot == -996:
+					_player_accessory_slot = null
+				elif _dragged_slot == -997:
+					_companion_accessory_slot = old_accessory
+					_update_accessory_slot_view()
+
+				# Update view
 				_update_player_accessory_slot_view()
-				_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
 
 				# End drag
 				_dragged_item_view.stop()
 				_dragged_slot = -1
 
-				# Notify player
-				_update_player_accessory()
+				# Notify player (update both slots)
+				_update_player_accessories()
 
 				equipment_changed.emit()
-				print("✨ Player equipped accessory: %s" % dragged_item.id)
+				print("✨ Player equipped accessory in slot 2: %s" % dragged_item.id)
 			else:
 				# Invalid item
-				print("❌ Only accessories can go in player accessory slot!")
+				print("❌ Only accessories can go in player accessory slot 2!")
 				if _dragged_slot >= 0 and _dragged_slot < _slots.size():
 					_slot_views[_dragged_slot].get_display().set_item(_slots[_dragged_slot])
+				elif _dragged_slot == -995:
+					_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
+				elif _dragged_slot == -996:
+					_update_player_accessory_slot_view()
+				elif _dragged_slot == -997:
+					_update_accessory_slot_view()
 				_dragged_item_view.stop()
 				_dragged_slot = -1
 		else:
@@ -1341,7 +1471,7 @@ func _on_player_accessory_slot_pressed():
 	else:
 		# Start dragging accessory if there is one
 		if _player_accessory_slot != null:
-			_dragged_slot = -996  # Special ID for player accessory slot
+			_dragged_slot = -996  # Special ID for player accessory slot 2
 			_dragged_item_view.start(_player_accessory_slot)
 
 
@@ -1631,15 +1761,75 @@ func _update_player_accessory_slot_view():
 		_player_accessory_slot_view.get_display().set_item(_player_accessory_slot)
 
 
-func _update_player_accessory():
-	"""Notify player of accessory change"""
+func _initialize_player_accessories():
+	"""Load player accessories from PlayerData on game start"""
+	# Load accessory 1
+	if PlayerData.equipped_accessory_1_id >= 0:
+		if _validate_item_exists(PlayerData.equipped_accessory_1_id):
+			_player_weapon_slot = _make_item(InventoryItem.TYPE_ITEM, PlayerData.equipped_accessory_1_id)
+			_player_weapon_slot.count = PlayerData.equipped_accessory_1_count
+			_player_weapon_slot.skyshard_power = PlayerData.equipped_accessory_1_power
+			if _player_weapon_slot_view:
+				_player_weapon_slot_view.get_display().set_item(_player_weapon_slot)
+			print("✨ Loaded player accessory 1: %d (x%d) [%s]" % [PlayerData.equipped_accessory_1_id, PlayerData.equipped_accessory_1_count, PlayerData.equipped_accessory_1_power])
+		else:
+			print("⚠️ Player accessory 1 %d no longer exists, removing" % PlayerData.equipped_accessory_1_id)
+			PlayerData.equipped_accessory_1_id = -1
+
+	# Load accessory 2
+	if PlayerData.equipped_accessory_2_id >= 0:
+		if _validate_item_exists(PlayerData.equipped_accessory_2_id):
+			_player_accessory_slot = _make_item(InventoryItem.TYPE_ITEM, PlayerData.equipped_accessory_2_id)
+			_player_accessory_slot.count = PlayerData.equipped_accessory_2_count
+			_player_accessory_slot.skyshard_power = PlayerData.equipped_accessory_2_power
+			if _player_accessory_slot_view:
+				_player_accessory_slot_view.get_display().set_item(_player_accessory_slot)
+			print("✨ Loaded player accessory 2: %d (x%d) [%s]" % [PlayerData.equipped_accessory_2_id, PlayerData.equipped_accessory_2_count, PlayerData.equipped_accessory_2_power])
+		else:
+			print("⚠️ Player accessory 2 %d no longer exists, removing" % PlayerData.equipped_accessory_2_id)
+			PlayerData.equipped_accessory_2_id = -1
+
+	# Notify player of loaded accessories
+	_update_player_accessories()
+
+
+func _update_player_accessories():
+	"""Notify player of accessory changes (both slots) and save to PlayerData"""
+	# Save to PlayerData
+	if _player_weapon_slot:
+		PlayerData.equipped_accessory_1_id = _player_weapon_slot.id
+		PlayerData.equipped_accessory_1_count = _player_weapon_slot.count
+		PlayerData.equipped_accessory_1_power = _player_weapon_slot.skyshard_power
+	else:
+		PlayerData.equipped_accessory_1_id = -1
+		PlayerData.equipped_accessory_1_count = 1
+		PlayerData.equipped_accessory_1_power = ""
+
+	if _player_accessory_slot:
+		PlayerData.equipped_accessory_2_id = _player_accessory_slot.id
+		PlayerData.equipped_accessory_2_count = _player_accessory_slot.count
+		PlayerData.equipped_accessory_2_power = _player_accessory_slot.skyshard_power
+	else:
+		PlayerData.equipped_accessory_2_id = -1
+		PlayerData.equipped_accessory_2_count = 1
+		PlayerData.equipped_accessory_2_power = ""
+
+	# Save to file
+	PlayerData.save_to_file()
+
+	# Notify player character controller
 	var player = get_tree().get_first_node_in_group("player")
-	if player and player.has_method("set_accessory"):
-		player.set_accessory(_player_accessory_slot)
+	if player and player.has_method("set_accessories"):
+		player.set_accessories(_player_weapon_slot, _player_accessory_slot)
 
 
-func get_player_accessory() -> InventoryItem:
-	"""Get the player's currently equipped accessory"""
+func get_player_accessory_1() -> InventoryItem:
+	"""Get the player's first accessory slot"""
+	return _player_weapon_slot
+
+
+func get_player_accessory_2() -> InventoryItem:
+	"""Get the player's second accessory slot"""
 	return _player_accessory_slot
 
 

@@ -586,7 +586,10 @@ func _cmd_give(args: Array) -> void:
 		"ring_of_teleportation": 48,
 		"teleport_ring": 48,
 		"teleportring": 48,
-		"boomerang": 49
+		"boomerang": 49,
+		"blood_pendant": 65,
+		"bloodpendant": 65,
+		"pendant": 65
 	}
 
 	if not item_map.has(item_name):

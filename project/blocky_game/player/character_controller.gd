@@ -70,9 +70,17 @@ var _blade_is_active := false  # True while blade is chaining
 var _teleport_ring_cooldown := 0.0  # Cooldown timer
 const TELEPORT_RING_COOLDOWN = 30.0  # 30 second cooldown
 
-## Accessory system (blood pendant, etc.)
-var _equipped_accessory = null  # Currently equipped accessory item
-var blood_moon_damage_modifier: float = 0.0  # Damage multiplier (0.5 = +50% damage)
+## Accessory system (blood pendant, phoenix items, etc.)
+var _equipped_accessory_1 = null  # First accessory slot
+var _equipped_accessory_2 = null  # Second accessory slot
+
+## Accessory effect modifiers (updated by _update_accessory_effects)
+var blood_moon_damage_modifier: float = 0.0  # Damage multiplier (0.5 = +50% damage, stackable)
+var accessory_defense_bonus: int = 0  # Defense bonus (stackable)
+var accessory_speed_bonus: float = 0.0  # Speed multiplier bonus (stackable)
+var has_phoenix_feather: bool = false  # 50% HP resurrection (non-stackable)
+var has_phoenix_crystal: bool = false  # 100% HP resurrection (non-stackable)
+var has_phoenix_hourglass: bool = false  # Time rewind ability (non-stackable)
 
 ## Player avatar billboard
 var _player_avatar: PlayerAvatar = null
@@ -306,8 +314,8 @@ func _physics_process(delta: float):
 	if _teleport_ring_cooldown > 0.0:
 		_teleport_ring_cooldown -= delta
 
-	# Update blood moon damage modifier
-	_update_blood_moon_modifier()
+	# Update all accessory effects (damage modifiers, bonuses, etc.)
+	_update_accessory_effects()
 
 	# Handle void_fog damage (5 damage when moving to a new fog block)
 	if has_node(terrain):
@@ -1540,33 +1548,93 @@ func get_teleport_ring_cooldown() -> float:
 	return _teleport_ring_cooldown
 
 
-## Accessory system - Blood Pendant and other accessories
-func set_accessory(accessory_item) -> void:
-	"""Set the player's equipped accessory"""
-	_equipped_accessory = accessory_item
-	if accessory_item:
-		print("✨ Player equipped accessory: %s" % accessory_item.id)
-	else:
-		print("✨ Player unequipped accessory")
-	# Update modifier immediately
-	_update_blood_moon_modifier()
+## Accessory system - Blood Pendant, Phoenix items, and other accessories
+func set_accessories(accessory_1, accessory_2) -> void:
+	"""Set both player accessory slots"""
+	_equipped_accessory_1 = accessory_1
+	_equipped_accessory_2 = accessory_2
+	if accessory_1:
+		print("✨ Player equipped accessory 1: %s" % accessory_1.id)
+	if accessory_2:
+		print("✨ Player equipped accessory 2: %s" % accessory_2.id)
+	# Update all accessory effects immediately
+	_update_accessory_effects()
 
 
-func _update_blood_moon_modifier() -> void:
-	"""Update blood moon damage modifier based on equipped accessory and blood moon status"""
-	blood_moon_damage_modifier = 0.0  # Reset
+func _update_accessory_effects() -> void:
+	"""Update all accessory effects based on equipped accessories
 
-	if not _equipped_accessory:
-		return
+	This function processes both accessory slots and applies effects.
+	Effects can be STACKABLE (count-based) or NON-STACKABLE (boolean).
 
-	# Blood Pendant: +50% damage during blood moons
+	To add a new accessory:
+	1. Add the item ID constant here
+	2. Count how many are equipped (for stackable) or check if any exist (for non-stackable)
+	3. Apply the effect to the appropriate modifier variable
+	"""
+
+	# Reset all modifiers
+	blood_moon_damage_modifier = 0.0
+	accessory_defense_bonus = 0
+	accessory_speed_bonus = 0.0
+	has_phoenix_feather = false
+	has_phoenix_crystal = false
+	has_phoenix_hourglass = false
+
+	# Accessory item IDs (add new ones here)
 	const BLOOD_PENDANT_ID = 65
-	if _equipped_accessory.id == BLOOD_PENDANT_ID:
-		# Check if it's currently a blood moon
+	# const PHOENIX_FEATHER_ID = 66  # Will be added later
+	# const PHOENIX_CRYSTAL_ID = 67  # Will be added later
+	# const PHOENIX_HOURGLASS_ID = 68  # Will be added later
+
+	# Count each accessory type (for stacking)
+	var accessory_counts = {}
+
+	# Check both slots and count accessories
+	for accessory in [_equipped_accessory_1, _equipped_accessory_2]:
+		if accessory:
+			var id = accessory.id
+			if not accessory_counts.has(id):
+				accessory_counts[id] = 0
+			accessory_counts[id] += 1
+
+	# ========================================================================
+	# STACKABLE EFFECTS - Apply bonus per count
+	# ========================================================================
+
+	# Blood Pendant: +50% damage per pendant during blood moons
+	if accessory_counts.has(BLOOD_PENDANT_ID):
+		var count = accessory_counts[BLOOD_PENDANT_ID]
 		if TimeManager and TimeManager.is_bloodmoon:
-			blood_moon_damage_modifier = 0.5  # +50% damage
-			# Optional: print when modifier becomes active
-			# print("🩸 Blood Pendant active! +50% damage")
+			blood_moon_damage_modifier = count * 0.5  # +50% per pendant (stacks)
+
+	# Example: Defense Ring - +10 defense per ring (stackable)
+	# if accessory_counts.has(DEFENSE_RING_ID):
+	#	var count = accessory_counts[DEFENSE_RING_ID]
+	#	accessory_defense_bonus = count * 10
+	#	print("🛡️ Defense bonus: +%d (x%d rings)" % [accessory_defense_bonus, count])
+
+	# Example: Speed Amulet - +10% speed per amulet (stackable)
+	# if accessory_counts.has(SPEED_AMULET_ID):
+	#	var count = accessory_counts[SPEED_AMULET_ID]
+	#	accessory_speed_bonus = count * 0.1
+	#	print("💨 Speed bonus: +%d%% (x%d amulets)" % [int(accessory_speed_bonus * 100), count])
+
+	# ========================================================================
+	# NON-STACKABLE EFFECTS - Boolean flags (having 2+ doesn't change effect)
+	# ========================================================================
+
+	# Phoenix Feather: Resurrection at 50% HP (non-stackable)
+	# if accessory_counts.has(PHOENIX_FEATHER_ID):
+	#	has_phoenix_feather = true
+
+	# Phoenix Crystal: Resurrection at 100% HP (non-stackable, overrides feather)
+	# if accessory_counts.has(PHOENIX_CRYSTAL_ID):
+	#	has_phoenix_crystal = true
+
+	# Phoenix Hourglass: Time rewind ability (non-stackable)
+	# if accessory_counts.has(PHOENIX_HOURGLASS_ID):
+	#	has_phoenix_hourglass = true
 
 
 func teleport_to_target(trans: Transform3D) -> void:

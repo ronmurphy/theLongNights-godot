@@ -33,6 +33,14 @@ var permanent_glide: bool = false  # Can glide without equipment
 ## Tutorial flags
 var compass_tutorial_shown: bool = false
 
+## Player equipment (saved/loaded separately from inventory)
+var equipped_accessory_1_id: int = -1
+var equipped_accessory_1_count: int = 1
+var equipped_accessory_1_power: String = ""
+var equipped_accessory_2_id: int = -1
+var equipped_accessory_2_count: int = 1
+var equipped_accessory_2_power: String = ""
+
 
 ## Apply quiz results and calculate stats
 func set_character(p_role: String, p_race: String, p_gender: String, p_name: String = "") -> void:
@@ -123,7 +131,13 @@ func save_to_file() -> void:
 		"bonus_speed_multiplier": bonus_speed_multiplier,
 		"bonus_regen_multiplier": bonus_regen_multiplier,
 		"bonus_max_mana": bonus_max_mana,
-		"permanent_glide": permanent_glide
+		"permanent_glide": permanent_glide,
+		"equipped_accessory_1_id": equipped_accessory_1_id,
+		"equipped_accessory_1_count": equipped_accessory_1_count,
+		"equipped_accessory_1_power": equipped_accessory_1_power,
+		"equipped_accessory_2_id": equipped_accessory_2_id,
+		"equipped_accessory_2_count": equipped_accessory_2_count,
+		"equipped_accessory_2_power": equipped_accessory_2_power
 	}
 
 	var file = FileAccess.open("user://player_character.save", FileAccess.WRITE)
@@ -174,6 +188,14 @@ func load_from_file() -> bool:
 	bonus_regen_multiplier = save_data.get("bonus_regen_multiplier", 1.0)
 	bonus_max_mana = save_data.get("bonus_max_mana", 0)
 	permanent_glide = save_data.get("permanent_glide", false)
+
+	# Load player equipment (accessories)
+	equipped_accessory_1_id = save_data.get("equipped_accessory_1_id", -1)
+	equipped_accessory_1_count = save_data.get("equipped_accessory_1_count", 1)
+	equipped_accessory_1_power = save_data.get("equipped_accessory_1_power", "")
+	equipped_accessory_2_id = save_data.get("equipped_accessory_2_id", -1)
+	equipped_accessory_2_count = save_data.get("equipped_accessory_2_count", 1)
+	equipped_accessory_2_power = save_data.get("equipped_accessory_2_power", "")
 
 	# Reapply role stats to include bonuses
 	_apply_role_stats()
