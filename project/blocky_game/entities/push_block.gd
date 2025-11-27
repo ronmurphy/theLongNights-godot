@@ -265,11 +265,11 @@ func _check_goal_reached():
 	if _goal_reached:
 		return
 
-	# Check the block position below us (use round instead of floor for better precision)
+	# Check the block position below us (use floor to convert world position to voxel coordinates)
 	var block_pos = Vector3i(
-		int(round(global_position.x)),
-		int(round(global_position.y - 1.0)),  # Check block below
-		int(round(global_position.z))
+		int(floor(global_position.x)),
+		int(floor(global_position.y - 1.0)),  # Check block below
+		int(floor(global_position.z))
 	)
 
 	var vt = _terrain.get_voxel_tool()

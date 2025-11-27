@@ -261,6 +261,12 @@ func _crossfade_to(new_track: MusicTrack) -> void:
 	if new_track == current_track and current_player.playing:
 		return  # Already playing this track
 
+	# If already crossfading, stop the old fading_player first
+	if is_crossfading and fading_player and fading_player.playing:
+		fading_player.stop()
+		fading_player = null
+		is_crossfading = false
+
 	target_track = new_track
 
 	# Get the music stream for the new track

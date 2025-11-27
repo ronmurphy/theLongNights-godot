@@ -84,11 +84,23 @@ func _scan_for_push_blocks():
 
 
 func _spawn_push_block(block_pos: Vector3i):
-	"""Spawn a PushBlock entity at the given block position"""
+	"""Spawn a PushBlock entity at the given block position
+	Auto-detects if this is a puzzle room by checking for nearby test blocks"""
 	# REMOVE the voxel from terrain (entity will replace it)
 	var vt = _terrain.get_voxel_tool()
 	vt.channel = VoxelBuffer.CHANNEL_TYPE
 	vt.set_voxel(block_pos, 0)  # 0 = air, remove the voxel
+
+	# Check if this is a puzzle room by looking for test blocks nearby
+	var is_puzzle_room = _is_near_test_block(block_pos, vt)
+
+	if is_puzzle_room:
+		# Spawn as a puzzle block with correct settings
+		var room_id = "puzzle_room_%d_%d_%d" % [block_pos.x, block_pos.y, block_pos.z]
+		var has_gravity = true  # Default to gravity (most puzzle rooms have it)
+		spawn_puzzle_block(block_pos, has_gravity, room_id)
+		print("🎮 Auto-detected puzzle room! Spawned puzzle push_block at %s" % block_pos)
+		return
 
 	# Create entity
 	var push_block = Node3D.new()
@@ -110,6 +122,27 @@ func _spawn_push_block(block_pos: Vector3i):
 		# The entity now exists independently and will be found via "push_blocks" group
 
 		print("🎯 Spawned PushBlock at %s (voxel removed)" % block_pos)
+
+
+func _is_near_test_block(block_pos: Vector3i, voxel_tool) -> bool:
+	"""Check if there's a test block within a reasonable distance (indicates puzzle room)"""
+	const SEARCH_RADIUS = 15  # Puzzle rooms are typically 10-12 blocks wide
+	const TEST_BLOCK_ID = 45  # test block ID
+
+	# Search in a cube around the push_block
+	for x in range(-SEARCH_RADIUS, SEARCH_RADIUS + 1):
+		for y in range(-SEARCH_RADIUS, SEARCH_RADIUS + 1):
+			for z in range(-SEARCH_RADIUS, SEARCH_RADIUS + 1):
+				var check_pos = block_pos + Vector3i(x, y, z)
+				var voxel_id = voxel_tool.get_voxel(check_pos)
+
+				if voxel_id != 0:
+					# Convert voxel ID to block ID
+					var raw_mapping = _blocks_node.get_raw_mapping(voxel_id)
+					if raw_mapping and raw_mapping.block_id == TEST_BLOCK_ID:
+						return true  # Found a test block nearby!
+
+	return false  # No test block found
 
 
 func _cleanup_removed_blocks():

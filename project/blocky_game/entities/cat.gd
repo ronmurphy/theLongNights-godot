@@ -23,10 +23,11 @@ var _player: Node = null
 var _interest_check_timer := 0.0
 
 # Meow sound
-var _meow_sound: AudioStreamPlayer = null
+var _meow_sound: AudioStreamPlayer3D = null
 var _meow_timer := 0.0
 const MEOW_INTERVAL_MIN = 8.0  # Meow every 8-20 seconds
 const MEOW_INTERVAL_MAX = 20.0
+const MEOW_MAX_DISTANCE = 20.0  # Can hear meow within 20 blocks
 
 const WANDER_INTERVAL_MIN = 2.0
 const WANDER_INTERVAL_MAX = 4.0
@@ -70,10 +71,13 @@ func _ready():
 	# Find player
 	_find_player()
 
-	# Setup meow sound
-	_meow_sound = AudioStreamPlayer.new()
+	# Setup meow sound (3D spatial audio)
+	_meow_sound = AudioStreamPlayer3D.new()
 	_meow_sound.stream = load("res://assets/sfx/CatMeow.ogg")
 	_meow_sound.volume_db = -8.0
+	_meow_sound.max_distance = MEOW_MAX_DISTANCE  # Audible within 20 blocks
+	_meow_sound.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	_meow_sound.unit_size = 5.0  # Full volume within 5 blocks
 	add_child(_meow_sound)
 	_meow_timer = randf_range(MEOW_INTERVAL_MIN, MEOW_INTERVAL_MAX)
 
