@@ -67,9 +67,13 @@ func _find_target_entity(origin: Vector3, direction: Vector3) -> Node:
 
 	var result = space_state.intersect_ray(query)
 	if result:
-		return result.collider
+		# Only return if the collider is actually an entity (not a wall/static object)
+		var collider = result.collider
+		if collider.is_in_group("entities") and collider.has_method("take_damage"):
+			return collider
+		# Otherwise, fall through to manual entity check
 
-	# If no physics hit, check entities manually
+	# If no physics hit (or hit non-entity), check entities manually
 	var entities = get_tree().get_nodes_in_group("entities")
 	var closest_entity = null
 	var closest_distance = MAX_TARGET_DISTANCE

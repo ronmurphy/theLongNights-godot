@@ -294,6 +294,10 @@ func get_item(id: int) -> Item:
 	return _items[id]
 
 
+func get_item_count() -> int:
+	return _items.size()
+
+
 func _create_item(d: Dictionary):
 	var dir = str(ROOT, "/", d.name, "/")
 	
