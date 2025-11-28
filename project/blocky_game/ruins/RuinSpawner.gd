@@ -1129,12 +1129,8 @@ func _setup_push_block_puzzle(voxel_tool, world_position: Vector3, radius: float
 	# Place test block (goal)
 	voxel_tool.set_voxel(test_pos, TEST)
 
-	# Place push_block as a voxel first (will be converted to entity by PushBlockManager)
-	voxel_tool.set_voxel(push_block_start_pos, PUSH_BLOCK)
-
-	# Store puzzle data for completion tracking
-	# The teleport_stone position is stored but not placed yet
-	# It will be revealed when puzzle is solved
+	# Store puzzle data for completion tracking BEFORE placing push_block voxel
+	# This ensures PushBlockManager can find the data when it spawns the entity
 	var puzzle_data = {
 		"island_pos": world_position,
 		"teleport_pos": teleport_pos,
@@ -1143,8 +1139,12 @@ func _setup_push_block_puzzle(voxel_tool, world_position: Vector3, radius: float
 		"solved": false
 	}
 
-	# Register with a puzzle manager (to be created)
+	# Register with puzzle manager FIRST (before placing voxel)
 	_register_island_puzzle(puzzle_data)
+
+	# NOW place push_block as a voxel (will be converted to entity by PushBlockManager)
+	# The puzzle data is already registered, so the entity will have the correct flags
+	voxel_tool.set_voxel(push_block_start_pos, PUSH_BLOCK)
 
 	print("🧩 Puzzle set up: push_block at %s, test block at %s, teleport hidden at %s" % [push_block_start_pos, test_pos, teleport_pos])
 

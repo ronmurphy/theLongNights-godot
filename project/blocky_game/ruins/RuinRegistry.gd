@@ -46,6 +46,7 @@ class RuinData:
 # Registry storage
 var _ruins: Array[RuinData] = []
 var _used_names: Dictionary = {}  # Track used names per ruin type to ensure uniqueness
+var _island_puzzles: Dictionary = {}  # Track island puzzle data {push_block_pos: puzzle_data}
 
 # Name generation data
 var _name_prefixes = {
@@ -242,6 +243,45 @@ func _get_glow_color_for_type(stone_type: StoneType, has_been_used: bool) -> Col
 			return Color(1.0, 0.2, 0.2)  # Red
 		_:
 			return Color(0.4, 0.7, 1.0)  # Default blue
+
+
+## ============================================================================
+## ISLAND PUZZLE SYSTEM
+## ============================================================================
+
+func register_island_puzzle(puzzle_data: Dictionary):
+	"""Register a sky island puzzle for tracking and completion detection"""
+	var push_block_pos = puzzle_data.get("push_block_spawn")
+	if push_block_pos:
+		_island_puzzles[push_block_pos] = puzzle_data
+		print("🧩 Registered island puzzle at push_block pos: ", push_block_pos)
+
+
+func get_island_puzzle_at(push_block_pos: Vector3i) -> Dictionary:
+	"""Get island puzzle data for a push_block at the given position
+	Searches in a radius since the block may have moved from its spawn position"""
+	# First try exact match
+	if _island_puzzles.has(push_block_pos):
+		print("[DEBUG] RuinRegistry: Found exact match for puzzle at: ", push_block_pos)
+		return _island_puzzles[push_block_pos]
+	
+	# If no exact match, search nearby (the block may have been pushed)
+	const SEARCH_RADIUS = 20  # Search within 20 blocks
+	for puzzle_spawn_pos in _island_puzzles.keys():
+		var distance = push_block_pos.distance_to(puzzle_spawn_pos)
+		if distance <= SEARCH_RADIUS:
+			print("[DEBUG] RuinRegistry: Found nearby puzzle at ", puzzle_spawn_pos, " (distance: ", distance, ")")
+			return _island_puzzles[puzzle_spawn_pos]
+	
+	print("[DEBUG] RuinRegistry: No puzzle found near: ", push_block_pos)
+	return {}
+
+
+func mark_island_puzzle_solved(push_block_pos: Vector3i):
+	"""Mark an island puzzle as solved"""
+	if _island_puzzles.has(push_block_pos):
+		_island_puzzles[push_block_pos]["solved"] = true
+		print("✅ Island puzzle at ", push_block_pos, " marked as solved")
 
 
 ## ============================================================================

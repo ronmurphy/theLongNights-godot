@@ -118,6 +118,30 @@ func _spawn_push_block(block_pos: Vector3i):
 			block_pos.z + 0.5
 		)
 
+		# Check if this is part of a sky island puzzle
+		var ruin_registry = get_node_or_null("/root/Main/Game/RuinRegistry")
+		if ruin_registry:
+			print("[DEBUG] PushBlockManager: Checking for island puzzle at: ", block_pos)
+			var puzzle_data = ruin_registry.get_island_puzzle_at(block_pos)
+			print("[DEBUG] PushBlockManager: puzzle_data.is_empty(): ", puzzle_data.is_empty())
+			if not puzzle_data.is_empty():
+				print("[DEBUG] PushBlockManager: Found island puzzle data!")
+				print("[DEBUG] PushBlockManager: puzzle_data: ", puzzle_data)
+				# This is an island puzzle! Set the flags
+				push_block.is_island_puzzle = true
+				push_block.island_base_y = puzzle_data.get("island_pos", Vector3.ZERO).y
+				push_block.teleport_stone_pos = puzzle_data.get("teleport_pos", Vector3i.ZERO)
+				push_block.spawn_position = Vector3(
+					block_pos.x + 0.5,
+					block_pos.y + 0.5,
+					block_pos.z + 0.5
+				)
+				print("🧩 Spawned island puzzle push_block at %s (teleport at %s)" % [block_pos, push_block.teleport_stone_pos])
+			else:
+				print("[DEBUG] PushBlockManager: No island puzzle data found for this position")
+		else:
+			print("[DEBUG] PushBlockManager: ruin_registry is null")
+
 		# DON'T track it (we removed the voxel, so cleanup would delete it)
 		# The entity now exists independently and will be found via "push_blocks" group
 

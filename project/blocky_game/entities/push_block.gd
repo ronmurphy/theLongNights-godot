@@ -32,6 +32,7 @@ var puzzle_room_id := ""  # Which puzzle room this belongs to (for reset/goal tr
 var is_island_puzzle := false  # Is this part of a sky island puzzle?
 var island_base_y := 0.0  # Island base height (for fall detection)
 var fall_threshold := 20.0  # If we fall this many blocks below island, respawn
+var teleport_stone_pos := Vector3i.ZERO  # Position where teleport_stone will be revealed
 
 
 func _ready():
@@ -306,6 +307,9 @@ func _on_goal_reached():
 	_velocity = Vector3.ZERO
 
 	print("🎉 PushBlock reached goal!")
+	print("[DEBUG] is_island_puzzle: ", is_island_puzzle)
+	print("[DEBUG] puzzle_room_id: ", puzzle_room_id)
+	print("[DEBUG] teleport_stone_pos: ", teleport_stone_pos)
 
 	# Emit signal for challenge completion
 	goal_reached.emit(self)
@@ -329,11 +333,13 @@ func _on_goal_reached():
 
 	# Puzzle room: Spawn teleport_stone as reward!
 	if puzzle_room_id != "":
+		print("[DEBUG] Calling _spawn_teleport_stone_reward for puzzle room")
 		_spawn_teleport_stone_reward()
-
-	# Sky island puzzle: Reveal hidden teleport_stone!
-	if is_island_puzzle:
-		_reveal_island_teleport_stone()
+	else:
+		# Not a puzzle room, but could be an island puzzle
+		# Just spawn the teleport_stone above the test block (simple approach)
+		print("[DEBUG] Not a puzzle room - spawning teleport_stone above test block")
+		_spawn_teleport_stone_reward()
 
 
 func _spawn_teleport_stone_reward():
@@ -375,15 +381,65 @@ func _spawn_teleport_stone_reward():
 
 func _reveal_island_teleport_stone():
 	"""Reveal the hidden teleport_stone on sky island puzzle completion"""
-	# Get the terrain to place the teleport_stone
-	if _terrain == null:
-		return
-
-	# Find the stored teleport_stone position from puzzle data
-	# For now, we will use a simple approach - store the position as a variable
-	# that gets set when the puzzle is created
-	print("🎆 SKY ISLAND PUZZLE SOLVED! Teleport stone will be revealed")
+	print("[DEBUG] _reveal_island_teleport_stone called")
+	print("[DEBUG] _terrain: ", _terrain)
+	print("[DEBUG] teleport_stone_pos: ", teleport_stone_pos)
 	
-	# The teleport_stone position should be stored when is_island_puzzle is set
-	# This is a simplified implementation - full implementation would query RuinRegistry
-
+	if _terrain == null:
+		print("[DEBUG] FAILED: _terrain is null")
+		return
+	
+	# Check if we have a valid teleport stone position
+	if teleport_stone_pos == Vector3i.ZERO:
+		print("⚠️ No teleport_stone position stored for this island puzzle")
+		print("[DEBUG] FAILED: teleport_stone_pos is ZERO")
+		return
+	
+	print("[DEBUG] Getting voxel tool...")
+	# Get the voxel tool
+	var vt = _terrain.get_voxel_tool()
+	vt.channel = VoxelBuffer.CHANNEL_TYPE
+	
+	print("[DEBUG] Looking up teleport_stone block...")
+	# Get teleport_stone voxel ID dynamically
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	if blocks_node == null:
+		print("⚠️ Could not find Blocks node")
+		print("[DEBUG] FAILED: blocks_node is null")
+		return
+	
+	var teleport_block = blocks_node.get_block_by_name("teleport_stone")
+	if teleport_block == null or teleport_block.base_info.voxels.size() == 0:
+		print("⚠️ Could not find teleport_stone block definition")
+		print("[DEBUG] FAILED: teleport_block is null or has no voxels")
+		return
+	
+	var teleport_voxel_id = teleport_block.base_info.voxels[0]
+	print("[DEBUG] teleport_voxel_id: ", teleport_voxel_id)
+	
+	# Check what's currently at the teleport position
+	var current_voxel = vt.get_voxel(teleport_stone_pos)
+	print("[DEBUG] Current voxel at teleport_stone_pos: ", current_voxel)
+	
+	print("[DEBUG] Placing teleport_stone voxel at: ", teleport_stone_pos)
+	# Place the teleport_stone voxel
+	vt.set_voxel(teleport_stone_pos, teleport_voxel_id)
+	
+	# Verify it was placed
+	var verify_voxel = vt.get_voxel(teleport_stone_pos)
+	print("[DEBUG] Voxel after placement: ", verify_voxel)
+	
+	print("🎆 SKY ISLAND PUZZLE SOLVED! Teleport stone revealed at: ", teleport_stone_pos)
+	
+	# Mark puzzle as solved in RuinRegistry
+	var ruin_registry = get_node_or_null("/root/Main/Game/RuinRegistry")
+	if ruin_registry:
+		var spawn_voxel_pos = Vector3i(
+			int(floor(spawn_position.x)),
+			int(floor(spawn_position.y)),
+			int(floor(spawn_position.z))
+		)
+		print("[DEBUG] Marking puzzle solved at spawn pos: ", spawn_voxel_pos)
+		ruin_registry.mark_island_puzzle_solved(spawn_voxel_pos)
+	else:
+		print("[DEBUG] WARNING: ruin_registry is null")
