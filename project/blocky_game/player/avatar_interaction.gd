@@ -2201,9 +2201,9 @@ func _open_block_shop() -> void:
 	"""Open Conner's Block Shop (1:1 block trading)"""
 	print("[NPC] Opening Conner's Block Shop...")
 
-	# Load and create shop modal in BLOCKS mode
+	# Load and create shop modal in BLOCKS mode with NPC flag
 	var ShopModal = load("res://blocky_game/gui/BlockSelectorModal.gd")
-	var modal = ShopModal.new(ShopModal.ShopType.BLOCKS)
+	var modal = ShopModal.new(ShopModal.ShopType.BLOCKS, true)  # true = is_npc_shop
 
 	# Get game node
 	var game = get_node("/root/Main/Game")

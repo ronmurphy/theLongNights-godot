@@ -35,6 +35,7 @@ var _cancel_button: Button
 
 # State
 var _shop_type: int = ShopType.FREE
+var _is_npc_shop: bool = false  # True if opened from NPC, false if from console command
 var _selected_block_id: int = -1
 var _selected_button: Button = null
 var _selected_player_block_id: int = -1
@@ -56,9 +57,10 @@ const SHOP_GRID_COLUMNS = 6  # Shop blocks column count (use the width!)
 const PLAYER_GRID_COLUMNS = 4  # Player blocks column count (use the width!)
 
 
-func _init(shop_type: int = ShopType.FREE):
+func _init(shop_type: int = ShopType.FREE, is_npc_shop: bool = false):
 	"""Initialize modal with specified shop type"""
 	_shop_type = shop_type
+	_is_npc_shop = is_npc_shop
 
 
 func _ready():
@@ -508,11 +510,19 @@ func _populate_blocks():
 	if not _blocks_node:
 		return
 
+	# Blacklist for NPC shops only (not for console command shops)
+	# These blocks should not be sold in NPC shops
+	var blacklisted_blocks = ["push_block", "test", "teleport_stone"]
+
 	var block_count = _blocks_node.get_block_count()
 
 	for block_id in range(1, block_count):  # Skip air (ID 0)
 		var block = _blocks_node.get_block(block_id)
 		if not block:
+			continue
+
+		# Skip blacklisted blocks ONLY in NPC shops (allow in console command shops)
+		if _is_npc_shop and block.base_info.name in blacklisted_blocks:
 			continue
 
 		# Skip bedrock optionally (uncomment to hide it)
