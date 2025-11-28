@@ -127,7 +127,13 @@ func _spawn_push_block(block_pos: Vector3i):
 func _is_near_test_block(block_pos: Vector3i, voxel_tool) -> bool:
 	"""Check if there's a test block within a reasonable distance (indicates puzzle room)"""
 	const SEARCH_RADIUS = 15  # Puzzle rooms are typically 10-12 blocks wide
-	const TEST_BLOCK_ID = 45  # test block ID
+	
+	# Get test block ID dynamically
+	var test_block_def = _blocks_node.get_block_by_name("test")
+	if test_block_def == null:
+		return false
+		
+	var TEST_BLOCK_ID = test_block_def.base_info.id
 
 	# Search in a cube around the push_block
 	for x in range(-SEARCH_RADIUS, SEARCH_RADIUS + 1):

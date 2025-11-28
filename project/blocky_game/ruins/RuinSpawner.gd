@@ -92,7 +92,10 @@ func spawn_simple_sky_island(world_position: Vector3) -> Vector3:
 	var island_center_pos = Vector3(island_center_x, teleport_y, island_center_z)  # For player rotation
 
 	# Teleport_stone block ID from generator.gd
-	const TELEPORT_STONE = 35
+	var teleport_stone_def = _blocks.get_block_by_name("teleport_stone")
+	var TELEPORT_STONE = 20 # Fallback
+	if teleport_stone_def:
+		TELEPORT_STONE = teleport_stone_def.base_info.voxels[0]
 
 	# Ensure safe platform around stone
 	_ensure_safe_teleport_platform(voxel_tool, teleport_stone_pos)
@@ -210,7 +213,10 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 	var blocks_placed = 0
 	var template_positions = {}  # Track all template block positions
 	var teleport_stone_data = []  # Store teleport_stone positions and voxel IDs for later placement
-	const TELEPORT_STONE_BLOCK_ID = 35
+	var teleport_stone_def = _blocks.get_block_by_name("teleport_stone")
+	var TELEPORT_STONE_BLOCK_ID = 20 # Fallback
+	if teleport_stone_def:
+		TELEPORT_STONE_BLOCK_ID = teleport_stone_def.base_info.id
 
 	for block_data in template.blocks:
 		var block_pos: Vector3i = block_data.pos
@@ -401,7 +407,12 @@ func _check_for_existing_ruin(spawn_position: Vector3) -> bool:
 	if voxel_tool == null:
 		return false
 
-	const TELEPORT_STONE_ID = 35  # Must match generator.gd
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	var TELEPORT_STONE_ID = 20 # Fallback
+	if blocks_node:
+		var teleport_stone_def = blocks_node.get_block_by_name("teleport_stone")
+		if teleport_stone_def:
+			TELEPORT_STONE_ID = teleport_stone_def.base_info.voxels[0]
 	const SCAN_RADIUS = 20  # Check 20 blocks in each direction
 
 	# Scan the area where the ruin should be
@@ -1064,8 +1075,23 @@ func _setup_push_block_puzzle(voxel_tool, world_position: Vector3, radius: float
 	- Store teleport_stone position for later reveal
 	- Push_block must be pushed to/beside test block to reveal teleport_stone
 	"""
-	const PUSH_BLOCK = 43
-	const TEST = 46
+	# Get block IDs dynamically to ensure correctness
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	if blocks_node == null:
+		push_error("RuinSpawner: Could not find Blocks node")
+		return
+
+	# Get voxel IDs (not block IDs!)
+	var push_block_def = blocks_node.get_block_by_name("push_block")
+	var test_block_def = blocks_node.get_block_by_name("test")
+	
+	if push_block_def == null or test_block_def == null:
+		push_error("RuinSpawner: Could not find push_block or test block definitions")
+		return
+		
+	var PUSH_BLOCK = push_block_def.base_info.voxels[0]
+	var TEST = test_block_def.base_info.voxels[0]
+	
 	const GRASS = 2
 	const AIR = 0
 
@@ -1139,7 +1165,12 @@ func _place_island_chest(voxel_tool, surface_positions: Array, teleport_pos: Vec
 	- On grass blocks
 	- Contains 1-3 random items
 	"""
-	const CHEST = 48
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	var CHEST = 28 # Fallback
+	if blocks_node:
+		var chest_def = blocks_node.get_block_by_name("chest")
+		if chest_def:
+			CHEST = chest_def.base_info.voxels[0]
 	const AIR = 0
 
 	if surface_positions.is_empty():
@@ -1311,7 +1342,12 @@ func _setup_puzzle_room(template: RuinLibrary.RuinTemplate, world_position: Vect
 	var has_gravity = not template.name.contains("zerog")  # "puzzle_room_zerog" has no gravity
 
 	# Find push_block positions in the template
-	const PUSH_BLOCK_ID = 26  # push_block block ID
+	var blocks_node = get_node_or_null("/root/Main/Game/Blocks")
+	var PUSH_BLOCK_ID = 26 # Fallback
+	if blocks_node:
+		var push_block_def = blocks_node.get_block_by_name("push_block")
+		if push_block_def:
+			PUSH_BLOCK_ID = push_block_def.base_info.id
 	var push_block_positions = []
 
 	for block_data in template.blocks:
