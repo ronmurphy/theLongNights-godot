@@ -51,7 +51,7 @@ func spawn_simple_sky_island(world_position: Vector3) -> Vector3:
 		return Vector3.ZERO
 
 	# Generate the natural circular island (increased minimum radius for safety)
-	var island_radius = randf_range(50.0, 75.0)  # Larger islands: was 25-40 blocks radius
+	var island_radius = randf_range(25.0, 40.0)  # Larger islands: was 25-40 blocks radius
 	var island_result = _generate_natural_circular_island(voxel_tool, world_position, island_radius)
 	var blocks_placed = island_result.blocks_placed
 	var surface_positions = island_result.surface_positions  # Grass block positions for chest
@@ -71,8 +71,8 @@ func spawn_simple_sky_island(world_position: Vector3) -> Vector3:
 
 	# Place teleport_stone AT CENTER of island (safest position)
 	# Add small random offset to make it feel more natural (within 3 blocks of center)
-	var teleport_x = island_center_x + randi_range(-9, 9)
-	var teleport_z = island_center_z + randi_range(-9, 9)
+	var teleport_x = island_center_x + randi_range(-3, 3)
+	var teleport_z = island_center_z + randi_range(-3, 3)
 
 	# Find the HIGHEST surface height near center (scan upward from base)
 	const GRASS = 2
