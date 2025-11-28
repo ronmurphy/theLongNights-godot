@@ -50,8 +50,8 @@ func spawn_simple_sky_island(world_position: Vector3) -> Vector3:
 		push_error("Failed to get voxel tool from terrain")
 		return Vector3.ZERO
 
-	# Generate the natural circular island
-	var island_radius = randf_range(20.0, 35.0)  # Random size between 20-35 blocks radius
+	# Generate the natural circular island (increased minimum radius for safety)
+	var island_radius = randf_range(50.0, 75.0)  # Larger islands: was 25-40 blocks radius
 	var island_result = _generate_natural_circular_island(voxel_tool, world_position, island_radius)
 	var blocks_placed = island_result.blocks_placed
 	var surface_positions = island_result.surface_positions  # Grass block positions for chest
@@ -65,22 +65,31 @@ func spawn_simple_sky_island(world_position: Vector3) -> Vector3:
 	# Decide if this is a puzzle island (30% chance)
 	var is_puzzle_island = randf() < 0.3
 
-	# Place teleport_stone closer to center (5 blocks from edge for safe landing)
-	# Find a good position on the surface
-	var safe_distance_from_center = island_radius - 5.0  # 5 blocks from edge
-	var teleport_x = int(world_position.x + safe_distance_from_center)
-	var teleport_z = int(world_position.z + safe_distance_from_center)
+	# Calculate island center (most reliable position with solid ground)
+	var island_center_x = int(world_position.x + island_radius)
+	var island_center_z = int(world_position.z + island_radius)
 
-	# Find the surface height at this position by scanning up from base
+	# Place teleport_stone AT CENTER of island (safest position)
+	# Add small random offset to make it feel more natural (within 3 blocks of center)
+	var teleport_x = island_center_x + randi_range(-9, 9)
+	var teleport_z = island_center_z + randi_range(-9, 9)
+
+	# Find the HIGHEST surface height near center (scan upward from base)
 	const GRASS = 2
+	const DIRT = 1
 	var teleport_y = int(world_position.y)
-	for y_scan in range(20):  # Scan up to 20 blocks
+	for y_scan in range(25):  # Scan up to 25 blocks (islands can be tall)
 		var check_pos = Vector3i(teleport_x, int(world_position.y) + y_scan, teleport_z)
-		if voxel_tool.get_voxel(check_pos) == GRASS:
-			teleport_y = check_pos.y + 1  # Place on top of grass
+		var block = voxel_tool.get_voxel(check_pos)
+		if block == GRASS or block == DIRT:
+			teleport_y = check_pos.y + 1  # Place on top of surface
+			# Continue scanning to find the HIGHEST point
+		elif block != 0 and teleport_y > int(world_position.y):
+			# Hit non-grass/dirt after finding surface, use last grass position
 			break
 
 	var teleport_stone_pos = Vector3i(teleport_x, teleport_y, teleport_z)
+	var island_center_pos = Vector3(island_center_x, teleport_y, island_center_z)  # For player rotation
 
 	# Teleport_stone block ID from generator.gd
 	const TELEPORT_STONE = 35
@@ -110,6 +119,10 @@ func spawn_simple_sky_island(world_position: Vector3) -> Vector3:
 		[teleport_stone_local_pos],  # One teleport stone at center
 		island_size
 	)
+
+	# Store island center for player orientation when teleporting
+	if ruin_data and ruin_data.teleport_stones.size() > 0:
+		ruin_data.teleport_stones[0].island_center = island_center_pos
 
 	# Register with LampManager for visualization and persistence
 	var stone_positions_and_colors = [{

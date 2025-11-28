@@ -1779,6 +1779,24 @@ func _execute_compass_teleport(ruin_data: RuinRegistry.RuinData, cost: int = 1) 
 		current_time = time_manager.get_total_hours()
 	RuinRegistry.mark_ruin_visited(ruin_data, current_time)
 
+	# Rotate player to face island center (for sky islands)
+	if ruin_data.teleport_stones.size() > 0:
+		var teleport_stone = ruin_data.teleport_stones[0]
+		if teleport_stone.island_center != Vector3.ZERO:
+			# Calculate direction from player to island center
+			var direction_to_center = (teleport_stone.island_center - destination).normalized()
+
+			# Calculate rotation angle (Y-axis rotation only, keep player upright)
+			var angle_rad = atan2(direction_to_center.x, direction_to_center.z)
+			var angle_deg = rad_to_deg(angle_rad)
+
+			# Set camera yaw to face island center
+			var camera = player_controller.get_node_or_null("Camera")
+			if camera and camera.has_method("update_rotations"):
+				camera._yaw = -angle_deg  # Negative because camera yaw is inverted
+				camera.update_rotations()
+				print("Rotated player to face island center at: ", teleport_stone.island_center)
+
 	# Spawn enemies if this is a combat ruin that hasn't been cleared
 	_spawn_combat_enemies_if_needed(ruin_data)
 
@@ -1888,6 +1906,24 @@ func _execute_teleport() -> void:
 				current_time = time_manager.get_total_hours()
 
 			RuinRegistry.mark_ruin_visited(ruin_data, current_time)
+
+			# Rotate player to face island center (for sky islands)
+			if ruin_data.teleport_stones.size() > 0:
+				var teleport_stone = ruin_data.teleport_stones[0]
+				if teleport_stone.island_center != Vector3.ZERO:
+					# Calculate direction from player to island center
+					var direction_to_center = (teleport_stone.island_center - player_controller.global_position).normalized()
+
+					# Calculate rotation angle (Y-axis rotation only, keep player upright)
+					var angle_rad = atan2(direction_to_center.x, direction_to_center.z)
+					var angle_deg = rad_to_deg(angle_rad)
+
+					# Set camera yaw to face island center
+					var camera = player_controller.get_node_or_null("Camera")
+					if camera and camera.has_method("update_rotations"):
+						camera._yaw = -angle_deg  # Negative because camera yaw is inverted
+						camera.update_rotations()
+						print("Rotated player to face island center at: ", teleport_stone.island_center)
 
 			# Spawn enemies if this is a combat ruin
 			_spawn_combat_enemies_if_needed(ruin_data)

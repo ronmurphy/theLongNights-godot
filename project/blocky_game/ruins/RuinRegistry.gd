@@ -17,6 +17,7 @@ class TeleportStone:
 	var stone_type: StoneType        # Type of portal
 	var glow_color: Color            # Visual color for the light
 	var has_been_used: bool = false  # Track if player used this specific stone
+	var island_center: Vector3 = Vector3.ZERO  # For sky islands: center position to orient player toward
 
 	func _init(pos: Vector3i, type: StoneType, color: Color):
 		local_pos = pos
@@ -278,7 +279,8 @@ func serialize_registry() -> Dictionary:
 				"local_pos": [stone.local_pos.x, stone.local_pos.y, stone.local_pos.z],
 				"stone_type": stone.stone_type,
 				"glow_color": [stone.glow_color.r, stone.glow_color.g, stone.glow_color.b, stone.glow_color.a],
-				"has_been_used": stone.has_been_used
+				"has_been_used": stone.has_been_used,
+				"island_center": [stone.island_center.x, stone.island_center.y, stone.island_center.z]
 			})
 
 		data["ruins"].append(ruin_dict)
@@ -330,6 +332,11 @@ func deserialize_registry(data: Dictionary) -> void:
 
 				var stone = TeleportStone.new(local_pos, stone_dict["stone_type"], glow_color)
 				stone.has_been_used = stone_dict.get("has_been_used", false)
+
+				# Restore island_center if present (for sky islands)
+				if stone_dict.has("island_center"):
+					var center_array = stone_dict["island_center"]
+					stone.island_center = Vector3(center_array[0], center_array[1], center_array[2])
 
 				ruin_data.teleport_stones.append(stone)
 
