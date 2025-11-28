@@ -98,7 +98,9 @@ func apply_ground_movement(delta: float, velocity_input: Vector3) -> void:
 			_grounded = true
 
 		# Started moving vertically (jumped or fell)
-		elif absf(motion.y) > 0.001:
+		# Use a larger threshold to prevent flickering on uneven terrain
+		# Only unground if there's significant vertical movement (falling or jumping)
+		elif absf(motion.y) > 0.05:  # Increased from 0.001 to 0.05 for stability
 			_grounded = false
 
 		# BLOCK BREAKING LOGIC
