@@ -28,6 +28,11 @@ const GOAL_BLOCK_NAME = "test"  # Goal block for puzzles
 var spawn_position := Vector3.ZERO  # Original spawn position for room reset
 var puzzle_room_id := ""  # Which puzzle room this belongs to (for reset/goal tracking)
 
+# Sky island puzzle data
+var is_island_puzzle := false  # Is this part of a sky island puzzle?
+var island_base_y := 0.0  # Island base height (for fall detection)
+var fall_threshold := 20.0  # If we fall this many blocks below island, respawn
+
 
 func _ready():
 	# Setup collision
@@ -191,6 +196,13 @@ func _physics_process(delta: float):
 	if _goal_reached:
 		return
 
+	# Check if fell off sky island (respawn if so)
+	if is_island_puzzle and island_base_y > 0:
+		if global_position.y < (island_base_y - fall_threshold):
+			print("⚠️ Push_block fell off island! Respawning...")
+			reset_to_spawn()
+			return
+
 	# Apply gravity (downward force) - only if gravity is enabled
 	if gravity > 0:
 		_velocity.y -= gravity * delta
@@ -319,6 +331,10 @@ func _on_goal_reached():
 	if puzzle_room_id != "":
 		_spawn_teleport_stone_reward()
 
+	# Sky island puzzle: Reveal hidden teleport_stone!
+	if is_island_puzzle:
+		_reveal_island_teleport_stone()
+
 
 func _spawn_teleport_stone_reward():
 	"""Spawn a teleport_stone in the puzzle room as a reward for solving it"""
@@ -355,3 +371,19 @@ func _spawn_teleport_stone_reward():
 				print("⚠️ Could not find teleport_stone block")
 	else:
 		print("⚠️ Teleport spawn location blocked at: ", teleport_pos)
+
+
+func _reveal_island_teleport_stone():
+	"""Reveal the hidden teleport_stone on sky island puzzle completion"""
+	# Get the terrain to place the teleport_stone
+	if _terrain == null:
+		return
+
+	# Find the stored teleport_stone position from puzzle data
+	# For now, we will use a simple approach - store the position as a variable
+	# that gets set when the puzzle is created
+	print("🎆 SKY ISLAND PUZZLE SOLVED! Teleport stone will be revealed")
+	
+	# The teleport_stone position should be stored when is_island_puzzle is set
+	# This is a simplified implementation - full implementation would query RuinRegistry
+

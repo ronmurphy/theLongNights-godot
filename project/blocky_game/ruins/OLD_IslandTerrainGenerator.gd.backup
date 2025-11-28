@@ -1,0 +1,322 @@
+## Generates natural terrain for floating sky islands
+## Reuses ground terrain generation logic but with 3D island boundaries
+## Features: hills, valleys, water, trees, vegetation
+class_name IslandTerrainGenerator
+
+const TreeGenerator = preload("res://blocky_game/generator/tree_generator.gd")
+const HeightmapCurve = preload("res://blocky_game/generator/heightmap_curve.tres")
+
+# Block type constants (must match generator.gd)
+const AIR = 0
+const DIRT = 1
+const GRASS = 2
+const LOG_Y = 4
+const TALL_GRASS = 8
+const WATER_TOP = 13
+const WATER_FULL = 14
+const LEAVES = 25
+const DEAD_SHRUB = 26
+const PUMPKIN = 27
+const SAND = 44
+
+# Island size presets (diameter in blocks)
+enum IslandSize {
+	SMALL = 30,      # 30x30
+	MEDIUM = 50,     # 50x50
+	LARGE = 80,      # 80x80
+	HUGE = 120       # 120x120
+}
+
+# Terrain generation settings
+var _heightmap_noise: FastNoiseLite
+var _detail_noise: FastNoiseLite
+var _tree_structures := []
+var world_seed: int = 0
+
+
+func _init(p_seed: int = 0):
+	world_seed = p_seed
+
+	# Initialize heightmap noise (same as ground terrain)
+	_heightmap_noise = FastNoiseLite.new()
+	_heightmap_noise.seed = world_seed
+	_heightmap_noise.frequency = 1.0 / 128.0
+	_heightmap_noise.fractal_octaves = 4
+
+	# Detail noise for island shape variation
+	_detail_noise = FastNoiseLite.new()
+	_detail_noise.seed = world_seed + 5000
+	_detail_noise.frequency = 1.0 / 20.0
+	_detail_noise.fractal_octaves = 2
+
+	# Bake heightmap curve
+	HeightmapCurve.bake()
+
+	# Generate tree structures
+	var tree_generator = TreeGenerator.new()
+	tree_generator.log_type = LOG_Y
+	tree_generator.leaves_type = LEAVES
+	for i in 16:
+		var s = tree_generator.generate()
+		_tree_structures.append(s)
+
+
+## Generate a complete island with terrain, water, and vegetation
+## Returns a dictionary with terrain data
+func generate_island(size: IslandSize, seed_offset: int = 0) -> Dictionary:
+	var rng = RandomNumberGenerator.new()
+	rng.seed = world_seed + seed_offset
+
+	var diameter = int(size)
+	var radius = diameter / 2.0
+
+	# Create terrain data structure
+	var island_data = {
+		"size": diameter,
+		"radius": radius,
+		"center": Vector3(radius, 0, radius),  # Local center
+		"blocks": [],  # Array of {pos: Vector3i, block_id: int}
+		"tree_positions": [],  # Positions for tree spawning
+		"flat_areas": []  # Suitable locations for structures
+	}
+
+	# Generate terrain layer by layer
+	_generate_terrain(island_data, rng)
+
+	# Add water bodies
+	_generate_water(island_data, rng)
+
+	# Add vegetation
+	_generate_vegetation(island_data, rng)
+
+	# Find flat areas for structure placement
+	_find_flat_areas(island_data)
+
+	return island_data
+
+
+## Generate base terrain with hills and valleys
+func _generate_terrain(island_data: Dictionary, rng: RandomNumberGenerator):
+	var diameter = island_data.size
+	var radius = island_data.radius
+	var center_x = radius
+	var center_z = radius
+
+	# Generate heightmap for entire island area
+	for x in range(diameter):
+		for z in range(diameter):
+			# Calculate distance from center
+			var dx = x - center_x
+			var dz = z - center_z
+			var distance = sqrt(dx * dx + dz * dz)
+
+			# Skip if outside island radius
+			if distance > radius:
+				continue
+
+			# Calculate edge smoothing factor (0 at edge, 1 at center)
+			var edge_factor = 1.0 - (distance / radius)
+			edge_factor = smoothstep(0.0, 1.0, edge_factor)  # Smooth falloff
+
+			# Get base height from heightmap noise
+			var world_x = x + rng.randi() % 10000  # Offset to get unique terrain
+			var world_z = z + rng.randi() % 10000
+			var base_height = _get_height_at(world_x, world_z)
+
+			# Scale height by edge factor (terrain tapers to 0 at edges)
+			var height = int(base_height * edge_factor)
+
+			# Minimum height of 3 blocks (even at edges)
+			height = max(height, 3)
+
+			# Place blocks from y=0 up to height
+			for y in range(height + 1):
+				var block_id = AIR
+
+				if y == 0:
+					# Bottom layer always dirt/stone
+					block_id = DIRT
+				elif y == height:
+					# Top layer is grass (unless underwater)
+					block_id = GRASS
+				elif y >= height - 2:
+					# 2-3 layers of dirt below grass
+					block_id = DIRT
+				else:
+					# Deep layers are dirt with occasional stone
+					block_id = DIRT if rng.randf() > 0.3 else DIRT
+
+				island_data.blocks.append({
+					"pos": Vector3i(x, y, z),
+					"block_id": block_id
+				})
+
+
+## Add water bodies (lakes/ponds) in valleys
+func _generate_water(island_data: Dictionary, rng: RandomNumberGenerator):
+	var diameter = island_data.size
+	var water_level = 8  # Water spawns at y=8 in low areas
+
+	# Find low-lying areas
+	var height_map = {}  # Track highest block at each x,z
+	for block in island_data.blocks:
+		var pos = block.pos
+		var key = Vector2i(pos.x, pos.z)
+		if not height_map.has(key) or pos.y > height_map[key]:
+			height_map[key] = pos.y
+
+	# Place water in areas below water_level
+	for x in range(diameter):
+		for z in range(diameter):
+			var key = Vector2i(x, z)
+			if not height_map.has(key):
+				continue
+
+			var terrain_height = height_map[key]
+
+			# Only add water if terrain is low enough
+			if terrain_height < water_level:
+				# Fill from terrain top to water level
+				for y in range(terrain_height + 1, water_level + 1):
+					var block_id = WATER_FULL if y < water_level else WATER_TOP
+					island_data.blocks.append({
+						"pos": Vector3i(x, y, z),
+						"block_id": block_id
+					})
+
+
+## Add trees, grass, and other vegetation
+func _generate_vegetation(island_data: Dictionary, rng: RandomNumberGenerator):
+	var diameter = island_data.size
+
+	# Build height map for surface blocks
+	var surface_map = {}  # x,z -> {y: int, block_id: int}
+	for block in island_data.blocks:
+		var pos = block.pos
+		var key = Vector2i(pos.x, pos.z)
+		if not surface_map.has(key) or pos.y > surface_map[key].y:
+			surface_map[key] = {"y": pos.y, "block_id": block.block_id}
+
+	# Place vegetation on grass surfaces
+	for x in range(diameter):
+		for z in range(diameter):
+			var key = Vector2i(x, z)
+			if not surface_map.has(key):
+				continue
+
+			var surface = surface_map[key]
+			var surface_y = surface.y
+			var surface_block = surface.block_id
+
+			# Only place vegetation on grass
+			if surface_block != GRASS:
+				continue
+
+			# Tree placement (sparse)
+			if rng.randf() < 0.08:  # 8% chance for trees
+				island_data.tree_positions.append(Vector3i(x, surface_y + 1, z))
+
+			# Tall grass placement (common)
+			elif rng.randf() < 0.3:  # 30% chance
+				island_data.blocks.append({
+					"pos": Vector3i(x, surface_y + 1, z),
+					"block_id": TALL_GRASS
+				})
+
+			# Dead shrub placement
+			elif rng.randf() < 0.15:  # 15% chance
+				island_data.blocks.append({
+					"pos": Vector3i(x, surface_y + 1, z),
+					"block_id": DEAD_SHRUB
+				})
+
+			# Pumpkin placement (VERY rare on sky islands)
+			elif rng.randf() < 0.01:  # 1% chance (10x less than ground)
+				island_data.blocks.append({
+					"pos": Vector3i(x, surface_y + 1, z),
+					"block_id": PUMPKIN
+				})
+
+
+## Find flat areas suitable for structure placement
+func _find_flat_areas(island_data: Dictionary):
+	var diameter = island_data.size
+	var flat_threshold = 2  # Max height variation for "flat"
+	var min_flat_size = 8  # Minimum 8x8 flat area
+
+	# Build height map
+	var height_map = {}
+	for block in island_data.blocks:
+		var pos = block.pos
+		var key = Vector2i(pos.x, pos.z)
+		if not height_map.has(key) or pos.y > height_map[key]:
+			height_map[key] = pos.y
+
+	# Scan for flat areas
+	for x in range(diameter - min_flat_size):
+		for z in range(diameter - min_flat_size):
+			var is_flat = true
+			var avg_height = 0
+			var count = 0
+
+			# Check if this area is flat
+			for dx in range(min_flat_size):
+				for dz in range(min_flat_size):
+					var key = Vector2i(x + dx, z + dz)
+					if not height_map.has(key):
+						is_flat = false
+						break
+					avg_height += height_map[key]
+					count += 1
+				if not is_flat:
+					break
+
+			if not is_flat or count == 0:
+				continue
+
+			avg_height = avg_height / count
+
+			# Check height variation
+			var max_variation = 0
+			for dx in range(min_flat_size):
+				for dz in range(min_flat_size):
+					var key = Vector2i(x + dx, z + dz)
+					var variation = abs(height_map[key] - avg_height)
+					max_variation = max(max_variation, variation)
+
+			if max_variation <= flat_threshold:
+				# Found a flat area!
+				island_data.flat_areas.append({
+					"position": Vector3i(x, int(avg_height), z),
+					"size": min_flat_size
+				})
+
+
+## Get height at position using heightmap noise (same as ground terrain)
+func _get_height_at(x: int, z: int) -> int:
+	var t = 0.5 + 0.5 * _heightmap_noise.get_noise_2d(x, z)
+	var height = int(HeightmapCurve.sample_baked(t))
+
+	# Clamp to reasonable range for islands (y=3 to y=25)
+	# Keep it shorter than ground terrain to avoid reaching down
+	return clamp(height, 3, 25)
+
+
+## Get a random island size based on weights
+static func get_random_island_size(rng: RandomNumberGenerator) -> IslandSize:
+	var roll = rng.randf()
+
+	# Size distribution:
+	# Small: 30% chance
+	# Medium: 40% chance
+	# Large: 20% chance
+	# Huge: 10% chance
+
+	if roll < 0.3:
+		return IslandSize.SMALL
+	elif roll < 0.7:
+		return IslandSize.MEDIUM
+	elif roll < 0.9:
+		return IslandSize.LARGE
+	else:
+		return IslandSize.HUGE

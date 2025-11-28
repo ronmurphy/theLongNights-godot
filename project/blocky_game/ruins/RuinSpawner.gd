@@ -22,11 +22,130 @@ func initialize(ruin_library: RuinLibrary, blocks_node: Node, terrain_node: Node
 	print("RuinSpawner initialized")
 
 
+func spawn_simple_sky_island(world_position: Vector3) -> Vector3:
+	"""
+	Spawn a simple natural sky island with just a teleport_stone.
+	NO structures, NO templates - just natural circular terrain.
+
+	Returns the spawn position, or Vector3.ZERO if failed
+	"""
+	print("🏝️ Spawning simple sky island at position: ", world_position)
+
+	# FORCE CHUNK GENERATION: Create temporary VoxelViewer
+	var temp_viewer = VoxelViewer.new()
+	temp_viewer.position = world_position
+	temp_viewer.view_distance = 32
+	temp_viewer.requires_visuals = true
+	temp_viewer.requires_collisions = true
+	_terrain.add_child(temp_viewer)
+
+	# Wait for chunks to generate
+	await get_tree().create_timer(2.0).timeout
+	print("Chunks generated, creating island...")
+
+	# Get voxel tool
+	var voxel_tool = _terrain.get_voxel_tool()
+	if voxel_tool == null:
+		temp_viewer.queue_free()
+		push_error("Failed to get voxel tool from terrain")
+		return Vector3.ZERO
+
+	# Generate the natural circular island
+	var island_radius = randf_range(20.0, 35.0)  # Random size between 20-35 blocks radius
+	var island_result = _generate_natural_circular_island(voxel_tool, world_position, island_radius)
+	var blocks_placed = island_result.blocks_placed
+	var surface_positions = island_result.surface_positions  # Grass block positions for chest
+
+	# Add inverted cone support structure underneath island
+	_generate_island_cone_support(voxel_tool, world_position, island_radius)
+
+	# Fill natural holes with water
+	_fill_island_holes_with_water(voxel_tool, world_position, island_radius)
+
+	# Decide if this is a puzzle island (30% chance)
+	var is_puzzle_island = randf() < 0.3
+
+	# Place teleport_stone closer to center (5 blocks from edge for safe landing)
+	# Find a good position on the surface
+	var safe_distance_from_center = island_radius - 5.0  # 5 blocks from edge
+	var teleport_x = int(world_position.x + safe_distance_from_center)
+	var teleport_z = int(world_position.z + safe_distance_from_center)
+
+	# Find the surface height at this position by scanning up from base
+	const GRASS = 2
+	var teleport_y = int(world_position.y)
+	for y_scan in range(20):  # Scan up to 20 blocks
+		var check_pos = Vector3i(teleport_x, int(world_position.y) + y_scan, teleport_z)
+		if voxel_tool.get_voxel(check_pos) == GRASS:
+			teleport_y = check_pos.y + 1  # Place on top of grass
+			break
+
+	var teleport_stone_pos = Vector3i(teleport_x, teleport_y, teleport_z)
+
+	# Teleport_stone block ID from generator.gd
+	const TELEPORT_STONE = 35
+
+	# Ensure safe platform around stone
+	_ensure_safe_teleport_platform(voxel_tool, teleport_stone_pos)
+
+	# If puzzle island, set up push_block puzzle instead of placing teleport_stone
+	if is_puzzle_island:
+		_setup_push_block_puzzle(voxel_tool, world_position, island_radius, teleport_stone_pos, surface_positions)
+		print("🧩 Created PUZZLE island (teleport_stone hidden until solved)")
+	else:
+		# Place the teleport_stone using block ID directly (non-puzzle island)
+		voxel_tool.set_voxel(teleport_stone_pos, TELEPORT_STONE)
+		print("✅ Placed teleport_stone at %s" % teleport_stone_pos)
+
+		# Place a chest with loot on the island (away from teleport stone)
+		_place_island_chest(voxel_tool, surface_positions, teleport_stone_pos)
+
+	# Register this island with RuinRegistry for tracking
+	# Create minimal island size based on radius
+	var island_size = Vector3i(int(island_radius * 2), 10, int(island_radius * 2))
+	var teleport_stone_local_pos = teleport_stone_pos - Vector3i(world_position)
+	var ruin_data = RuinRegistry.register_ruin(
+		world_position,
+		"sky_island_natural",
+		[teleport_stone_local_pos],  # One teleport stone at center
+		island_size
+	)
+
+	# Register with LampManager for visualization and persistence
+	var stone_positions_and_colors = [{
+		"pos": Vector3(teleport_stone_pos),
+		"color": ruin_data.teleport_stones[0].glow_color
+	}]
+
+	var sphere_data = {
+		"center": world_position + Vector3(island_size) / 2.0,
+		"radius": island_radius + 10.0,
+		"color": ruin_data.teleport_stones[0].glow_color.darkened(0.6),
+		"opacity": 0.15,
+		"has_enemies": false,
+		"ruin_size": island_size
+	}
+
+	var lamp_manager = get_tree().root.get_node_or_null("/root/LampManager")
+	if lamp_manager:
+		lamp_manager.register_ruin(world_position, stone_positions_and_colors, sphere_data)
+
+	print("🏝️ Created natural sky island with %d blocks (radius: %.1f)" % [blocks_placed, island_radius])
+
+	# Clean up temporary viewer
+	temp_viewer.queue_free()
+
+	return world_position
+
+
 func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 	"""
 	Spawn a ruin at the specified world position (can be in the sky!)
 	If ruin_name is empty, a random ruin will be selected
 	Returns the spawn position, or Vector3.ZERO if failed
+
+	For SKY RUINS (y >= 100): Spawns simple natural island with teleport_stone
+	For GROUND RUINS (y < 100): Uses template system with structures
 	"""
 	if _ruin_library == null:
 		push_error("RuinSpawner not initialized - RuinLibrary is null")
@@ -36,6 +155,11 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 		push_error("RuinSpawner not initialized - Terrain is null")
 		return Vector3.ZERO
 
+	# SKY RUINS: Use simple natural island generation (no structures)
+	if world_position.y >= 100:
+		return await spawn_simple_sky_island(world_position)
+
+	# GROUND RUINS: Use template system
 	# Get the ruin template
 	var template: RuinLibrary.RuinTemplate = null
 	if ruin_name.is_empty():
@@ -71,6 +195,10 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 
 	# Place each block in the template
 	var blocks_placed = 0
+	var template_positions = {}  # Track all template block positions
+	var teleport_stone_data = []  # Store teleport_stone positions and voxel IDs for later placement
+	const TELEPORT_STONE_BLOCK_ID = 35
+
 	for block_data in template.blocks:
 		var block_pos: Vector3i = block_data.pos
 		var block_id: int = block_data.block_id
@@ -88,7 +216,19 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 		# Get the voxel value to place
 		var voxel_id = block.base_info.voxels[variant] if variant < block.base_info.voxels.size() else block.base_info.voxels[0]
 
-		# Place the block
+		# Track template position for pyramid generation to avoid
+		template_positions[world_block_pos] = true
+
+		# If this is a teleport_stone, save it for placement AFTER terrain generation
+		if block_id == TELEPORT_STONE_BLOCK_ID:
+			teleport_stone_data.append({
+				"pos": world_block_pos,
+				"voxel_id": voxel_id
+			})
+			# Don't place it yet - skip to next block
+			continue
+
+		# Place the block (but not teleport_stones yet)
 		voxel_tool.set_voxel(world_block_pos, voxel_id)
 		blocks_placed += 1
 
@@ -101,7 +241,20 @@ func spawn_ruin_at(world_position: Vector3, ruin_name: String = "") -> Vector3:
 	# Skip pyramid for puzzle rooms (they're enclosed chambers)
 	var pyramid_blocks_placed = 0
 	if not is_puzzle_room:
-		pyramid_blocks_placed = _generate_inverted_pyramid(voxel_tool, world_position, template.size)
+		pyramid_blocks_placed = _generate_inverted_pyramid(voxel_tool, world_position, template.size, template_positions)
+
+	# NOW place teleport_stones AFTER terrain generation (ensures they're never overwritten)
+	for stone_data in teleport_stone_data:
+		var stone_pos: Vector3i = stone_data.pos
+		var stone_voxel_id: int = stone_data.voxel_id
+
+		# Ensure safe landing platform around teleport_stone (3x3 grass platform)
+		_ensure_safe_teleport_platform(voxel_tool, stone_pos)
+
+		# Place the teleport_stone
+		voxel_tool.set_voxel(stone_pos, stone_voxel_id)
+		blocks_placed += 1
+		print("✅ Placed teleport_stone at %s (AFTER terrain generation)" % stone_pos)
 
 	# Clean up temporary VoxelViewer
 	temp_viewer.queue_free()
@@ -391,85 +544,749 @@ func _add_ruin_sphere(ruin_position: Vector3, ruin_data: RuinRegistry.RuinData, 
 	print("Added ", sphere_type, " sphere (radius: %.1f) around %dx%dx%d ruin at: %s" % [radius, ruin_size.x, ruin_size.y, ruin_size.z, ruin_position])
 
 
-func _generate_inverted_pyramid(voxel_tool, world_position: Vector3, ruin_size: Vector3i) -> int:
+func _ensure_safe_teleport_platform(voxel_tool, teleport_stone_pos: Vector3i):
 	"""
-	Generate an inverted pyramid beneath a flying ruin.
-	The pyramid tapers from the ruin's base to a point below.
+	Ensure there's a safe landing platform around a teleport_stone.
+	- Creates a 5x5 grass platform beneath the stone
+	- Ensures player won't fall through on arrival
+	- Clears vertical space above for player spawning
+	"""
+	# Block IDs from generator.gd
+	const AIR = 0
+	const DIRT = 1
+	const GRASS = 2
+	const PLATFORM_RADIUS = 2  # 5x5 platform (2 blocks in each direction)
+
+	# Create platform beneath teleport_stone
+	for x_offset in range(-PLATFORM_RADIUS, PLATFORM_RADIUS + 1):
+		for z_offset in range(-PLATFORM_RADIUS, PLATFORM_RADIUS + 1):
+			var platform_x = teleport_stone_pos.x + x_offset
+			var platform_z = teleport_stone_pos.z + z_offset
+
+			# Place grass on surface (directly beneath teleport_stone level)
+			var surface_pos = Vector3i(platform_x, teleport_stone_pos.y - 1, platform_z)
+			var current_block = voxel_tool.get_voxel(surface_pos)
+			if current_block == AIR:
+				voxel_tool.set_voxel(surface_pos, GRASS)
+
+			# Place dirt layer beneath grass for stability
+			var dirt_pos = Vector3i(platform_x, teleport_stone_pos.y - 2, platform_z)
+			var dirt_block = voxel_tool.get_voxel(dirt_pos)
+			if dirt_block == AIR:
+				voxel_tool.set_voxel(dirt_pos, DIRT)
+
+	# Clear vertical space above teleport_stone (3 blocks high for player)
+	for y_offset in range(1, 4):  # 1, 2, 3 blocks above
+		var clear_pos = Vector3i(teleport_stone_pos.x, teleport_stone_pos.y + y_offset, teleport_stone_pos.z)
+		voxel_tool.set_voxel(clear_pos, AIR)
+
+	print("🛬 Created safe landing platform at teleport_stone: %s" % teleport_stone_pos)
+
+
+func _generate_inverted_pyramid(voxel_tool, world_position: Vector3, ruin_size: Vector3i, template_positions: Dictionary = {}) -> int:
+	"""
+	Generate a natural floating island platform with inverted pyramid support.
+
+	For SKY RUINS (y >= 100):
+	- Creates ROUND/CIRCULAR platform with organic shape
+	- Adds terrain variation on top (small hills, bumps)
+	- Places vegetation (trees, grass, shrubs)
+	- Pyramid follows the circular shape
+
+	For GROUND RUINS (y < 100):
+	- Uses simple square pyramid (original behavior)
 
 	Features:
-	- Height scales with ruin size (1.5x the largest horizontal dimension)
 	- Gradient: GRASS (top) → DIRT → STONE → RUIN_STONE (bottom)
-	- Slightly jagged edges for natural appearance
-	- Flat top aligns perfectly with ruin bottom
+	- Natural jagged edges
+	- Capped height for sky islands
+	- Skips template block positions (structures, teleport_stones, etc.)
 	"""
 	var blocks_placed = 0
+	var is_sky_ruin = world_position.y >= 100
 
-	# Get block IDs
-	const GRASS_ID = 2          # Grass block ID (top layer)
-	const DIRT_ID = 1           # Dirt block ID
-	const STONE_ID = 29         # Stone block ID
-	const RUIN_STONE_ID = 33    # Ruin stone block ID (bottom layer)
-	const AIR_ID = 0            # Air
+	# Block IDs (these are VOXEL IDs, not block IDs!)
+	var GRASS_ID = _blocks.get_block(2).base_info.voxels[0]        # Grass
+	var DIRT_ID = _blocks.get_block(1).base_info.voxels[0]         # Dirt
+	var STONE_ID = _blocks.get_block(29).base_info.voxels[0]       # Stone
+	var RUIN_STONE_ID = _blocks.get_block(33).base_info.voxels[0]  # Ruin stone
+	var TALL_GRASS_ID = _blocks.get_block(8).base_info.voxels[0]   # Tall grass
+	var WATER_TOP_ID = _blocks.get_block(13).base_info.voxels[0]   # Water top
+	var WATER_FULL_ID = _blocks.get_block(14).base_info.voxels[0]  # Water full
+	const AIR_ID = 0
 
-	# Calculate pyramid dimensions based on ruin size
-	var base_width = max(ruin_size.x, ruin_size.z)
-	var pyramid_height = int(base_width * 1.5)
+	# Calculate dimensions
+	var base_radius = max(ruin_size.x, ruin_size.z) / 2.0
+	var platform_radius = base_radius + 8  # Extend platform beyond structure
 
-	# Get the bottom Y of the ruin (this is where the flat top of pyramid should be)
+	# Pyramid height - cap at 30 for sky islands
+	var pyramid_height = int(base_radius * 1.5)
+	if is_sky_ruin:
+		pyramid_height = min(30, pyramid_height)
+
 	var ruin_bottom_y = int(world_position.y)
-	var pyramid_start_y = ruin_bottom_y - 1  # Start one block below the ruin bottom
-
-	# Ruin center
 	var ruin_center_x = int(world_position.x) + ruin_size.x / 2
 	var ruin_center_z = int(world_position.z) + ruin_size.z / 2
 
-	# Generate pyramid layer by layer from top to bottom
-	for layer in range(pyramid_height):
-		var current_y = pyramid_start_y - layer
+	# Noise for terrain variation (only for sky ruins)
+	var terrain_noise: FastNoiseLite = null
+	if is_sky_ruin:
+		terrain_noise = FastNoiseLite.new()
+		terrain_noise.seed = hash(world_position)
+		terrain_noise.frequency = 0.15
+		terrain_noise.fractal_octaves = 2
 
-		# Calculate the scaling factor for this layer (1.0 at top, 0.0 at bottom for proper taper)
-		var layer_progress = float(pyramid_height - layer - 1) / float(pyramid_height)
+	# Generate platform + pyramid
+	var scan_range = int(platform_radius) + 5
+	for x in range(-scan_range, scan_range + 1):
+		for z in range(-scan_range, scan_range + 1):
+			var distance = sqrt(float(x * x + z * z))
 
-		# Current layer size (tapers as we go down)
-		var current_width = int(float(base_width) * layer_progress)
-		if current_width < 1:
-			current_width = 1
+			# Add organic edge variation
+			var edge_noise = randf() * 2.0 - 1.0  # -1 to +1
+			var effective_distance = distance + edge_noise
 
-		# Determine block type based on depth
-		var block_voxel_id: int
-		if layer == 0:  # Only the very first (top) layer is grass
-			block_voxel_id = GRASS_ID
-		else:  # Remaining layers: Dirt → Stone → Ruin Stone gradient
-			if layer_progress > 0.67:  # Top 33% - Dirt
-				block_voxel_id = DIRT_ID
-			elif layer_progress > 0.33:  # Middle 33% - Stone
-				block_voxel_id = STONE_ID
-			else:  # Bottom 33% - Ruin Stone
-				block_voxel_id = RUIN_STONE_ID
+			# Skip if outside platform radius
+			if effective_distance > platform_radius:
+				continue
 
-		# Place blocks in a square pattern, with slight jaggedness
-		for x in range(-current_width, current_width + 1):
-			for z in range(-current_width, current_width + 1):
-				# Add slight randomness for jagged edges
-				var jag_threshold = randf() * 0.3  # 30% randomness
-				var distance_from_center = max(abs(x), abs(z))
+			# Calculate edge falloff (smoother at edges)
+			var edge_factor = 1.0 - clamp((effective_distance - platform_radius + 5.0) / 5.0, 0.0, 1.0)
 
-				# Create diamond/square pattern (slightly jagged)
-				if distance_from_center <= current_width + jag_threshold:
-					var world_x = ruin_center_x + x
-					var world_z = ruin_center_z + z
-					var block_pos = Vector3i(world_x, current_y, world_z)
+			# Terrain height variation on top (only for sky ruins)
+			var terrain_height_offset = 0
+			if is_sky_ruin and terrain_noise:
+				var noise_val = terrain_noise.get_noise_2d(ruin_center_x + x, ruin_center_z + z)
+				# Small bumps and dips (-2 to +3 blocks)
+				terrain_height_offset = int(noise_val * 2.5 + 0.5)
 
-					# Don't overwrite existing blocks (the ruin itself)
-					var existing_voxel = voxel_tool.get_voxel(block_pos)
-					if existing_voxel == AIR_ID:
-						voxel_tool.set_voxel(block_pos, block_voxel_id)
-						blocks_placed += 1
+			# Build from bottom (pyramid) to top (platform)
+			for layer in range(pyramid_height):
+				var current_y_offset = -layer
+				var layer_progress = float(pyramid_height - layer - 1) / float(pyramid_height)
 
-	if blocks_placed > 0:
-		print("Generated inverted pyramid with ", blocks_placed, " blocks (height: ", pyramid_height, ", base: ", base_width, ")")
+				# Pyramid taper
+				var layer_radius = platform_radius * layer_progress
+
+				# Determine if this position is inside the pyramid at this layer
+				if effective_distance > layer_radius:
+					continue
+
+				# Determine block type based on depth
+				var block_voxel_id: int
+				if layer_progress > 0.67:  # Top 33%
+					block_voxel_id = DIRT_ID
+				elif layer_progress > 0.33:  # Middle 33%
+					block_voxel_id = STONE_ID
+				else:  # Bottom 33%
+					block_voxel_id = RUIN_STONE_ID
+
+				var world_x = ruin_center_x + x
+				var world_z = ruin_center_z + z
+				var world_y = ruin_bottom_y + current_y_offset
+				var block_pos = Vector3i(world_x, world_y, world_z)
+
+				# Skip template block positions (structures, teleport_stones, etc.)
+				if template_positions.has(block_pos):
+					continue
+
+				# Don't overwrite existing blocks
+				var existing_voxel = voxel_tool.get_voxel(block_pos)
+				if existing_voxel == AIR_ID:
+					voxel_tool.set_voxel(block_pos, block_voxel_id)
+					blocks_placed += 1
+
+			# Top layer with terrain variation
+			for height_offset in range(max(0, terrain_height_offset), max(1, terrain_height_offset + 3)):
+				var world_x = ruin_center_x + x
+				var world_z = ruin_center_z + z
+				var world_y = ruin_bottom_y + height_offset
+				var block_pos = Vector3i(world_x, world_y, world_z)
+
+				# Skip template block positions (structures, teleport_stones, etc.)
+				if template_positions.has(block_pos):
+					continue
+
+				var existing_voxel = voxel_tool.get_voxel(block_pos)
+				if existing_voxel != AIR_ID:
+					continue  # Don't overwrite
+
+				var block_voxel_id: int
+				if height_offset == max(0, terrain_height_offset + 2):  # Top surface
+					block_voxel_id = GRASS_ID
+				else:  # Below surface
+					block_voxel_id = DIRT_ID
+
+				voxel_tool.set_voxel(block_pos, block_voxel_id)
+				blocks_placed += 1
+
+				# Add vegetation on top surface (sky ruins only)
+				if is_sky_ruin and height_offset == max(0, terrain_height_offset + 2):
+					var veg_roll = randf()
+					if veg_roll < 0.12:  # 12% chance for vegetation
+						var veg_y = world_y + 1
+						var veg_pos = Vector3i(world_x, veg_y, world_z)
+
+						# Only place if there's grass below and air above
+						if voxel_tool.get_voxel(Vector3i(world_x, world_y, world_z)) == GRASS_ID:
+							if voxel_tool.get_voxel(veg_pos) == AIR_ID:
+								if veg_roll < 0.05:  # Tall grass
+									voxel_tool.set_voxel(veg_pos, TALL_GRASS_ID)
+								# Note: Removed shrub/tree for now to keep it simple
+
+	# Add water lakes to sky islands
+	var lakes_placed = 0
+	if is_sky_ruin:
+		lakes_placed = _add_water_lakes(voxel_tool, ruin_center_x, ruin_center_z, ruin_bottom_y, platform_radius, GRASS_ID, DIRT_ID, WATER_TOP_ID, WATER_FULL_ID)
+
+	var shape_type = "circular island" if is_sky_ruin else "square pyramid"
+	print("Generated %s with %d blocks (height: %d, radius: %.1f, lakes: %d)" % [shape_type, blocks_placed, pyramid_height, platform_radius, lakes_placed])
 
 	return blocks_placed
+
+
+func _generate_natural_circular_island(voxel_tool, world_position: Vector3, radius: float) -> Dictionary:
+	"""
+	Generate a natural-looking circular island with organic terrain.
+	Uses same noise settings as world generator for natural hills and valleys.
+
+	Features:
+	- Smooth rolling hills (like ground-level terrain)
+	- Natural material gradient: grass -> dirt -> stone (NO bedrock!)
+	- Trees generated using TreeGenerator
+	- Organic circular shape with irregular edges
+
+	Returns: {blocks_placed: int, surface_positions: Array[Vector3i]}
+	"""
+	var blocks_placed = 0
+	var surface_positions = []  # Track grass surface positions for chest placement
+	var center_x = int(world_position.x + radius)
+	var center_z = int(world_position.z + radius)
+	var base_y = int(world_position.y)
+
+	# Block IDs from generator.gd - use these directly, NOT voxel IDs!
+	const AIR = 0
+	const DIRT = 1
+	const GRASS = 2
+	const LOG_Y = 4
+	const LEAVES = 25
+	const STONE = 29
+
+	# Use SAME noise settings as world generator for natural terrain
+	var terrain_noise = FastNoiseLite.new()
+	terrain_noise.seed = hash(world_position)
+	terrain_noise.frequency = 1.0 / 128.0  # Same as world generator
+	terrain_noise.fractal_octaves = 4  # Same as world generator
+	terrain_noise.noise_type = FastNoiseLite.TYPE_PERLIN
+
+	# Edge noise for organic island shape
+	var edge_noise = FastNoiseLite.new()
+	edge_noise.seed = hash(world_position) + 1000
+	edge_noise.frequency = 0.1
+	edge_noise.fractal_octaves = 2
+
+	# Generate trees using TreeGenerator
+	const TreeGenerator = preload("res://blocky_game/generator/tree_generator.gd")
+	var tree_gen = TreeGenerator.new()
+	tree_gen.log_type = LOG_Y  # Use block ID directly
+	tree_gen.leaves_type = LEAVES  # Use block ID directly
+	tree_gen.trunk_len_min = 6
+	tree_gen.trunk_len_max = 12
+	var tree_structures = []
+	for i in 8:  # Generate 8 different tree variations
+		tree_structures.append(tree_gen.generate())
+
+	# Track tree positions for placement after terrain
+	var tree_positions = []
+
+	var scan_range = int(radius) + 5
+	for x in range(-scan_range, scan_range + 1):
+		for z in range(-scan_range, scan_range + 1):
+			var distance = sqrt(float(x * x + z * z))
+
+			# Organic edge variation (±8 blocks)
+			var edge_variation = edge_noise.get_noise_2d(center_x + x, center_z + z) * 8.0
+			var effective_radius = radius + edge_variation
+
+			# Skip if outside island bounds
+			if distance > effective_radius:
+				continue
+
+			var world_x = center_x + x
+			var world_z = center_z + z
+
+			# Get terrain height using world generator style noise
+			# Map noise [-1, 1] to height range [5, 20] blocks
+			var noise_val = terrain_noise.get_noise_2d(world_x, world_z)
+			var terrain_height = int((noise_val + 1.0) * 7.5 + 5.0)  # 5 to 20 blocks
+
+			# Edge falloff - terrain gets lower near edges for natural slope
+			var edge_factor = 1.0 - (distance / effective_radius)
+			edge_factor = clamp(edge_factor, 0.0, 1.0)
+			terrain_height = int(terrain_height * edge_factor)
+			terrain_height = max(2, terrain_height)  # At least 2 blocks tall
+
+			# Build terrain column
+			for y_offset in range(terrain_height + 8):  # Extra depth for subsurface
+				var world_y = base_y + y_offset
+				var block_pos = Vector3i(world_x, world_y, world_z)
+
+				# Don't overwrite existing blocks
+				var existing_voxel = voxel_tool.get_voxel(block_pos)
+				if existing_voxel != AIR:
+					continue
+
+				# Determine block type based on depth from surface
+				var depth_from_surface = terrain_height - y_offset
+				var block_id: int
+
+				if depth_from_surface < 0:
+					# Above surface - skip (air)
+					continue
+				elif depth_from_surface == 0:
+					# Surface - grass
+					block_id = GRASS
+					# Track surface position for chest placement
+					surface_positions.append(block_pos)
+				elif depth_from_surface <= 4:
+					# Shallow (1-4 blocks deep) - dirt
+					block_id = DIRT
+				else:
+					# Deep (5+ blocks) - stone (NO BEDROCK!)
+					block_id = STONE
+
+				voxel_tool.set_voxel(block_pos, block_id)
+				blocks_placed += 1
+
+			# Randomly mark positions for tree placement (5% chance)
+			if randf() < 0.05 and terrain_height >= 8:
+				var surface_y = base_y + terrain_height
+				# Make sure there's grass at surface
+				var surface_check = voxel_tool.get_voxel(Vector3i(world_x, surface_y, world_z))
+				if surface_check == GRASS:
+					tree_positions.append(Vector3i(world_x, surface_y + 1, world_z))
+
+	# Place trees after terrain generation using paste_masked
+	var trees_placed = 0
+	for tree_pos in tree_positions:
+		if trees_placed >= tree_structures.size() * 3:  # Limit total trees
+			break
+
+		var tree_structure = tree_structures[trees_placed % tree_structures.size()]
+
+		# Calculate lower corner position for paste (tree has an offset)
+		var lower_corner_pos = Vector3(tree_pos) - tree_structure.offset
+
+		# Use paste_masked to place the tree (only replaces air blocks)
+		voxel_tool.paste_masked(
+			lower_corner_pos,
+			tree_structure.voxels,
+			1 << VoxelBuffer.CHANNEL_TYPE,  # Channel mask
+			VoxelBuffer.CHANNEL_TYPE,       # Mask channel
+			AIR                             # Only replace air
+		)
+
+		trees_placed += 1
+
+	print("Generated natural circular island: %d blocks (radius: %.1f, trees: %d, surface positions: %d)" % [blocks_placed, radius, trees_placed, surface_positions.size()])
+	return {
+		"blocks_placed": blocks_placed,
+		"surface_positions": surface_positions
+	}
+
+
+func _generate_island_cone_support(voxel_tool, world_position: Vector3, radius: float):
+	"""
+	Generate an inverted cone/tapered support structure under the floating island.
+	Like the island was ripped from the ground with dirt/stone hanging beneath.
+
+	Features:
+	- Gradually reduces radius as it goes down (not perfect cone, organic)
+	- 5-10 layers deep
+	- Mix of dirt and stone
+	- Each layer is smaller than the one above
+	"""
+	const DIRT = 1
+	const STONE = 29
+	const AIR = 0
+
+	var center_x = int(world_position.x + radius)
+	var center_z = int(world_position.z + radius)
+	var base_y = int(world_position.y)
+
+	# Random depth between 5-10 layers
+	var cone_depth = randi_range(5, 10)
+
+	# Noise for organic irregularity
+	var cone_noise = FastNoiseLite.new()
+	cone_noise.seed = hash(world_position) + 5000
+	cone_noise.frequency = 0.2
+	cone_noise.fractal_octaves = 2
+
+	for layer in range(cone_depth):
+		var layer_y = base_y - layer - 1  # Go down from base
+
+		# Calculate radius for this layer (tapers down)
+		var layer_progress = float(layer) / float(cone_depth)
+		var layer_radius = radius * (1.0 - layer_progress * 0.9)  # Reduces to 10% of original
+
+		# Add variation to radius
+		var radius_variation = randf_range(-2.0, 2.0)
+		layer_radius += radius_variation
+
+		var scan_range = int(layer_radius) + 2
+
+		for x in range(-scan_range, scan_range + 1):
+			for z in range(-scan_range, scan_range + 1):
+				var distance = sqrt(float(x * x + z * z))
+
+				# Organic edge variation
+				var edge_variation = cone_noise.get_noise_2d(center_x + x, center_z + z) * 3.0
+				var effective_distance = distance + edge_variation
+
+				if effective_distance > layer_radius:
+					continue
+
+				var world_x = center_x + x
+				var world_z = center_z + z
+				var block_pos = Vector3i(world_x, layer_y, world_z)
+
+				# Don't overwrite existing blocks
+				if voxel_tool.get_voxel(block_pos) != AIR:
+					continue
+
+				# Mix of dirt and stone (more stone as we go deeper)
+				var stone_chance = 0.3 + (layer_progress * 0.4)  # 30% to 70% stone
+				var block_id = STONE if randf() < stone_chance else DIRT
+
+				voxel_tool.set_voxel(block_pos, block_id)
+
+	print("Generated cone support: %d layers (depth: %d)" % [cone_depth, cone_depth])
+
+
+func _fill_island_holes_with_water(voxel_tool, world_position: Vector3, radius: float):
+	"""
+	Fill natural holes/depressions in the island with water.
+	A hole is: air blocks surrounded by grass/dirt at similar or higher elevation.
+	"""
+	const AIR = 0
+	const GRASS = 2
+	const DIRT = 1
+	const WATER_TOP = 13
+	const WATER_FULL = 14
+
+	var center_x = int(world_position.x + radius)
+	var center_z = int(world_position.z + radius)
+	var base_y = int(world_position.y)
+
+	var scan_range = int(radius) + 5
+	var holes_filled = 0
+
+	# Scan the island surface for depressions
+	for x in range(-scan_range, scan_range + 1, 2):  # Step by 2 for performance
+		for z in range(-scan_range, scan_range + 1, 2):
+			var world_x = center_x + x
+			var world_z = center_z + z
+
+			# Find surface height at this position
+			var found_surface = false
+			for y_scan in range(20):
+				var check_y = base_y + y_scan
+				var check_pos = Vector3i(world_x, check_y, world_z)
+				var block = voxel_tool.get_voxel(check_pos)
+
+				if block == GRASS or block == DIRT:
+					found_surface = true
+					# Check if there's a depression (air below surface)
+					var below_pos = Vector3i(world_x, check_y - 1, world_z)
+					if voxel_tool.get_voxel(below_pos) == AIR:
+						# Found a hole! Fill with water
+						var water_depth = 0
+						for depth in range(1, 5):  # Fill up to 4 blocks deep
+							var water_pos = Vector3i(world_x, check_y - depth, world_z)
+							if voxel_tool.get_voxel(water_pos) == AIR:
+								# Check if surrounded by terrain (not edge of island)
+								if _is_surrounded_by_terrain(voxel_tool, water_pos):
+									if depth == 1:
+										voxel_tool.set_voxel(water_pos, WATER_TOP)
+									else:
+										voxel_tool.set_voxel(water_pos, WATER_FULL)
+									water_depth = depth
+								else:
+									break
+							else:
+								break
+						if water_depth > 0:
+							holes_filled += 1
+					break
+
+				if block != AIR:
+					break
+
+	if holes_filled > 0:
+		print("💧 Filled %d natural depressions with water" % holes_filled)
+
+
+func _is_surrounded_by_terrain(voxel_tool, pos: Vector3i) -> bool:
+	"""Check if position is surrounded by solid blocks (not on island edge)"""
+	const AIR = 0
+	var solid_neighbors = 0
+
+	for x_off in [-1, 0, 1]:
+		for z_off in [-1, 0, 1]:
+			if x_off == 0 and z_off == 0:
+				continue
+			var check_pos = Vector3i(pos.x + x_off, pos.y, pos.z + z_off)
+			if voxel_tool.get_voxel(check_pos) != AIR:
+				solid_neighbors += 1
+
+	return solid_neighbors >= 5  # At least 5 of 8 neighbors are solid
+
+
+func _setup_push_block_puzzle(voxel_tool, world_position: Vector3, radius: float, teleport_pos: Vector3i, surface_positions: Array):
+	"""
+	Set up a push_block puzzle on the island.
+	- Place test block (goal)
+	- Place push_block (movable)
+	- Store teleport_stone position for later reveal
+	- Push_block must be pushed to/beside test block to reveal teleport_stone
+	"""
+	const PUSH_BLOCK = 43
+	const TEST = 46
+	const GRASS = 2
+	const AIR = 0
+
+	if surface_positions.is_empty():
+		print("⚠️ Cannot create puzzle - no surface positions")
+		return
+
+	# Find two positions far apart on the island for test block and push_block
+	var valid_positions = []
+	for pos in surface_positions:
+		var above_pos = Vector3i(pos.x, pos.y + 1, pos.z)
+		if voxel_tool.get_voxel(above_pos) == AIR:
+			# Far enough from teleport position
+			if pos.distance_to(teleport_pos) > 8.0:
+				valid_positions.append(pos)
+
+	if valid_positions.size() < 2:
+		print("⚠️ Not enough positions for puzzle blocks")
+		return
+
+	# Shuffle and pick positions
+	valid_positions.shuffle()
+	var test_pos = Vector3i(valid_positions[0].x, valid_positions[0].y + 1, valid_positions[0].z)
+	var push_block_start_pos = Vector3i(valid_positions[1].x, valid_positions[1].y + 1, valid_positions[1].z)
+
+	# Ensure they're not too close together (puzzle should require some pushing)
+	if test_pos.distance_to(push_block_start_pos) < 5.0:
+		# Try to find a better push_block position
+		for i in range(2, min(10, valid_positions.size())):
+			var alt_pos = Vector3i(valid_positions[i].x, valid_positions[i].y + 1, valid_positions[i].z)
+			if test_pos.distance_to(alt_pos) >= 5.0:
+				push_block_start_pos = alt_pos
+				break
+
+	# Place test block (goal)
+	voxel_tool.set_voxel(test_pos, TEST)
+
+	# Place push_block as a voxel first (will be converted to entity by PushBlockManager)
+	voxel_tool.set_voxel(push_block_start_pos, PUSH_BLOCK)
+
+	# Store puzzle data for completion tracking
+	# The teleport_stone position is stored but not placed yet
+	# It will be revealed when puzzle is solved
+	var puzzle_data = {
+		"island_pos": world_position,
+		"teleport_pos": teleport_pos,
+		"test_pos": test_pos,
+		"push_block_spawn": push_block_start_pos,
+		"solved": false
+	}
+
+	# Register with a puzzle manager (to be created)
+	_register_island_puzzle(puzzle_data)
+
+	print("🧩 Puzzle set up: push_block at %s, test block at %s, teleport hidden at %s" % [push_block_start_pos, test_pos, teleport_pos])
+
+
+func _register_island_puzzle(puzzle_data: Dictionary):
+	"""Register puzzle data for tracking and completion detection"""
+	# Store in RuinRegistry metadata for this island
+	# This will be checked when push_blocks emit goal_reached signal
+	var ruin_registry = get_node_or_null("/root/Main/Game/RuinRegistry")
+	if ruin_registry and ruin_registry.has_method("register_island_puzzle"):
+		ruin_registry.register_island_puzzle(puzzle_data)
+
+
+func _place_island_chest(voxel_tool, surface_positions: Array, teleport_pos: Vector3i):
+	"""
+	Place a chest with loot on the island surface.
+	- Away from teleport stone
+	- On grass blocks
+	- Contains 1-3 random items
+	"""
+	const CHEST = 48
+	const AIR = 0
+
+	if surface_positions.is_empty():
+		print("⚠️ No surface positions found for chest placement")
+		return
+
+	# Find a good position away from teleport stone
+	var valid_positions = []
+	for pos in surface_positions:
+		var distance_to_teleport = pos.distance_to(teleport_pos)
+		# At least 8 blocks away from teleport stone
+		if distance_to_teleport > 8.0:
+			# Make sure there's air above for the chest
+			var above_pos = Vector3i(pos.x, pos.y + 1, pos.z)
+			if voxel_tool.get_voxel(above_pos) == AIR:
+				valid_positions.append(above_pos)
+
+	if valid_positions.is_empty():
+		print("⚠️ No valid positions for chest (too close to teleport or blocked)")
+		return
+
+	# Pick a random valid position
+	var chest_pos = valid_positions[randi() % valid_positions.size()]
+
+	# Place the chest
+	voxel_tool.set_voxel(chest_pos, CHEST)
+
+	print("📦 Placed chest at %s (with loot)" % chest_pos)
+
+
+func _add_water_lakes(voxel_tool, center_x: int, center_z: int, base_y: int, platform_radius: float, GRASS_ID: int, DIRT_ID: int, WATER_TOP_ID: int, WATER_FULL_ID: int) -> int:
+	"""
+	Add small water lakes to the island platform.
+
+	Requirements:
+	- 3x3 empty area (air)
+	- 5x5 grass/dirt surround around the 3x3
+	- Dig into the grass layer to create depression
+	- Fill with water blocks
+	"""
+	var lakes_created = 0
+	const AIR_ID = 0
+	const MAX_LAKES = 3  # Limit number of lakes per island
+
+	# Scan the platform for suitable lake locations
+	var scan_range = int(platform_radius)
+	var potential_locations = []
+
+	for x in range(-scan_range, scan_range, 4):  # Step by 4 to avoid overlapping
+		for z in range(-scan_range, scan_range, 4):
+			var world_x = center_x + x
+			var world_z = center_z + z
+
+			# Check if this location is suitable for a lake
+			if _is_valid_lake_location(voxel_tool, world_x, world_z, base_y, GRASS_ID, DIRT_ID):
+				potential_locations.append(Vector2i(world_x, world_z))
+
+	# Shuffle and pick a few locations
+	potential_locations.shuffle()
+	var num_lakes = min(MAX_LAKES, potential_locations.size())
+
+	for i in range(num_lakes):
+		var loc = potential_locations[i]
+		_create_water_lake(voxel_tool, loc.x, loc.y, base_y, GRASS_ID, DIRT_ID, WATER_TOP_ID, WATER_FULL_ID)
+		lakes_created += 1
+
+	return lakes_created
+
+
+func _is_valid_lake_location(voxel_tool, center_x: int, center_z: int, base_y: int, GRASS_ID: int, DIRT_ID: int) -> bool:
+	"""Check if a location is suitable for a water lake (3x3 air with 5x5 grass/dirt surround)"""
+	const AIR_ID = 0
+
+	# First, check the 5x5 surround has grass/dirt
+	for x in range(-2, 3):
+		for z in range(-2, 3):
+			var check_x = center_x + x
+			var check_z = center_z + z
+
+			# Find the surface height at this position
+			var surface_y = base_y
+			for y_offset in range(10):  # Search up to 10 blocks up
+				var check_pos = Vector3i(check_x, base_y + y_offset, check_z)
+				var voxel_id = voxel_tool.get_voxel(check_pos)
+
+				if voxel_id == GRASS_ID or voxel_id == DIRT_ID:
+					surface_y = base_y + y_offset
+				elif voxel_id == AIR_ID:
+					break  # Found air above
+
+			# Check if surface block is grass or dirt
+			var surface_block = voxel_tool.get_voxel(Vector3i(check_x, surface_y, check_z))
+			if surface_block != GRASS_ID and surface_block != DIRT_ID:
+				return false  # Not grass/dirt surround
+
+	# Second, check the center 3x3 can have air above it (for the lake)
+	for x in range(-1, 2):
+		for z in range(-1, 2):
+			var check_x = center_x + x
+			var check_z = center_z + z
+
+			# Find surface
+			var surface_y = base_y
+			for y_offset in range(10):
+				var check_pos = Vector3i(check_x, base_y + y_offset, check_z)
+				var voxel_id = voxel_tool.get_voxel(check_pos)
+
+				if voxel_id == AIR_ID:
+					break
+				surface_y = base_y + y_offset
+
+			# Check if there's space above for air/water
+			var above_block = voxel_tool.get_voxel(Vector3i(check_x, surface_y + 1, check_z))
+			if above_block != AIR_ID:
+				return false  # No space for lake
+
+	return true
+
+
+func _create_water_lake(voxel_tool, center_x: int, center_z: int, base_y: int, GRASS_ID: int, DIRT_ID: int, WATER_TOP_ID: int, WATER_FULL_ID: int):
+	"""Create a 3x3 water lake by digging a hole and filling with water"""
+	const AIR_ID = 0
+
+	# Random depth (2-3 blocks)
+	var lake_depth = randi_range(2, 3)
+
+	# Dig out the 3x3 hole and fill with water
+	for x in range(-1, 2):
+		for z in range(-1, 2):
+			var world_x = center_x + x
+			var world_z = center_z + z
+
+			# Find the surface height
+			var surface_y = base_y
+			for y_offset in range(10):
+				var check_pos = Vector3i(world_x, base_y + y_offset, world_z)
+				var voxel_id = voxel_tool.get_voxel(check_pos)
+
+				if voxel_id == AIR_ID:
+					break
+				surface_y = base_y + y_offset
+
+			# Dig down from surface
+			for depth in range(lake_depth):
+				var dig_y = surface_y - depth
+				var dig_pos = Vector3i(world_x, dig_y, world_z)
+
+				# Remove the block (create air pocket)
+				voxel_tool.set_voxel(dig_pos, AIR_ID)
+
+			# Fill with water
+			for depth in range(lake_depth):
+				var water_y = surface_y - depth
+				var water_pos = Vector3i(world_x, water_y, world_z)
+
+				# Top layer gets WATER_TOP, rest get WATER_FULL
+				if depth == 0:
+					voxel_tool.set_voxel(water_pos, WATER_TOP_ID)
+				else:
+					voxel_tool.set_voxel(water_pos, WATER_FULL_ID)
 
 
 func _setup_puzzle_room(template: RuinLibrary.RuinTemplate, world_position: Vector3):
