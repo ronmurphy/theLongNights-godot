@@ -1874,7 +1874,7 @@ func _execute_teleport() -> void:
 
 	# CINEMATIC APPROACH: Teleport player FIRST, then materialize ruin around them
 	# Calculate where player will stand on the ruin floor
-	var teleport_target = target_pos + Vector3(3, 3, 3)
+	var teleport_target = target_pos + Vector3(15, 6, 15) # was 3,3,3 -- too far from the island 
 	player_controller.global_position = teleport_target
 	print("Player teleported to: ", teleport_target)
 	print("Ruin materializing...")
