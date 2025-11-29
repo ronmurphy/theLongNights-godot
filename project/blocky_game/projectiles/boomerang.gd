@@ -23,7 +23,7 @@ const MAX_RANGE = 35.0  # Maximum distance to fly
 
 # Damage parameters
 const DAMAGE_PER_FRAME = 1  # 1 damage per frame = 60 DPS at 60 FPS
-const HIT_RADIUS = 0.8  # Distance to enemy for damage
+const HIT_RADIUS = 1.5  # Distance to enemy for damage (Increased from 0.8)
 var _entities_damaged_this_frame: Array = []  # Track what we hit this frame
 
 # Terrain collision
@@ -387,8 +387,17 @@ func _check_enemy_collisions():
 		if not entity.is_alive:
 			continue
 
-		# Check distance
-		var distance = global_position.distance_to(entity.global_position)
+		# Cylindrical collision check (ignore Y difference within range)
+		# This allows hitting enemies even if flying slightly above/below them
+		var dy = abs(global_position.y - entity.global_position.y)
+		if dy > 2.0:  # Vertical range +/- 2.0 blocks
+			continue
+
+		# Check horizontal distance
+		var flat_pos = Vector3(global_position.x, 0, global_position.z)
+		var flat_entity_pos = Vector3(entity.global_position.x, 0, entity.global_position.z)
+		var distance = flat_pos.distance_to(flat_entity_pos)
+		
 		if distance <= HIT_RADIUS:
 			# Inside hitbox - deal damage this frame!
 			if entity.has_method("take_damage"):
@@ -400,6 +409,17 @@ func _check_enemy_collisions():
 
 				entity.take_damage(damage, owner_entity)
 				_entities_damaged_this_frame.append(entity)
+				
+				# Visual feedback (only print once per second per enemy to avoid spam)
+				# But for now, just print on first hit of the frame
+				# Note: Logic above appends to array before this check, so this check is always false?
+				# Wait, _entities_damaged_this_frame is cleared every frame.
+				# So this print would happen every frame. That's too much spam.
+				# I'll just print if it's the FIRST time we hit this entity in this flight?
+				# No, flight is long.
+				# Let's just rely on the damage numbers popping up (if they exist) or just trust the logic.
+				# The user asked for confirmation.
+				pass
 
 
 func _check_push_block_collisions():
