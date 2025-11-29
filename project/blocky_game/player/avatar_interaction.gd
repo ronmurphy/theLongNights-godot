@@ -94,6 +94,11 @@ var _placement_ghost_mesh: MeshInstance3D = null
 var _recently_ate := false  # Prevent eating entire bento instantly
 const AUTO_EAT_HP_THRESHOLD = 0.25  # Auto-eat at 25% HP
 
+# 3D Item Sprite Display System
+var _held_item_sprite: Sprite3D = null  # 3D sprite showing the held item
+var _hand_pivot: Node3D = null  # Pivot point for the held item (at the handle)
+var _current_displayed_item_id := -1  # Track which item is currently displayed
+
 # Food system
 const FOOD_HEALING = {
 	# Raw food (lower healing)
@@ -149,7 +154,11 @@ func _ready():
 
 
 func _process(_delta):
-	"""Check HP and auto-eat from bento if needed"""
+	"""Check HP and auto-eat from bento if needed, and update held item sprite"""
+	# Update 3D item sprite
+	_update_held_item_sprite()
+	_check_blade_of_pursuit_visibility()
+
 	if not _inventory or _recently_ate:
 		return
 
@@ -191,6 +200,125 @@ func _process(_delta):
 			_recently_ate = true
 			await get_tree().create_timer(2.0).timeout
 			_recently_ate = false
+
+
+func _update_held_item_sprite():
+	"""Update the 3D sprite display for the currently held item"""
+	var held_item = _hotbar.get_selected_item()
+	var held_item_id = -1
+	
+	if held_item != null and held_item.type == InventoryItem.TYPE_ITEM:
+		held_item_id = held_item.id
+	
+	# Check if we need to update the display
+	if held_item_id == _current_displayed_item_id:
+		return  # No change needed
+	
+	# Remove old sprite/pivot if it exists
+	if _hand_pivot and is_instance_valid(_hand_pivot):
+		_hand_pivot.queue_free()
+		_hand_pivot = null
+		_held_item_sprite = null
+	
+	_current_displayed_item_id = held_item_id
+	
+	# Create new sprite if we have an item
+	if held_item_id >= 0:
+		_create_held_item_sprite(held_item_id)
+
+
+func _create_held_item_sprite(item_id: int):
+	"""Create a 3D billboard sprite for the held item"""
+	# Get item from database
+	var item = _item_db.get_item(item_id)
+	if not item:
+		return
+	
+	# List of items that should show a 3D sprite
+	# Melee weapons: Machete, Sword, Tree Feller, Stone Hammer, Spear, Blade of Pursuit
+	# Tools: Gauntlet of Strength (handled separately), Pickaxe (if added)
+	var allowed_items = [
+		"machete", "sword", "tree_feller", "stone_hammer", 
+		"spear", "blade_of_pursuit", "wood_shield", "shield", "shield_crusader"
+	]
+	
+	if not item.base_info.name in allowed_items:
+		return
+	
+	# Load the item's sprite texture
+	var sprite_texture = item.base_info.sprite
+	if not sprite_texture:
+		return
+	
+	# Create Pivot Node (represents the hand/handle position)
+	_hand_pivot = Node3D.new()
+	var base_pos = Vector3(0.35, -0.25, -0.4)
+	_hand_pivot.position = base_pos
+	_head.add_child(_hand_pivot)
+	
+	# Create Sprite3D node
+	_held_item_sprite = Sprite3D.new()
+	_held_item_sprite.texture = sprite_texture
+	_held_item_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED  # We'll handle rotation manually
+	_held_item_sprite.shaded = false  # Unshaded for consistent brightness
+	_held_item_sprite.transparent = true
+	_held_item_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
+	_held_item_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST  # Pixel-perfect
+	
+	# Scale the sprite
+	_held_item_sprite.pixel_size = 0.002
+	
+	# Offset sprite relative to pivot so handle is at (0,0,0)
+	# Assuming sprite is centered and handle is bottom-left
+	# Move sprite UP and RIGHT
+	_held_item_sprite.position = Vector3(0.08, 0.08, 0)
+	
+	# Add sprite to pivot
+	_hand_pivot.add_child(_held_item_sprite)
+	
+	print("🎨 Created 3D sprite for item ID %d (%s)" % [item_id, item.base_info.name])
+
+
+func _check_blade_of_pursuit_visibility():
+	"""Hide Blade of Pursuit sprite when it's thrown/active"""
+	if _current_displayed_item_id != 47:  # 47 is Blade of Pursuit
+		return
+		
+	if not _held_item_sprite:
+		return
+		
+	var player = get_parent()
+	if player and player.has_method("get_blade_chain_progress"):
+		var progress = player.get_blade_chain_progress()
+		# If blade is active (flying) OR we are about to use it, hide the sprite
+		# Checking _action_use prevents 1-frame flicker before physics process runs
+		var is_active_or_using = progress.active or (_action_use and _current_displayed_item_id == 47)
+		_held_item_sprite.visible = not is_active_or_using
+
+
+var _item_tween: Tween = null
+
+func _play_swing_animation():
+	"""Play a procedural swing animation for the held item"""
+	if not _hand_pivot or not _held_item_sprite:
+		return
+		
+	# Don't animate if invisible (e.g. Blade of Pursuit thrown)
+	if not _held_item_sprite.visible:
+		return
+		
+	# Kill existing tween
+	if _item_tween:
+		_item_tween.kill()
+	
+	_item_tween = create_tween()
+	
+	# Swing DOWN-LEFT (Rotate pivot CCW around Z axis)
+	# Tip starts Top-Right, rotates +160 deg to Bottom-Left
+	_item_tween.tween_property(_hand_pivot, "rotation_degrees:z", 160.0, 0.15).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	
+	# Return to idle
+	_item_tween.tween_property(_hand_pivot, "rotation_degrees:z", 0.0, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
 func _get_pointed_voxel() -> VoxelRaycastResult:
@@ -1284,6 +1412,14 @@ func _unhandled_input(event: InputEvent):
 					if event.pressed:
 						_action_use = true
 						_action_use_held = true
+						
+						# Special handling for Blade of Pursuit (ID 47)
+						# Hide sprite immediately instead of swinging
+						if _current_displayed_item_id == 47:
+							if _held_item_sprite:
+								_held_item_sprite.visible = false
+						else:
+							_play_swing_animation()  # Trigger procedural swing animation
 					else:
 						_action_use_held = false
 						# Reset breaking progress when button released
