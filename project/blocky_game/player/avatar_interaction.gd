@@ -158,6 +158,7 @@ func _process(_delta):
 	# Update 3D item sprite
 	_update_held_item_sprite()
 	_check_blade_of_pursuit_visibility()
+	_check_spear_visibility()
 
 	if not _inventory or _recently_ate:
 		return
@@ -236,10 +237,12 @@ func _create_held_item_sprite(item_id: int):
 	
 	# List of items that should show a 3D sprite
 	# Melee weapons: Machete, Sword, Tree Feller, Stone Hammer, Spear, Blade of Pursuit
+	# Ranged weapons: Crossbow, Ice Bow, Fire Staff, Rocket Launcher, Boomerang, Throwing Knives
 	# Tools: Gauntlet of Strength (handled separately), Pickaxe (if added)
 	var allowed_items = [
 		"machete", "sword", "tree_feller", "stone_hammer", 
-		"spear", "blade_of_pursuit", "wood_shield", "shield", "shield_crusader"
+		"spear", "blade_of_pursuit", "wood_shield", "shield", "shield_crusader",
+		"crossbow", "ice_bow", "fire_staff", "rocket_launcher", "boomerang", "throwing_knives"
 	]
 	
 	if not item.base_info.name in allowed_items:
@@ -273,6 +276,10 @@ func _create_held_item_sprite(item_id: int):
 	# Move sprite UP and RIGHT
 	_held_item_sprite.position = Vector3(0.08, 0.08, 0)
 	
+	# Tilt the sprite away from the player (tip points forward)
+	# Rotate -45 degrees on X axis
+	_held_item_sprite.rotation_degrees.x = -45.0
+	
 	# Add sprite to pivot
 	_hand_pivot.add_child(_held_item_sprite)
 	
@@ -296,10 +303,25 @@ func _check_blade_of_pursuit_visibility():
 		_held_item_sprite.visible = not is_active_or_using
 
 
+func _check_spear_visibility():
+	"""Hide Spear sprite when thrown (count == 0)"""
+	if _current_displayed_item_id != 41:  # 41 is Spear
+		return
+		
+	if not _held_item_sprite:
+		return
+		
+	var held_item = _hotbar.get_selected_item()
+	if held_item and held_item.id == 41:
+		# If count is 0, it's thrown -> Hide
+		# If count > 0, we have it -> Show
+		_held_item_sprite.visible = (held_item.count > 0)
+
+
 var _item_tween: Tween = null
 
 func _play_swing_animation():
-	"""Play a procedural swing animation for the held item"""
+	"""Play a procedural animation for the held item (swing or recoil)"""
 	if not _hand_pivot or not _held_item_sprite:
 		return
 		
@@ -313,12 +335,26 @@ func _play_swing_animation():
 	
 	_item_tween = create_tween()
 	
-	# Swing DOWN-LEFT (Rotate pivot CCW around Z axis)
-	# Tip starts Top-Right, rotates +160 deg to Bottom-Left
-	_item_tween.tween_property(_hand_pivot, "rotation_degrees:z", 160.0, 0.15).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	# Check if ranged weapon -> Play Recoil Animation
+	var ranged_items = [
+		"crossbow", "ice_bow", "fire_staff", "rocket_launcher", "boomerang", "throwing_knives"
+	]
+	var item = _item_db.get_item(_current_displayed_item_id)
+	var is_ranged = item and item.base_info.name in ranged_items
 	
-	# Return to idle
-	_item_tween.tween_property(_hand_pivot, "rotation_degrees:z", 0.0, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	if is_ranged:
+		# RECOIL ANIMATION (Dip down and return)
+		var base_y = -0.25
+		# Dip down
+		_item_tween.tween_property(_hand_pivot, "position:y", base_y - 0.2, 0.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		# Return up
+		_item_tween.tween_property(_hand_pivot, "position:y", base_y, 0.2).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	else:
+		# SWING ANIMATION (Rotate pivot CCW around Z axis)
+		# Tip starts Top-Right, rotates +160 deg to Bottom-Left
+		_item_tween.tween_property(_hand_pivot, "rotation_degrees:z", 160.0, 0.15).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		# Return to idle
+		_item_tween.tween_property(_hand_pivot, "rotation_degrees:z", 0.0, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
 func _get_pointed_voxel() -> VoxelRaycastResult:
