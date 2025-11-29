@@ -16,7 +16,9 @@ const LOOT_TABLE = {
 	"ring_of_thorns": 15,
 	"ring_of_teleportation": 15,
 	"rocket_launcher": 12,  # Super rare!
+	"gauntlet_of_strength": 10,  # Rare utility tool
 }
+
 
 
 func use(trans: Transform3D, inv_item_or_count = 1):

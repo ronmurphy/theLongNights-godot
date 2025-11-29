@@ -287,6 +287,12 @@ func _init():
 		"name": "blood_pendant",
 		"behavior": "blood_pendant.gd"
 	})
+	
+	# Gauntlet of Strength - Tool for picking up and carrying push_blocks
+	_create_item({
+		"name": "gauntlet_of_strength",
+		"behavior": "gauntlet_of_strength.gd"
+	})
 
 
 func get_item(id: int) -> Item:

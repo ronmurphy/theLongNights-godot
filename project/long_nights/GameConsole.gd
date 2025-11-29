@@ -589,7 +589,9 @@ func _cmd_give(args: Array) -> void:
 		"boomerang": 49,
 		"blood_pendant": 65,
 		"bloodpendant": 65,
-		"pendant": 65
+		"pendant": 65,
+		"gauntlet_of_strength": 66,
+		"gauntlet": 66
 	}
 
 	if not item_map.has(item_name):

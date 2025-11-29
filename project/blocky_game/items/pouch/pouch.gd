@@ -34,13 +34,15 @@ const LOOT_TABLE = {
 	"machete": 2,
 	"sword": 2,
 
-	# Very rare drops (weight 1)
+	# Very rare drops (weight 1-2)
 	"ice_bow": 1,
 	"fire_staff": 1,
 	"blade_of_pursuit": 1,
 	"ring_of_thorns": 1,
 	"ring_of_teleportation": 1,
+	"gauntlet_of_strength": 2,  # Rare utility tool
 }
+
 
 
 func use(trans: Transform3D, inv_item_or_count = 1):

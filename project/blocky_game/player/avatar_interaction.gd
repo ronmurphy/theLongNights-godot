@@ -2847,6 +2847,12 @@ func _handle_chest_interaction(chest_pos: Vector3) -> void:
 			loot_messages.append("Ring of Teleportation")
 			print("Rare drop: Found Ring of Teleportation!")
 
+		# 6% chance to find Gauntlet of Strength (rare utility tool)
+		if randf() < 0.06:
+			loot_items.append({"id": 66, "count": 1})  # gauntlet_of_strength
+			loot_messages.append("Gauntlet of Strength")
+			print("Rare drop: Found Gauntlet of Strength!")
+
 		# Limited potions - 10-15% chance each
 		if randf() < 0.15:
 			loot_items.append({"id": 60, "count": 1})  # limited_hppotion

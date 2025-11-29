@@ -15,6 +15,7 @@ const LOOT_TABLE = {
 	"blade_of_pursuit": 10,
 	"ring_of_thorns": 10,
 	"ring_of_teleportation": 8,
+	"gauntlet_of_strength": 8,  # Rare utility tool
 
 	# Good weapons (weight 6-8)
 	"machete": 8,
@@ -25,6 +26,7 @@ const LOOT_TABLE = {
 	"gold_ore": 10,
 	"iron_ore": 8,
 }
+
 
 
 func use(trans: Transform3D, inv_item_or_count = 1):

@@ -16,6 +16,7 @@ const LOOT_TABLE = {
 	"boomerang": 8,
 	"ice_bow": 6,
 	"fire_staff": 6,
+	"gauntlet_of_strength": 5,  # Rare utility tool
 
 	# Valuable materials (weight 6-8)
 	"gold_ore": 8,
@@ -25,6 +26,7 @@ const LOOT_TABLE = {
 	"pumpkin": 5,
 	"mushroom": 4,
 }
+
 
 
 func use(trans: Transform3D, inv_item_or_count = 1):
