@@ -1463,6 +1463,12 @@ func _unhandled_input(event: InputEvent):
 			MOUSE_BUTTON_RIGHT:
 				if not ui_open and event.pressed:
 					_action_place = true
+					
+					# Special handling for Spear (ID 41)
+					# Hide sprite immediately on throw
+					if _current_displayed_item_id == 41:
+						if _held_item_sprite:
+							_held_item_sprite.visible = false
 			MOUSE_BUTTON_MIDDLE:
 				if not ui_open and event.pressed:
 					_action_pick = true
