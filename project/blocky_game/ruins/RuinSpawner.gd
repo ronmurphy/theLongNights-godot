@@ -991,11 +991,14 @@ func _generate_island_cone_support(voxel_tool, world_position: Vector3, radius: 
 func _fill_island_holes_with_water(voxel_tool, world_position: Vector3, radius: float):
 	"""
 	Fill natural holes/depressions in the island with water.
-	A hole is: air blocks surrounded by grass/dirt at similar or higher elevation.
+	Requirements:
+	1. Hole must be 2x2 or larger (approx 4+ blocks).
+	2. Hole must be completely surrounded by solid terrain (Dirt/Grass/Stone).
 	"""
 	const AIR = 0
 	const GRASS = 2
 	const DIRT = 1
+	const STONE = 29
 	const WATER_TOP = 13
 	const WATER_FULL = 14
 
@@ -1003,68 +1006,121 @@ func _fill_island_holes_with_water(voxel_tool, world_position: Vector3, radius: 
 	var center_z = int(world_position.z + radius)
 	var base_y = int(world_position.y)
 
-	var scan_range = int(radius) + 5
-	var holes_filled = 0
+	var scan_range = int(radius) + 2
+	var pools_filled = 0
+	var visited = {}  # Track visited AIR blocks to avoid reprocessing
 
-	# Scan the island surface for depressions
-	for x in range(-scan_range, scan_range + 1, 2):  # Step by 2 for performance
-		for z in range(-scan_range, scan_range + 1, 2):
+	# Scan the island surface for potential pools
+	for x in range(-scan_range, scan_range + 1):
+		for z in range(-scan_range, scan_range + 1):
 			var world_x = center_x + x
 			var world_z = center_z + z
 
 			# Find surface height at this position
-			var found_surface = false
-			for y_scan in range(20):
+			# We look for AIR blocks that have solid blocks below them
+			for y_scan in range(15):
 				var check_y = base_y + y_scan
-				var check_pos = Vector3i(world_x, check_y, world_z)
-				var block = voxel_tool.get_voxel(check_pos)
-
-				if block == GRASS or block == DIRT:
-					found_surface = true
-					# Check if there's a depression (air below surface)
+				var pos = Vector3i(world_x, check_y, world_z)
+				
+				# Skip if already visited
+				if visited.has(pos):
+					continue
+				
+				var block = voxel_tool.get_voxel(pos)
+				if block == AIR:
+					# Check if there is solid ground below
 					var below_pos = Vector3i(world_x, check_y - 1, world_z)
-					if voxel_tool.get_voxel(below_pos) == AIR:
-						# Found a hole! Fill with water
-						var water_depth = 0
-						for depth in range(1, 5):  # Fill up to 4 blocks deep
-							var water_pos = Vector3i(world_x, check_y - depth, world_z)
-							if voxel_tool.get_voxel(water_pos) == AIR:
-								# Check if surrounded by terrain (not edge of island)
-								if _is_surrounded_by_terrain(voxel_tool, water_pos):
-									if depth == 1:
-										voxel_tool.set_voxel(water_pos, WATER_TOP)
-									else:
-										voxel_tool.set_voxel(water_pos, WATER_FULL)
-									water_depth = depth
-								else:
-									break
-							else:
-								break
-						if water_depth > 0:
-							holes_filled += 1
-					break
+					var below_block = voxel_tool.get_voxel(below_pos)
+					
+					if below_block != AIR and below_block != WATER_TOP and below_block != WATER_FULL:
+						# Found a potential pool start (Air on top of Solid)
+						# Run flood fill to check size and enclosure
+						var pool_result = _flood_fill_pool(voxel_tool, pos, visited, scan_range, center_x, center_z)
+						
+						if pool_result.valid and pool_result.blocks.size() >= 4:
+							# Valid pool! Fill it
+							_fill_pool_with_water(voxel_tool, pool_result.blocks, WATER_TOP, WATER_FULL)
+							pools_filled += 1
+							# print("💧 Filled pool of size %d at %s" % [pool_result.blocks.size(), pos])
+					
+					# Mark as visited regardless of result
+					visited[pos] = true
 
-				if block != AIR:
-					break
-
-	if holes_filled > 0:
-		print("💧 Filled %d natural depressions with water" % holes_filled)
+	if pools_filled > 0:
+		print("💧 Filled %d natural pools (2x2+)" % pools_filled)
 
 
-func _is_surrounded_by_terrain(voxel_tool, pos: Vector3i) -> bool:
-	"""Check if position is surrounded by solid blocks (not on island edge)"""
+func _flood_fill_pool(voxel_tool, start_pos: Vector3i, visited: Dictionary, max_range: int, center_x: int, center_z: int) -> Dictionary:
+	"""
+	Flood fill to find connected AIR blocks at the same Y level.
+	Returns: { "valid": bool, "blocks": Array[Vector3i] }
+	Valid means: Completely enclosed by solid blocks (Dirt/Grass/Stone).
+	"""
 	const AIR = 0
-	var solid_neighbors = 0
-
-	for x_off in [-1, 0, 1]:
-		for z_off in [-1, 0, 1]:
-			if x_off == 0 and z_off == 0:
+	const MAX_POOL_SIZE = 100  # Prevent infinite loops
+	
+	var queue = [start_pos]
+	var pool_blocks = []
+	var enclosed = true
+	var local_visited = {start_pos: true} # Track visited for this specific fill
+	
+	# Add start_pos to global visited immediately
+	visited[start_pos] = true
+	
+	while queue.size() > 0:
+		var current = queue.pop_front()
+		pool_blocks.append(current)
+		
+		if pool_blocks.size() > MAX_POOL_SIZE:
+			return {"valid": false, "blocks": []}
+			
+		# Check neighbors (N, S, E, W)
+		var neighbors = [
+			Vector3i(current.x + 1, current.y, current.z),
+			Vector3i(current.x - 1, current.y, current.z),
+			Vector3i(current.x, current.y, current.z + 1),
+			Vector3i(current.x, current.y, current.z - 1)
+		]
+		
+		for neighbor in neighbors:
+			# Check bounds relative to island center
+			if abs(neighbor.x - center_x) > max_range or abs(neighbor.z - center_z) > max_range:
+				enclosed = false # Leaked out of range
 				continue
-			var check_pos = Vector3i(pos.x + x_off, pos.y, pos.z + z_off)
-			if voxel_tool.get_voxel(check_pos) != AIR:
-				solid_neighbors += 1
+				
+			var block = voxel_tool.get_voxel(neighbor)
+			
+			if block == AIR:
+				if not local_visited.has(neighbor):
+					local_visited[neighbor] = true
+					visited[neighbor] = true # Mark global visited
+					queue.append(neighbor)
+			else:
+				# It's a wall. Check if it's a valid wall type.
+				# User specified "dirt block or the grass block".
+				# We'll also allow Stone as it's natural terrain.
+				# If it's something else (e.g. Log, Leaves), we might count it as a leak?
+				# For now, any non-AIR block is a wall.
+				pass
+	
+	return {"valid": enclosed, "blocks": pool_blocks}
 
-	return solid_neighbors >= 5  # At least 5 of 8 neighbors are solid
+
+func _fill_pool_with_water(voxel_tool, blocks: Array, WATER_TOP: int, WATER_FULL: int):
+	"""Fill the identified pool blocks with water, and fill depth below them"""
+	const AIR = 0
+	
+	for pos in blocks:
+		# Top layer
+		voxel_tool.set_voxel(pos, WATER_TOP)
+		
+		# Check depth (fill air below with full water)
+		for depth in range(1, 5):
+			var below_pos = Vector3i(pos.x, pos.y - depth, pos.z)
+			if voxel_tool.get_voxel(below_pos) == AIR:
+				voxel_tool.set_voxel(below_pos, WATER_FULL)
+			else:
+				break
 
 
 func _setup_push_block_puzzle(voxel_tool, world_position: Vector3, radius: float, teleport_pos: Vector3i, surface_positions: Array):

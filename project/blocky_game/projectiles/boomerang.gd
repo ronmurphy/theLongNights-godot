@@ -149,7 +149,9 @@ func _physics_process(delta: float):
 		rotation.x = deg_to_rad(90)
 
 	# Spin horizontally (like a frisbee) - rotate around local Z axis since we're tilted
-	rotate_object_local(Vector3(0, 0, 1), _spin_speed * delta)
+	# Outbound: Counter-Clockwise (positive), Returning: Clockwise (negative)
+	var spin_dir = 1.0 if state == State.OUTBOUND else -1.0
+	rotate_object_local(Vector3(0, 0, 1), _spin_speed * 1.5 * spin_dir * delta)
 
 	# Check for enemy collisions and deal per-frame damage
 	_check_enemy_collisions()
